@@ -70,8 +70,18 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--step-0);line-height:1.6;font-kerning:normal;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 img,picture,video,svg{display:block;max-width:100%}
 img{height:auto}
-a{color:inherit;text-decoration-thickness:.06em;text-underline-offset:.2em;transition:text-decoration-color .15s}
-a:hover{text-decoration-color:var(--accent)}
+a{color:inherit;text-decoration-thickness:.06em;text-underline-offset:.2em;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);text-decoration-skip-ink:auto;transition:text-decoration-color .15s,text-decoration-thickness .15s,text-underline-offset .15s}
+a:hover{text-decoration-color:var(--accent);text-decoration-thickness:.12em;text-underline-offset:.24em}
+a:active{color:var(--accent)}
+a:focus-visible{border-radius:2px}
+::selection{background:color-mix(in srgb,var(--accent) 32%,transparent)}
+/* anchors land below a sticky header, not behind it */
+[id]{scroll-margin-top:6rem}
+/* page changes cross-fade instead of a hard flash; the header stays put */
+@view-transition{navigation:auto}
+.site-header{view-transition-name:site-header}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.22s}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 button,input,select,textarea{font:inherit;color:inherit;accent-color:var(--accent)}
 p{margin:0 0 1em}
@@ -124,8 +134,9 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .brand img{height:2.25rem;width:auto}
 .nav{display:flex;align-items:center;gap:var(--nav-gap,1.75rem)}
 .nav ul{list-style:none;margin:0;padding:0;display:flex;gap:var(--nav-gap,1.75rem)}
-.nav a{text-decoration:none;font-size:var(--nav-size,var(--step-0));font-weight:var(--nav-weight,500)}
-.nav a[aria-current=page]{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:.35em}
+.nav a{text-decoration:none;font-size:var(--nav-size,var(--step-0));font-weight:var(--nav-weight,500);padding-bottom:.3em;background:linear-gradient(var(--accent),var(--accent)) 0 100%/0 2px no-repeat;transition:background-size .25s cubic-bezier(.2,.7,.2,1)}
+.nav a:hover,.nav a[aria-current=page]{background-size:100% 2px}
+.nav a:active{color:inherit}
 .nav li{position:relative}
 .nav .sub{position:absolute;top:100%;left:-1rem;min-width:13rem;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--line);display:none;flex-direction:column;gap:.5rem;box-shadow:0 12px 32px -16px rgb(0 0 0/.25)}
 .nav li:hover>.sub,.nav li:focus-within>.sub{display:flex}
@@ -160,7 +171,7 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .ftr{display:grid;gap:2rem;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))}
 .ftr h2{font-family:var(--font-body);font-size:var(--step-n1);letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--ink);margin-bottom:.75rem}
 .ftr ul{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
-.ftr a{text-decoration:none}.ftr a:hover{text-decoration:underline}
+.ftr a{text-decoration:underline;text-decoration-color:transparent}.ftr a:hover{text-decoration-color:var(--accent)}
 .ftr-name{font-family:var(--font-display);font-size:var(--step-2);color:var(--ink);letter-spacing:var(--display-tracking);margin-bottom:.5rem;line-height:1.1}
 .ftr-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--line)}
 .ftr-bottom ul{display:flex;gap:1.25rem}
@@ -185,6 +196,11 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 
 /* prose */
 .prose{max-width:var(--measure)}
+.prose a{overflow-wrap:break-word}
+/* external links and PDFs say what they are */
+.prose a[rel~=noopener]::after{content:" ↗" / "";font-size:.8em;display:inline-block;text-decoration:none;transition:transform .15s}
+.prose a[rel~=noopener]:hover::after{transform:translate(1px,-1px)}
+.prose a[href$=".pdf" i]::after{content:"PDF" / "";margin-left:.35em;padding:.05em .35em;border:1px solid currentColor;border-radius:3px;font-size:.62em;font-weight:700;letter-spacing:.04em;vertical-align:.15em;display:inline-block;text-decoration:none}
 .prose.wide{max-width:none;columns:auto}
 .prose.center{margin-inline:auto;text-align:center}
 .prose h2{font-size:var(--step-4);margin:1.6em 0 .55em}
