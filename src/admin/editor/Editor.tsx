@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
+import { LoadingFrame } from '../ui/loading';
 import * as RPopover from '@radix-ui/react-popover';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
@@ -383,7 +384,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
       <div className="editor-stage">
         <div className="canvas-wrap" style={{ padding: device === 'desktop' ? 0 : '1rem 0' }}>
           <motion.div className="canvas-frame" animate={glide} style={{ width: DEVICE_WIDTH[device], position: 'relative', transition: 'width .32s cubic-bezier(.2,.7,.2,1)', maxWidth: '100%' }}>
-            <iframe key={canvasKey} ref={frame} title="Seite bearbeiten" src={`/_nova/canvas/${id}`} />
+            <LoadingFrame key={canvasKey} frameRef={frame} title="Seite bearbeiten" src={`/_nova/canvas/${id}`} label="Seite lädt …" />
             <div className="canvas-overlay">
               <AnimatePresence>
                 {selectedBlock && toolbarPos && !picker && (

@@ -7,6 +7,7 @@ import { ToastProvider } from './ui/toast';
 import { TooltipProvider } from './ui/kit';
 import { Login, SetupOwner, TwoFactor } from './views/Auth';
 import { Shell } from './shell/Shell';
+import { Splash, TopProgress } from './ui/loading';
 import type { Capability } from '../shared/roles';
 
 const Onboarding = lazy(() => import('./views/Onboarding').then((m) => ({ default: m.Onboarding })));
@@ -61,14 +62,14 @@ function App() {
         </div>
       </div>
     );
-  if (!session) return null;
+  if (!session) return <Splash />;
   if (session.setupRequired) return <SetupOwner onDone={load} />;
   if (session.twoFactorPending) return <TwoFactor onDone={load} />;
   if (!session.user) return <Login siteName={session.site.name} onDone={load} />;
   return (
     <SessionProvider user={session.user} caps={session.caps ?? []} onLogout={load}>
       {session.site.setupDone === false && (session.caps ?? []).includes('settings.manage') ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Splash />}>
           <Onboarding onDone={load} />
         </Suspense>
       ) : (
@@ -82,6 +83,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ToastProvider>
       <TooltipProvider>
+        <TopProgress />
         <App />
       </TooltipProvider>
     </ToastProvider>

@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
 import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, TimeInput, Toggle, confirm } from '../ui/kit';
 import { MediaField } from '../ui/FieldInput';
+import { LoadingFrame } from '../ui/loading';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { DAY_NAMES } from '../../shared/hours';
@@ -349,7 +350,7 @@ function DesignSettings() {
           <header>
             <Icon name="eye" size="s" /> <span className="grow">Vorschau mit deinen Inhalten</span>
           </header>
-          <iframe title="Design-Vorschau" src={preview} />
+          <LoadingFrame title="Design-Vorschau" src={preview} />
         </div>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />

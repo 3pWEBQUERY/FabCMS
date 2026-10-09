@@ -7,7 +7,7 @@ import { entryUrl } from '../lib/actions';
 import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
-import { rememberMedia, uploadFiles, type MediaRow } from '../ui/MediaPicker';
+import { rememberMedia, uploadFiles, type MediaRow, Thumb } from '../ui/MediaPicker';
 import { TagInput } from '../ui/FieldInput';
 
 const sizeLabel = (b: number) => (b > 1_048_576 ? `${(b / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
@@ -24,6 +24,7 @@ export function MediaLibrary() {
   const [q, setQ] = useState('');
   const [over, setOver] = useState(false);
   const [uploading, setUploading] = useState(0);
+  const [share, setShare] = useState(0);
   const [openId, setOpenId] = useState<string | null>(query.get('id'));
   const input = useRef<HTMLInputElement>(null);
   const dq = useDebounced(q, 200);
@@ -46,7 +47,8 @@ export function MediaLibrary() {
     if (!list.length) return;
     setUploading(list.length);
     try {
-      const added = await uploadFiles(list, { folder: folder === '*' ? '' : folder });
+      setShare(0);
+      const added = await uploadFiles(list, { folder: folder === '*' ? '' : folder }, setShare);
       setItems((cur) => [...added, ...(cur ?? [])]);
       const noAlt = added.filter((m) => m.image).length;
       toast(`${added.length} ${added.length === 1 ? 'Datei' : 'Dateien'} hochgeladen.${noAlt ? ' Ergänze noch kurze Bildbeschreibungen.' : ''}`);
@@ -86,9 +88,15 @@ export function MediaLibrary() {
         actions={
           can('media.upload') && (
             <>
-              <button className="btn primary" onClick={() => input.current?.click()} disabled={uploading > 0}>
-                <Icon name="upload" size="s" />
-                {uploading ? `Lädt ${uploading} hoch …` : 'Hochladen'}
+              <button className={`btn primary ${uploading ? 'uploading' : ''}`} style={{ '--up': share } as React.CSSProperties} onClick={() => input.current?.click()} disabled={uploading > 0}>
+                {uploading ? <span className="spin" aria-hidden="true" /> : <Icon name="upload" size="s" />}
+                {uploading ? (
+                  <span>
+                    {uploading === 1 ? 'Lädt hoch' : `Lädt ${uploading} Dateien hoch`} · <span className="up-pct">{Math.round(share * 100)} %</span>
+                  </span>
+                ) : (
+                  'Hochladen'
+                )}
               </button>
               <input ref={input} type="file" hidden multiple accept="image/*,video/*,.pdf,.docx,.xlsx,.zip,.mp3,.m4a,.csv,.txt" onChange={(e) => e.target.files && void upload(e.target.files)} />
             </>
@@ -131,7 +139,7 @@ export function MediaLibrary() {
           <div className="media-grid">
             {items.map((m) => (
               <button key={m.id} type="button" className="media-tile" onClick={() => setOpenId(m.id)} title={m.filename}>
-                {m.thumb ? <img src={m.thumb} alt={m.alt} loading="lazy" /> : <Icon name={m.mime.startsWith('video') ? 'video' : 'page'} />}
+                <Thumb m={m} />
                 {!m.image && <span className="fname ellipsis">{m.filename}</span>}
                 {m.image && !m.alt && <span className="flag badge edited">Beschreibung fehlt</span>}
               </button>

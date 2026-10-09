@@ -47,7 +47,7 @@ export function Login({ siteName, onDone }: { siteName: string; onDone: () => vo
             {error}
           </p>
         )}
-        <button className="btn primary l" disabled={busy}>
+        <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
           Anmelden
         </button>
         <p className="xsmall faint">Passwort vergessen? Eine Person mit Admin-Rechten kann es unter «Team» zurücksetzen.</p>
@@ -89,7 +89,7 @@ export function TwoFactor({ onDone }: { onDone: () => void }) {
             {error}
           </p>
         )}
-        <button className="btn primary l" disabled={busy}>
+        <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
           Bestätigen
         </button>
       </form>
@@ -129,7 +129,7 @@ export function SetupOwner({ onDone }: { onDone: () => void }) {
             {error}
           </p>
         )}
-        <button className="btn primary l" disabled={busy}>
+        <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
           Weiter
         </button>
       </form>

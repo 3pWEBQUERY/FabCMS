@@ -6,6 +6,7 @@ import { Icon, NovaMark } from '../ui/icons';
 import { Menu, Tip, motion } from '../ui/kit';
 import { CommandPalette } from './CommandPalette';
 import { ModeSwitch } from './ModeSwitch';
+import { RouteLoading } from '../ui/loading';
 import { NotificationBell, NotificationsProvider } from './Notifications';
 import { Dashboard } from '../views/Dashboard';
 import { PagesList } from '../views/Pages';
@@ -67,7 +68,19 @@ export function Shell() {
   return (
     <NotificationsProvider>
       {editorMatch && path.startsWith('/seiten/') ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <RouteLoading>
+              <div className="editor-skel" aria-hidden="true">
+                <div className="editor-skel-bar" />
+                <div className="frame-load-veil">
+                  <span className="splash-bar" />
+                  <span>Editor lädt …</span>
+                </div>
+              </div>
+            </RouteLoading>
+          }
+        >
           <Editor id={editorMatch[2]} onOpenPalette={() => setCmdk(true)} />
         </Suspense>
       ) : (
@@ -118,7 +131,7 @@ export function Shell() {
             />
           </header>
           <main className="main">
-            <Suspense fallback={null}>
+            <Suspense fallback={<RouteLoading />}>
             <Router
               routes={[
                 { path: '/', render: () => <Dashboard /> },

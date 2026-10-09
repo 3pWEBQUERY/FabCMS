@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { LoadingFrame, RouteLoading } from '../ui/loading';
 import { api } from '../lib/api';
 import { useApi, useHotkey, modKey } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
@@ -21,7 +22,7 @@ export function EntryRoute({ collection, id, onOpenPalette }: { collection: stri
   if (!col) return <div className="page">{data ? 'Diesen Inhaltstyp gibt es nicht.' : <Skeleton />}</div>;
   if (col.has_blocks)
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<RouteLoading />}>
         <Editor id={id} onOpenPalette={onOpenPalette} />
       </Suspense>
     );
@@ -153,7 +154,7 @@ function EntryForm({ id }: { id: string }) {
                 <Icon name="external" size="s" />
               </a>
             </header>
-            <iframe ref={iframe} title="Vorschau" src={previewUrl} />
+            <LoadingFrame frameRef={iframe} title="Vorschau" src={previewUrl} />
           </div>
         )}
       </div>

@@ -215,6 +215,7 @@ export function FormDetail({ id }: { id: string }) {
   const subs = useApi<{ form: FormDef; submissions: Submission[] }>(`/api/forms/${id}/submissions`);
   const [form, setForm] = useState<FormDef | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState<Submission | null>(null);
   useEffect(() => {
     if (subs.data && !form) setForm(subs.data.form);
@@ -388,7 +389,7 @@ export function FormDetail({ id }: { id: string }) {
             <button className="btn ghost" onClick={discard}>
               Verwerfen
             </button>
-            <button className="btn primary" onClick={save}>
+            <button className="btn primary" aria-busy={saving || undefined} onClick={async () => (setSaving(true), await save(), setSaving(false))}>
               Speichern
             </button>
           </div>

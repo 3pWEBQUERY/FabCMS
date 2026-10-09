@@ -108,19 +108,30 @@ export function useSettingsDraft() {
 }
 
 export function SaveBar({ dirty, onSave, onReset }: { dirty: boolean; onSave: () => unknown; onReset: () => void }) {
+  const [busy, setBusy] = useState(false);
   if (!dirty) return null;
   return (
     <div className="save-bar" role="region" aria-label="Ungespeicherte Änderungen">
       <span>Ungespeicherte Änderungen</span>
       <div className="row">
-        <button className="btn ghost" onClick={onReset}>
+        <button className="btn ghost" onClick={onReset} disabled={busy}>
           Verwerfen
         </button>
-        <button className="btn primary" onClick={onSave}>
+        <button
+          className="btn primary"
+          aria-busy={busy || undefined}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onSave();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
           Speichern
         </button>
       </div>
     </div>
   );
 }
-

@@ -86,7 +86,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   const label = !canPublish ? 'Zur Freigabe' : live && !changed ? 'Veröffentlicht' : live ? 'Änderungen veröffentlichen' : 'Veröffentlichen';
   return (
     <div className="row" style={{ gap: 2 }}>
-      <button className={`btn ${live && !changed ? '' : 'go'}`} disabled={busy || (live && !changed) || doc.blockers.length > 0} onClick={() => publish()} title={doc.blockers.join(' ') || undefined}>
+      <button className={`btn ${live && !changed ? '' : 'go'}`} disabled={busy || (live && !changed) || doc.blockers.length > 0} aria-busy={busy || undefined} onClick={() => publish()} title={doc.blockers.join(' ') || undefined}>
         <Icon name={live && !changed ? 'check' : 'publish'} size="s" />
         <span className="hide-m">{label}</span>
       </button>
@@ -111,7 +111,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
           <button className="btn ghost" onClick={() => setScheduleOpen(false)}>
             Abbrechen
           </button>
-          <button className="btn primary" disabled={busy || !when || past} onClick={() => publish(when)}>
+          <button className="btn primary" disabled={busy || !when || past} aria-busy={busy || undefined} onClick={() => publish(when)}>
             Planen
           </button>
         </div>

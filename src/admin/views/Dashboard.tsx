@@ -84,7 +84,7 @@ export function Dashboard() {
               Website ansehen
             </a>
             {!launched && can('content.publish') && (
-              <button className="btn go" onClick={launch} disabled={launching}>
+              <button className="btn go" onClick={launch} disabled={launching} aria-busy={launching || undefined}>
                 <Icon name="publish" size="s" />
                 Website veröffentlichen
               </button>

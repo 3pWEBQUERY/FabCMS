@@ -886,7 +886,7 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
   return (
     <div className="stack tight" aria-hidden="true" style={{ padding: '1rem 1.25rem' }}>
       {Array.from({ length: lines }, (_, i) => (
-        <div key={i} style={{ height: '0.85rem', width: `${85 - i * 17}%`, borderRadius: 4, background: 'var(--sunken)' }} />
+        <div key={i} className="skel" style={{ height: '0.85rem', width: `${85 - i * 17}%` }} />
       ))}
     </div>
   );

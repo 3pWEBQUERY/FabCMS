@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LoadingFrame } from '../ui/loading';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { Field, motion, AnimatePresence } from '../ui/kit';
@@ -184,7 +185,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   return (
                     <button key={id} type="button" className="style-preview" aria-pressed={theme === id} onClick={() => setTheme(id)}>
                       <div className="frame">
-                        <iframe title={`Vorschau ${t?.name}`} src={`/_nova/theme-preview?theme=${id}&palette=${theme === id ? palette : 'default'}`} loading="lazy" tabIndex={-1} />
+                        <LoadingFrame title={`Vorschau ${t?.name}`} src={`/_nova/theme-preview?theme=${id}&palette=${theme === id ? palette : 'default'}`} loading="lazy" tabIndex={-1} label="" />
                       </div>
                       <div className="meta">
                         <strong>{t?.name}</strong>
@@ -268,6 +269,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {step + 1} / 5 · {STEPS[step]}
         </span>
         <button className="btn primary l" onClick={next} disabled={!canNext || busy}>
+          {busy && <span className="spin" aria-hidden="true" />}
           {busy ? (step === 1 ? 'Richte ein …' : 'Einen Moment …') : step === 4 ? 'Los geht’s' : 'Weiter'}
           {!busy && <Icon name="arrowRight" size="s" />}
         </button>

@@ -21,6 +21,9 @@ export interface MediaRow {
   image: boolean;
   thumb: string | null;
   preview: string | null;
+  /** Loading preview from the server: main colour and a tiny WebP. */
+  color?: string | null;
+  lqip?: string | null;
   url: string;
   size: number;
   private?: boolean;
@@ -57,12 +60,19 @@ export function useMedia(id: string | null | undefined) {
   return m;
 }
 
-export async function uploadFiles(files: FileList | File[], opts: { folder?: string; private?: boolean } = {}): Promise<MediaRow[]> {
+/** Thumbnail that shows its blurred colour preview while the real image loads. */
+export function Thumb({ m }: { m: MediaRow }) {
+  if (!m.thumb) return <Icon name={m.mime.startsWith('video') ? 'video' : 'page'} />;
+  const bg = m.color ? `${m.color}${m.lqip ? ` url(data:image/webp;base64,${m.lqip}) center / cover no-repeat` : ''}` : undefined;
+  return <img src={m.thumb} alt={m.alt} loading="lazy" style={bg ? { background: bg } : undefined} />;
+}
+
+export async function uploadFiles(files: FileList | File[], opts: { folder?: string; private?: boolean } = {}, onProgress?: (share: number) => void): Promise<MediaRow[]> {
   const form = new FormData();
   for (const f of Array.from(files)) form.append('file', f);
   if (opts.folder) form.append('folder', opts.folder);
   if (opts.private) form.append('private', '1');
-  const { media } = await api.upload<{ media: MediaRow[] }>('/api/media', form);
+  const { media } = await api.upload<{ media: MediaRow[] }>('/api/media', form, onProgress);
   media.forEach(rememberMedia);
   return media;
 }
@@ -89,6 +99,7 @@ export function MediaPicker({
   const [items, setItems] = useState<MediaRow[]>([]);
   const [selected, setSelected] = useState<string[]>(initial);
   const [uploading, setUploading] = useState(false);
+  const [share, setShare] = useState(0);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const dq = useDebounced(q, 200);
@@ -110,7 +121,8 @@ export function MediaPicker({
     if (!files.length) return;
     setUploading(true);
     try {
-      const added = await uploadFiles(files, { private: privateUpload });
+      setShare(0);
+      const added = await uploadFiles(files, { private: privateUpload }, setShare);
       setItems((list) => [...added, ...list]);
       setSelected((s) => (multiple ? [...s, ...added.map((m) => m.id)] : [added[0].id]));
     } catch (e) {
@@ -142,9 +154,15 @@ export function MediaPicker({
             <Icon name="search" />
             <input className="input" placeholder="Suchen nach Name oder Beschreibung" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <button className="btn" onClick={() => input.current?.click()} disabled={uploading}>
-            <Icon name="upload" size="s" />
-            {uploading ? 'Lädt hoch …' : 'Hochladen'}
+          <button className={`btn ${uploading ? 'uploading' : ''}`} style={{ '--up': share } as React.CSSProperties} onClick={() => input.current?.click()} disabled={uploading}>
+            {uploading ? <span className="spin" aria-hidden="true" /> : <Icon name="upload" size="s" />}
+            {uploading ? (
+              <span>
+                Lädt hoch … <span className="up-pct">{Math.round(share * 100)} %</span>
+              </span>
+            ) : (
+              'Hochladen'
+            )}
           </button>
           <input
             ref={input}
@@ -164,7 +182,7 @@ export function MediaPicker({
                 const idx = selected.indexOf(m.id);
                 return (
                   <button key={m.id} type="button" className="media-tile" aria-pressed={idx >= 0} onClick={() => toggle(m.id)} onDoubleClick={() => !multiple && onPick([m.id])} title={m.filename}>
-                    {m.thumb ? <img src={m.thumb} alt={m.alt} loading="lazy" /> : <Icon name={m.mime.startsWith('video') ? 'video' : 'page'} />}
+                    <Thumb m={m} />
                     {!m.image && <span className="fname ellipsis">{m.filename}</span>}
                     {m.image && !m.alt && (
                       <span className="flag badge edited" title="Keine Bildbeschreibung">

@@ -9,9 +9,21 @@
     <link rel="icon" href="/admin/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/admin/manifest.webmanifest" />
     <title>Nova</title>
+    <!-- Start screen before any script has run; React replaces it. Same look as <Splash>. -->
+    <style>
+      html,body{margin:0;background:#f6f5f2;color:#1b1a17}
+      #boot{position:fixed;inset:0;display:grid;place-content:center;justify-items:center;gap:1.25rem;animation:boot-in .3s .25s both}
+      #boot path{stroke:#f6f5f2}
+      #boot i{position:relative;display:block;width:7rem;height:3px;border-radius:3px;overflow:hidden;background:#efede8}
+      #boot i::after{content:"";position:absolute;inset:0;width:40%;border-radius:3px;background:#2b59c3;animation:boot-bar 1.1s cubic-bezier(.45,0,.25,1) infinite}
+      @keyframes boot-in{from{opacity:0}}
+      @keyframes boot-bar{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+      @media (prefers-color-scheme:dark){html,body{background:#141413;color:#edebe6}#boot path{stroke:#141413}#boot i{background:#101010}#boot i::after{background:#7b9bff}}
+      @media (prefers-reduced-motion:reduce){#boot i::after{animation:none;width:100%;opacity:.4}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot" role="status" aria-label="Nova lädt"><svg width="40" height="40" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M10 22V10l12 12V10" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><i></i></div></div>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

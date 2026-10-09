@@ -3020,3 +3020,211 @@ button.list-item {
   border-radius: 50%;
   background: var(--sel);
 }
+
+/* ---------- loading states ---------- */
+
+/* thin bar at the very top while views or data load */
+.top-progress {
+  position: fixed;
+  z-index: 120;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--sel);
+  box-shadow: 0 0 8px var(--sel);
+  transform-origin: left;
+  pointer-events: none;
+}
+.top-progress.run {
+  animation: top-progress-run 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+.top-progress.done {
+  animation: top-progress-done 0.45s ease-out forwards;
+}
+@keyframes top-progress-run {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(0.85);
+  }
+}
+@keyframes top-progress-done {
+  0% {
+    transform: scaleX(0.9);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* skeletons shimmer softly instead of standing still */
+.skel {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--sunken) 0%, var(--hover) 40%, var(--sunken) 80%) 0 0 / 300% 100%;
+  animation: skel 1.6s ease-in-out infinite;
+}
+@keyframes skel {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* start screen (also in index.html, before any script runs) */
+.splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  background: var(--bg);
+  animation: splash-in 0.3s 0.25s both;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+}
+.splash-bar {
+  position: relative;
+  display: block;
+  width: 7rem;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--sunken);
+}
+.splash-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 3px;
+  background: var(--sel);
+  animation: splash-bar 1.1s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes splash-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* previews and the canvas: a calm veil until the page inside has loaded */
+.frame-load {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.frame-load iframe {
+  transition: opacity 0.25s;
+}
+.frame-load:not(.ready) iframe {
+  opacity: 0;
+}
+.frame-load-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.85rem;
+  background: var(--panel-2);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  font-weight: 550;
+  animation: splash-in 0.25s 0.15s both;
+}
+.style-preview .frame-load-veil {
+  background: var(--sunken);
+}
+.editor-skel {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 3.5rem 1fr;
+  background: var(--bg);
+}
+.editor-skel-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.editor-skel .frame-load-veil {
+  position: relative;
+}
+
+/* buttons that are working: spinner instead of just greyed out.
+   The label is hidden with text-fill, so the spinner can keep the button's own text colour. */
+.btn[aria-busy='true'] {
+  position: relative;
+  -webkit-text-fill-color: transparent;
+  cursor: progress;
+  pointer-events: none;
+}
+.btn[aria-busy='true'] > * {
+  visibility: hidden;
+}
+.btn[aria-busy='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+/* upload progress inside the upload button */
+.btn .up-pct {
+  font-variant-numeric: tabular-nums;
+}
+.btn.uploading {
+  position: relative;
+  overflow: hidden;
+}
+.btn.uploading:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.btn.uploading::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.35;
+  transform-origin: left;
+  transform: scaleX(var(--up, 0));
+  transition: transform 0.2s;
+}
+/* small inline spinner next to a label that explains what happens */
+.spin {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
