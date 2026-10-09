@@ -680,9 +680,14 @@ function ShopSettings() {
           )}
           <Toggle checked={sh.invoiceEnabled} onChange={(v) => setS({ invoiceEnabled: v })} label="Kauf auf Rechnung anbieten" />
           {sh.invoiceEnabled && (
-            <Field label="Zahlungsangaben auf der Rechnung" help="IBAN, Empfänger, Bank">
-              <textarea className="textarea" style={{ minHeight: '4rem' }} value={sh.invoiceNote} onChange={(e) => setS({ invoiceNote: e.target.value })} />
-            </Field>
+            <>
+              <Field label="IBAN für die QR-Rechnung" help="Mit IBAN bekommt jede Rechnung den Schweizer QR-Zahlteil – die Kundschaft scannt ihn mit der Banking-App. QR-IBAN geht auch.">
+                <input className="input mono" value={sh.iban} maxLength={40} placeholder="CH93 0076 2011 6238 5295 7" onChange={(e) => setS({ iban: e.target.value })} />
+              </Field>
+              <Field label="Weitere Zahlungsangaben" help="Erscheint auf der Rechnung, z. B. Bank oder Zahlungsfrist.">
+                <textarea className="textarea" style={{ minHeight: '4rem' }} value={sh.invoiceNote} onChange={(e) => setS({ invoiceNote: e.target.value })} />
+              </Field>
+            </>
           )}
         </Section>
         <Section title="Mehrwertsteuer" sub="Preise werden inklusive MwSt. erfasst und angezeigt.">

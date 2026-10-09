@@ -63,6 +63,7 @@ export function defaultSettings(): SiteSettings {
       shipping: { flat: 900, freeFrom: 10000, pickup: true, countries: ['CH', 'LI'] },
       invoiceEnabled: true,
       invoiceNote: '',
+      iban: '',
       terms: '',
       orderPrefix: 'B-',
       notifyEmail: '',

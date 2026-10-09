@@ -1,4 +1,5 @@
 import type { Hono } from 'hono';
+import { formatIban, validQrIban } from '../../shared/qrbill';
 import { deleteMember } from '../members';
 import { z } from 'zod';
 import { createHmac } from 'node:crypto';
@@ -86,6 +87,10 @@ export function systemApi(app: Hono<AppEnv>) {
     if (patch.theme && (patch.theme.tokens !== undefined || patch.theme.css !== undefined) && !can(user.role, 'dev')) throw forbidden('Eigenes CSS und Design-Tokens gibt es in der Werkbank.');
     if (patch.baseUrl !== undefined && patch.baseUrl && !/^https?:\/\/[^/]+$/.test(patch.baseUrl.replace(/\/$/, '')))
       throw badRequest('Die Adresse muss wie «https://www.beispiel.ch» aussehen.');
+    if (patch.shop?.iban) {
+      patch.shop.iban = formatIban(patch.shop.iban);
+      if (!validQrIban(patch.shop.iban)) throw badRequest('Für die QR-Rechnung braucht es eine gültige IBAN aus der Schweiz oder Liechtenstein.');
+    }
     if (patch.webhooks) {
       for (const w of patch.webhooks) {
         if (!/^https:\/\//.test(w.url)) throw badRequest('Webhooks müssen eine https-Adresse haben.');

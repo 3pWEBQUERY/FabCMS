@@ -1,6 +1,6 @@
 import type { Context, Hono } from 'hono';
 import type { AppEnv } from '../auth';
-import { html, type Html } from '../../site/html';
+import { html, raw, type Html } from '../../site/html';
 import { renderSystemPage } from '../../site/render';
 import { getSettings } from '../settings';
 import { sql } from '../db';
@@ -10,6 +10,8 @@ import { recordGoal } from '../analytics';
 import { formatMoney } from '../../shared/text';
 import { createDonation, donationByToken, donationCheckoutUrl, parseAmount, receiptBody, recipientName, stopMonthly } from '../donations';
 import { ctxFor, looksLikeSpam, notFoundPage, sendHtml } from './public';
+import { creditorOf, QR_BILL_CSS, qrBillHtml } from '../qrbill';
+import { isQrIban, qrBillProblems, referenceFor } from '../../shared/qrbill';
 
 /** Donation form target, the donor's private page (thank you, monthly, receipt). */
 export function donationsPublicRoutes(app: Hono<AppEnv>) {
@@ -54,6 +56,23 @@ export function donationsPublicRoutes(app: Hono<AppEnv>) {
     } catch (e) {
       return fail((e as Error).message);
     }
+  });
+
+  /** Payment slip with QR code for donations by bank transfer: the payer fills in the amount. */
+  app.get('/_nova/spenden/einzahlungsschein', async (c) => {
+    const s = await getSettings();
+    const iban = s.donations.iban || s.shop.iban;
+    const creditor = { ...creditorOf(s), name: recipientName(s) };
+    if (!s.modules.includes('donations') || !iban || qrBillProblems(iban, creditor).length) return notFoundPage(c);
+    const campaign = String(c.req.query('kampagne') ?? '').slice(0, 120);
+    const ref = referenceFor(iban, isQrIban(iban) ? String(Date.now()).slice(-10) : '');
+    const bill = qrBillHtml({ iban, creditor, amount: null, currency: s.shop.currency === 'EUR' ? 'EUR' : 'CHF', debtor: null, reference: ref.value, message: campaign ? `Spende: ${campaign}` : 'Spende' });
+    c.header('Cache-Control', 'no-store');
+    return c.html(
+      html`<!doctype html><html lang="de-CH"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Einzahlungsschein – ${recipientName(s)}</title><style>${raw(
+        QR_BILL_CSS,
+      )}body{margin:0;background:#f3f2ee;font-family:Arial,Helvetica,sans-serif}.sheet{max-width:210mm;margin:0 auto;padding:12mm 0}.top{padding:0 6mm 10mm}h1{font-size:18pt;margin:0 0 3mm}p{margin:0 0 3mm}button{font:inherit;padding:2mm 4mm}@page{size:A4;margin:0}@media print{body{background:#fff}.top{display:none}.sheet{padding:0;position:fixed;bottom:0}}</style></head><body><div class="sheet"><div class="top"><h1>Danke für deine Spende!</h1><p>Scanne den QR-Code mit deiner Banking-App oder drucke den Einzahlungsschein aus. Den Betrag wählst du selbst.</p><button onclick="print()">Drucken</button></div>${bill}</div></body></html>`.value,
+    );
   });
 
   app.get('/spende/:token', async (c) => {

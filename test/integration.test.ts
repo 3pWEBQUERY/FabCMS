@@ -626,6 +626,25 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('POST', '/api/kitchen/pause', { paused: false });
   });
 
+  it('puts the Swiss QR bill on open invoices', async () => {
+    const settings = await req('GET', '/api/settings');
+    const bad = await req('PATCH', '/api/settings', { shop: { ...settings.data.settings.shop, iban: 'CH93 0076 2011 6238 5295 8' } });
+    expect(bad.status).toBe(400);
+    await req('PATCH', '/api/settings', {
+      shop: { ...settings.data.settings.shop, iban: 'ch9300762011623852957' },
+      business: { ...settings.data.settings.business, legalName: 'Gasthaus Linde GmbH', street: 'Dorfstrasse 1', zip: '8400', city: 'Winterthur' },
+    });
+    expect((await req('GET', '/api/settings')).data.settings.shop.iban).toBe('CH93 0076 2011 6238 5295 7');
+    const [o] = await sql`select token, number from orders where payment_method = 'invoice' limit 1`;
+    await sql`update orders set status = 'pending' where token = ${o.token}`;
+    const page = await req('GET', `/bestellung/${o.token}/rechnung`, undefined, { cookies: new Map() });
+    expect(page.data).toContain('Zahlteil');
+    expect(page.data).toContain('Empfangsschein');
+    expect(page.data).toContain('aria-label="Swiss QR Code"');
+    expect(page.data).toContain('CH93 0076 2011 6238 5295 7');
+    expect(page.data).toMatch(/RF\d{2}/);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

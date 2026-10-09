@@ -3,6 +3,7 @@ import type { RenderContext } from './context';
 import { env } from '../server/env';
 import { campaignTotal, MIN_DONATION, parseAmount, recipientName } from '../server/donations';
 import { formatMoney } from '../shared/text';
+import { validQrIban } from '../shared/qrbill';
 
 type P = Record<string, unknown>;
 
@@ -40,11 +41,13 @@ export async function donateBlock(ctx: RenderContext, id: string, p: P, head: Ht
     </div>`;
   }
 
-  const bank = s.donations.iban
-    ? html`<div class="dn-bank">
-        <p class="label">Per Überweisung</p>
-        <p>${recipientName(s)}<br /><span class="num">${s.donations.iban}</span>${campaign ? html`<br />Vermerk: ${campaign}` : ''}</p>
-      </div>`
+  const iban = s.donations.iban || s.shop.iban;
+  const bank = iban
+    ? html`<div class="dn-bank"><p class="label">Per Überweisung</p><p>${recipientName(s)}<br><span class="num">${iban}</span>${campaign ? html`<br>Vermerk: ${campaign}` : ''}</p>${
+        validQrIban(iban) && s.business.zip && s.business.city
+          ? html`<p><a class="btn-2" href="/_nova/spenden/einzahlungsschein${campaign ? `?kampagne=${encodeURIComponent(campaign)}` : ''}" target="_blank" rel="nofollow">Einzahlungsschein mit QR-Code</a></p>`
+          : ''
+      }</div>`
     : html``;
 
   if (!env.stripe.secretKey)

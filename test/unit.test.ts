@@ -15,6 +15,7 @@ import { scopeCss } from '../src/site/blocks';
 import { woffToSfnt } from '../src/server/og';
 import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { orderSlots, foodTotals } from '../src/shared/ordering';
+import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -282,5 +283,40 @@ describe('take-away and delivery', () => {
       { rate: 8.1, amount: 45 },
       { rate: 2.6, amount: 114 },
     ]);
+  });
+});
+
+describe('Swiss QR bill', () => {
+  it('validates IBANs and tells QR-IBANs apart', () => {
+    expect(validQrIban('CH93 0076 2011 6238 5295 7')).toBe(true);
+    expect(validQrIban('CH93 0076 2011 6238 5295 8')).toBe(false);
+    expect(validQrIban('DE89 3704 0044 0532 0130 00')).toBe(false); // valid, but not CH/LI
+    expect(validQrIban('CH44 3199 9123 0008 8901 2')).toBe(true);
+    expect(isQrIban('CH44 3199 9123 0008 8901 2')).toBe(true);
+    expect(isQrIban('CH93 0076 2011 6238 5295 7')).toBe(false);
+  });
+
+  it('computes references like the standard examples', () => {
+    expect(mod10('21000000000313947143000901')).toBe(7);
+    expect(qrReference('21000000000313947143000901')).toBe('210000000003139471430009017');
+    expect(scorReference('539007547034')).toBe('RF18539007547034');
+    expect(referenceFor('CH93 0076 2011 6238 5295 7', 'B-1042')).toEqual({ type: 'SCOR', value: scorReference('B1042') });
+  });
+
+  it('builds the payload in the order the banks expect', () => {
+    const lines = qrPayload({
+      iban: 'CH4431999123000889012',
+      creditor: { name: 'Robert Schneider AG', street: 'Rue du Lac 1268', zip: '2501', city: 'Biel', country: 'CH' },
+      amount: 199595,
+      currency: 'CHF',
+      debtor: { name: 'Pia-Maria Rutschmann-Schnyder', street: 'Grosse Marktgasse 28', zip: '9400', city: 'Rorschach', country: 'CH' },
+      reference: '210000000003139471430009017',
+      message: 'Auftrag vom 15.06.2020',
+    }).split('\r\n');
+    expect(lines).toHaveLength(31);
+    expect(lines.slice(0, 4)).toEqual(['SPC', '0200', '1', 'CH4431999123000889012']);
+    expect(lines.slice(4, 11)).toEqual(['S', 'Robert Schneider AG', 'Rue du Lac 1268', '', '2501', 'Biel', 'CH']);
+    expect(lines.slice(18, 20)).toEqual(['1995.95', 'CHF']);
+    expect(lines.slice(27)).toEqual(['QRR', '210000000003139471430009017', 'Auftrag vom 15.06.2020', 'EPD']);
   });
 });

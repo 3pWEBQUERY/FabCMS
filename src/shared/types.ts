@@ -173,6 +173,8 @@ export interface SiteSettings {
     invoiceEnabled: boolean;
     /** Payment details shown for invoice orders (IBAN, recipient). */
     invoiceNote: string;
+    /** IBAN or QR-IBAN for Swiss QR bills on invoices (CH/LI only). */
+    iban: string;
     terms: string;
     orderPrefix: string;
     notifyEmail: string;

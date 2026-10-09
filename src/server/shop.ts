@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { handleMemberStripeEvent } from './members';
 import { ticketsPaid } from './tickets';
+import { creditorOf } from './qrbill';
+import { qrBillProblems, referenceFor, type QrBillData } from '../shared/qrbill';
 import { foodPaid } from './ordering';
 import { donationPaid, donationRenewed, donationSubscriptionEnded } from './donations';
 import { sql, json } from './db';
@@ -453,4 +455,22 @@ export async function handleStripeEvent(event: { type: string; data: { object: R
       await cancelOrder(orderId, 'Zahlung nicht abgeschlossen.');
       break;
   }
+}
+
+/** QR bill for an open invoice order, or null when the IBAN or address is missing. */
+export async function orderQrBill(o: Record<string, any>): Promise<QrBillData | null> {
+  const s = await getSettings();
+  const creditor = creditorOf(s);
+  if (!s.shop.iban || qrBillProblems(s.shop.iban, creditor).length) return null;
+  const ref = referenceFor(s.shop.iban, String(o.number));
+  const c = o.customer as Record<string, string>;
+  return {
+    iban: s.shop.iban,
+    creditor,
+    amount: o.total as number,
+    currency: o.currency === 'EUR' ? 'EUR' : 'CHF',
+    debtor: c?.name && c?.zip ? { name: c.company ? `${c.company}, ${c.name}` : c.name, street: c.street ?? '', zip: c.zip, city: c.city ?? '', country: c.country || 'CH' } : null,
+    reference: ref.value,
+    message: `Bestellung ${o.number}`,
+  };
 }

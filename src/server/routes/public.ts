@@ -40,6 +40,7 @@ import { newsletterPublicRoutes } from './public-newsletter';
 import { membersPublicRoutes } from './public-members';
 import { ticketsPublicRoutes } from './public-tickets';
 import { donationsPublicRoutes } from './public-donations';
+import { invoiceHtml } from '../invoice';
 import { realestatePublicRoutes } from './public-realestate';
 import { orderingPublicRoutes } from './public-ordering';
 import { currentMember } from '../members';
@@ -594,7 +595,9 @@ export function publicRoutes(app: Hono<AppEnv>) {
         : paid
           ? html`<p class="form-ok">Bezahlt. Danke! Eine Bestätigung ist unterwegs an ${o.email}.</p>`
           : o.payment_method === 'invoice'
-            ? html`<p class="form-ok">Danke für deine Bestellung! Bitte überweise ${formatMoney(o.total, o.currency)} innert 30 Tagen.${s.shop.invoiceNote ? html`<br><span style="white-space:pre-line">${s.shop.invoiceNote}</span>` : ''}</p>`
+            ? html`<p class="form-ok">Danke für deine Bestellung! Bitte überweise ${formatMoney(o.total, o.currency)} innert 30 Tagen.${s.shop.invoiceNote ? html`<br><span style="white-space:pre-line">${s.shop.invoiceNote}</span>` : ''}</p>${
+                s.shop.iban ? html`<p><a class="btn" href="/bestellung/${o.token}/rechnung" target="_blank">Rechnung mit QR-Code</a></p>` : ''
+              }`
             : c.req.query('bezahlt')
               ? html`<p class="form-ok">Die Zahlung wird bestätigt – das dauert meist nur Sekunden. Lade die Seite gleich neu.</p>`
               : html`<p class="form-err">Die Zahlung ist noch offen. <a href="/bestellung/${o.token}/bezahlen">Jetzt bezahlen</a></p>`;
@@ -608,6 +611,15 @@ export function publicRoutes(app: Hono<AppEnv>) {
         : ''
     }</div>`;
     return sendHtml(c, await renderSystemPage(ctx, { title: `Bestellung ${o.number}`, body }));
+  });
+
+  /** The customer's invoice with the Swiss QR bill, to print or scan with the banking app. */
+  app.get('/bestellung/:token/rechnung', async (c) => {
+    const [o] = await sql`select * from orders where token = ${c.req.param('token')}`;
+    if (!o || o.payment_method !== 'invoice') return notFoundPage(c);
+    c.header('Cache-Control', 'no-store');
+    c.header('X-Robots-Tag', 'noindex');
+    return c.html((await invoiceHtml(o)).value);
   });
 
   app.get('/bestellung/:token/bezahlen', async (c) => {
