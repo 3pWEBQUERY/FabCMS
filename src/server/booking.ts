@@ -1,12 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { sql } from './db';
 import { env } from './env';
-import { getSettings, updateSettings, bumpGeneration } from './settings';
+import { getSettings, updateSettings, bumpGeneration, mainLang } from './settings';
 import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { sendMail } from './mail';
 import { notify } from './notify';
-import { pageLang } from './translations';
+import { inStoredLang, pageLang, storedLang } from './translations';
 import { T, tr } from '../site/i18n';
 import { langInfo, type Lang } from '../shared/i18n';
 import { formatMoney } from '../shared/text';
@@ -130,9 +130,9 @@ export async function createBooking(input: BookingInput, opts: { staff?: boolean
       resourceId = slot.resourceId;
     }
     const [row] = await tx`
-      insert into bookings (service_id, resource_id, starts_at, ends_at, party_size, name, email, phone, note, status, source, token, deposit)
+      insert into bookings (service_id, resource_id, starts_at, ends_at, party_size, name, email, phone, note, status, source, token, deposit, lang)
       values (${service.id}, ${resourceId}, ${start}, ${end}, ${input.party}, ${input.name.trim().slice(0, 120)}, ${input.email.trim().toLowerCase().slice(0, 200)},
-              ${(input.phone ?? '').trim().slice(0, 40)}, ${(input.note ?? '').trim().slice(0, 1000)}, ${status}, ${opts.source ?? 'web'}, ${token(18)}, ${deposit})
+              ${(input.phone ?? '').trim().slice(0, 40)}, ${(input.note ?? '').trim().slice(0, 1000)}, ${status}, ${opts.source ?? 'web'}, ${token(18)}, ${deposit}, ${opts.staff ? '' : storedLang()})
       returning *`;
     return row as unknown as Booking;
   });
@@ -248,6 +248,7 @@ export async function bookingMail(id: string, kind: 'received' | 'confirmed' | '
   const s = await getSettings();
   const [b] = await withNames(sql`b.id = ${id}`);
   if (!b || !b.email) return;
+  if ((b.lang || mainLang()) !== pageLang()) return inStoredLang(b.lang as string, () => bookingMail(id, kind));
   // The guest's language during their own request (booking, cancelling); otherwise the main language.
   const when = formatWhen(b.starts_at as string, s, pageLang());
   const n = b.party_size as number;

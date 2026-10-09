@@ -22,7 +22,17 @@ export function pageLang(): Lang {
 }
 /** null = main language, nothing to translate. */
 export function currentLang(): Lang | null {
-  return requestLang.getStore() ?? null;
+  const l = requestLang.getStore();
+  return l && l !== mainLang() ? l : null;
+}
+
+/** Language to store with a booking or order made now ('' = main language). */
+export const storedLang = (): string => currentLang() ?? '';
+
+/** Runs fn in the language stored with a booking or order – for mails sent later (webhooks, reminders, staff actions). */
+export function inStoredLang<T>(stored: string | null | undefined, fn: () => Promise<T>): Promise<T> {
+  const want = isLang(stored) ? stored : mainLang();
+  return want === pageLang() ? fn() : requestLang.run(want, fn);
 }
 
 export interface TranslationRow {

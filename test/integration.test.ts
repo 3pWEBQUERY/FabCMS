@@ -13,6 +13,8 @@ import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
 import { outbox } from '../src/server/mail';
+import { foodMail } from '../src/server/ordering';
+import { tr } from '../src/site/i18n';
 import { env } from '../src/server/env';
 import { handleStripeEvent } from '../src/server/shop';
 
@@ -1010,6 +1012,15 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(JSON.stringify((await req('GET', '/api/v1/dishes?limit=50&lang=fr', undefined, anon)).data)).toContain('Plat du jour');
     expect((await req('GET', '/api/v1/pages/contact?lang=fr', undefined, anon)).status).toBe(404);
     expect((await req('GET', '/api/v1/pages/kontakt?lang=fr', undefined, anon)).data.data.data.title).toBe('Contact');
+
+    // Mails sent later (kitchen, reminders, webhooks) speak the language the order was placed in.
+    outbox.length = 0;
+    const order = { number: 7, mode: 'pickup', slot_at: new Date().toISOString(), name: 'Claire Dubois', email: 'claire@example.ch', items: [], currency: 'CHF', total: 0, delivery_fee: 0, payment: 'onsite', token: 'x', paid_at: null };
+    await foodMail({ ...order, lang: 'fr' } as never, 'ready');
+    await foodMail({ ...order, lang: '' } as never, 'ready');
+    expect(outbox.map((m) => m.subject)).toEqual([tr('fr', 'Bereit zum Abholen: Nr. {n}', { n: 7 }), 'Bereit zum Abholen: Nr. 7']);
+    expect(outbox[0].subject).not.toContain('Bereit');
+    expect(outbox[0].text).toContain('Bonjour Claire,');
 
     // Languages that are switched off don't exist.
     await req('PATCH', '/api/settings', { languages: [] });

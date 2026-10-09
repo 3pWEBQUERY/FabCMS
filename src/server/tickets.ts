@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto';
 import QRCode from 'qrcode';
 import { sql, json } from './db';
 import { env } from './env';
-import { getSettings, bumpGeneration } from './settings';
+import { getSettings, bumpGeneration, mainLang } from './settings';
 import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { sendMail } from './mail';
@@ -10,7 +10,7 @@ import { notify } from './notify';
 import { formatMoney } from '../shared/text';
 import { formatSession, sessionsOf, ticketCategories, MAX_TICKETS_PER_ORDER, type TicketCategory } from '../shared/events';
 import type { EntryData, SiteSettings } from '../shared/types';
-import { pageLang } from './translations';
+import { inStoredLang, pageLang, storedLang } from './translations';
 import { L, T } from '../site/i18n';
 
 /**
@@ -135,9 +135,9 @@ export async function createTicketOrder(input: {
     // Free tickets and those the team issues at the box office count as paid right away.
     const paid = total === 0 || input.source === 'admin';
     const [o] = await tx`
-      insert into ticket_orders (entry_id, entry_title, name, email, phone, items, total, currency, status, token, source, paid_at)
+      insert into ticket_orders (entry_id, entry_title, name, email, phone, items, total, currency, status, token, source, paid_at, lang)
       values (${entry.id}, ${entry.data.title}, ${name}, ${email}, ${(input.phone ?? '').slice(0, 40)}, ${json(items)}, ${total}, ${s.shop.currency},
-        ${paid ? 'paid' : 'pending'}, ${token(18)}, ${input.source ?? 'web'}, ${paid ? new Date() : null})
+        ${paid ? 'paid' : 'pending'}, ${token(18)}, ${input.source ?? 'web'}, ${paid ? new Date() : null}, ${input.source === 'admin' ? '' : storedLang()})
       returning *`;
     for (const i of items)
       for (let k = 0; k < i.qty; k++) await tx`insert into tickets (order_id, entry_id, category, code) values (${o.id}, ${entry.id}, ${i.category}, ${ticketCode()})`;
@@ -348,6 +348,7 @@ export async function ticketMail(orderId: string): Promise<void> {
   const s = await getSettings();
   const [o] = await sql`select * from ticket_orders where id = ${orderId}`;
   if (!o) return;
+  if ((o.lang || mainLang()) !== pageLang()) return inStoredLang(o.lang as string, () => ticketMail(orderId));
   const entry = o.entry_id ? await ticketEntry(o.entry_id as string) : null;
   const list = await ticketsOf(o.id as string);
   const when = entry ? describeWhen(entry, s) : '';

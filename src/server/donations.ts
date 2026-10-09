@@ -1,6 +1,6 @@
 import { sql } from './db';
 import { env } from './env';
-import { getSettings, bumpGeneration } from './settings';
+import { getSettings, bumpGeneration, mainLang } from './settings';
 import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { sendMail } from './mail';
@@ -9,7 +9,7 @@ import { formatMoney } from '../shared/text';
 import type { SiteSettings } from '../shared/types';
 import { html, type Html } from '../site/html';
 import { L, T } from '../site/i18n';
-import { pageLang } from './translations';
+import { inStoredLang, pageLang, storedLang } from './translations';
 
 /**
  * Spenden: once or monthly through Stripe. Each collected payment is its own
@@ -72,9 +72,9 @@ export async function createDonation(input: {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an – für die Bestätigung.'));
   const [d] = await sql`
-    insert into donations (amount, currency, interval, campaign, name, email, street, zip, city, anonymous, message, token)
+    insert into donations (amount, currency, interval, campaign, name, email, street, zip, city, anonymous, message, token, lang)
     values (${input.amount}, ${s.shop.currency}, ${input.interval}, ${input.campaign.slice(0, 120)}, ${input.name.trim().slice(0, 120)}, ${email},
-      ${(input.street ?? '').slice(0, 120)}, ${(input.zip ?? '').slice(0, 12)}, ${(input.city ?? '').slice(0, 80)}, ${input.anonymous}, ${(input.message ?? '').slice(0, 500)}, ${token(18)})
+      ${(input.street ?? '').slice(0, 120)}, ${(input.zip ?? '').slice(0, 12)}, ${(input.city ?? '').slice(0, 80)}, ${input.anonymous}, ${(input.message ?? '').slice(0, 500)}, ${token(18)}, ${storedLang()})
     returning *`;
   return d as unknown as Donation;
 }
@@ -121,6 +121,8 @@ export async function donationCheckoutUrl(d: Donation): Promise<string> {
 }
 
 async function thankYou(d: Donation, first: boolean): Promise<void> {
+  const stored = (d as { lang?: string }).lang;
+  if ((stored || mainLang()) !== pageLang()) return inStoredLang(stored, () => thankYou(d, first));
   const s = await getSettings();
   const amount = formatMoney(d.amount, d.currency);
   await sendMail({
@@ -174,8 +176,8 @@ export async function donationRenewed(subscription: string, invoiceId: string, a
   const [first] = await sql`select * from donations where stripe_subscription = ${subscription} and parent_id is null`;
   if (!first) return;
   const [d] = await sql`
-    insert into donations (amount, currency, interval, campaign, name, email, street, zip, city, anonymous, message, status, token, stripe_subscription, payment_ref, parent_id, paid_at)
-    select ${amount || first.amount}, currency, interval, campaign, name, email, street, zip, city, anonymous, '', 'paid', ${token(18)}, stripe_subscription, ${invoiceId}, id, now()
+    insert into donations (amount, currency, interval, campaign, name, email, street, zip, city, anonymous, message, status, token, stripe_subscription, payment_ref, parent_id, paid_at, lang)
+    select ${amount || first.amount}, currency, interval, campaign, name, email, street, zip, city, anonymous, '', 'paid', ${token(18)}, stripe_subscription, ${invoiceId}, id, now(), lang
     from donations where id = ${first.id}
       and not exists (select 1 from donations where payment_ref = ${invoiceId})
     returning *`;

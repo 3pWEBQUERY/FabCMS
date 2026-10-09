@@ -1,9 +1,9 @@
 import type { Context } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { localized, pageLang } from './translations';
+import { inStoredLang, localized, pageLang, storedLang } from './translations';
 import { sql, json } from './db';
 import { env } from './env';
-import { appSecret, getSettings } from './settings';
+import { appSecret, getSettings, mainLang } from './settings';
 import { sign, token, unsign } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { sendMail } from './mail';
@@ -182,10 +182,10 @@ export async function placeFoodOrder(input: {
       select coalesce(max(number), 0) + 1 as next from food_orders
       where (created_at at time zone ${s.timezone})::date = ${today}::date`;
     const [row] = await tx`
-      insert into food_orders (number, mode, slot_at, name, phone, email, street, zip, city, note, items, subtotal, delivery_fee, total, vat, currency, payment, status, token)
+      insert into food_orders (number, mode, slot_at, name, phone, email, street, zip, city, note, items, subtotal, delivery_fee, total, vat, currency, payment, status, token, lang)
       values (${n.next}, ${mode}, ${slot.at}, ${name}, ${phone}, ${email}, ${(input.street ?? '').trim().slice(0, 120)}, ${zip.slice(0, 12)}, ${(input.city ?? '').trim().slice(0, 80)},
         ${(input.note ?? '').trim().slice(0, 500)}, ${json(lines.map(({ s: _s, ...l }) => l))}, ${totals.subtotal}, ${fee}, ${totals.total}, ${json(totals.vat)}, ${s.shop.currency}, ${payment},
-        ${payment === 'online' ? 'pending_payment' : 'new'}, ${token(18)})
+        ${payment === 'online' ? 'pending_payment' : 'new'}, ${token(18)}, ${storedLang()})
       returning *`;
     return row as unknown as FoodOrder;
   });
@@ -207,6 +207,8 @@ async function announce(o: FoodOrder): Promise<void> {
 }
 
 export async function foodMail(o: FoodOrder, kind: 'received' | 'ready' | 'out' | 'cancelled'): Promise<void> {
+  const stored = (o as { lang?: string }).lang;
+  if ((stored || mainLang()) !== pageLang()) return inStoredLang(stored, () => foodMail(o, kind));
   const s = await getSettings();
   const when = new Date(o.slot_at).toLocaleString(L(), { timeZone: s.timezone, weekday: 'short', hour: '2-digit', minute: '2-digit' });
   const n = o.number;

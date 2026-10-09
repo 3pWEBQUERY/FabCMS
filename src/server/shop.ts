@@ -7,7 +7,7 @@ import { foodPaid } from './ordering';
 import { donationPaid, donationRenewed, donationSubscriptionEnded } from './donations';
 import { sql, json } from './db';
 import { env } from './env';
-import { getSettings, bumpGeneration } from './settings';
+import { getSettings, bumpGeneration, mainLang } from './settings';
 import { sign, unsign, token } from './lib/crypto';
 import { badRequest } from './lib/http';
 import { emit } from './events';
@@ -16,7 +16,7 @@ import { depositPaid } from './booking';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
 import { T } from '../site/i18n';
-import { pageLang } from './translations';
+import { inStoredLang, pageLang, storedLang } from './translations';
 import type { EntryData, SiteSettings } from '../shared/types';
 
 /* ---------- Cart cookie ---------- */
@@ -260,9 +260,9 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
       shippingMethod: input.shippingMethod,
     };
     const [o] = await tx`
-      insert into orders (number, token, email, customer, items, subtotal, discount, shipping, total, vat, currency, coupon, payment_method, note)
+      insert into orders (number, token, email, customer, items, subtotal, discount, shipping, total, vat, currency, coupon, payment_method, note, lang)
       values (${number}, ${orderToken}, ${input.email.trim().toLowerCase()}, ${json(customer)}, ${json(q.lines)}, ${q.subtotal}, ${q.discount},
-              ${q.shipping}, ${q.total}, ${json(q.vat)}, ${q.currency}, ${q.coupon?.ok ? q.coupon.code : null}, ${input.payment}, ${input.note?.trim() ?? ''})
+              ${q.shipping}, ${q.total}, ${json(q.vat)}, ${q.currency}, ${q.coupon?.ok ? q.coupon.code : null}, ${input.payment}, ${input.note?.trim() ?? ''}, ${storedLang()})
       returning id`;
     bumpGeneration();
     emit('order.created', { id: o.id, number, total: q.total, email: input.email });
@@ -307,6 +307,7 @@ export async function sendOrderMails(orderId: string): Promise<void> {
   const s = await getSettings();
   const [o] = await sql`select * from orders where id = ${orderId}`;
   if (!o) return;
+  if ((o.lang || mainLang()) !== pageLang()) return inStoredLang(o.lang as string, () => sendOrderMails(orderId));
   const lines = (o.items as QuoteLine[]).map((l) => `${l.qty} × ${l.title}${l.variantName ? ` (${l.variantName})` : ''}  ${formatMoney(l.total)}`).join('\n');
   const base = (s.baseUrl || env.publicUrl).replace(/\/$/, '');
   const paid = o.status === 'paid';
