@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { handleMemberStripeEvent } from './members';
+import { ticketsPaid } from './tickets';
 import { sql, json } from './db';
 import { env } from './env';
 import { getSettings, bumpGeneration } from './settings';
@@ -399,9 +400,15 @@ export function verifyStripeSignature(payload: string, header: string | undefine
 
 export async function handleStripeEvent(event: { type: string; data: { object: Record<string, any> } }): Promise<void> {
   const obj = event.data.object;
-  // Memberships (subscriptions) and reservation deposits travel through the same webhook.
+  // Memberships (subscriptions), tickets and reservation deposits travel through the same webhook.
   if (event.type.startsWith('customer.subscription.') || (event.type === 'checkout.session.completed' && obj.mode === 'subscription')) {
     await handleMemberStripeEvent(event);
+    return;
+  }
+  const ticketOrderId = obj.metadata?.ticket_order_id as string | undefined;
+  if (ticketOrderId) {
+    if (event.type === 'checkout.session.completed' && obj.payment_status === 'paid') await ticketsPaid(ticketOrderId, String(obj.payment_intent ?? obj.id));
+    if (event.type === 'checkout.session.async_payment_succeeded') await ticketsPaid(ticketOrderId, String(obj.payment_intent ?? obj.id));
     return;
   }
   const bookingId = obj.metadata?.booking_id as string | undefined;

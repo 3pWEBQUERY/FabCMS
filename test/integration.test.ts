@@ -408,6 +408,73 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(info.data.counts.members).toBe(1);
   });
 
+  it('sells tickets within the quota, checks them in once, and fills freed places from the waitlist', async () => {
+    const settings = await req('GET', '/api/settings');
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'events', 'courses'])] });
+    const local = (days: number, time: string) => `${new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)}T${time}`;
+    const ev = await req('POST', '/api/entries', {
+      collection: 'events',
+      data: { title: 'Weindegustation', start: local(10, '19:00'), end: local(10, '22:00'), venue: 'Gewölbekeller', tickets: [{ name: 'Eintritt', price: null, capacity: 2 }] },
+    });
+    expect(ev.status).toBe(200);
+    await req('POST', `/api/entries/${ev.data.entry.id}/publish`, {});
+    const path = `/events/${ev.data.entry.slug}`;
+    const page = await req('GET', path, undefined, { cookies: new Map() });
+    expect(page.data).toContain('Tickets bestellen');
+    expect(page.data).toContain('"@type":"Event"');
+    expect(page.data).toContain('Gewölbekeller');
+
+    const buyer = new Map<string, string>();
+    const form = (name: string, qty: string) => ({ q_0: qty, name, email: `${name.toLowerCase()}@example.ch`, _back: path, _t: (Date.now() - 5000).toString(36) });
+    outbox.length = 0;
+    const first = await req('POST', `/_nova/tickets/${ev.data.entry.id}`, undefined, { cookies: buyer, form: form('Lena', '2') });
+    const where = first.headers.get('location')!;
+    expect(where).toMatch(/^\/tickets\/[\w-]+\?neu=1$/);
+    expect(outbox[0].subject).toBe('Deine Tickets: Weindegustation');
+    expect(outbox[0].attachments?.[0].content).toContain('BEGIN:VEVENT');
+    const sold = await req('POST', `/_nova/tickets/${ev.data.entry.id}`, undefined, { cookies: buyer, form: form('Jon', '1') });
+    expect(decodeURIComponent(sold.headers.get('location')!)).toContain('ausverkauft');
+
+    const ticketPage = await req('GET', where, undefined, { cookies: new Map() });
+    expect((ticketPage.data.match(/<svg/g) ?? []).length).toBe(2);
+    const codes = await sql`select code from tickets where entry_id = ${ev.data.entry.id} order by code`;
+    expect(ticketPage.data).toContain(codes[0].code);
+
+    // Sold out: the waitlist takes over.
+    expect((await req('GET', path, undefined, { cookies: new Map() })).data).toContain('Auf die Warteliste');
+    const wait = await req('POST', `/_nova/tickets/${ev.data.entry.id}/warteliste`, undefined, { cookies: buyer, form: { name: 'Jon', email: 'jon@example.ch', _back: path, _t: (Date.now() - 5000).toString(36) } });
+    expect(wait.headers.get('location')).toContain('t_wait=1');
+
+    // At the door: once, then «already»; lower case and without dash works too.
+    const ok = await req('POST', '/api/tickets/checkin', { code: codes[0].code.toLowerCase().replace('-', '') });
+    expect(ok.data).toMatchObject({ status: 'ok', ticket: { name: 'Lena', category: 'Eintritt' }, progress: { checked: 1, total: 2 } });
+    expect((await req('POST', '/api/tickets/checkin', { code: codes[0].code })).data.status).toBe('already');
+    expect((await req('POST', '/api/tickets/checkin', { code: 'ZZZZ-ZZZZ' })).data.status).toBe('unknown');
+
+    // Cancelling frees the places and tells the waitlist.
+    const [order] = await sql`select id from ticket_orders where entry_id = ${ev.data.entry.id} and status = 'paid'`;
+    outbox.length = 0;
+    await req('POST', `/api/ticket-orders/${order.id}/cancel`);
+    expect(outbox.map((m) => m.subject)).toContain('Ein Platz ist frei: Weindegustation');
+    expect((await req('POST', '/api/tickets/checkin', { code: codes[1].code })).data.status).toBe('cancelled');
+
+    // Paid tickets need Stripe; without it the form says so instead of failing later.
+    const paid = await req('POST', '/api/entries', { collection: 'events', data: { title: 'Gala', start: local(20, '18:00'), tickets: [{ name: 'Gala', price: 9000, capacity: 50 }] } });
+    await req('POST', `/api/entries/${paid.data.entry.id}/publish`, {});
+    expect((await req('GET', `/events/${paid.data.entry.slug}`, undefined, { cookies: new Map() })).data).toContain('Die Online-Anmeldung ist gerade nicht möglich');
+
+    // A course with three dates: sorted by its first date, all three in the calendar file.
+    const course = await req('POST', '/api/entries', {
+      collection: 'courses',
+      data: { title: 'Brotbackkurs', sessions: [{ start: local(14, '18:00') }, { start: local(7, '18:00'), end: local(7, '21:00') }, { start: local(21, '18:00') }], tickets: [{ name: 'Teilnahme', capacity: 8 }] },
+    });
+    expect(course.data.entry.data.start).toBe(local(7, '18:00'));
+    await req('POST', `/api/entries/${course.data.entry.id}/publish`, {});
+    expect((await req('GET', '/kurse', undefined, { cookies: new Map() })).data).toContain('3 Termine');
+    const ics = await req('GET', `/_nova/ics/${course.data.entry.id}.ics`, undefined, { cookies: new Map() });
+    expect((ics.data.match(/BEGIN:VEVENT/g) ?? []).length).toBe(3);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

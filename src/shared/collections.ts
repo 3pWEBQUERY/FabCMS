@@ -28,6 +28,22 @@ export const DISH_TAGS = [
 
 const seoNote = 'Wird automatisch aus dem Inhalt erzeugt, wenn leer.';
 
+function ticketsField(label: string, itemLabel: string, help: string): FieldDef {
+  return {
+    key: 'tickets',
+    type: 'group',
+    label,
+    itemLabel,
+    help,
+    fields: [
+      { key: 'name', type: 'text', label: 'Bezeichnung', required: true, placeholder: 'z. B. Erwachsene' },
+      { key: 'price', type: 'money', label: 'Preis', min: 0 },
+      { key: 'capacity', type: 'number', label: 'Plätze', min: 0 },
+      { key: 'note', type: 'text', label: 'Hinweis', placeholder: 'z. B. mit Ausweis' },
+    ],
+  };
+}
+
 const accessField: FieldDef = {
   key: 'access',
   type: 'select',
@@ -242,6 +258,86 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
     sort: { field: 'sort', dir: 'asc' },
   },
   {
+    id: 'events',
+    name: 'Events',
+    singular: 'Event',
+    icon: 'ticket',
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel', required: true, maxLength: 120 },
+      { key: 'excerpt', type: 'textarea', label: 'Kurzbeschreibung', help: 'Erscheint in der Übersicht und bei Google. ' + seoNote, maxLength: 300 },
+      { key: 'cover', type: 'image', label: 'Bild' },
+      { key: 'start', type: 'datetime', label: 'Beginn', required: true, width: 'half' },
+      { key: 'end', type: 'datetime', label: 'Ende', width: 'half' },
+      { key: 'venue', type: 'text', label: 'Ort', help: 'z. B. «Saal im Rössli». Leer = bei dir.', width: 'half' },
+      { key: 'address', type: 'text', label: 'Adresse', help: 'Leer = deine Adresse aus den Einstellungen.', width: 'half' },
+      { key: 'category', type: 'text', label: 'Kategorie', width: 'half' },
+      { key: 'cancelled', type: 'boolean', label: 'Abgesagt', help: 'Bleibt sichtbar, mit Hinweis. Wer Tickets hat, informierst du am besten per E-Mail.' },
+      ticketsField('Tickets', 'Ticketkategorie', 'Leer lassen, wenn es keine Anmeldung braucht. Preis leer = gratis, Plätze leer = unbegrenzt.'),
+      { key: 'waitlist', type: 'boolean', label: 'Warteliste, wenn ausverkauft', default: true },
+    ],
+    route: '/events/:slug',
+    list_route: '/events',
+    has_blocks: true,
+    builtin: true,
+    module: 'events',
+    title_field: 'title',
+    empty_hint: 'Leg dein erstes Event an: Titel, Datum, und wenn nötig Tickets.',
+    sort: { field: 'start', dir: 'asc' },
+    per_page: 24,
+  },
+  {
+    id: 'courses',
+    name: 'Kurse',
+    singular: 'Kurs',
+    icon: 'calendar',
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel', required: true, maxLength: 120 },
+      { key: 'excerpt', type: 'textarea', label: 'Kurzbeschreibung', help: 'Erscheint in der Übersicht und bei Google. ' + seoNote, maxLength: 300 },
+      { key: 'cover', type: 'image', label: 'Bild' },
+      {
+        key: 'sessions',
+        type: 'group',
+        label: 'Termine',
+        itemLabel: 'Termin',
+        min: 1,
+        help: 'Alle Daten des Kurses. Die Anmeldung gilt für alle zusammen.',
+        fields: [
+          { key: 'start', type: 'datetime', label: 'Beginn', required: true },
+          { key: 'end', type: 'datetime', label: 'Ende' },
+        ],
+      },
+      {
+        key: 'level',
+        type: 'select',
+        label: 'Niveau',
+        options: [
+          { value: '', label: 'Keine Angabe' },
+          { value: 'Einsteiger', label: 'Einsteiger' },
+          { value: 'Mittel', label: 'Mittel' },
+          { value: 'Fortgeschrittene', label: 'Fortgeschrittene' },
+          { value: 'Alle Niveaus', label: 'Alle Niveaus' },
+        ],
+        width: 'half',
+      },
+      { key: 'instructor', type: 'text', label: 'Kursleitung', width: 'half' },
+      { key: 'venue', type: 'text', label: 'Ort', width: 'half' },
+      { key: 'address', type: 'text', label: 'Adresse', help: 'Leer = deine Adresse aus den Einstellungen.', width: 'half' },
+      { key: 'category', type: 'text', label: 'Kategorie', width: 'half' },
+      { key: 'cancelled', type: 'boolean', label: 'Abgesagt' },
+      ticketsField('Preise & Plätze', 'Preis', 'Meist genügt eine Zeile, z. B. «Teilnahme», CHF 240, 12 Plätze. Für Ermässigungen weitere Zeilen.'),
+      { key: 'waitlist', type: 'boolean', label: 'Warteliste, wenn ausgebucht', default: true },
+    ],
+    route: '/kurse/:slug',
+    list_route: '/kurse',
+    has_blocks: true,
+    builtin: true,
+    module: 'courses',
+    title_field: 'title',
+    empty_hint: 'Leg deinen ersten Kurs an: Termine, Preis und Anzahl Plätze.',
+    sort: { field: 'start', dir: 'asc' },
+    per_page: 24,
+  },
+  {
     id: 'sections',
     name: 'Sektionen',
     singular: 'Sektion',
@@ -275,7 +371,8 @@ export const MODULES: ModuleDef[] = [
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
   { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
   { id: 'members', name: 'Mitglieder', description: 'Konten für Besucher:innen, Seiten und Beiträge nur für Mitglieder, bezahlte Mitgliedschaft im Abo über Stripe.', collections: [], status: 'ready' },
-  { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien, Check-in.', collections: [], status: 'later' },
+  { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien mit Kontingent, gratis oder über Stripe, Tickets mit QR-Code und Einlass-Scanner, Warteliste.', collections: ['events'], status: 'ready' },
+  { id: 'courses', name: 'Kurse', description: 'Kurse mit mehreren Terminen, Plätzen und Preisen, Anmeldung online, Teilnehmerliste und Warteliste.', collections: ['courses'], status: 'ready' },
 ];
 
 export interface SectorDef {
@@ -295,10 +392,10 @@ export const SECTORS: SectorDef[] = [
   { id: 'landing', name: 'Angebot mit Anfragen', hint: 'Eine Seite, die Anfragen sammelt', modules: ['leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'trade', name: 'Handwerk & KMU', hint: 'Leistungen, Referenzen, Offerten', modules: ['leads', 'portfolio'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'HomeAndConstructionBusiness' },
   { id: 'studio', name: 'Coiffeur, Kosmetik, Studio', hint: 'Preisliste, Team, Termine online', modules: ['booking', 'leads'], themes: ['salon', 'bistro', 'kante'], businessType: 'BeautySalon' },
-  { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Termine online, Anfahrt', modules: ['booking', 'leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
+  { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Termine online, Anfahrt', modules: ['booking', 'leads', 'courses'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
   { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
-  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter', 'members'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
+  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter', 'members', 'events'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
   { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
   { id: 'adult', name: 'Erotikbetrieb', hint: 'Bordell, Studio, Agentur – mit Altersschranke', modules: ['profiles', 'leads'], themes: ['salon', 'kante', 'feuilleton'], businessType: 'LocalBusiness' },
 ];

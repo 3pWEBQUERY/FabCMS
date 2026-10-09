@@ -27,6 +27,7 @@ import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/
 import { sql } from '../server/db';
 import { runtimeVersion } from './assets';
 import { accountLink, gate } from './members';
+import { eventCards, eventTemplate, upcoming } from './events';
 import { entryAccess, mayRead, type Access } from '../shared/members';
 
 export function createContext(input: {
@@ -244,6 +245,11 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     case 'projects':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
       main = await projectTemplate(ctx, c, e);
+      break;
+    case 'events':
+    case 'courses':
+      crumbs = [...listCrumb, { label: e.data.title, href: path }];
+      main = await eventTemplate(ctx, c, e, image);
       break;
     case 'profiles':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
@@ -481,6 +487,18 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
       .slice(0, 6)
       .map((i) => i.data.title)
       .join(', ')}.`;
+  } else if (c.id === 'events' || c.id === 'courses') {
+    const past = ctx.query.get('vergangen') === '1';
+    const items = await upcoming(c.id, ctx.settings.timezone, { past, category: category || undefined, limit: 200 });
+    const cats = await categoriesOf(c.id);
+    const filter =
+      cats.length > 1
+        ? html`<nav class="filters" aria-label="Nach Kategorie filtern"><a href="${c.list_route}" aria-current="${!category}">Alle</a>${cats.map(
+            (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${category.toLowerCase() === cat.toLowerCase()}">${cat}</a>`,
+          )}</nav>`
+        : '';
+    main = html`<div class="wrap art-head"><h1>${past ? `Vergangene ${c.name}` : c.name}</h1></div><section class="b sp-m"><div class="wrap">${filter}${await eventCards(ctx, c, items)}<p class="ev-more"><a class="btn-2" href="${c.list_route}${past ? '' : '?vergangen=1'}">${past ? `Kommende ${c.name}` : `Vergangene ${c.name}`}</a></p></div></section>`;
+    description = `${c.name} bei ${ctx.settings.name}${items[0] ? `: ${items.slice(0, 3).map((i) => i.data.title).join(', ')}` : ''}.`;
   } else {
     let { items, total } = await publishedEntries(c, { limit: tag ? 500 : perPage, offset: tag ? 0 : (page - 1) * perPage, category: category || undefined });
     if (tag) {

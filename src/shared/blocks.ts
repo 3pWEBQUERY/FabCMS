@@ -603,6 +603,33 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'events',
+    label: 'Events & Kurse',
+    description: 'Die nächsten Anlässe oder Kurse mit Datum, Ort und freien Plätzen.',
+    icon: 'ticket',
+    category: 'collections',
+    module: 'events',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+      {
+        key: 'source',
+        type: 'select',
+        label: 'Was zeigen?',
+        options: [
+          { value: 'events', label: 'Events' },
+          { value: 'courses', label: 'Kurse' },
+        ],
+        default: 'events',
+      },
+      { key: 'count', type: 'number', label: 'Wie viele?', min: 1, max: 24, default: 4 },
+      { key: 'category', type: 'text', label: 'Nur diese Kategorie', pro: true },
+    ],
+    defaults: { heading: 'Demnächst', intro: '', source: 'events', count: 4, category: '' },
+    text: (p) => sentences(p.heading, p.intro),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'membership',
     label: 'Mitgliedschaft',
     description: 'Was die Mitgliedschaft kostet und bringt – mit dem passenden nächsten Schritt.',

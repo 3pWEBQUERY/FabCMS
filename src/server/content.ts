@@ -238,6 +238,11 @@ export function sanitizeEntryData(c: CollectionDef, data: Record<string, unknown
   // Drop keys the collection doesn't know (keeps exports clean).
   const allowed = new Set([...c.fields.map((f) => f.key), 'title', 'blocks', 'seo']);
   for (const k of Object.keys(out)) if (!allowed.has(k)) delete out[k];
+  // Courses sort and filter by their first date, like events by `start`.
+  if (c.id === 'courses') {
+    const starts = ((out.sessions as { start?: string }[] | undefined) ?? []).map((x) => x.start).filter((x): x is string => typeof x === 'string' && x !== '');
+    out.start = starts.sort()[0] ?? null;
+  }
   return out;
 }
 

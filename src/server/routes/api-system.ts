@@ -454,7 +454,9 @@ export function systemApi(app: Hono<AppEnv>) {
     const bookings = await sql`select id, starts_at, party_size, name, email, phone, note, status, created_at from bookings where lower(email) = ${e}`;
     const subscribers = await sql`select id, email, name, status, source, ip, created_at, confirmed_at, unsubscribed_at from subscribers where lower(email) = ${e}`;
     const members = await sql`select id, email, name, status, email_verified_at, paid_until, subscription_status, created_at, last_login_at from members where lower(email) = ${e}`;
-    return { contacts, submissions, orders, comments, users, bookings, subscribers, members };
+    const ticketOrders = await sql`select id, entry_title, name, email, phone, items, total, status, created_at from ticket_orders where lower(email) = ${e}`;
+    const waitlist = await sql`select id, entry_id, name, email, created_at from ticket_waitlist where lower(email) = ${e}`;
+    return { contacts, submissions, orders, comments, users, bookings, subscribers, members, ticketOrders, waitlist };
   }
 
   app.get('/api/privacy', async (c) => {
@@ -480,6 +482,12 @@ export function systemApi(app: Hono<AppEnv>) {
       await tx`delete from contacts where id = any(${d.contacts.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from comments where id = any(${d.comments.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from subscribers where id = any(${d.subscribers.map((s) => s.id as string)}::uuid[])`;
+      await tx`delete from ticket_waitlist where id = any(${d.waitlist.map((s) => s.id as string)}::uuid[])`;
+      // Paid tickets are accounting records: anonymise. Free ones go.
+      await tx`delete from ticket_orders where id = any(${d.ticketOrders.filter((o) => !o.total).map((s) => s.id as string)}::uuid[])`;
+      await tx`
+        update ticket_orders set name = 'Gelöscht', email = ${'geloescht-' + shortId(6) + '@invalid'}, phone = ''
+        where id = any(${d.ticketOrders.filter((o) => o.total).map((s) => s.id as string)}::uuid[])`;
       // Bookings stay as occupied time in the plan, without the person.
       await tx`
         update bookings set name = 'Gelöscht', email = '', phone = '', note = '', internal_note = ''

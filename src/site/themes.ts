@@ -479,6 +479,59 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.4;cursor:not-a
 .sys-msg h1{font-size:var(--step-5);margin:0}
 .sys-msg p{margin:0}
 .sys-msg form{margin-top:.5rem}
+/* events & courses */
+.ev-list{list-style:none;margin:0;padding:0;display:grid;border-top:1px solid var(--line)}
+.ev-list li{border-bottom:1px solid var(--line)}
+.ev-card{display:grid;grid-template-columns:4.25rem minmax(0,1fr) auto;gap:1.25rem;align-items:start;padding:1.25rem 0;text-decoration:none;color:inherit}
+.ev-card:hover .ev-title{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.2em}
+.ev-card.is-off .ev-title{text-decoration:line-through;text-decoration-color:var(--ink-2)}
+.ev-date{display:grid;justify-items:center;padding:.5rem 0;border:1px solid var(--line);border-radius:var(--img-radius,0);line-height:1}
+.ev-date b{font-family:var(--font-display);font-size:var(--step-3);font-weight:var(--display-weight)}
+.ev-date span{font-size:var(--step-n1);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin-top:.3rem}
+.ev-main{display:grid;gap:.3rem;min-width:0}
+.ev-title{font-family:var(--font-display);font-size:var(--step-2);line-height:1.2}
+.ev-meta{color:var(--ink-2);font-size:var(--step-n1)}
+.ev-excerpt{color:var(--ink-2);max-width:60ch}
+.ev-tag{align-self:center;white-space:nowrap;padding:.25em .7em;border:1px solid var(--line);border-radius:99px;font-size:var(--step-n1);font-weight:600;color:var(--ink-2)}
+.ev-tag.hot{border-color:var(--accent);color:var(--accent)}
+.ev-tag.bad{border-color:#b3261e;color:color-mix(in srgb,#d0342c 75%,var(--ink))}
+.ev-more{margin:1.5rem 0 0}
+@media (max-width:560px){.ev-card{grid-template-columns:3.5rem minmax(0,1fr)}.ev-tag{grid-column:2;justify-self:start}}
+.ev-facts{display:grid;gap:.85rem;margin:1.5rem 0 0;padding:1.25rem 0;border-block:1px solid var(--line);max-width:44rem}
+.ev-facts div{display:grid;grid-template-columns:7rem 1fr;gap:1rem}
+.ev-facts dt{font-weight:600;font-size:var(--step-n1);color:var(--ink-2);padding-top:.15em}
+.ev-facts dd{margin:0}
+.ev-sessions{margin:0;padding-left:1.2rem;display:grid;gap:.25rem}
+.ev-price{display:block}
+@media (max-width:560px){.ev-facts div{grid-template-columns:1fr;gap:.2rem}}
+.tk{display:grid;gap:1.25rem;max-width:44rem;padding-block:var(--s-6) var(--sp-s)}
+.tk h2{font-size:var(--step-3);margin:0}
+.tk-rows{display:grid;border-top:1px solid var(--line)}
+.tk-row{display:grid;grid-template-columns:minmax(0,1fr) auto 5.5rem;gap:1rem;align-items:center;padding:.9rem 0;border-bottom:1px solid var(--line)}
+.tk-row.is-off{color:var(--ink-2)}
+.tk-name{display:grid;gap:.15rem;font-weight:400}
+.tk-name span{font-size:var(--step-n1);color:var(--ink-2)}
+.tk-name .tk-left{color:var(--accent);font-weight:600}
+.tk-row.is-off .tk-left{color:var(--ink-2)}
+.tk-price{font-weight:600}
+.tk-qty{width:100%}
+.tk-person{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:560px){.tk-person{grid-template-columns:1fr}.tk-row{grid-template-columns:minmax(0,1fr) 5rem}.tk-price{grid-column:1;grid-row:2;font-size:var(--step-n1)}.tk-qty{grid-row:1/3;grid-column:2}}
+.tk-submit{display:grid;gap:.6rem;justify-items:start}
+.tk-submit p{margin:0;font-size:var(--step-n1)}
+.tk-page{display:grid;gap:1.25rem;max-width:44rem;padding-block:var(--sp-s)}
+.tk-page h1{font-size:var(--step-5);margin:0}
+.tk-page .lead{margin:0}
+.tk-tickets{list-style:none;margin:0;padding:0;display:grid;gap:1rem}
+.tk-ticket{display:grid;grid-template-columns:9rem 1fr;gap:1.5rem;align-items:center;padding:1.25rem;border:1px dashed var(--line);border-radius:var(--img-radius,0);background:var(--surface);break-inside:avoid}
+.tk-ticket.used{opacity:.6}
+.tk-qr{background:#fff;padding:.6rem;border-radius:4px;line-height:0}
+.tk-qr svg{width:100%;height:auto}
+.tk-info{display:grid;gap:.3rem}
+.tk-info strong{font-size:var(--step-1)}
+.tk-code{font-family:var(--font-mono,ui-monospace,monospace);font-size:var(--step-1);letter-spacing:.12em}
+@media (max-width:480px){.tk-ticket{grid-template-columns:1fr;justify-items:center;text-align:center}.tk-qr{width:min(14rem,100%)}}
+@media print{.tk-ticket{border-color:#999;background:#fff}}
 /* member area */
 .acct-link{text-decoration:none;font-weight:600;white-space:nowrap}
 .nav .acct-link{align-self:center}

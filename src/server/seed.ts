@@ -421,6 +421,7 @@ function practice(): Seed {
           { q: 'Was muss ich mitbringen?', a: '<p>Die Verordnung, bequeme Kleidung und ein Handtuch.</p>' },
         ],
       }),
+      b('events', { heading: 'Kurse in der Praxis', intro: 'In kleinen Gruppen, von unseren Therapeut:innen geleitet.', source: 'courses', count: 3 }),
       b('hours'),
       b('contact', { heading: 'Praxis', showHours: false }),
     ],
@@ -430,10 +431,27 @@ function practice(): Seed {
     ],
     nav: [
       { id: shortId(), label: 'Termin', href: '/termin' },
+      { id: shortId(), label: 'Kurse', href: '/kurse' },
       { id: shortId(), label: 'Kontakt', href: '/kontakt' },
     ],
     forms: [contactForm],
-    entries: [],
+    entries: [
+      {
+        collection: 'courses',
+        data: {
+          title: 'Rückenfit',
+          excerpt: 'Sechs Abende für einen starken Rücken: Kräftigung, Mobilisation und Übungen für zu Hause.',
+          sessions: weekly(14, '18:30', '19:30', 6),
+          level: 'Alle Niveaus',
+          instructor: 'Sandra Keller',
+          venue: 'Trainingsraum der Praxis',
+          category: 'Prävention',
+          tickets: [{ name: 'Teilnahme', price: 24000, capacity: 8, note: 'Von vielen Zusatzversicherungen mitfinanziert' }],
+          waitlist: true,
+          blocks: [b('text', { heading: '', body: '<p>Bitte bequeme Kleidung und ein Handtuch mitbringen. Matten sind vorhanden.</p>' })],
+        },
+      },
+    ],
     booking: {
       mode: 'appointment',
       services: [
@@ -518,6 +536,13 @@ function hotel(): Seed {
   };
 }
 
+/** «2026-11-02T18:30» in n days, for seeded dates that are always in the future. */
+function localDate(days: number, time: string): string {
+  return `${new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)}T${time}`;
+}
+const weekly = (startDays: number, from: string, to: string, count: number) =>
+  Array.from({ length: count }, (_, i) => ({ start: localDate(startDays + i * 7, from), end: localDate(startDays + i * 7, to) }));
+
 function club(): Seed {
   return {
     tagline: 'Gemeinsam laufen seit 1972',
@@ -525,6 +550,7 @@ function club(): Seed {
     footer: 'Training jeden Dienstag und Donnerstag, 18:30 beim Schulhaus.',
     home: [
       b('hero', { variant: 'statement', eyebrow: 'Laufverein', title: 'Gemeinsam laufen. Bei jedem Wetter, in jedem Tempo.', text: 'Dienstag und Donnerstag um 18:30 beim Schulhaus. Probetraining jederzeit – einfach vorbeikommen.', primary: { label: 'Mitglied werden', href: '/mitmachen' } }),
+      b('events', { heading: 'Nächste Anlässe', source: 'events', count: 3 }),
       b('posts', { heading: 'Aus dem Verein', count: 3, layout: 'list' }),
       b('stats', { items: [{ value: '1972', label: 'gegründet' }, { value: '86', label: 'Mitglieder' }, { value: '2×', label: 'Training pro Woche' }] }),
       b('cta', { heading: 'Mitlaufen?', text: 'Jahresbeitrag CHF 60, Jugendliche gratis.', primary: { label: 'Mitglied werden', href: '/mitmachen' } }, { tone: 'muted' }),
@@ -544,11 +570,35 @@ function club(): Seed {
     ],
     nav: [
       { id: shortId(), label: 'Neuigkeiten', href: '/journal' },
+      { id: shortId(), label: 'Anlässe', href: '/events' },
       { id: shortId(), label: 'Mitmachen', href: '/mitmachen' },
       { id: shortId(), label: 'Kontakt', href: '/kontakt' },
     ],
     forms: [contactForm, { key: 'beitritt', name: 'Beitritt', submit: 'Anmelden', success: 'Willkommen! Wir melden uns mit allen Infos.', fields: [f('text', 'Name', true), f('email', 'E-Mail', true), f('date', 'Geburtsdatum', true), f('checkbox', 'Ich möchte den Newsletter erhalten')] }],
-    entries: [{ collection: 'posts', data: { title: 'Rückblick: Greifenseelauf', excerpt: '23 von uns am Start, 23 im Ziel.', category: 'Vereinsleben', date: new Date().toISOString().slice(0, 10), blocks: [b('text', { heading: '', body: '<p>Schreib hier über euer letztes Rennen, den Vereinsausflug oder die Generalversammlung.</p>' })] } }],
+    entries: [
+      {
+        collection: 'events',
+        data: {
+          title: 'Herbstlauf rund um den Weiher',
+          excerpt: '5 oder 10 Kilometer, für alle offen. Mit Zielverpflegung und Kuchenbuffet.',
+          start: localDate(24, '10:00'),
+          end: localDate(24, '13:00'),
+          venue: 'Start beim Schulhaus',
+          category: 'Lauf',
+          tickets: [
+            { name: 'Erwachsene', price: 2500, capacity: 150, note: 'inkl. Zielverpflegung' },
+            { name: 'Jugendliche bis 16', price: null, capacity: 50, note: 'gratis' },
+          ],
+          waitlist: true,
+          blocks: [b('text', { heading: 'Ablauf', body: '<p>Startnummernausgabe ab 9 Uhr. Garderoben und Duschen in der Turnhalle.</p>' })],
+        },
+      },
+      {
+        collection: 'events',
+        data: { title: 'Generalversammlung', excerpt: 'Jahresbericht, Wahlen, anschliessend Apéro.', start: localDate(45, '19:30'), venue: 'Restaurant Rössli', category: 'Verein', blocks: [] },
+      },
+      { collection: 'posts', data: { title: 'Rückblick: Greifenseelauf', excerpt: '23 von uns am Start, 23 im Ziel.', category: 'Vereinsleben', date: new Date().toISOString().slice(0, 10), blocks: [b('text', { heading: '', body: '<p>Schreib hier über euer letztes Rennen, den Vereinsausflug oder die Generalversammlung.</p>' })] } },
+    ],
   };
 }
 

@@ -29,12 +29,14 @@ const Stats = lazy(() => import('../views/Stats').then((m) => ({ default: m.Stat
 const Bookings = lazy(() => import('../views/Bookings').then((m) => ({ default: m.Bookings })));
 const Newsletter = lazy(() => import('../views/Newsletter').then((m) => ({ default: m.Newsletter })));
 const Members = lazy(() => import('../views/Members').then((m) => ({ default: m.Members })));
+const Tickets = lazy(() => import('../views/Tickets').then((m) => ({ default: m.Tickets })));
+const CheckIn = lazy(() => import('../views/CheckIn').then((m) => ({ default: m.CheckIn })));
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
 
 const LEVELS = [
   { to: '/seiten', label: 'Seiten', icon: 'page', match: ['/seiten'] },
-  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder'] },
+  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder', '/tickets', '/einlass'] },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings', match: ['/einstellungen', '/konto'] },
 ];
 
@@ -154,6 +156,8 @@ export function Shell() {
                 { path: '/reservationen', render: () => <Bookings /> },
                 { path: '/newsletter', render: () => <Newsletter /> },
                 { path: '/mitglieder', render: () => <Members /> },
+                { path: '/tickets', render: () => <Tickets /> },
+                { path: '/einlass', render: () => <CheckIn /> },
                 { path: '/kommentare', render: () => <Comments /> },
                 { path: '/einstellungen', render: () => <Settings section="website" /> },
                 { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },

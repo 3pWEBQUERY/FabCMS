@@ -15,6 +15,7 @@ import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { entryAccess } from '../shared/members';
 import { membershipBox } from './members';
+import { eventCards, upcoming } from './events';
 import { env } from '../server/env';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
@@ -511,6 +512,18 @@ const R: Record<string, Renderer> = {
       <button class="btn" type="submit">${p.button || 'Anmelden'}</button>
     </form>
     <p class="nl-note">Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit. <a href="/datenschutz">Datenschutz</a></p>`
+    }</div>`;
+  },
+
+  async events(b, ctx) {
+    const p = b.props as P;
+    const source = p.source === 'courses' ? 'courses' : 'events';
+    const head = heading(ctx, p, 'heading', 'intro');
+    const col = ctx.collections.find((c) => c.id === source);
+    if (!col) return html`<div class="wrap">${head}${empty(ctx, `Aktiviere «${source === 'courses' ? 'Kurse' : 'Events & Tickets'}» unter Einstellungen → Module.`)}</div>`;
+    const items = await upcoming(source, ctx.settings.timezone, { limit: Math.min(24, Number(p.count) || 4), category: (p.category as string) || undefined });
+    return html`<div class="wrap">${head}${await eventCards(ctx, col, items)}${
+      col.list_route ? html`<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle ${col.name}</a></p>` : ''
     }</div>`;
   },
 
