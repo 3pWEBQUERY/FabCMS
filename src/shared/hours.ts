@@ -1,7 +1,24 @@
 import type { OpeningHoursDay } from './types';
+import type { Lang } from './i18n';
 
 export const DAY_NAMES = ['', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 export const DAY_SHORT = ['', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+/** Day names per language, index 1 = Monday. */
+export const DAYS: Record<Lang, { long: string[]; short: string[] }> = {
+  de: { long: DAY_NAMES, short: DAY_SHORT },
+  fr: { long: ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'], short: ['', 'lu', 'ma', 'me', 'je', 've', 'sa', 'di'] },
+  it: { long: ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'], short: ['', 'lu', 'ma', 'me', 'gi', 've', 'sa', 'do'] },
+  en: { long: ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], short: ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+};
+
+const PHRASES: Record<Lang, { closed: string; closedCap: string; openUntil: string; opensToday: string; opensTomorrow: string; opensOn: string }> = {
+  de: { closed: 'geschlossen', closedCap: 'Geschlossen', openUntil: 'Jetzt geöffnet – bis {t}', opensToday: 'Geschlossen – öffnet heute um {t}', opensTomorrow: 'Geschlossen – öffnet morgen um {t}', opensOn: 'Geschlossen – öffnet am {d} um {t}' },
+  fr: { closed: 'fermé', closedCap: 'Fermé', openUntil: 'Ouvert maintenant – jusqu’à {t}', opensToday: 'Fermé – ouvre aujourd’hui à {t}', opensTomorrow: 'Fermé – ouvre demain à {t}', opensOn: 'Fermé – ouvre {d} à {t}' },
+  it: { closed: 'chiuso', closedCap: 'Chiuso', openUntil: 'Aperto ora – fino alle {t}', opensToday: 'Chiuso – apre oggi alle {t}', opensTomorrow: 'Chiuso – apre domani alle {t}', opensOn: 'Chiuso – apre {d} alle {t}' },
+  en: { closed: 'closed', closedCap: 'Closed', openUntil: 'Open now – until {t}', opensToday: 'Closed – opens today at {t}', opensTomorrow: 'Closed – opens tomorrow at {t}', opensOn: 'Closed – opens {d} at {t}' },
+};
+const fill = (s: string, v: Record<string, string>) => s.replace(/\{(\w)\}/g, (_, k: string) => v[k] ?? '');
 const SCHEMA_DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /** Day (1–7, Monday first) and minutes since midnight in the site's time zone. */
@@ -17,8 +34,8 @@ const toMin = (t: string) => {
   return h * 60 + (m || 0);
 };
 
-export function formatSlots(d: OpeningHoursDay | undefined): string {
-  if (!d || d.closed || !d.slots.length) return 'geschlossen';
+export function formatSlots(d: OpeningHoursDay | undefined, lang: Lang = 'de'): string {
+  if (!d || d.closed || !d.slots.length) return PHRASES[lang].closed;
   return d.slots.map((s) => `${s.from}–${s.to}`).join(', ');
 }
 
@@ -27,8 +44,9 @@ export interface OpenStatus {
   label: string;
 }
 
-export function openStatus(hours: OpeningHoursDay[], timezone: string, now = new Date()): OpenStatus | null {
+export function openStatus(hours: OpeningHoursDay[], timezone: string, now = new Date(), lang: Lang = 'de'): OpenStatus | null {
   if (!hours?.length) return null;
+  const p = PHRASES[lang];
   const { day, minutes } = zonedNow(timezone, now);
   const today = hours.find((h) => h.day === day);
   if (today && !today.closed) {
@@ -36,32 +54,34 @@ export function openStatus(hours: OpeningHoursDay[], timezone: string, now = new
       const from = toMin(s.from);
       let to = toMin(s.to);
       if (to <= from) to += 24 * 60;
-      if (minutes >= from && minutes < to) return { open: true, label: `Jetzt geöffnet – bis ${s.to}` };
-      if (minutes < from) return { open: false, label: `Geschlossen – öffnet heute um ${s.from}` };
+      if (minutes >= from && minutes < to) return { open: true, label: fill(p.openUntil, { t: s.to }) };
+      if (minutes < from) return { open: false, label: fill(p.opensToday, { t: s.from }) };
     }
   }
   for (let i = 1; i <= 7; i++) {
     const d = ((day - 1 + i) % 7) + 1;
     const next = hours.find((h) => h.day === d);
     if (next && !next.closed && next.slots.length) {
-      const when = i === 1 ? 'morgen' : `am ${DAY_NAMES[d]}`;
-      return { open: false, label: `Geschlossen – öffnet ${when} um ${next.slots[0].from}` };
+      const t = next.slots[0].from;
+      return { open: false, label: i === 1 ? fill(p.opensTomorrow, { t }) : fill(p.opensOn, { d: DAYS[lang].long[d], t }) };
     }
   }
-  return { open: false, label: 'Geschlossen' };
+  return { open: false, label: p.closedCap };
 }
 
 /** Groups consecutive days with identical hours: "Mo–Fr 09:00–18:00". */
-export function compactHours(hours: OpeningHoursDay[]): { days: string; time: string }[] {
+export function compactHours(hours: OpeningHoursDay[], lang: Lang = 'de'): { days: string; time: string }[] {
+  const short = DAYS[lang].short;
   const sorted = [...hours].sort((a, b) => a.day - b.day);
   const out: { from: number; to: number; time: string }[] = [];
   for (const h of sorted) {
-    const time = formatSlots(h);
+    const time = formatSlots(h, lang);
     const last = out[out.length - 1];
     if (last && last.time === time && last.to === h.day - 1) last.to = h.day;
     else out.push({ from: h.day, to: h.day, time });
   }
-  return out.map((g) => ({ days: g.from === g.to ? DAY_SHORT[g.from] : `${DAY_SHORT[g.from]}–${DAY_SHORT[g.to]}`, time: g.time }));
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  return out.map((g) => ({ days: g.from === g.to ? cap(short[g.from]) : `${cap(short[g.from])}–${cap(short[g.to])}`, time: g.time }));
 }
 
 export function schemaOpeningHours(hours: OpeningHoursDay[]) {

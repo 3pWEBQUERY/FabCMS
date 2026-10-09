@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { sql, json } from './db';
 import { DEFAULT_ROLE_MODES } from '../shared/roles';
 import type { SiteSettings } from '../shared/types';
+import { defaultLang, type Lang } from '../shared/i18n';
 
 export function defaultSettings(): SiteSettings {
   const weekday = (day: number) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] });
@@ -116,11 +117,16 @@ function deepMerge<T>(base: T, patch: unknown): T {
   return out as T;
 }
 
+let main: Lang = 'de';
+/** Main language of the site, synchronously (known after the first getSettings). */
+export const mainLang = () => main;
+
 export async function getSettings(): Promise<SiteSettings> {
   if (cache) return cache;
   const [row] = await sql`select value from settings where key = 'site'`;
   // Merge onto defaults so new settings keys appear after an update.
   cache = deepMerge(defaultSettings(), row?.value ?? {});
+  main = defaultLang(cache);
   if (!row) await sql`insert into settings (key, value) values ('site', ${json(cache)}) on conflict do nothing`;
   return cache;
 }
@@ -131,6 +137,7 @@ export async function updateSettings(patch: Partial<SiteSettings> | Record<strin
     insert into settings (key, value) values ('site', ${json(next)})
     on conflict (key) do update set value = excluded.value, updated_at = now()`;
   cache = next;
+  main = defaultLang(next);
   bumpGeneration();
   return next;
 }

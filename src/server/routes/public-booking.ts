@@ -11,6 +11,7 @@ import { BOOKING_STATUS } from '../../shared/booking';
 import { formatMoney } from '../../shared/text';
 import { bookingByToken, cancelByGuest, createBooking, depositCheckoutUrl, formatWhen, guestIcs, staffFeed } from '../booking';
 import { ctxFor, looksLikeSpam, notFoundPage, sendHtml } from './public';
+import { t, T } from '../../site/i18n';
 
 /** Booking on the website: the block's form posts here; guests manage their booking via a private link. */
 export function bookingPublicRoutes(app: Hono<AppEnv>) {
@@ -25,7 +26,7 @@ export function bookingPublicRoutes(app: Hono<AppEnv>) {
       return c.redirect(`${u.pathname}${u.search}#buchen`, 303);
     };
     if (looksLikeSpam(body)) return c.redirect(back, 303);
-    if (!rateLimit(`booking:${clientIp(c)}`, 6, 10 * 60_000).ok) return fail('Zu viele Versuche. Bitte warte ein paar Minuten.');
+    if (!rateLimit(`booking:${clientIp(c)}`, 6, 10 * 60_000).ok) return fail(T('Zu viele Versuche. Bitte warte ein paar Minuten.'));
     try {
       const b = await createBooking({
         serviceId: body.service,
@@ -78,53 +79,54 @@ export function bookingPublicRoutes(app: Hono<AppEnv>) {
     if (!b) return notFoundPage(c);
     const q = c.req.query();
     const ctx = await ctxFor(c);
-    const status = BOOKING_STATUS[b.status] ?? { label: b.status, tone: 'muted' };
+    const status = BOOKING_STATUS[b.status] ? { ...BOOKING_STATUS[b.status], label: t(ctx, BOOKING_STATUS[b.status].label) } : { label: b.status, tone: 'muted' };
     const active = ['pending', 'awaiting_payment', 'confirmed'].includes(b.status);
     const future = new Date(b.starts_at).getTime() > Date.now();
-    const what = s.booking.mode === 'table' ? `${b.party_size} ${b.party_size === 1 ? 'Person' : 'Personen'}` : (b.service_name ?? 'Termin');
+    const what =
+      s.booking.mode === 'table' ? (b.party_size === 1 ? t(ctx, '{n} Person', { n: b.party_size }) : t(ctx, '{n} Personen', { n: b.party_size })) : (b.service_name ?? t(ctx, 'Termin'));
     const message = q.neu
       ? b.status === 'pending'
-        ? 'Danke! Deine Anfrage ist da. Wir bestätigen sie so bald wie möglich per E-Mail.'
-        : 'Danke! Deine Reservation ist bestätigt. Die Bestätigung kommt auch per E-Mail.'
+        ? t(ctx, 'Danke! Deine Anfrage ist da. Wir bestätigen sie so bald wie möglich per E-Mail.')
+        : t(ctx, 'Danke! Deine Reservation ist bestätigt. Die Bestätigung kommt auch per E-Mail.')
       : q.bezahlt
-        ? 'Danke für die Anzahlung. Deine Reservation ist gesichert.'
+        ? t(ctx, 'Danke für die Anzahlung. Deine Reservation ist gesichert.')
         : q.abgesagt
-          ? 'Deine Reservation ist abgesagt. Schade – vielleicht ein anderes Mal.'
+          ? t(ctx, 'Deine Reservation ist abgesagt. Schade – vielleicht ein anderes Mal.')
           : q.abgebrochen
-            ? 'Die Zahlung wurde abgebrochen. Ohne Anzahlung wird die Zeit nach 30 Minuten wieder freigegeben.'
+            ? t(ctx, 'Die Zahlung wurde abgebrochen. Ohne Anzahlung wird die Zeit nach 30 Minuten wieder freigegeben.')
             : (q.hinweis ?? '');
     const body = html`<div class="wrap booking-page" style="padding-block:var(--sp-s);max-width:40rem">
-      <p class="label">${s.booking.mode === 'table' ? 'Reservation' : 'Termin'}</p>
-      <h1 style="font-size:var(--step-5);margin:.5rem 0 1.5rem">${formatWhen(b.starts_at, s)}</h1>
+      <p class="label">${s.booking.mode === 'table' ? t(ctx, 'Reservation') : t(ctx, 'Termin')}</p>
+      <h1 style="font-size:var(--step-5);margin:.5rem 0 1.5rem">${formatWhen(b.starts_at, s, ctx.lang)}</h1>
       ${message ? html`<p class="${q.abgebrochen || q.hinweis ? 'form-err' : 'form-ok'}" role="status">${message}</p>` : ''}
       <dl class="booking-facts">
-        <div><dt>Was</dt><dd>${what}</dd></div>
-        <div><dt>Name</dt><dd>${b.name}</dd></div>
-        <div><dt>Status</dt><dd><span class="bk-status ${status.tone}">${status.label}</span></dd></div>
-        ${b.note ? html`<div><dt>Bemerkung</dt><dd>${b.note}</dd></div>` : ''}
-        ${s.business.street ? html`<div><dt>Wo</dt><dd>${s.name}, ${s.business.street}, ${s.business.zip} ${s.business.city}</dd></div>` : ''}
+        <div><dt>${t(ctx, 'Was')}</dt><dd>${what}</dd></div>
+        <div><dt>${t(ctx, 'Name')}</dt><dd>${b.name}</dd></div>
+        <div><dt>${t(ctx, 'Status')}</dt><dd><span class="bk-status ${status.tone}">${status.label}</span></dd></div>
+        ${b.note ? html`<div><dt>${t(ctx, 'Bemerkung')}</dt><dd>${b.note}</dd></div>` : ''}
+        ${s.business.street ? html`<div><dt>${t(ctx, 'Wo')}</dt><dd>${s.name}, ${s.business.street}, ${s.business.zip} ${s.business.city}</dd></div>` : ''}
       </dl>
       ${
         b.status === 'awaiting_payment' && env.stripe.secretKey
-          ? html`<p><a class="btn" href="/buchung/${b.token}/anzahlung">Anzahlung ${formatMoney(b.deposit, s.shop.currency)} bezahlen</a></p>`
+          ? html`<p><a class="btn" href="/buchung/${b.token}/anzahlung">${t(ctx, 'Anzahlung {amount} bezahlen', { amount: formatMoney(b.deposit, s.shop.currency) })}</a></p>`
           : ''
       }
       ${
         active && future
-          ? html`<div class="actions"><a class="btn-2" href="/buchung/${b.token}.ics">In den Kalender eintragen</a>${
+          ? html`<div class="actions"><a class="btn-2" href="/buchung/${b.token}.ics">${t(ctx, 'In den Kalender eintragen')}</a>${
               q.absagen
                 ? ''
-                : html`<a class="btn-2 bk-cancel" href="/buchung/${b.token}?absagen=1#absagen">Absagen</a>`
+                : html`<a class="btn-2 bk-cancel" href="/buchung/${b.token}?absagen=1#absagen">${t(ctx, 'Absagen')}</a>`
             }</div>${
               q.absagen
-                ? html`<form class="bk-confirm" id="absagen" method="post" action="/buchung/${b.token}/absagen"><p>Wirklich absagen? Die Zeit wird dann für andere frei.</p><div class="actions"><button class="btn">Ja, absagen</button><a class="btn-2" href="/buchung/${b.token}">Nein, behalten</a></div></form>`
+                ? html`<form class="bk-confirm" id="absagen" method="post" action="/buchung/${b.token}/absagen"><p>${t(ctx, 'Wirklich absagen? Die Zeit wird dann für andere frei.')}</p><div class="actions"><button class="btn">${t(ctx, 'Ja, absagen')}</button><a class="btn-2" href="/buchung/${b.token}">${t(ctx, 'Nein, behalten')}</a></div></form>`
                 : ''
             }`
           : ''
       }
-      ${s.business.phone ? html`<p class="muted" style="margin-top:2rem">Fragen? <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}
+      ${s.business.phone ? html`<p class="muted" style="margin-top:2rem">${t(ctx, 'Fragen?')} <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}
     </div>`;
     c.header('Cache-Control', 'no-store');
-    return sendHtml(c, await renderSystemPage(ctx, { title: 'Deine Reservation', body, noindex: true }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Deine Reservation'), body, noindex: true }));
   });
 }

@@ -11,6 +11,7 @@ import { formatMoney } from '../../shared/text';
 import { ticketCategories } from '../../shared/events';
 import { createTicketOrder, describeWhen, entryIcs, joinWaitlist, orderByToken, ticketCheckoutUrl, ticketEntry, ticketQr, ticketsOf } from '../tickets';
 import { ctxFor, looksLikeSpam, notFoundPage, sendHtml } from './public';
+import { T } from '../../site/i18n';
 
 /** Ticket order form target, waitlist, the buyer's ticket page with QR codes, calendar file. */
 export function ticketsPublicRoutes(app: Hono<AppEnv>) {
@@ -24,7 +25,7 @@ export function ticketsPublicRoutes(app: Hono<AppEnv>) {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const page = String(body._back ?? '/');
     if (looksLikeSpam(body)) return back(c, page, {});
-    if (!rateLimit(`tickets:${clientIp(c)}`, 8, 10 * 60_000).ok) return back(c, page, { t_err: 'Zu viele Versuche. Bitte warte ein paar Minuten.' });
+    if (!rateLimit(`tickets:${clientIp(c)}`, 8, 10 * 60_000).ok) return back(c, page, { t_err: T('Zu viele Versuche. Bitte warte ein paar Minuten.') });
     const entry = await ticketEntry(c.req.param('entry'));
     if (!entry) return c.notFound();
     // Quantities come as q_0, q_1 … in the order of the categories.
@@ -44,7 +45,7 @@ export function ticketsPublicRoutes(app: Hono<AppEnv>) {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const page = String(body._back ?? '/');
     if (looksLikeSpam(body)) return back(c, page, { t_wait: '1' });
-    if (!rateLimit(`waitlist:${clientIp(c)}`, 5, 10 * 60_000).ok) return back(c, page, { t_err: 'Zu viele Versuche. Bitte warte ein paar Minuten.' });
+    if (!rateLimit(`waitlist:${clientIp(c)}`, 5, 10 * 60_000).ok) return back(c, page, { t_err: T('Zu viele Versuche. Bitte warte ein paar Minuten.') });
     try {
       await joinWaitlist(c.req.param('entry'), body.name ?? '', body.email ?? '');
       return back(c, page, { t_wait: '1' });
@@ -79,41 +80,41 @@ export function ticketsPublicRoutes(app: Hono<AppEnv>) {
     const where = entry ? [entry.data.venue, entry.data.address || [s.business.street, s.business.city].filter(Boolean).join(', ')].filter(Boolean).join(', ') : '';
     const message =
       o.status === 'cancelled'
-        ? html`<p class="form-err" role="status">${q.abgebrochen ? 'Die Zahlung wurde abgebrochen, die Plätze sind wieder frei.' : 'Diese Bestellung ist storniert.'}</p>`
+        ? html`<p class="form-err" role="status">${T(q.abgebrochen ? 'Die Zahlung wurde abgebrochen, die Plätze sind wieder frei.' : 'Diese Bestellung ist storniert.')}</p>`
         : o.status === 'pending'
           ? html`<p class="form-err" role="status">
-                ${q.abgebrochen ? 'Die Zahlung wurde abgebrochen.' : 'Die Zahlung ist noch offen.'} Die Plätze bleiben 30 Minuten für dich reserviert.
+                ${T(q.abgebrochen ? 'Die Zahlung wurde abgebrochen.' : 'Die Zahlung ist noch offen.')} ${T('Die Plätze bleiben 30 Minuten für dich reserviert.')}
               </p>
-              <p><a class="btn" href="/tickets/${o.token}/bezahlen">${formatMoney(o.total, o.currency)} bezahlen</a></p>`
+              <p><a class="btn" href="/tickets/${o.token}/bezahlen">${T('{amount} bezahlen', { amount: formatMoney(o.total, o.currency) })}</a></p>`
           : q.neu || q.bezahlt
             ? html`<p class="form-ok" role="status">
-                Danke! ${course ? 'Deine Anmeldung ist bestätigt.' : list.length === 1 ? 'Hier ist dein Ticket.' : 'Hier sind deine Tickets.'} Wir haben
-                ${list.length === 1 ? 'es' : 'sie'} dir auch per E-Mail geschickt.
+                ${T('Danke!')} ${T(course ? 'Deine Anmeldung ist bestätigt.' : list.length === 1 ? 'Hier ist dein Ticket.' : 'Hier sind deine Tickets.')}
+                ${T(list.length === 1 ? 'Wir haben es dir auch per E-Mail geschickt.' : 'Wir haben sie dir auch per E-Mail geschickt.')}
               </p>`
             : '';
     const qrs = o.status === 'paid' ? await Promise.all(list.map((t) => ticketQr(t.code as string, s))) : [];
     const body = html`<div class="wrap tk-page">
-      <p class="label">${course ? 'Anmeldung' : list.length === 1 ? 'Ticket' : 'Tickets'}</p>
+      <p class="label">${T(course ? 'Anmeldung' : list.length === 1 ? 'Ticket' : 'Tickets')}</p>
       <h1>${o.entry_title}</h1>
       ${when || where ? html`<p class="lead">${when}${when && where ? html`<br />` : ''}${where}</p>` : ''}${message}${o.status === 'paid'
         ? html`<ol class="tk-tickets">
               ${list.map(
                 (t, i) =>
                   html`<li class="tk-ticket${t.checked_in_at ? ' used' : ''}">
-                    <div class="tk-qr" role="img" aria-label="QR-Code für Ticket ${t.code as string}">${raw(qrs[i])}</div>
+                    <div class="tk-qr" role="img" aria-label="${T('QR-Code für Ticket {code}', { code: t.code as string })}">${raw(qrs[i])}</div>
                     <div class="tk-info">
                       <span class="label">${t.category as string}</span><strong>${o.name}</strong><span class="tk-code num">${t.code as string}</span>${t.checked_in_at
-                        ? html`<span class="muted">Eingelöst</span>`
-                        : ''}<span class="muted">${i + 1} von ${list.length}</span>
+                        ? html`<span class="muted">${T('Eingelöst')}</span>`
+                        : ''}<span class="muted">${T('{n} von {total}', { n: i + 1, total: list.length })}</span>
                     </div>
                   </li>`,
               )}
             </ol>
             <div class="actions no-print">
-              ${entry ? html`<a class="btn-2" href="/_nova/ics/${entry.id}.ics">In den Kalender</a>` : ''}<button class="btn-2" type="button" onclick="print()">Drucken</button>
+              ${entry ? html`<a class="btn-2" href="/_nova/ics/${entry.id}.ics">${T('In den Kalender')}</a>` : ''}<button class="btn-2" type="button" onclick="print()">${T('Drucken')}</button>
             </div>
-            <p class="muted no-print">Am Eingang den QR-Code zeigen – auf dem Handy oder ausgedruckt. ${o.total ? `Bezahlt: ${formatMoney(o.total, o.currency)}.` : ''}</p>`
-        : ''}${s.business.email ? html`<p class="muted no-print" style="margin-top:2rem">Fragen? <a href="mailto:${s.business.email}">${s.business.email}</a></p>` : ''}
+            <p class="muted no-print">${T('Am Eingang den QR-Code zeigen – auf dem Handy oder ausgedruckt.')} ${o.total ? T('Bezahlt: {amount}.', { amount: formatMoney(o.total, o.currency) }) : ''}</p>`
+        : ''}${s.business.email ? html`<p class="muted no-print" style="margin-top:2rem">${T('Fragen?')} <a href="mailto:${s.business.email}">${s.business.email}</a></p>` : ''}
     </div>`;
     c.header('Cache-Control', 'no-store');
     return sendHtml(c, await renderSystemPage(await ctxFor(c), { title: o.entry_title, body, noindex: true }));

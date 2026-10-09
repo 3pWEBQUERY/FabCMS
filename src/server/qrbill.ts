@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { html, raw, type Html } from '../site/html';
+import { T } from '../site/i18n';
 import { formatIban, formatReference, isQrIban, qrPayload, type QrAddress, type QrBillData } from '../shared/qrbill';
 import type { SiteSettings } from '../shared/types';
 
@@ -51,57 +52,57 @@ export function qrBillHtml(d: QrBillData): Html {
   const refType = isQrIban(d.iban) ? 'QRR' : 'SCOR';
   const ref = d.reference ? formatReference(refType, d.reference) : '';
   const account = html`${formatIban(d.iban)}<br />${addr(d.creditor)}`;
-  return html`<section class="qrb" aria-label="Zahlteil QR-Rechnung">
+  return html`<section class="qrb" aria-label="${T('Zahlteil QR-Rechnung')}">
     <div class="qrb-receipt">
-      <h2>Empfangsschein</h2>
+      <h2>${T('Empfangsschein')}</h2>
       <div class="qrb-info">
-        <h3>Konto / Zahlbar an</h3>
+        <h3>${T('Konto / Zahlbar an')}</h3>
         <p>${account}</p>
         ${ref
-          ? html`<h3>Referenz</h3>
+          ? html`<h3>${T('Referenz')}</h3>
               <p>${ref}</p>`
           : ''}
-        <h3>Zahlbar durch${d.debtor ? '' : ' (Name/Adresse)'}</h3>
+        <h3>${d.debtor ? T('Zahlbar durch') : T('Zahlbar durch (Name/Adresse)')}</h3>
         ${d.debtor ? html`<p>${addr(d.debtor)}</p>` : corners(52, 20)}
       </div>
       <div class="qrb-amount">
         <div>
-          <h3>Währung</h3>
+          <h3>${T('Währung')}</h3>
           <p>${d.currency}</p>
         </div>
         <div>
-          <h3>Betrag</h3>
+          <h3>${T('Betrag')}</h3>
           ${d.amount === null ? corners(30, 10) : html`<p>${amountText(d.amount)}</p>`}
         </div>
       </div>
-      <p class="qrb-accept">Annahmestelle</p>
+      <p class="qrb-accept">${T('Annahmestelle')}</p>
     </div>
     <div class="qrb-pay">
       <div class="qrb-left">
-        <h2>Zahlteil</h2>
+        <h2>${T('Zahlteil')}</h2>
         <div class="qrb-qr">${raw(qrSvg(payload))}</div>
         <div class="qrb-amount">
           <div>
-            <h3>Währung</h3>
+            <h3>${T('Währung')}</h3>
             <p>${d.currency}</p>
           </div>
           <div>
-            <h3>Betrag</h3>
+            <h3>${T('Betrag')}</h3>
             ${d.amount === null ? corners(40, 15) : html`<p>${amountText(d.amount)}</p>`}
           </div>
         </div>
       </div>
       <div class="qrb-info">
-        <h3>Konto / Zahlbar an</h3>
+        <h3>${T('Konto / Zahlbar an')}</h3>
         <p>${account}</p>
         ${ref
-          ? html`<h3>Referenz</h3>
+          ? html`<h3>${T('Referenz')}</h3>
               <p>${ref}</p>`
           : ''}${d.message
-          ? html`<h3>Zusätzliche Informationen</h3>
+          ? html`<h3>${T('Zusätzliche Informationen')}</h3>
               <p>${d.message}</p>`
           : ''}
-        <h3>Zahlbar durch${d.debtor ? '' : ' (Name/Adresse)'}</h3>
+        <h3>${d.debtor ? T('Zahlbar durch') : T('Zahlbar durch (Name/Adresse)')}</h3>
         ${d.debtor ? html`<p>${addr(d.debtor)}</p>` : corners(65, 25)}
       </div>
     </div>

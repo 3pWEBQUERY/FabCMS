@@ -140,17 +140,27 @@ export function formatPrice(cents: number): string {
   return rest === 0 ? `${francs}.–` : `${francs}.${String(rest).padStart(2, '0')}`;
 }
 
-export function relativeTime(iso: string | Date, now = new Date()): string {
+const RELATIVE: Record<Lang, { now: string; minute: string; minutes: string; hour: string; hours: string; yesterday: string; days: string; locale: string }> = {
+  de: { now: 'gerade eben', minute: 'vor einer Minute', minutes: 'vor {n} Minuten', hour: 'vor einer Stunde', hours: 'vor {n} Stunden', yesterday: 'gestern', days: 'vor {n} Tagen', locale: 'de-CH' },
+  fr: { now: 'à l’instant', minute: 'il y a une minute', minutes: 'il y a {n} minutes', hour: 'il y a une heure', hours: 'il y a {n} heures', yesterday: 'hier', days: 'il y a {n} jours', locale: 'fr-CH' },
+  it: { now: 'proprio ora', minute: 'un minuto fa', minutes: '{n} minuti fa', hour: 'un’ora fa', hours: '{n} ore fa', yesterday: 'ieri', days: '{n} giorni fa', locale: 'it-CH' },
+  en: { now: 'just now', minute: 'a minute ago', minutes: '{n} minutes ago', hour: 'an hour ago', hours: '{n} hours ago', yesterday: 'yesterday', days: '{n} days ago', locale: 'en' },
+};
+
+/** «vor 5 Minuten» – in German unless a language is given. */
+export function relativeTime(iso: string | Date, now = new Date(), lang: Lang = 'de'): string {
+  const p = RELATIVE[lang] ?? RELATIVE.de;
+  const n = (s: string, v: number) => s.replace('{n}', String(v));
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   const s = Math.round((now.getTime() - d.getTime()) / 1000);
-  if (s < 45) return 'gerade eben';
-  if (s < 90) return 'vor einer Minute';
+  if (s < 45) return p.now;
+  if (s < 90) return p.minute;
   const m = Math.round(s / 60);
-  if (m < 60) return `vor ${m} Minuten`;
+  if (m < 60) return n(p.minutes, m);
   const h = Math.round(m / 60);
-  if (h < 24) return h === 1 ? 'vor einer Stunde' : `vor ${h} Stunden`;
+  if (h < 24) return h === 1 ? p.hour : n(p.hours, h);
   const days = Math.round(h / 24);
-  if (days === 1) return 'gestern';
-  if (days < 7) return `vor ${days} Tagen`;
-  return d.toLocaleDateString('de-CH', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+  if (days === 1) return p.yesterday;
+  if (days < 7) return n(p.days, days);
+  return d.toLocaleDateString(p.locale, { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
 }

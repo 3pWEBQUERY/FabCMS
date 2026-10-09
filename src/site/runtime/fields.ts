@@ -8,6 +8,55 @@
 import { MONTHS, WEEKDAYS_SHORT, addDays, addMonths, formatDay, fromIsoDay, isoDay, longDay, monthGrid, parseDay } from '../../shared/dates';
 
 const d = document;
+
+/* ---------- language: German source, local dictionary (no server code in this bundle) ---------- */
+const LOC = d.documentElement.lang || 'de-CH';
+const LANG = LOC.slice(0, 2);
+const DICT: Record<string, Record<string, string>> = {
+  fr: {
+    'TT.MM.JJJJ': 'JJ.MM.AAAA',
+    'Datum wählen': 'Choisir une date',
+    'Vorheriger Monat': 'Mois précédent',
+    'Nächster Monat': 'Mois suivant',
+    Weniger: 'Diminuer',
+    Mehr: 'Augmenter',
+    'Dateien wählen': 'Choisir des fichiers',
+    'Datei wählen': 'Choisir un fichier',
+    'Keine Datei ausgewählt': 'Aucun fichier sélectionné',
+  },
+  it: {
+    'TT.MM.JJJJ': 'GG.MM.AAAA',
+    'Datum wählen': 'Scegli una data',
+    'Vorheriger Monat': 'Mese precedente',
+    'Nächster Monat': 'Mese successivo',
+    Weniger: 'Diminuisci',
+    Mehr: 'Aumenta',
+    'Dateien wählen': 'Scegli i file',
+    'Datei wählen': 'Scegli un file',
+    'Keine Datei ausgewählt': 'Nessun file selezionato',
+  },
+  en: {
+    'TT.MM.JJJJ': 'DD.MM.YYYY',
+    'Datum wählen': 'Choose a date',
+    'Vorheriger Monat': 'Previous month',
+    'Nächster Monat': 'Next month',
+    Weniger: 'Decrease',
+    Mehr: 'Increase',
+    'Dateien wählen': 'Choose files',
+    'Datei wählen': 'Choose file',
+    'Keine Datei ausgewählt': 'No file chosen',
+  },
+};
+const tx = (de: string) => DICT[LANG]?.[de] ?? de;
+const german = LANG === 'de';
+// Calendar names: the German arrays for German, Intl for the other languages (Monday first; 5 Jan 2026 is a Monday).
+const weekdays = german ? WEEKDAYS_SHORT : Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(LOC, { weekday: 'short' }).format(new Date(2026, 0, 5 + i)));
+const monthTitle = (v: Date) => {
+  if (german) return `${MONTHS[v.getMonth()]} ${v.getFullYear()}`;
+  const s = new Intl.DateTimeFormat(LOC, { month: 'long', year: 'numeric' }).format(v);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 let uid = 0;
 const nextId = (p: string) => `${p}${++uid}`;
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, attrs: Record<string, string> = {}) => {
@@ -149,12 +198,12 @@ function select(sel: HTMLSelectElement) {
 /* ---------- date ---------- */
 
 function date(native: HTMLInputElement) {
-  const input = el('input', 'ndate', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'TT.MM.JJJJ', role: 'combobox', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }) as HTMLInputElement;
+  const input = el('input', 'ndate', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: tx('TT.MM.JJJJ'), role: 'combobox', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }) as HTMLInputElement;
   input.value = formatDay(native.value);
   const wrap = adopt(native, input);
   const today = isoDay(new Date());
   const allowed = (s: string) => (!native.min || s >= native.min) && (!native.max || s <= native.max);
-  const cal = el('div', 'npop ncal', { role: 'dialog', 'aria-label': 'Datum wählen' });
+  const cal = el('div', 'npop ncal', { role: 'dialog', 'aria-label': tx('Datum wählen') });
   let active = native.value || (native.min && native.min > today ? native.min : today);
 
   const set = (s: string) => {
@@ -174,12 +223,12 @@ function date(native: HTMLInputElement) {
   const render = () => {
     const v = fromIsoDay(active)!;
     const month = active.slice(0, 7);
-    cal.innerHTML = `<div class="ncal-h"><button type="button" data-m="-1" aria-label="Vorheriger Monat">‹</button><strong aria-live="polite">${MONTHS[v.getMonth()]} ${v.getFullYear()}</strong><button type="button" data-m="1" aria-label="Nächster Monat">›</button></div><div class="ncal-g" role="grid">${WEEKDAYS_SHORT.map(
+    cal.innerHTML = `<div class="ncal-h"><button type="button" data-m="-1" aria-label="${tx('Vorheriger Monat')}">‹</button><strong aria-live="polite">${monthTitle(v)}</strong><button type="button" data-m="1" aria-label="${tx('Nächster Monat')}">›</button></div><div class="ncal-g" role="grid">${weekdays.map(
       (w) => `<span role="columnheader">${w}</span>`,
     ).join('')}${monthGrid(v.getFullYear(), v.getMonth())
       .map(
         (s) =>
-          `<button type="button" role="gridcell" data-d="${s}" tabindex="${s === active ? 0 : -1}" aria-label="${longDay(s)}"${s === native.value ? ' aria-selected="true"' : ''}${s === today ? ' aria-current="date"' : ''}${s.slice(0, 7) !== month ? ' data-out' : ''}${allowed(s) ? '' : ' disabled'}>${Number(s.slice(8))}</button>`,
+          `<button type="button" role="gridcell" data-d="${s}" tabindex="${s === active ? 0 : -1}" aria-label="${longDay(s, LOC)}"${s === native.value ? ' aria-selected="true"' : ''}${s === today ? ' aria-current="date"' : ''}${s.slice(0, 7) !== month ? ' data-out' : ''}${allowed(s) ? '' : ' disabled'}>${Number(s.slice(8))}</button>`,
       )
       .join('')}</div>`;
   };
@@ -276,14 +325,14 @@ function number(input: HTMLInputElement) {
     });
     return b;
   };
-  wrap.append(btn(-1, 'Weniger', '−'), input, btn(1, 'Mehr', '+'));
+  wrap.append(btn(-1, tx('Weniger'), '−'), input, btn(1, tx('Mehr'), '+'));
 }
 
 /* ---------- file: own button and file name, drop zone ---------- */
 
 function file(native: HTMLInputElement) {
   const btn = el('button', 'nfile-b', { type: 'button' });
-  btn.textContent = native.multiple ? 'Dateien wählen' : 'Datei wählen';
+  btn.textContent = native.multiple ? tx('Dateien wählen') : tx('Datei wählen');
   const name = el('span', 'nfile-n');
   const front = el('div', 'nfile');
   front.append(btn, name);
@@ -292,7 +341,7 @@ function file(native: HTMLInputElement) {
   btn.setAttribute('aria-describedby', `${btn.getAttribute('aria-describedby') ?? ''} ${name.id}`.trim());
   const sync = () => {
     const files = [...(native.files ?? [])];
-    name.textContent = files.length ? files.map((f) => f.name).join(', ') : 'Keine Datei ausgewählt';
+    name.textContent = files.length ? files.map((f) => f.name).join(', ') : tx('Keine Datei ausgewählt');
     front.classList.toggle('has', files.length > 0);
   };
   btn.addEventListener('click', () => native.click());

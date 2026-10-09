@@ -7,6 +7,8 @@ import { hashPassword, sha256, token, verifyPassword } from './lib/crypto';
 import { badRequest, HttpError, notFound } from './lib/http';
 import { sendMail } from './mail';
 import { notify } from './notify';
+import { currentLang, localizePath, pageLang, pathMap } from './translations';
+import { L, T } from '../site/i18n';
 import { memberLevel, type MemberLevel } from '../shared/members';
 import { formatMoney } from '../shared/text';
 import type { SiteSettings } from '../shared/types';
@@ -44,6 +46,11 @@ export interface CurrentMember extends Member {
 }
 
 const base = (s: SiteSettings) => (s.baseUrl || env.publicUrl).replace(/\/$/, '');
+/** A site path in the language of the current request (/konto → /fr/konto). Not for token links: language paths are matched in lower case. */
+async function here(path: string): Promise<string> {
+  const lang = currentLang();
+  return lang ? localizePath(await pathMap(lang), lang, path) : path;
+}
 const PUBLIC_COLUMNS = sql`id, email, name, status, email_verified_at, newsletter_optin, paid_until, stripe_customer, stripe_subscription, subscription_status, note, created_at, last_login_at`;
 
 /** A same-site path to go back to after signing in; anything else falls back to the account page. */
@@ -53,7 +60,8 @@ export function safeNext(v: unknown): string {
 }
 
 export function priceLabel(s: SiteSettings): string {
-  return `${formatMoney(s.members.price, s.shop.currency)} pro ${s.members.interval === 'year' ? 'Jahr' : 'Monat'}`;
+  const price = formatMoney(s.members.price, s.shop.currency, L());
+  return s.members.interval === 'year' ? T('{price} pro Jahr', { price }) : T('{price} pro Monat', { price });
 }
 
 /* ---------- sessions ---------- */
@@ -115,6 +123,8 @@ async function mail(to: string, subject: string, lines: string[]): Promise<void>
 }
 
 const hello = (name: string) => (name ? `Hallo ${name.split(' ')[0]},` : 'Hallo,');
+/** Greeting in mails a visitor triggers themselves (in the language of their request). */
+const helloT = (name: string) => (name ? T('Hallo {name},', { name: name.split(' ')[0] }) : T('Hallo,'));
 
 /* ---------- sign-up, confirmation, sign-in ---------- */
 
@@ -137,14 +147,14 @@ export async function registerMember(input: { email: string; name: string; passw
   checkPassword(input.password);
   const [existing] = await sql`select id, name, email_verified_at from members where lower(email) = ${email}`;
   if (existing?.email_verified_at) {
-    await mail(email, `Dein Konto bei ${s.name}`, [
-      hello(existing.name as string),
+    await mail(email, T('Dein Konto bei {name}', { name: s.name }), [
+      helloT(existing.name as string),
       '',
-      'jemand wollte mit dieser Adresse ein neues Konto anlegen. Du hast aber schon eines.',
-      `Anmelden: ${base(s)}/konto/anmelden`,
-      `Passwort vergessen? ${base(s)}/konto/passwort-vergessen`,
+      T('jemand wollte mit dieser Adresse ein neues Konto anlegen. Du hast aber schon eines.'),
+      T('Anmelden: {url}', { url: `${base(s)}${await here('/konto/anmelden')}` }),
+      T('Passwort vergessen? {url}', { url: `${base(s)}${await here('/konto/passwort-vergessen')}` }),
       '',
-      'Warst du das nicht? Dann kannst du diese E-Mail ignorieren.',
+      T('Warst du das nicht? Dann kannst du diese E-Mail ignorieren.'),
     ]);
     return;
   }
@@ -156,15 +166,17 @@ export async function registerMember(input: { email: string; name: string; passw
         on conflict ((lower(email))) do nothing returning id`;
   if (!m) return;
   const t = await linkToken(m.id as string, 'verify', 72);
-  const next = input.next !== '/konto' ? `?weiter=${encodeURIComponent(input.next)}` : '';
-  await mail(email, `Bitte bestätige dein Konto bei ${s.name}`, [
-    hello(name),
+  // Back to the visitor's language after confirming (the confirmation page itself has no language prefix).
+  const after = currentLang() ? await here(input.next === '/konto' ? '/konto?ok=willkommen' : input.next) : input.next;
+  const next = after !== '/konto' ? `?weiter=${encodeURIComponent(after)}` : '';
+  await mail(email, T('Bitte bestätige dein Konto bei {name}', { name: s.name }), [
+    helloT(name),
     '',
-    `willkommen! Ein Klick bestätigt deine E-Mail-Adresse, danach bist du angemeldet:`,
+    T('willkommen! Ein Klick bestätigt deine E-Mail-Adresse, danach bist du angemeldet:'),
     '',
     `${base(s)}/konto/bestaetigen/${t}${next}`,
     '',
-    'Der Link gilt drei Tage. Hast du dich nicht registriert? Dann ignoriere diese E-Mail einfach.',
+    T('Der Link gilt drei Tage. Hast du dich nicht registriert? Dann ignoriere diese E-Mail einfach.'),
   ]);
 }
 
@@ -190,7 +202,13 @@ export async function resendVerification(email: string): Promise<void> {
   const [m] = await sql`select id, name, email from members where lower(email) = ${email.trim().toLowerCase()} and email_verified_at is null`;
   if (!m) return;
   const t = await linkToken(m.id as string, 'verify', 72);
-  await mail(m.email as string, `Bitte bestätige dein Konto bei ${s.name}`, [hello(m.name as string), '', 'hier ist der Link nochmals:', '', `${base(s)}/konto/bestaetigen/${t}`]);
+  await mail(m.email as string, T('Bitte bestätige dein Konto bei {name}', { name: s.name }), [
+    helloT(m.name as string),
+    '',
+    T('hier ist der Link nochmals:'),
+    '',
+    `${base(s)}/konto/bestaetigen/${t}`,
+  ]);
 }
 
 export class UnverifiedError extends HttpError {
@@ -214,14 +232,14 @@ export async function requestPasswordReset(email: string): Promise<void> {
   const [m] = await sql`select id, name, email from members where lower(email) = ${email.trim().toLowerCase()} and status = 'active'`;
   if (!m) return;
   const t = await linkToken(m.id as string, 'reset', 2);
-  await mail(m.email as string, `Neues Passwort für ${s.name}`, [
-    hello(m.name as string),
+  await mail(m.email as string, T('Neues Passwort für {name}', { name: s.name }), [
+    helloT(m.name as string),
     '',
-    'mit diesem Link legst du ein neues Passwort fest. Er gilt zwei Stunden:',
+    T('mit diesem Link legst du ein neues Passwort fest. Er gilt zwei Stunden:'),
     '',
     `${base(s)}/konto/passwort/${t}`,
     '',
-    'Hast du das nicht angefordert? Dann bleibt alles, wie es ist.',
+    T('Hast du das nicht angefordert? Dann bleibt alles, wie es ist.'),
   ]);
 }
 
@@ -307,8 +325,8 @@ export async function subscriptionCheckoutUrl(m: Member, next: string): Promise<
   const back = base(s);
   const body = await stripe('POST', '/v1/checkout/sessions', {
     mode: 'subscription',
-    success_url: `${back}/konto?abo=1&weiter=${encodeURIComponent(next)}`,
-    cancel_url: `${back}${next}`,
+    success_url: `${back}${await here('/konto')}?abo=1&weiter=${encodeURIComponent(next)}`,
+    cancel_url: `${back}${await here(next)}`,
     ...(m.stripe_customer ? { customer: m.stripe_customer } : { customer_email: m.email }),
     client_reference_id: m.id,
     'metadata[member_id]': m.id,
@@ -318,7 +336,7 @@ export async function subscriptionCheckoutUrl(m: Member, next: string): Promise<
     'line_items[0][price_data][unit_amount]': s.members.price,
     'line_items[0][price_data][recurring][interval]': s.members.interval,
     'line_items[0][price_data][product_data][name]': `${s.members.planName} – ${s.name}`,
-    locale: 'de',
+    locale: pageLang(),
   });
   return body.url as string;
 }
@@ -327,7 +345,7 @@ export async function subscriptionCheckoutUrl(m: Member, next: string): Promise<
 export async function billingPortalUrl(m: Member): Promise<string> {
   const s = await getSettings();
   if (!m.stripe_customer || !env.stripe.secretKey) throw badRequest('Zu diesem Konto gibt es kein Abo.');
-  const body = await stripe('POST', '/v1/billing_portal/sessions', { customer: m.stripe_customer, return_url: `${base(s)}/konto`, locale: 'de' });
+  const body = await stripe('POST', '/v1/billing_portal/sessions', { customer: m.stripe_customer, return_url: `${base(s)}${await here('/konto')}`, locale: pageLang() });
   return body.url as string;
 }
 

@@ -15,6 +15,8 @@ import { notify } from './notify';
 import { depositPaid } from './booking';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
+import { T } from '../site/i18n';
+import { pageLang } from './translations';
 import type { EntryData, SiteSettings } from '../shared/types';
 
 /* ---------- Cart cookie ---------- */
@@ -106,13 +108,13 @@ export async function quote(
   for (const it of items) {
     const p = products.find((x) => x.id === it.p);
     if (!p) {
-      problems.push('Ein Produkt in deinem Warenkorb ist nicht mehr erhältlich und wurde entfernt.');
+      problems.push(T('Ein Produkt in deinem Warenkorb ist nicht mehr erhältlich und wurde entfernt.'));
       continue;
     }
     const d = p.published_data;
     const variant = variantOf(p, it.v);
     if (variant === undefined) {
-      problems.push(`Die gewählte Variante von «${d.title}» gibt es nicht mehr.`);
+      problems.push(T('Die gewählte Variante von «{title}» gibt es nicht mehr.', { title: d.title }));
       continue;
     }
     const unit = variant?.price ?? (d.price as number);
@@ -120,7 +122,7 @@ export async function quote(
     let qty = it.q;
     if (available !== null && qty > available) {
       qty = Math.max(0, available);
-      problems.push(available === 0 ? `«${d.title}» ist ausverkauft.` : `Von «${d.title}» sind nur noch ${available} Stück da.`);
+      problems.push(available === 0 ? T('«{title}» ist ausverkauft.', { title: d.title }) : T('Von «{title}» sind nur noch {count} Stück da.', { title: d.title, count: available }));
     }
     if (qty === 0) continue;
     lines.push({
@@ -146,13 +148,13 @@ export async function quote(
   if (opts.couponCode?.trim()) {
     const code = opts.couponCode.trim();
     const [c] = await tx`select * from coupons where upper(code) = upper(${code}) and active`;
-    if (!c) coupon = { code, ok: false, message: 'Diesen Gutscheincode kennen wir nicht.' };
-    else if (c.valid_until && new Date(c.valid_until) < new Date()) coupon = { code, ok: false, message: 'Dieser Gutschein ist abgelaufen.' };
-    else if (c.max_uses !== null && c.uses >= c.max_uses) coupon = { code, ok: false, message: 'Dieser Gutschein wurde schon zu oft eingelöst.' };
-    else if (subtotal < c.min_total) coupon = { code, ok: false, message: `Dieser Gutschein gilt ab ${formatMoney(c.min_total)} Bestellwert.` };
+    if (!c) coupon = { code, ok: false, message: T('Diesen Gutscheincode kennen wir nicht.') };
+    else if (c.valid_until && new Date(c.valid_until) < new Date()) coupon = { code, ok: false, message: T('Dieser Gutschein ist abgelaufen.') };
+    else if (c.max_uses !== null && c.uses >= c.max_uses) coupon = { code, ok: false, message: T('Dieser Gutschein wurde schon zu oft eingelöst.') };
+    else if (subtotal < c.min_total) coupon = { code, ok: false, message: T('Dieser Gutschein gilt ab {amount} Bestellwert.', { amount: formatMoney(c.min_total) }) };
     else {
       discount = c.kind === 'percent' ? Math.round((subtotal * Math.min(100, c.value)) / 100) : Math.min(subtotal, c.value);
-      coupon = { code: c.code, ok: true, message: c.kind === 'percent' ? `${c.value} % Rabatt` : `${formatMoney(c.value)} Rabatt` };
+      coupon = { code: c.code, ok: true, message: T('{amount} Rabatt', { amount: c.kind === 'percent' ? `${c.value} %` : formatMoney(c.value) }) };
     }
   }
 
@@ -223,23 +225,23 @@ export function paymentOptions(s: SiteSettings) {
 export async function createOrder(items: CartItem[], input: CheckoutInput): Promise<{ id: string; token: string; number: string; total: number }> {
   const s = await getSettings();
   const opts = paymentOptions(s);
-  if (input.payment === 'stripe' && !opts.stripe) throw badRequest('Online-Zahlung ist gerade nicht verfügbar.');
-  if (input.payment === 'invoice' && !opts.invoice) throw badRequest('Kauf auf Rechnung ist nicht verfügbar.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an.');
-  if (!input.name.trim()) throw badRequest('Bitte gib deinen Namen an.');
-  if (!input.acceptTerms) throw badRequest('Bitte bestätige die AGB.');
+  if (input.payment === 'stripe' && !opts.stripe) throw badRequest(T('Online-Zahlung ist gerade nicht verfügbar.'));
+  if (input.payment === 'invoice' && !opts.invoice) throw badRequest(T('Kauf auf Rechnung ist nicht verfügbar.'));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an.'));
+  if (!input.name.trim()) throw badRequest(T('Bitte gib deinen Namen an.'));
+  if (!input.acceptTerms) throw badRequest(T('Bitte bestätige die AGB.'));
 
   const result = await sql.begin(async (tx) => {
     const ids = [...new Set(items.map((i) => i.p))];
     if (ids.length) await tx`select id from entries where id = any(${ids}::uuid[]) for update`;
     const q = await quote(items, { couponCode: input.coupon, shippingMethod: input.shippingMethod }, tx as unknown as typeof sql);
-    if (!q.lines.length) throw badRequest('Dein Warenkorb ist leer.');
+    if (!q.lines.length) throw badRequest(T('Dein Warenkorb ist leer.'));
     if (q.problems.length) throw badRequest(q.problems.join(' '));
     if (q.coupon && !q.coupon.ok) throw badRequest(q.coupon.message);
     if (q.needsShipping && input.shippingMethod === 'ship' && !(input.street && input.zip && input.city))
-      throw badRequest('Für den Versand brauchen wir Strasse, PLZ und Ort.');
+      throw badRequest(T('Für den Versand brauchen wir Strasse, PLZ und Ort.'));
     if (q.needsShipping && input.shippingMethod === 'ship' && !s.shop.shipping.countries.includes(input.country ?? 'CH'))
-      throw badRequest('In dieses Land liefern wir leider nicht.');
+      throw badRequest(T('In dieses Land liefern wir leider nicht.'));
 
     for (const l of q.lines) if (l.available !== null) await adjustStock(tx as unknown as typeof sql, l.productId, l.variant, -l.qty);
     if (q.coupon?.ok) await tx`update coupons set uses = uses + 1 where upper(code) = upper(${q.coupon.code})`;
@@ -308,24 +310,25 @@ export async function sendOrderMails(orderId: string): Promise<void> {
   const lines = (o.items as QuoteLine[]).map((l) => `${l.qty} × ${l.title}${l.variantName ? ` (${l.variantName})` : ''}  ${formatMoney(l.total)}`).join('\n');
   const base = (s.baseUrl || env.publicUrl).replace(/\/$/, '');
   const paid = o.status === 'paid';
+  // Sent during the customer's request in their language; after a Stripe webhook in the main language.
   const text = [
-    `Hallo ${o.customer.name}`,
+    T('Hallo {name}', { name: o.customer.name }),
     '',
-    paid ? `Danke für deine Bestellung ${o.number}. Die Zahlung ist eingegangen.` : `Danke für deine Bestellung ${o.number}.`,
+    paid ? T('Danke für deine Bestellung {number}. Die Zahlung ist eingegangen.', { number: o.number }) : T('Danke für deine Bestellung {number}.', { number: o.number }),
     '',
     lines,
-    o.discount ? `Rabatt  −${formatMoney(o.discount)}` : '',
-    o.shipping ? `Versand  ${formatMoney(o.shipping)}` : '',
-    `Total  ${formatMoney(o.total)} (inkl. MwSt.)`,
+    o.discount ? `${T('Rabatt')}  −${formatMoney(o.discount)}` : '',
+    o.shipping ? `${T('Versand')}  ${formatMoney(o.shipping)}` : '',
+    `${T('Total')}  ${formatMoney(o.total)} (${T('inkl. MwSt.')})`,
     '',
-    o.payment_method === 'invoice' && !paid ? `Bitte überweise den Betrag innert 30 Tagen.\n${s.shop.invoiceNote}` : '',
-    `Bestellung ansehen: ${base}/bestellung/${o.token}`,
+    o.payment_method === 'invoice' && !paid ? `${T('Bitte überweise den Betrag innert 30 Tagen.')}\n${s.shop.invoiceNote}` : '',
+    T('Bestellung ansehen: {url}', { url: `${base}/bestellung/${o.token}` }),
     '',
     s.name,
   ]
     .filter((l) => l !== '')
     .join('\n');
-  await sendMail({ to: o.email, subject: `${s.name}: Bestellung ${o.number}`, text, replyTo: s.business.email || undefined });
+  await sendMail({ to: o.email, subject: `${s.name}: ${T('Bestellung {number}', { number: o.number })}`, text, replyTo: s.business.email || undefined });
   const notify = s.shop.notifyEmail || s.business.email;
   if (notify) await sendMail({ to: notify, subject: `Neue Bestellung ${o.number} – ${formatMoney(o.total)}`, text: `${o.customer.name} <${o.email}>\n\n${lines}\n\n${base}/admin/bestellungen` });
 }
@@ -350,14 +353,14 @@ export async function stripeCheckoutUrl(orderId: string): Promise<string> {
     customer_email: o.email,
     client_reference_id: o.id,
     'metadata[order_id]': o.id,
-    locale: 'de',
+    locale: pageLang(),
   };
   const cur = String(o.currency).toLowerCase();
   if (o.discount > 0) {
     // Stripe needs coupon objects for discounts; one summarised line keeps totals exact.
     fields['line_items[0][price_data][currency]'] = cur;
     fields['line_items[0][price_data][unit_amount]'] = o.total;
-    fields['line_items[0][price_data][product_data][name]'] = `Bestellung ${o.number}`;
+    fields['line_items[0][price_data][product_data][name]'] = T('Bestellung {number}', { number: o.number });
     fields['line_items[0][quantity]'] = 1;
   } else {
     const lines = o.items as QuoteLine[];
@@ -371,7 +374,7 @@ export async function stripeCheckoutUrl(orderId: string): Promise<string> {
       const i = lines.length;
       fields[`line_items[${i}][price_data][currency]`] = cur;
       fields[`line_items[${i}][price_data][unit_amount]`] = o.shipping;
-      fields[`line_items[${i}][price_data][product_data][name]`] = 'Versand';
+      fields[`line_items[${i}][price_data][product_data][name]`] = T('Versand');
       fields[`line_items[${i}][quantity]`] = 1;
     }
   }
@@ -381,7 +384,7 @@ export async function stripeCheckoutUrl(orderId: string): Promise<string> {
     body: form(fields),
   });
   const body = (await r.json()) as { url?: string; id?: string; error?: { message: string } };
-  if (!r.ok || !body.url) throw badRequest(`Die Zahlung konnte nicht gestartet werden: ${body.error?.message ?? r.status}`);
+  if (!r.ok || !body.url) throw badRequest(T('Die Zahlung konnte nicht gestartet werden: {error}', { error: body.error?.message ?? r.status }));
   await sql`update orders set payment_ref = ${body.id ?? null} where id = ${o.id}`;
   return body.url;
 }
@@ -471,6 +474,6 @@ export async function orderQrBill(o: Record<string, any>): Promise<QrBillData | 
     currency: o.currency === 'EUR' ? 'EUR' : 'CHF',
     debtor: c?.name && c?.zip ? { name: c.company ? `${c.company}, ${c.name}` : c.name, street: c.street ?? '', zip: c.zip, city: c.city ?? '', country: c.country || 'CH' } : null,
     reference: ref.value,
-    message: `Bestellung ${o.number}`,
+    message: T('Bestellung {number}', { number: o.number }),
   };
 }

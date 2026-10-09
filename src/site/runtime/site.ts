@@ -7,6 +7,115 @@ const d = document;
 d.documentElement.classList.add('js');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* ---------- language: German source, local dictionary (no server code in this bundle) ---------- */
+const LOC = d.documentElement.lang || 'de-CH';
+const DICT: Record<string, Record<string, string>> = {
+  fr: {
+    'Eingebetteter Inhalt': 'Contenu intégré',
+    Videoplayer: 'Lecteur vidéo',
+    Abspielen: 'Lire',
+    Pause: 'Pause',
+    Position: 'Position',
+    'Ton aus': 'Couper le son',
+    'Ton an': 'Activer le son',
+    Vollbild: 'Plein écran',
+    'Vollbild beenden': 'Quitter le plein écran',
+    '{a} von {b}': '{a} sur {b}',
+    Bildansicht: 'Visionneuse d’images',
+    Schliessen: 'Fermer',
+    'Vorheriges Bild': 'Image précédente',
+    'Nächstes Bild': 'Image suivante',
+    'Noch {n} Zeichen möglich.': 'Encore {n} caractères possibles.',
+    'Suchbegriff löschen': 'Effacer la recherche',
+    'Bitte bestätige das.': 'Veuillez confirmer.',
+    'Bitte wähle etwas aus.': 'Veuillez faire un choix.',
+    'Bitte wähle eine Datei.': 'Veuillez choisir un fichier.',
+    'Bitte gib ein Datum ein.': 'Veuillez saisir une date.',
+    'Bitte fülle dieses Feld aus.': 'Veuillez remplir ce champ.',
+    'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.': 'Veuillez saisir une adresse e-mail valable, p. ex. nom@exemple.ch.',
+    'Bitte gib eine gültige Adresse ein.': 'Veuillez saisir une adresse valable.',
+    'Dieses Datum ist zu früh.': 'Cette date est trop précoce.',
+    'Dieses Datum ist zu spät.': 'Cette date est trop tardive.',
+    'Bitte mindestens {n}.': 'Minimum {n}.',
+    'Bitte höchstens {n}.': 'Maximum {n}.',
+    'Bitte mindestens {n} Zeichen.': 'Au moins {n} caractères.',
+    'Bitte gib eine gültige Zahl ein.': 'Veuillez saisir un nombre valable.',
+    'Das hat nicht geklappt. Bitte versuch es nochmals.': 'Cela n’a pas fonctionné. Veuillez réessayer.',
+    'Zum Warenkorb': 'Voir le panier',
+  },
+  it: {
+    'Eingebetteter Inhalt': 'Contenuto incorporato',
+    Videoplayer: 'Lettore video',
+    Abspielen: 'Riproduci',
+    Pause: 'Pausa',
+    Position: 'Posizione',
+    'Ton aus': 'Disattiva audio',
+    'Ton an': 'Attiva audio',
+    Vollbild: 'Schermo intero',
+    'Vollbild beenden': 'Esci da schermo intero',
+    '{a} von {b}': '{a} di {b}',
+    Bildansicht: 'Visualizzatore immagini',
+    Schliessen: 'Chiudi',
+    'Vorheriges Bild': 'Immagine precedente',
+    'Nächstes Bild': 'Immagine successiva',
+    'Noch {n} Zeichen möglich.': 'Ancora {n} caratteri disponibili.',
+    'Suchbegriff löschen': 'Cancella la ricerca',
+    'Bitte bestätige das.': 'Conferma, per favore.',
+    'Bitte wähle etwas aus.': 'Scegli un’opzione.',
+    'Bitte wähle eine Datei.': 'Scegli un file.',
+    'Bitte gib ein Datum ein.': 'Inserisci una data.',
+    'Bitte fülle dieses Feld aus.': 'Compila questo campo.',
+    'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.': 'Inserisci un indirizzo e-mail valido, p. es. nome@esempio.ch.',
+    'Bitte gib eine gültige Adresse ein.': 'Inserisci un indirizzo valido.',
+    'Dieses Datum ist zu früh.': 'Questa data è troppo anticipata.',
+    'Dieses Datum ist zu spät.': 'Questa data è troppo lontana.',
+    'Bitte mindestens {n}.': 'Almeno {n}.',
+    'Bitte höchstens {n}.': 'Al massimo {n}.',
+    'Bitte mindestens {n} Zeichen.': 'Almeno {n} caratteri.',
+    'Bitte gib eine gültige Zahl ein.': 'Inserisci un numero valido.',
+    'Das hat nicht geklappt. Bitte versuch es nochmals.': 'Non ha funzionato. Riprova.',
+    'Zum Warenkorb': 'Vai al carrello',
+  },
+  en: {
+    'Eingebetteter Inhalt': 'Embedded content',
+    Videoplayer: 'Video player',
+    Abspielen: 'Play',
+    Pause: 'Pause',
+    Position: 'Position',
+    'Ton aus': 'Mute',
+    'Ton an': 'Unmute',
+    Vollbild: 'Full screen',
+    'Vollbild beenden': 'Exit full screen',
+    '{a} von {b}': '{a} of {b}',
+    Bildansicht: 'Image viewer',
+    Schliessen: 'Close',
+    'Vorheriges Bild': 'Previous image',
+    'Nächstes Bild': 'Next image',
+    'Noch {n} Zeichen möglich.': '{n} characters left.',
+    'Suchbegriff löschen': 'Clear search',
+    'Bitte bestätige das.': 'Please confirm this.',
+    'Bitte wähle etwas aus.': 'Please choose an option.',
+    'Bitte wähle eine Datei.': 'Please choose a file.',
+    'Bitte gib ein Datum ein.': 'Please enter a date.',
+    'Bitte fülle dieses Feld aus.': 'Please fill in this field.',
+    'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.': 'Please enter a valid email address, e.g. name@example.ch.',
+    'Bitte gib eine gültige Adresse ein.': 'Please enter a valid address.',
+    'Dieses Datum ist zu früh.': 'This date is too early.',
+    'Dieses Datum ist zu spät.': 'This date is too late.',
+    'Bitte mindestens {n}.': 'At least {n}, please.',
+    'Bitte höchstens {n}.': 'At most {n}, please.',
+    'Bitte mindestens {n} Zeichen.': 'At least {n} characters, please.',
+    'Bitte gib eine gültige Zahl ein.': 'Please enter a valid number.',
+    'Das hat nicht geklappt. Bitte versuch es nochmals.': 'That didn’t work. Please try again.',
+    'Zum Warenkorb': 'Go to cart',
+  },
+};
+/** Text in the page's language; German (the source) when there is no entry. */
+const tx = (de: string, params?: Record<string, string | number>) => {
+  const text = DICT[LOC.slice(0, 2)]?.[de] ?? de;
+  return params ? text.replace(/\{(\w+)\}/g, (m, k: string) => (params[k] !== undefined ? String(params[k]) : m)) : text;
+};
+
 /* ---------- cookieless analytics ---------- */
 if (d.body.dataset.a) {
   const send = () => {
@@ -39,7 +148,7 @@ function loadEmbed(box: HTMLElement, autoplay: boolean) {
   const src = box.dataset.src!;
   const f = d.createElement('iframe');
   f.src = autoplay ? src : src.replace('autoplay=1', 'autoplay=0');
-  f.title = box.dataset.title || 'Eingebetteter Inhalt';
+  f.title = box.dataset.title || tx('Eingebetteter Inhalt');
   f.allow = 'autoplay; fullscreen; picture-in-picture';
   f.loading = 'lazy';
   f.referrerPolicy = 'strict-origin-when-cross-origin';
@@ -74,12 +183,12 @@ d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
   box.className = 'nvid paused';
   box.tabIndex = 0;
   box.setAttribute('role', 'group');
-  box.setAttribute('aria-label', 'Videoplayer');
+  box.setAttribute('aria-label', tx('Videoplayer'));
   v.before(box);
   box.append(v);
   box.insertAdjacentHTML(
     'beforeend',
-    `<button type="button" class="nvid-big" aria-label="Abspielen">${icon('play')}</button><div class="nvid-bar"><button type="button" class="nvid-pp" aria-label="Abspielen">${icon('play')}</button><div class="nvid-track" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="nvid-fill"></div></div><span class="nvid-time">0:00 / –:––</span><button type="button" class="nvid-vol" aria-label="Ton aus">${icon('vol')}</button><button type="button" class="nvid-fs" aria-label="Vollbild">${icon('full')}</button></div>`,
+    `<button type="button" class="nvid-big" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-bar"><button type="button" class="nvid-pp" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-track" role="slider" tabindex="0" aria-label="${tx('Position')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="nvid-fill"></div></div><span class="nvid-time">0:00 / –:––</span><button type="button" class="nvid-vol" aria-label="${tx('Ton aus')}">${icon('vol')}</button><button type="button" class="nvid-fs" aria-label="${tx('Vollbild')}">${icon('full')}</button></div>`,
   );
   const $ = <T extends HTMLElement>(c: string) => box.querySelector<T>(c)!;
   const [big, pp, track, fill, time, vol, fs] = ['.nvid-big', '.nvid-pp', '.nvid-track', '.nvid-fill', '.nvid-time', '.nvid-vol', '.nvid-fs'].map((c) => $(c));
@@ -91,12 +200,12 @@ d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
     const p = v.duration ? (v.currentTime / v.duration) * 100 : 0;
     fill.style.width = `${p}%`;
     track.setAttribute('aria-valuenow', String(Math.round(p)));
-    track.setAttribute('aria-valuetext', `${clock(v.currentTime)} von ${clock(v.duration)}`);
+    track.setAttribute('aria-valuetext', tx('{a} von {b}', { a: clock(v.currentTime), b: clock(v.duration) }));
     time.textContent = `${clock(v.currentTime)} / ${clock(v.duration)}`;
   };
   const state = () => {
     box.classList.toggle('paused', v.paused);
-    const label = v.paused ? 'Abspielen' : 'Pause';
+    const label = tx(v.paused ? 'Abspielen' : 'Pause');
     pp.innerHTML = icon(v.paused ? 'play' : 'pause');
     pp.setAttribute('aria-label', label);
     big.setAttribute('aria-label', label);
@@ -114,7 +223,7 @@ d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
   v.addEventListener('loadedmetadata', paint);
   v.addEventListener('volumechange', () => {
     vol.innerHTML = icon(v.muted ? 'mute' : 'vol');
-    vol.setAttribute('aria-label', v.muted ? 'Ton an' : 'Ton aus');
+    vol.setAttribute('aria-label', tx(v.muted ? 'Ton an' : 'Ton aus'));
   });
   v.addEventListener('click', toggle);
   big.addEventListener('click', toggle);
@@ -128,7 +237,7 @@ d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
   d.addEventListener('fullscreenchange', () => {
     const on = d.fullscreenElement === box;
     fs.innerHTML = icon(on ? 'exit' : 'full');
-    fs.setAttribute('aria-label', on ? 'Vollbild beenden' : 'Vollbild');
+    fs.setAttribute('aria-label', tx(on ? 'Vollbild beenden' : 'Vollbild'));
   });
   const scrub = (e: PointerEvent) => {
     const r = track.getBoundingClientRect();
@@ -173,8 +282,10 @@ d.querySelectorAll<HTMLElement>('[data-lightbox]').forEach((gal) => {
     lb.className = 'lb';
     lb.setAttribute('role', 'dialog');
     lb.setAttribute('aria-modal', 'true');
-    lb.setAttribute('aria-label', 'Bildansicht');
-    lb.innerHTML = '<img alt=""><button class="x" aria-label="Schliessen">×</button>' + (links.length > 1 ? '<button class="prev" aria-label="Vorheriges Bild">‹</button><button class="next" aria-label="Nächstes Bild">›</button>' : '');
+    lb.setAttribute('aria-label', tx('Bildansicht'));
+    lb.innerHTML =
+      `<img alt=""><button class="x" aria-label="${tx('Schliessen')}">×</button>` +
+      (links.length > 1 ? `<button class="prev" aria-label="${tx('Vorheriges Bild')}">‹</button><button class="next" aria-label="${tx('Nächstes Bild')}">›</button>` : '');
     const img = lb.querySelector('img')!;
     const show = () => {
       img.src = links[i].href;
@@ -233,9 +344,9 @@ d.querySelectorAll<HTMLTextAreaElement>('.fld textarea').forEach((t) => {
     let warned = false;
     const count = () => {
       const left = max - t.value.length;
-      n.textContent = `${t.value.length.toLocaleString('de-CH')} / ${max.toLocaleString('de-CH')}`;
+      n.textContent = `${t.value.length.toLocaleString(LOC)} / ${max.toLocaleString(LOC)}`;
       n.classList.toggle('near', left <= max * 0.1);
-      if (left <= max * 0.1 && !warned) live.textContent = `Noch ${left} Zeichen möglich.`;
+      if (left <= max * 0.1 && !warned) live.textContent = tx('Noch {n} Zeichen möglich.', { n: left });
       warned = left <= max * 0.1;
     };
     t.after(n, live);
@@ -251,7 +362,7 @@ d.querySelectorAll<HTMLInputElement>('input[type=search]').forEach((q) => {
   const x = d.createElement('button');
   x.type = 'button';
   x.className = 'nclear';
-  x.setAttribute('aria-label', 'Suchbegriff löschen');
+  x.setAttribute('aria-label', tx('Suchbegriff löschen'));
   x.textContent = '×';
   box.append(x);
   const sync = () => (x.hidden = !q.value);
@@ -270,12 +381,22 @@ function message(c: Ctrl): string {
   const v = c.validity;
   const type = c instanceof HTMLInputElement ? c.type : c instanceof HTMLSelectElement ? 'select' : 'text';
   if (v.valueMissing)
-    return type === 'checkbox' ? 'Bitte bestätige das.' : type === 'select' || type === 'radio' ? 'Bitte wähle etwas aus.' : type === 'file' ? 'Bitte wähle eine Datei.' : type === 'date' ? 'Bitte gib ein Datum ein.' : 'Bitte fülle dieses Feld aus.';
-  if (v.typeMismatch) return type === 'email' ? 'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.' : 'Bitte gib eine gültige Adresse ein.';
-  if (v.rangeUnderflow) return type === 'date' ? 'Dieses Datum ist zu früh.' : `Bitte mindestens ${(c as HTMLInputElement).min}.`;
-  if (v.rangeOverflow) return type === 'date' ? 'Dieses Datum ist zu spät.' : `Bitte höchstens ${(c as HTMLInputElement).max}.`;
-  if (v.tooShort) return `Bitte mindestens ${(c as HTMLInputElement).minLength} Zeichen.`;
-  if (v.badInput || v.stepMismatch) return 'Bitte gib eine gültige Zahl ein.';
+    return tx(
+      type === 'checkbox'
+        ? 'Bitte bestätige das.'
+        : type === 'select' || type === 'radio'
+          ? 'Bitte wähle etwas aus.'
+          : type === 'file'
+            ? 'Bitte wähle eine Datei.'
+            : type === 'date'
+              ? 'Bitte gib ein Datum ein.'
+              : 'Bitte fülle dieses Feld aus.',
+    );
+  if (v.typeMismatch) return tx(type === 'email' ? 'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.' : 'Bitte gib eine gültige Adresse ein.');
+  if (v.rangeUnderflow) return type === 'date' ? tx('Dieses Datum ist zu früh.') : tx('Bitte mindestens {n}.', { n: (c as HTMLInputElement).min });
+  if (v.rangeOverflow) return type === 'date' ? tx('Dieses Datum ist zu spät.') : tx('Bitte höchstens {n}.', { n: (c as HTMLInputElement).max });
+  if (v.tooShort) return tx('Bitte mindestens {n} Zeichen.', { n: (c as HTMLInputElement).minLength });
+  if (v.badInput || v.stepMismatch) return tx('Bitte gib eine gültige Zahl ein.');
   return c.validationMessage;
 }
 let focusedInvalid = false;
@@ -376,7 +497,7 @@ d.querySelectorAll<HTMLFormElement>('form[data-nova-form]').forEach((form) => {
       const p = d.createElement('p');
       p.className = 'form-err';
       p.setAttribute('role', 'alert');
-      p.textContent = (err as Error).message || 'Das hat nicht geklappt. Bitte versuch es nochmals.';
+      p.textContent = (err as Error).message || tx('Das hat nicht geklappt. Bitte versuch es nochmals.');
       form.prepend(p);
       button?.removeAttribute('aria-busy');
     }
@@ -416,8 +537,9 @@ d.querySelectorAll<HTMLFormElement>('form[data-add-to-cart]').forEach((form) => 
       note.append(res.message + ' ');
       if (res.ok) {
         const a = d.createElement('a');
-        a.href = '/warenkorb';
-        a.textContent = 'Zum Warenkorb';
+        // The header's cart link already points to the page's language (/fr/…).
+        a.href = d.querySelector<HTMLAnchorElement>('a.cart-link')?.getAttribute('href') || '/warenkorb';
+        a.textContent = tx('Zum Warenkorb');
         note.append(a);
       }
     } finally {

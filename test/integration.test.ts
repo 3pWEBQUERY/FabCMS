@@ -964,6 +964,20 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(fr.data).toMatch(/hreflang="de" href="[^"]*\/kontakt"/);
     expect(fr.data).toMatch(/hreflang="fr" href="[^"]*\/fr\/contact"/);
     expect(fr.data).not.toContain('noindex');
+    // System texts in French too; the German page keeps its German.
+    expect(fr.data).toContain('Aller au contenu');
+    expect(fr.data).toContain('aria-label="Langue"');
+    expect(fr.data).not.toContain('Zum Inhalt springen');
+    // A form sent from a French page answers in French and leads back to the French page.
+    const formId = (await sql`select id from forms where name = 'Kontakt'`)[0].id;
+    const sent = await req('POST', `/_nova/forms/${formId}`, undefined, {
+      cookies: new Map(),
+      headers: { referer: 'http://localhost/fr/contact' },
+      form: { _t: (Date.now() - 5000).toString(36), _page: '/kontakt', e_mail: 'nicht-gueltig' },
+    });
+    expect(sent.status).toBe(303);
+    expect(sent.headers.get('location')).toMatch(/^\/fr\/contact\?/);
+    expect(decodeURIComponent(sent.headers.get('location')!)).not.toMatch(/Bitte|fülle/);
     // Links inside the French site lead to French addresses; the switcher to both.
     expect(fr.data).toContain('href="/fr/contact"');
     expect(fr.data).not.toMatch(/href="\/kontakt"/);
@@ -972,6 +986,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/fr/kontakt', undefined, anon)).headers.get('location')).toBe('/fr/contact');
     const de = await req('GET', '/kontakt', undefined, anon);
     expect(de.data).toContain('<html lang="de-CH"');
+    expect(de.data).toContain('Zum Inhalt springen');
     expect(de.data).toMatch(/hreflang="fr" href="[^"]*\/fr\/contact"/);
     expect((await req('GET', '/', undefined, anon)).data).not.toContain('Cuisine de saison');
     const sitemap = (await req('GET', '/sitemap.xml', undefined, anon)).data as string;

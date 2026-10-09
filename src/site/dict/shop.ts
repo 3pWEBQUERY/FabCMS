@@ -1,0 +1,247 @@
+/** Website texts (shop), keyed by the German original. */
+export const shop: Record<string, { fr: string; it: string; en: string }> = {
+  /* 404, holding page, 410 */
+  'Seite nicht gefunden': { fr: 'Page introuvable', it: 'Pagina non trovata', en: 'Page not found' },
+  'Diese Seite gibt es nicht (mehr).': { fr: 'Cette page n’existe pas (ou plus).', it: 'Questa pagina non esiste (più).', en: 'This page doesn’t exist (any more).' },
+  'Vielleicht wurde sie verschoben. Such hier oder geh zur Startseite.': {
+    fr: 'Elle a peut-être été déplacée. Faites une recherche ici ou retournez à la page d’accueil.',
+    it: 'Forse è stata spostata. Cerca qui o torna alla pagina iniziale.',
+    en: 'It may have moved. Search here or go to the home page.',
+  },
+  'Zur Startseite': { fr: 'Retour à l’accueil', it: 'Alla pagina iniziale', en: 'Go to home page' },
+  'Hier entsteht etwas.': { fr: 'Quelque chose se prépare ici.', it: 'Qui sta nascendo qualcosa.', en: 'Something is in the works.' },
+  'Diese Website ist bald online.': { fr: 'Ce site sera bientôt en ligne.', it: 'Questo sito sarà presto online.', en: 'This website will be online soon.' },
+  'Fragen?': { fr: 'Des questions ?', it: 'Domande?', en: 'Questions?' },
+  'Diese Seite wurde entfernt.': { fr: 'Cette page a été supprimée.', it: 'Questa pagina è stata rimossa.', en: 'This page has been removed.' },
+
+  /* search */
+  Suche: { fr: 'Recherche', it: 'Ricerca', en: 'Search' },
+  'Suche: {q}': { fr: 'Recherche : {q}', it: 'Ricerca: {q}', en: 'Search: {q}' },
+  Suchbegriff: { fr: 'Terme de recherche', it: 'Termine di ricerca', en: 'Search term' },
+  Suchen: { fr: 'Rechercher', it: 'Cerca', en: 'Search' },
+  'Suchen …': { fr: 'Rechercher …', it: 'Cerca …', en: 'Search …' },
+  '1 Treffer für «{q}»': { fr: '1 résultat pour «{q}»', it: '1 risultato per «{q}»', en: '1 result for «{q}»' },
+  '{count} Treffer für «{q}»': { fr: '{count} résultats pour «{q}»', it: '{count} risultati per «{q}»', en: '{count} results for «{q}»' },
+  'Keine Treffer für «{q}». Versuch ein anderes Wort.': {
+    fr: 'Aucun résultat pour «{q}». Essayez un autre mot.',
+    it: 'Nessun risultato per «{q}». Prova con un’altra parola.',
+    en: 'No results for «{q}». Try another word.',
+  },
+
+  /* forms */
+  'Danke! Wir melden uns bald.': { fr: 'Merci ! Nous vous répondrons bientôt.', it: 'Grazie! Ti risponderemo presto.', en: 'Thank you! We’ll be in touch soon.' },
+  'Du hast gerade mehrere Anfragen gesendet. Bitte warte ein paar Minuten.': {
+    fr: 'Vous venez d’envoyer plusieurs demandes. Veuillez patienter quelques minutes.',
+    it: 'Hai appena inviato diverse richieste. Attendi qualche minuto.',
+    en: 'You’ve just sent several requests. Please wait a few minutes.',
+  },
+  'Die Spam-Prüfung hat nicht geklappt. Bitte lade die Seite neu.': {
+    fr: 'La vérification anti-spam a échoué. Veuillez recharger la page.',
+    it: 'Il controllo antispam non è riuscito. Ricarica la pagina.',
+    en: 'The spam check failed. Please reload the page.',
+  },
+  '«{label}» ist grösser als 10 MB.': { fr: '«{label}» dépasse 10 Mo.', it: '«{label}» supera i 10 MB.', en: '«{label}» is larger than 10 MB.' },
+  'Bitte lade eine Datei bei «{label}» hoch.': { fr: 'Veuillez joindre un fichier pour «{label}».', it: 'Carica un file per «{label}».', en: 'Please upload a file for «{label}».' },
+  'Bitte fülle «{label}» aus.': { fr: 'Veuillez remplir «{label}».', it: 'Compila «{label}».', en: 'Please fill in «{label}».' },
+  '«{label}» ist keine gültige E-Mail-Adresse.': {
+    fr: '«{label}» n’est pas une adresse e-mail valable.',
+    it: '«{label}» non è un indirizzo e-mail valido.',
+    en: '«{label}» is not a valid email address.',
+  },
+
+  /* cart */
+  Warenkorb: { fr: 'Panier', it: 'Carrello', en: 'Cart' },
+  'Im Warenkorb.': { fr: 'Ajouté au panier.', it: 'Aggiunto al carrello.', en: 'Added to cart.' },
+  'Das Produkt ist nicht verfügbar.': { fr: 'Ce produit n’est pas disponible.', it: 'Questo prodotto non è disponibile.', en: 'This product is not available.' },
+  Bild: { fr: 'Image', it: 'Immagine', en: 'Image' },
+  Produkt: { fr: 'Produit', it: 'Prodotto', en: 'Product' },
+  Artikel: { fr: 'Article', it: 'Articolo', en: 'Item' },
+  Preis: { fr: 'Prix', it: 'Prezzo', en: 'Price' },
+  Menge: { fr: 'Quantité', it: 'Quantità', en: 'Quantity' },
+  Total: { fr: 'Total', it: 'Totale', en: 'Total' },
+  Aktion: { fr: 'Action', it: 'Azione', en: 'Action' },
+  '{title} entfernen': { fr: 'Retirer {title}', it: 'Rimuovi {title}', en: 'Remove {title}' },
+  Entfernen: { fr: 'Retirer', it: 'Rimuovi', en: 'Remove' },
+  Gutscheincode: { fr: 'Code de bon', it: 'Codice buono', en: 'Voucher code' },
+  Aktualisieren: { fr: 'Mettre à jour', it: 'Aggiorna', en: 'Update' },
+  'Gutschein {code}: {message}': { fr: 'Bon {code} : {message}', it: 'Buono {code}: {message}', en: 'Voucher {code}: {message}' },
+  'Zur Kasse': { fr: 'Passer à la caisse', it: 'Alla cassa', en: 'Checkout' },
+  'Dein Warenkorb ist leer.': { fr: 'Votre panier est vide.', it: 'Il tuo carrello è vuoto.', en: 'Your cart is empty.' },
+  'Zum Laden': { fr: 'Vers la boutique', it: 'Al negozio', en: 'Go to shop' },
+  Zwischensumme: { fr: 'Sous-total', it: 'Subtotale', en: 'Subtotal' },
+  Rabatt: { fr: 'Rabais', it: 'Sconto', en: 'Discount' },
+  Versand: { fr: 'Livraison', it: 'Spedizione', en: 'Shipping' },
+  gratis: { fr: 'gratuit', it: 'gratis', en: 'free' },
+  'inkl. {rate}% MwSt.': { fr: 'dont TVA {rate}%', it: 'di cui IVA {rate}%', en: 'incl. {rate}% VAT' },
+  'inkl. MwSt.': { fr: 'TVA incluse', it: 'IVA inclusa', en: 'incl. VAT' },
+
+  /* cart and checkout messages (quote) */
+  'Ein Produkt in deinem Warenkorb ist nicht mehr erhältlich und wurde entfernt.': {
+    fr: 'Un produit de votre panier n’est plus disponible et a été retiré.',
+    it: 'Un prodotto nel tuo carrello non è più disponibile ed è stato rimosso.',
+    en: 'A product in your cart is no longer available and has been removed.',
+  },
+  'Die gewählte Variante von «{title}» gibt es nicht mehr.': {
+    fr: 'La variante choisie de «{title}» n’existe plus.',
+    it: 'La variante scelta di «{title}» non esiste più.',
+    en: 'The selected variant of «{title}» no longer exists.',
+  },
+  '«{title}» ist ausverkauft.': { fr: '«{title}» est épuisé.', it: '«{title}» è esaurito.', en: '«{title}» is sold out.' },
+  'Von «{title}» sind nur noch {count} Stück da.': {
+    fr: 'Il ne reste que {count} pièce(s) de «{title}».',
+    it: 'Di «{title}» restano solo {count} pezzi.',
+    en: 'Only {count} of «{title}» left.',
+  },
+  'Diesen Gutscheincode kennen wir nicht.': { fr: 'Ce code de bon nous est inconnu.', it: 'Non conosciamo questo codice buono.', en: 'We don’t recognise this voucher code.' },
+  'Dieser Gutschein ist abgelaufen.': { fr: 'Ce bon a expiré.', it: 'Questo buono è scaduto.', en: 'This voucher has expired.' },
+  'Dieser Gutschein wurde schon zu oft eingelöst.': {
+    fr: 'Ce bon a déjà été utilisé trop souvent.',
+    it: 'Questo buono è già stato utilizzato troppe volte.',
+    en: 'This voucher has already been redeemed too often.',
+  },
+  'Dieser Gutschein gilt ab {amount} Bestellwert.': {
+    fr: 'Ce bon est valable dès {amount} de commande.',
+    it: 'Questo buono vale per ordini a partire da {amount}.',
+    en: 'This voucher applies to orders of {amount} or more.',
+  },
+  '{amount} Rabatt': { fr: '{amount} de rabais', it: '{amount} di sconto', en: '{amount} off' },
+  'Online-Zahlung ist gerade nicht verfügbar.': {
+    fr: 'Le paiement en ligne n’est pas disponible pour le moment.',
+    it: 'Il pagamento online non è disponibile al momento.',
+    en: 'Online payment is currently unavailable.',
+  },
+  'Kauf auf Rechnung ist nicht verfügbar.': { fr: 'L’achat sur facture n’est pas disponible.', it: 'L’acquisto con fattura non è disponibile.', en: 'Paying by invoice is not available.' },
+  'Bitte gib eine gültige E-Mail-Adresse an.': {
+    fr: 'Veuillez indiquer une adresse e-mail valable.',
+    it: 'Indica un indirizzo e-mail valido.',
+    en: 'Please enter a valid email address.',
+  },
+  'Bitte gib deinen Namen an.': { fr: 'Veuillez indiquer votre nom.', it: 'Indica il tuo nome.', en: 'Please enter your name.' },
+  'Bitte bestätige die AGB.': { fr: 'Veuillez accepter les CG.', it: 'Conferma le CG.', en: 'Please accept the terms and conditions.' },
+  'Für den Versand brauchen wir Strasse, PLZ und Ort.': {
+    fr: 'Pour la livraison, nous avons besoin de la rue, du NPA et de la localité.',
+    it: 'Per la spedizione ci servono via, NPA e località.',
+    en: 'For shipping we need street, postcode and town.',
+  },
+  'In dieses Land liefern wir leider nicht.': {
+    fr: 'Nous ne livrons malheureusement pas dans ce pays.',
+    it: 'Purtroppo non spediamo in questo paese.',
+    en: 'Sorry, we don’t ship to this country.',
+  },
+  'Die Zahlung konnte nicht gestartet werden: {error}': {
+    fr: 'Le paiement n’a pas pu être lancé : {error}',
+    it: 'Non è stato possibile avviare il pagamento: {error}',
+    en: 'The payment could not be started: {error}',
+  },
+
+  /* checkout */
+  Kasse: { fr: 'Caisse', it: 'Cassa', en: 'Checkout' },
+  Kontakt: { fr: 'Contact', it: 'Contatto', en: 'Contact' },
+  'Vor- und Nachname': { fr: 'Prénom et nom', it: 'Nome e cognome', en: 'First and last name' },
+  'E-Mail': { fr: 'E-mail', it: 'E-mail', en: 'Email' },
+  Telefon: { fr: 'Téléphone', it: 'Telefono', en: 'Phone' },
+  '(optional)': { fr: '(facultatif)', it: '(facoltativo)', en: '(optional)' },
+  Firma: { fr: 'Entreprise', it: 'Ditta', en: 'Company' },
+  Lieferung: { fr: 'Livraison', it: 'Consegna', en: 'Delivery' },
+  '({price}, ab {free} gratis)': { fr: '({price}, gratuit dès {free})', it: '({price}, gratis da {free})', en: '({price}, free from {free})' },
+  'Abholen in {city} (gratis)': { fr: 'Retrait à {city} (gratuit)', it: 'Ritiro a {city} (gratis)', en: 'Pick up in {city} (free)' },
+  'Abholen (gratis)': { fr: 'Retrait sur place (gratuit)', it: 'Ritiro sul posto (gratis)', en: 'Pick up (free)' },
+  'Strasse und Nr.': { fr: 'Rue et n°', it: 'Via e n.', en: 'Street and no.' },
+  PLZ: { fr: 'NPA', it: 'NPA', en: 'Postcode' },
+  Ort: { fr: 'Localité', it: 'Località', en: 'Town' },
+  Land: { fr: 'Pays', it: 'Paese', en: 'Country' },
+  Bezahlung: { fr: 'Paiement', it: 'Pagamento', en: 'Payment' },
+  'Online bezahlen – TWINT, Karte, Apple Pay, Google Pay': {
+    fr: 'Payer en ligne – TWINT, carte, Apple Pay, Google Pay',
+    it: 'Paga online – TWINT, carta, Apple Pay, Google Pay',
+    en: 'Pay online – TWINT, card, Apple Pay, Google Pay',
+  },
+  'Rechnung (zahlbar innert 30 Tagen)': { fr: 'Facture (payable sous 30 jours)', it: 'Fattura (pagabile entro 30 giorni)', en: 'Invoice (payable within 30 days)' },
+  'Zurzeit ist keine Zahlungsart eingerichtet.': {
+    fr: 'Aucun mode de paiement n’est configuré pour le moment.',
+    it: 'Al momento non è configurato alcun metodo di pagamento.',
+    en: 'No payment method is set up at the moment.',
+  },
+  Bemerkung: { fr: 'Remarque', it: 'Osservazioni', en: 'Note' },
+  'Ich habe die {agb} und die {datenschutz} gelesen.': {
+    fr: 'J’ai lu les {agb} et la {datenschutz}.',
+    it: 'Ho letto le {agb} e l’{datenschutz}.',
+    en: 'I have read the {agb} and the {datenschutz}.',
+  },
+  AGB: { fr: 'CG', it: 'CG', en: 'terms and conditions' },
+  Datenschutzerklärung: { fr: 'déclaration de protection des données', it: 'informativa sulla privacy', en: 'privacy policy' },
+  'Zahlungspflichtig bestellen': { fr: 'Commander avec obligation de payer', it: 'Ordina con obbligo di pagamento', en: 'Place order and pay' },
+  Zusammenfassung: { fr: 'Récapitulatif', it: 'Riepilogo', en: 'Summary' },
+  'Deine Bestellung': { fr: 'Votre commande', it: 'Il tuo ordine', en: 'Your order' },
+  'Zu viele Versuche. Bitte warte kurz.': { fr: 'Trop de tentatives. Veuillez patienter un instant.', it: 'Troppi tentativi. Attendi un momento.', en: 'Too many attempts. Please wait a moment.' },
+  'Die Bestellung konnte nicht abgeschlossen werden. Bitte versuch es nochmals.': {
+    fr: 'La commande n’a pas pu être finalisée. Veuillez réessayer.',
+    it: 'Non è stato possibile completare l’ordine. Riprova.',
+    en: 'The order could not be completed. Please try again.',
+  },
+
+  /* order status page */
+  'Bestellung {number}': { fr: 'Commande {number}', it: 'Ordine {number}', en: 'Order {number}' },
+  'Danke, {name}.': { fr: 'Merci, {name}.', it: 'Grazie, {name}.', en: 'Thank you, {name}.' },
+  'Diese Bestellung wurde storniert.': { fr: 'Cette commande a été annulée.', it: 'Questo ordine è stato annullato.', en: 'This order has been cancelled.' },
+  'Die Zahlung wurde abgebrochen.': { fr: 'Le paiement a été interrompu.', it: 'Il pagamento è stato interrotto.', en: 'The payment was cancelled.' },
+  'Bezahlt. Danke! Eine Bestätigung ist unterwegs an {email}.': {
+    fr: 'Payé. Merci ! Une confirmation a été envoyée à {email}.',
+    it: 'Pagato. Grazie! Una conferma è in arrivo a {email}.',
+    en: 'Paid. Thank you! A confirmation is on its way to {email}.',
+  },
+  'Danke für deine Bestellung! Bitte überweise {amount} innert 30 Tagen.': {
+    fr: 'Merci pour votre commande ! Veuillez virer {amount} dans les 30 jours.',
+    it: 'Grazie per il tuo ordine! Versa {amount} entro 30 giorni.',
+    en: 'Thank you for your order! Please transfer {amount} within 30 days.',
+  },
+  'Rechnung mit QR-Code': { fr: 'Facture avec code QR', it: 'Fattura con codice QR', en: 'Invoice with QR code' },
+  'Die Zahlung wird bestätigt – das dauert meist nur Sekunden. Lade die Seite gleich neu.': {
+    fr: 'Le paiement est en cours de confirmation – cela ne prend généralement que quelques secondes. Rechargez la page dans un instant.',
+    it: 'Il pagamento è in fase di conferma – di solito bastano pochi secondi. Ricarica la pagina tra un attimo.',
+    en: 'Your payment is being confirmed – this usually takes just a few seconds. Reload the page in a moment.',
+  },
+  'Die Zahlung ist noch offen.': { fr: 'Le paiement est encore en attente.', it: 'Il pagamento è ancora in sospeso.', en: 'The payment is still outstanding.' },
+  'Jetzt bezahlen': { fr: 'Payer maintenant', it: 'Paga ora', en: 'Pay now' },
+  Downloads: { fr: 'Téléchargements', it: 'Download', en: 'Downloads' },
+
+  /* order confirmation e-mail */
+  'Hallo {name}': { fr: 'Bonjour {name}', it: 'Ciao {name}', en: 'Hello {name}' },
+  'Danke für deine Bestellung {number}.': { fr: 'Merci pour votre commande {number}.', it: 'Grazie per il tuo ordine {number}.', en: 'Thank you for your order {number}.' },
+  'Danke für deine Bestellung {number}. Die Zahlung ist eingegangen.': {
+    fr: 'Merci pour votre commande {number}. Le paiement a bien été reçu.',
+    it: 'Grazie per il tuo ordine {number}. Il pagamento è stato ricevuto.',
+    en: 'Thank you for your order {number}. Your payment has been received.',
+  },
+  'Bitte überweise den Betrag innert 30 Tagen.': {
+    fr: 'Veuillez virer le montant dans les 30 jours.',
+    it: 'Versa l’importo entro 30 giorni.',
+    en: 'Please transfer the amount within 30 days.',
+  },
+  'Bestellung ansehen: {url}': { fr: 'Voir la commande : {url}', it: 'Vedi l’ordine: {url}', en: 'View your order: {url}' },
+
+  /* invoice */
+  Rechnung: { fr: 'Facture', it: 'Fattura', en: 'Invoice' },
+  'Rechnung {number}': { fr: 'Facture {number}', it: 'Fattura {number}', en: 'Invoice {number}' },
+  'Nr. {number}': { fr: 'N° {number}', it: 'N. {number}', en: 'No. {number}' },
+  'Zahlbar innert 30 Tagen.': { fr: 'Payable dans les 30 jours.', it: 'Pagabile entro 30 giorni.', en: 'Payable within 30 days.' },
+  'Bezahlt am {date}. Danke!': { fr: 'Payé le {date}. Merci !', it: 'Pagato il {date}. Grazie!', en: 'Paid on {date}. Thank you!' },
+  'Bezahlt. Danke!': { fr: 'Payé. Merci !', it: 'Pagato. Grazie!', en: 'Paid. Thank you!' },
+
+  /* QR bill: the official labels of the Swiss Payment Standards */
+  'Zahlteil QR-Rechnung': { fr: 'Section paiement QR-facture', it: 'Sezione pagamento QR-fattura', en: 'Payment part QR-bill' },
+  Empfangsschein: { fr: 'Récépissé', it: 'Ricevuta', en: 'Receipt' },
+  Zahlteil: { fr: 'Section paiement', it: 'Sezione pagamento', en: 'Payment part' },
+  'Konto / Zahlbar an': { fr: 'Compte / Payable à', it: 'Conto / Pagabile a', en: 'Account / Payable to' },
+  Referenz: { fr: 'Référence', it: 'Riferimento', en: 'Reference' },
+  'Zusätzliche Informationen': { fr: 'Informations supplémentaires', it: 'Informazioni supplementari', en: 'Additional information' },
+  'Zahlbar durch': { fr: 'Payable par', it: 'Pagabile da', en: 'Payable by' },
+  'Zahlbar durch (Name/Adresse)': { fr: 'Payable par (nom/adresse)', it: 'Pagabile da (nome/indirizzo)', en: 'Payable by (name/address)' },
+  Währung: { fr: 'Monnaie', it: 'Valuta', en: 'Currency' },
+  Betrag: { fr: 'Montant', it: 'Importo', en: 'Amount' },
+  Annahmestelle: { fr: 'Point de dépôt', it: 'Punto di accettazione', en: 'Acceptance point' },
+
+  /* printable menu */
+  'Karte – {name}': { fr: 'Carte – {name}', it: 'Menu – {name}', en: 'Menu – {name}' },
+  'Drucken oder als PDF sichern': { fr: 'Imprimer ou enregistrer en PDF', it: 'Stampa o salva come PDF', en: 'Print or save as PDF' },
+};

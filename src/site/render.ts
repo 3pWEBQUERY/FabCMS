@@ -22,7 +22,7 @@ import {
 import { entryPath } from '../shared/paths';
 import { formatPrice, readingTime } from '../shared/text';
 import { blocksText } from '../shared/blocks';
-import { DAY_NAMES } from '../shared/hours';
+import { DAYS } from '../shared/hours';
 import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
 import { sql } from '../server/db';
 import { runtimeVersion } from './assets';
@@ -32,7 +32,7 @@ import { propertyList, propertyTemplate } from './realestate';
 import { entryAccess, mayRead, type Access } from '../shared/members';
 import { defaultLang, langInfo, localizeSettings, type Lang } from '../shared/i18n';
 import { localized } from '../server/translations';
-import { t } from './i18n';
+import { t, L } from './i18n';
 
 export function createContext(input: {
   settings: SiteSettings;
@@ -113,12 +113,12 @@ async function header(ctx: RenderContext): Promise<Html> {
     logo ? html`<img src="${variantUrl(logo, 480, 'webp')}" alt="${s.name}" width="${logo.width ?? 160}" height="${logo.height ?? 48}">` : s.name
   }</a>`;
   const cart = s.modules.includes('shop')
-    ? html`<a class="cart-link" href="/warenkorb" aria-label="Warenkorb, ${ctx.cartCount} Artikel">Warenkorb <span class="cart-count" data-cart-count>${ctx.cartCount}</span></a>`
+    ? html`<a class="cart-link" href="/warenkorb" aria-label="${t(ctx, 'Warenkorb, {n} Artikel', { n: ctx.cartCount })}">${t(ctx, 'Warenkorb')} <span class="cart-count" data-cart-count>${ctx.cartCount}</span></a>`
     : '';
   const cta = s.header.cta?.href ? html`<a class="btn" href="${s.header.cta.href}">${s.header.cta.label}</a>` : '';
   const account = accountLink(ctx);
   const editAttr = ctx.edit ? raw(' data-nova-global="header"') : '';
-  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="Hauptnavigation">${navList(ctx, s.nav)}${account}${cart}${cta}${langSwitch(ctx)}</nav><details class="menu-toggle"><summary aria-label="Menü"><span class="bars" aria-hidden="true"></span>Menü</summary><nav class="menu-panel" aria-label="Hauptnavigation mobil">${navList(
+  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${navList(ctx, s.nav)}${account}${cart}${cta}${langSwitch(ctx)}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${navList(
     ctx,
     s.nav,
   )}${account}${cart ? html`<p>${cart}</p>` : ''}${cta}${langSwitch(ctx)}</nav></details></div></header>`;
@@ -137,9 +137,9 @@ async function footer(ctx: RenderContext): Promise<Html> {
   }<address style="font-style:normal">${b.street ? html`${b.street}<br>` : ''}${b.zip || b.city ? html`${b.zip} ${b.city}<br>` : ''}${
     b.phone ? html`<a href="tel:${b.phone.replace(/[^+\d]/g, '')}">${b.phone}</a><br>` : ''
   }${b.email ? html`<a href="mailto:${b.email}">${b.email}</a>` : ''}</address></div>${
-    s.hours.length && (b.street || b.city) ? html`<div><h2>Öffnungszeiten</h2><ul>${hoursSummary(ctx)}</ul>${s.hoursNote ? html`<p>${s.hoursNote}</p>` : ''}</div>` : ''
+    s.hours.length && (b.street || b.city) ? html`<div><h2>${t(ctx, 'Öffnungszeiten')}</h2><ul>${hoursSummary(ctx)}</ul>${s.hoursNote ? html`<p>${s.hoursNote}</p>` : ''}</div>` : ''
   }${s.footer.columns.map((col) => html`<div><h2>${col.title}</h2><ul>${col.links.map((l) => html`<li><a href="${l.href}">${l.label}</a></li>`)}</ul></div>`)}${
-    s.social.length ? html`<div><h2>Folgen</h2><ul>${s.social.map((l) => html`<li><a href="${l.href}" rel="noopener me">${l.label}</a></li>`)}</ul></div>` : ''
+    s.social.length ? html`<div><h2>${t(ctx, 'Folgen')}</h2><ul>${s.social.map((l) => html`<li><a href="${l.href}" rel="noopener me">${l.label}</a></li>`)}</ul></div>` : ''
   }</div><div class="ftr-bottom"><span>© ${new Date().getFullYear()} ${b.legalName || s.name}</span><ul>${legal.map(
     (l) => html`<li><a href="/${l.slug}">${l.data.title}</a></li>`,
   )}</ul></div></div></footer>`;
@@ -148,7 +148,7 @@ async function footer(ctx: RenderContext): Promise<Html> {
 function breadcrumbs(ctx: RenderContext, crumbs: Crumb[]): Html {
   if (crumbs.length < 2) return html``;
   ctx.jsonLd.push(breadcrumbLd(ctx, crumbs));
-  return html`<nav class="wrap crumbs" aria-label="Brotkrümel"><ol>${crumbs.map((c, i) =>
+  return html`<nav class="wrap crumbs" aria-label="${t(ctx, 'Brotkrümel')}"><ol>${crumbs.map((c, i) =>
     i === crumbs.length - 1 ? html`<li aria-current="page">${c.label}</li>` : html`<li><a href="${c.href}">${c.label}</a></li>`,
   )}</ol></nav>`;
 }
@@ -156,7 +156,7 @@ function breadcrumbs(ctx: RenderContext, crumbs: Crumb[]): Html {
 function ageGate(ctx: RenderContext): Html {
   const g = ctx.settings.ageGate;
   if (!g.enabled || ctx.ageOk || ctx.edit) return html``;
-  return html`<div class="age" role="dialog" aria-modal="true" aria-labelledby="age-h"><form class="age-box" method="post" action="/_nova/age"><p class="label">${ctx.settings.name}</p><h1 id="age-h">Bist du ${g.minAge} oder älter?</h1><p class="muted">${g.text}</p><input type="hidden" name="back" value="${ctx.path}"><div class="actions"><button class="btn" name="ok" value="1">Ja, ich bin ${g.minAge}+</button><a class="btn-2" href="https://www.google.ch" rel="noopener">Nein, verlassen</a></div></form></div>`;
+  return html`<div class="age" role="dialog" aria-modal="true" aria-labelledby="age-h"><form class="age-box" method="post" action="/_nova/age"><p class="label">${ctx.settings.name}</p><h1 id="age-h">${t(ctx, 'Bist du {age} oder älter?', { age: g.minAge })}</h1><p class="muted">${g.text}</p><input type="hidden" name="back" value="${ctx.path}"><div class="actions"><button class="btn" name="ok" value="1">${t(ctx, 'Ja, ich bin {age}+', { age: g.minAge })}</button><a class="btn-2" href="https://www.google.ch" rel="noopener">${t(ctx, 'Nein, verlassen')}</a></div></form></div>`;
 }
 
 /* ---------- Document ---------- */
@@ -228,7 +228,7 @@ export interface RenderEntry {
 async function pageCrumbs(ctx: RenderContext, slug: string, title: string): Promise<Crumb[]> {
   const parts = slug.split('/').filter(Boolean);
   if (!parts.length) return [];
-  const crumbs: Crumb[] = [{ label: 'Start', href: '/' }];
+  const crumbs: Crumb[] = [{ label: t(ctx, 'Start'), href: '/' }];
   const parents = parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'));
   if (parents.length) {
     const rows = await localized(
@@ -263,7 +263,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
   let main: Html;
   let crumbs: Crumb[] = [];
-  const listCrumb = c.list_route ? [{ label: 'Start', href: '/' }, { label: c.name, href: c.list_route }] : [{ label: 'Start', href: '/' }];
+  const listCrumb = c.list_route ? [{ label: t(ctx, 'Start'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Start'), href: '/' }];
   switch (c.id) {
     case 'pages':
       crumbs = await pageCrumbs(ctx, e.slug, e.data.title);
@@ -322,7 +322,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
     const { items } = await publishedEntries(c, { limit: 50, sortField: 'date', sortDir: 'asc' });
     const inSeries = items.filter((i) => i.data.series === d.series);
     if (inSeries.length > 1)
-      series = html`<aside class="wrap"><div class="series measure"><span class="label">Serie: ${d.series as string}</span><ol>${inSeries.map((i) =>
+      series = html`<aside class="wrap"><div class="series measure"><span class="label">${t(ctx, 'Serie: {name}', { name: d.series as string })}</span><ol>${inSeries.map((i) =>
         i.id === e.id ? html`<li><strong>${i.data.title}</strong></li>` : html`<li><a href="${entryPath(c, i.slug)}">${i.data.title}</a></li>`,
       )}</ol></div></aside>`;
   }
@@ -332,13 +332,13 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
   return html`<article><header class="wrap art-head">${d.category ? html`<a class="label" href="${c.list_route}?kategorie=${encodeURIComponent(d.category as string)}">${d.category as string}</a>` : ''}<h1${
     ctx.edit ? raw(' data-nova-entry-field="title"') : ''
   }>${d.title}</h1>${d.excerpt ? html`<p class="lead">${d.excerpt as string}</p>` : ''}<div class="art-meta">${
-    date ? html`<time datetime="${new Date(date).toISOString().slice(0, 10)}">${new Date(date).toLocaleDateString('de-CH', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''
-  }${e.author_name ? html`<span>${e.author_name}</span>` : ''}<span>${readingTime(blocksText(d.blocks))} Min. Lesezeit</span></div>${
+    date ? html`<time datetime="${new Date(date).toISOString().slice(0, 10)}">${new Date(date).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''
+  }${e.author_name ? html`<span>${e.author_name}</span>` : ''}<span>${t(ctx, '{n} Min. Lesezeit', { n: readingTime(blocksText(d.blocks)) })}</span></div>${
     cover ? html`<figure class="art-cover">${picture(cover, { sizes: '(min-width: 78rem) 78rem, 100vw', priority: true })}${cover.caption ? html`<figcaption>${cover.caption}</figcaption>` : ''}</figure>` : ''
   }</header><div class="art-body">${body}</div>${
     tags.length ? html`<footer class="wrap"><div class="art-foot measure">${tags.map((t) => html`<a class="tag-chip" href="${c.list_route}?schlagwort=${encodeURIComponent(t)}">${t}</a>`)}</div></footer>` : ''
   }</article>${series}${commentsHtml}${
-    others.length ? html`<section class="b sp-m"><div class="wrap"><header class="bh"><h2>Weiterlesen</h2></header>${await postTeasers(ctx, others, 'grid')}</div></section>` : ''
+    others.length ? html`<section class="b sp-m"><div class="wrap"><header class="bh"><h2>${t(ctx, 'Weiterlesen')}</h2></header>${await postTeasers(ctx, others, 'grid')}</div></section>` : ''
   }`;
 }
 
@@ -346,14 +346,14 @@ async function commentsSection(ctx: RenderContext, entryId: string): Promise<Htm
   const list = await approvedComments(entryId);
   const sent = ctx.query.get('kommentar') === 'danke';
   return html`<section class="b sp-m" id="kommentare"><div class="wrap comments"><h2 style="font-size:var(--step-3);margin-bottom:1rem">${
-    list.length ? `${list.length} ${list.length === 1 ? 'Kommentar' : 'Kommentare'}` : 'Kommentare'
+    list.length ? (list.length === 1 ? t(ctx, '1 Kommentar') : t(ctx, '{n} Kommentare', { n: list.length })) : t(ctx, 'Kommentare')
   }</h2>${list.map(
     (k) =>
-      html`<article class="comment"><header><strong>${k.name}</strong><time datetime="${new Date(k.created_at).toISOString()}">${new Date(k.created_at).toLocaleDateString('de-CH')}</time></header><p style="margin:0;white-space:pre-line">${k.body}</p></article>`,
+      html`<article class="comment"><header><strong>${k.name}</strong><time datetime="${new Date(k.created_at).toISOString()}">${new Date(k.created_at).toLocaleDateString(L(ctx))}</time></header><p style="margin:0;white-space:pre-line">${k.body}</p></article>`,
   )}${
     sent
-      ? html`<p class="form-ok" role="status">Danke! Dein Kommentar erscheint, sobald er freigegeben ist.</p>`
-      : html`<form class="nform" method="post" action="/_nova/comments/${entryId}" style="margin-top:2rem"><h3 style="font-size:var(--step-2)">Kommentar schreiben</h3><input type="hidden" name="_t" value="${Date.now().toString(36)}"><div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div><div class="fld"><label for="c-name">Name</label><input id="c-name" name="name" required maxlength="80" autocomplete="name"></div><div class="fld"><label for="c-mail">E-Mail <span class="muted">(wird nicht veröffentlicht)</span></label><input id="c-mail" name="email" type="email" maxlength="200" autocomplete="email"></div><div class="fld"><label for="c-body">Kommentar</label><textarea id="c-body" name="body" required maxlength="4000"></textarea></div><div><button class="btn">Absenden</button></div><p class="muted" style="font-size:var(--step-n1);margin:0">Kommentare werden vor der Veröffentlichung geprüft.</p></form>`
+      ? html`<p class="form-ok" role="status">${t(ctx, 'Danke! Dein Kommentar erscheint, sobald er freigegeben ist.')}</p>`
+      : html`<form class="nform" method="post" action="/_nova/comments/${entryId}" style="margin-top:2rem"><h3 style="font-size:var(--step-2)">${t(ctx, 'Kommentar schreiben')}</h3><input type="hidden" name="_t" value="${Date.now().toString(36)}"><div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div><div class="fld"><label for="c-name">${t(ctx, 'Name')}</label><input id="c-name" name="name" required maxlength="80" autocomplete="name"></div><div class="fld"><label for="c-mail">${t(ctx, 'E-Mail')} <span class="muted">${t(ctx, '(wird nicht veröffentlicht)')}</span></label><input id="c-mail" name="email" type="email" maxlength="200" autocomplete="email"></div><div class="fld"><label for="c-body">${t(ctx, 'Kommentar')}</label><textarea id="c-body" name="body" required maxlength="4000"></textarea></div><div><button class="btn">${t(ctx, 'Absenden')}</button></div><p class="muted" style="font-size:var(--step-n1);margin:0">${t(ctx, 'Kommentare werden vor der Veröffentlichung geprüft.')}</p></form>`
   }</div></section>`;
 }
 
@@ -372,10 +372,10 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   const s = ctx.settings;
   const added = ctx.query.get('hinzugefuegt') === '1';
   const shipNote = d.digital
-    ? 'Digitales Produkt – Download nach der Zahlung.'
+    ? t(ctx, 'Digitales Produkt – Download nach der Zahlung.')
     : s.shop.shipping.freeFrom !== null
-      ? `inkl. MwSt., Versand ${formatPrice(s.shop.shipping.flat)}, ab ${formatPrice(s.shop.shipping.freeFrom)} gratis`
-      : `inkl. MwSt., zzgl. Versand ${formatPrice(s.shop.shipping.flat)}`;
+      ? t(ctx, 'inkl. MwSt., Versand {flat}, ab {free} gratis', { flat: formatPrice(s.shop.shipping.flat), free: formatPrice(s.shop.shipping.freeFrom) })
+      : t(ctx, 'inkl. MwSt., zzgl. Versand {flat}', { flat: formatPrice(s.shop.shipping.flat) });
   if (imgs.length > 1) ctx.needs.add('lightbox');
   return html`<div class="wrap pdp"><div class="pdp-gal" data-lightbox>${
     imgs[0] ? html`<a href="${variantUrl(imgs[0], 1920, 'webp')}">${picture(imgs[0], { sizes: '(min-width: 56rem) 55vw, 100vw', priority: true, ratio: '4/5' })}</a>` : ''
@@ -384,20 +384,20 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   }<h1>${d.title}</h1><div class="price-row pdp-price"><span data-price>${formatPrice(d.price as number)}</span>${
     d.comparePrice ? html`<s>${formatPrice(d.comparePrice as number)}</s>` : ''
   }</div><p class="pdp-note">${s.shop.currency} · ${shipNote}</p>${
-    added ? html`<p class="form-ok" role="status">Im Warenkorb. <a href="/warenkorb">Zum Warenkorb</a></p>` : ''
+    added ? html`<p class="form-ok" role="status">${t(ctx, 'Im Warenkorb.')} <a href="/warenkorb">${t(ctx, 'Zum Warenkorb')}</a></p>` : ''
   }${
     soldOut
-      ? html`<p class="badge">Ausverkauft</p>`
+      ? html`<p class="badge">${t(ctx, 'Ausverkauft')}</p>`
       : html`<form method="post" action="/warenkorb/add" class="nform" data-add-to-cart><input type="hidden" name="product" value="${e.id}">${
           variants.length
-            ? html`<div class="fld"><label for="variant">Variante</label><select id="variant" name="variant" required>${variants.map((v, i) =>
+            ? html`<div class="fld"><label for="variant">${t(ctx, 'Variante')}</label><select id="variant" name="variant" required>${variants.map((v, i) =>
                 v.stock === 0
-                  ? html`<option value="${i}" disabled>${v.name} – ausverkauft</option>`
+                  ? html`<option value="${i}" disabled>${t(ctx, '{name} – ausverkauft', { name: v.name })}</option>`
                   : html`<option value="${i}" data-price="${formatPrice(v.price ?? (d.price as number))}">${v.name}${v.price && v.price !== d.price ? ` – ${formatPrice(v.price)}` : ''}</option>`,
               )}</select></div>`
             : ''
-        }<div class="qty"><div class="fld"><label for="qty">Menge</label><input id="qty" name="qty" type="number" min="1" max="${typeof baseStock === 'number' && !variants.length ? Math.min(99, baseStock) : 99}" value="1" inputmode="numeric"></div><button class="btn">In den Warenkorb</button></div>${
-          lowStock ? html`<p class="stock low">Nur noch ${baseStock} Stück an Lager</p>` : ''
+        }<div class="qty"><div class="fld"><label for="qty">${t(ctx, 'Menge')}</label><input id="qty" name="qty" type="number" min="1" max="${typeof baseStock === 'number' && !variants.length ? Math.min(99, baseStock) : 99}" value="1" inputmode="numeric"></div><button class="btn">${t(ctx, 'In den Warenkorb')}</button></div>${
+          lowStock ? html`<p class="stock low">${t(ctx, 'Nur noch {n} Stück an Lager', { n: baseStock as number })}</p>` : ''
         }</form>`
   }${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>`;
 }
@@ -414,9 +414,9 @@ async function projectTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   const idx = items.findIndex((i) => i.id === e.id);
   const next = items.length > 1 ? items[(idx + 1) % items.length] : null;
   const facts = [
-    d.client ? html`<div><span class="label">Kunde</span><br>${d.client as string}</div>` : '',
-    d.year ? html`<div><span class="label">Jahr</span><br>${d.year as number}</div>` : '',
-    d.category ? html`<div><span class="label">Bereich</span><br>${d.category as string}</div>` : '',
+    d.client ? html`<div><span class="label">${t(ctx, 'Kunde')}</span><br>${d.client as string}</div>` : '',
+    d.year ? html`<div><span class="label">${t(ctx, 'Jahr')}</span><br>${d.year as number}</div>` : '',
+    d.category ? html`<div><span class="label">${t(ctx, 'Bereich')}</span><br>${d.category as string}</div>` : '',
   ].filter(Boolean);
   return html`<article><header class="wrap art-head"><h1>${d.title}</h1>${d.summary ? html`<p class="lead">${d.summary as string}</p>` : ''}${
     facts.length ? html`<div class="stats" style="margin-top:1rem">${facts}</div>` : ''
@@ -426,7 +426,7 @@ async function projectTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
           (m) => html`<a href="${variantUrl(m, 1920, 'webp')}" data-caption="${m.caption || m.alt}">${picture(m, { sizes: '(min-width: 56rem) 33vw, 100vw', maxWidth: 1280 })}</a>`,
         )}</div></div></section>`
       : ''
-  }${next ? html`<nav class="wrap pager" aria-label="Nächstes Projekt"><a class="btn-2" href="${c.list_route}">Alle Projekte</a><a class="btn-2" href="${entryPath(c, next.slug)}">${next.data.title}</a></nav>` : ''}</article>`;
+  }${next ? html`<nav class="wrap pager" aria-label="${t(ctx, 'Nächstes Projekt')}"><a class="btn-2" href="${c.list_route}">${t(ctx, 'Alle Projekte')}</a><a class="btn-2" href="${entryPath(c, next.slug)}">${next.data.title}</a></nav>` : ''}</article>`;
 }
 
 async function profileTemplate(ctx: RenderContext, e: RenderEntry): Promise<Html> {
@@ -439,11 +439,11 @@ async function profileTemplate(ctx: RenderContext, e: RenderEntry): Promise<Html
   const days = ((d.availability as string[]) ?? []).map(Number).sort();
   return html`<div class="wrap pdp"><div class="pdp-gal" data-lightbox>${imgs.map(
     (m, i) => html`<a href="${variantUrl(m, 1920, 'webp')}">${picture(m, { sizes: '(min-width: 56rem) 55vw, 100vw', priority: i === 0, ratio: '3/4' })}</a>`,
-  )}</div><div class="pdp-info"><h1>${d.title}</h1>${d.availableNow ? html`<span class="avail">Gerade verfügbar</span>` : ''}${
+  )}</div><div class="pdp-info"><h1>${d.title}</h1>${d.availableNow ? html`<span class="avail">${t(ctx, 'Gerade verfügbar')}</span>` : ''}${
     d.intro ? html`<p class="lead">${d.intro as string}</p>` : ''
-  }${(d.languages as string[])?.length ? html`<p><span class="label">Sprachen</span><br>${(d.languages as string[]).join(', ')}</p>` : ''}${
-    (d.services as string[])?.length ? html`<p><span class="label">Leistungen</span><br>${(d.services as string[]).join(', ')}</p>` : ''
-  }${days.length ? html`<p><span class="label">Anwesend</span><br>${days.map((x) => DAY_NAMES[x]).join(', ')}</p>` : ''}</div></div>`;
+  }${(d.languages as string[])?.length ? html`<p><span class="label">${t(ctx, 'Sprachen')}</span><br>${(d.languages as string[]).join(', ')}</p>` : ''}${
+    (d.services as string[])?.length ? html`<p><span class="label">${t(ctx, 'Leistungen')}</span><br>${(d.services as string[]).join(', ')}</p>` : ''
+  }${days.length ? html`<p><span class="label">${t(ctx, 'Anwesend')}</span><br>${days.map((x) => DAYS[ctx.lang].long[x]).join(', ')}</p>` : ''}</div></div>`;
 }
 
 async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<Html> {
@@ -477,10 +477,10 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         parts.push(html`<p><span class="label">${f.label}</span><br>${formatPrice(v as number)}</p>`);
         break;
       case 'boolean':
-        parts.push(html`<p><span class="label">${f.label}</span><br>${v ? 'Ja' : 'Nein'}</p>`);
+        parts.push(html`<p><span class="label">${f.label}</span><br>${v ? t(ctx, 'Ja') : t(ctx, 'Nein')}</p>`);
         break;
       case 'date':
-        parts.push(html`<p><span class="label">${f.label}</span><br>${new Date(v as string).toLocaleDateString('de-CH')}</p>`);
+        parts.push(html`<p><span class="label">${f.label}</span><br>${new Date(v as string).toLocaleDateString(L(ctx))}</p>`);
         break;
       case 'url':
         parts.push(html`<p><a class="btn-2" href="${v as string}" rel="noopener">${f.label}</a></p>`);
@@ -522,13 +522,16 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
   let description = '';
   ctx.h1 = true;
   if (c.id === 'dishes') {
-    main = html`<div class="wrap art-head"><h1>${c.list_route === '/karte' ? 'Karte' : c.name}</h1><p class="no-print"><a class="btn-2" href="/karte/druck">Druckversion</a></p></div><section class="b sp-m"><div class="wrap">${await renderMenu(ctx, { daily: true, allergens: true })}</div></section>`;
+    main = html`<div class="wrap art-head"><h1>${c.list_route === '/karte' ? t(ctx, 'Karte') : c.name}</h1><p class="no-print"><a class="btn-2" href="/karte/druck">${t(ctx, 'Druckversion')}</a></p></div><section class="b sp-m"><div class="wrap">${await renderMenu(ctx, { daily: true, allergens: true })}</div></section>`;
     const { items } = await publishedEntries(c, { limit: 500, sortField: 'sort', sortDir: 'asc' });
     ctx.jsonLd.push(menuLd(ctx, items));
-    description = `Karte von ${ctx.settings.name}: ${items
-      .slice(0, 6)
-      .map((i) => i.data.title)
-      .join(', ')}.`;
+    description = t(ctx, 'Karte von {site}: {dishes}.', {
+      site: ctx.settings.name,
+      dishes: items
+        .slice(0, 6)
+        .map((i) => i.data.title)
+        .join(', '),
+    });
   } else if (c.id === 'properties') {
     ({ main, description } = await propertyList(ctx, c));
   } else if (c.id === 'events' || c.id === 'courses') {
@@ -537,12 +540,14 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     const cats = await categoriesOf(c.id);
     const filter =
       cats.length > 1
-        ? html`<nav class="filters" aria-label="Nach Kategorie filtern"><a href="${c.list_route}" aria-current="${!category}">Alle</a>${cats.map(
+        ? html`<nav class="filters" aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${!category}">${t(ctx, 'Alle')}</a>${cats.map(
             (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${category.toLowerCase() === cat.toLowerCase()}">${cat}</a>`,
           )}</nav>`
         : '';
-    main = html`<div class="wrap art-head"><h1>${past ? `Vergangene ${c.name}` : c.name}</h1></div><section class="b sp-m"><div class="wrap">${filter}${await eventCards(ctx, c, items)}<p class="ev-more"><a class="btn-2" href="${c.list_route}${past ? '' : '?vergangen=1'}">${past ? `Kommende ${c.name}` : `Vergangene ${c.name}`}</a></p></div></section>`;
-    description = `${c.name} bei ${ctx.settings.name}${items[0] ? `: ${items.slice(0, 3).map((i) => i.data.title).join(', ')}` : ''}.`;
+    main = html`<div class="wrap art-head"><h1>${past ? t(ctx, 'Vergangene {name}', { name: c.name }) : c.name}</h1></div><section class="b sp-m"><div class="wrap">${filter}${await eventCards(ctx, c, items)}<p class="ev-more"><a class="btn-2" href="${c.list_route}${past ? '' : '?vergangen=1'}">${past ? t(ctx, 'Kommende {name}', { name: c.name }) : t(ctx, 'Vergangene {name}', { name: c.name })}</a></p></div></section>`;
+    description = items[0]
+      ? t(ctx, '{name} bei {site}: {items}.', { name: c.name, site: ctx.settings.name, items: items.slice(0, 3).map((i) => i.data.title).join(', ') })
+      : t(ctx, '{name} bei {site}.', { name: c.name, site: ctx.settings.name });
   } else {
     let { items, total } = await publishedEntries(c, { limit: tag ? 500 : perPage, offset: tag ? 0 : (page - 1) * perPage, category: category || undefined });
     if (tag) {
@@ -553,7 +558,7 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     const cats = ['posts', 'products', 'projects'].includes(c.id) ? await categoriesOf(c.id) : [];
     const filter =
       cats.length > 1
-        ? html`<nav class="filters" aria-label="Nach Kategorie filtern"><a href="${c.list_route}" aria-current="${!category && !tag}">Alle</a>${cats.map(
+        ? html`<nav class="filters" aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${!category && !tag}">${t(ctx, 'Alle')}</a>${cats.map(
             (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${category.toLowerCase() === cat.toLowerCase()}">${cat}</a>`,
           )}</nav>`
         : '';
@@ -568,12 +573,12 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     };
     const pager =
       pages > 1
-        ? html`<nav class="pager" aria-label="Seiten">${page > 1 ? html`<a class="btn-2" href="${q(page - 1)}" rel="prev">Neuere</a>` : html`<span></span>`}<span class="muted">Seite ${page} von ${pages}</span>${
-            page < pages ? html`<a class="btn-2" href="${q(page + 1)}" rel="next">Ältere</a>` : html`<span></span>`
+        ? html`<nav class="pager" aria-label="${t(ctx, 'Seiten')}">${page > 1 ? html`<a class="btn-2" href="${q(page - 1)}" rel="prev">${t(ctx, 'Neuere')}</a>` : html`<span></span>`}<span class="muted">${t(ctx, 'Seite {n} von {total}', { n: page, total: pages })}</span>${
+            page < pages ? html`<a class="btn-2" href="${q(page + 1)}" rel="next">${t(ctx, 'Ältere')}</a>` : html`<span></span>`
           }</nav>`
         : '';
     let list: Html;
-    if (!items.length) list = html`<p class="muted">Hier erscheint bald etwas.</p>`;
+    if (!items.length) list = html`<p class="muted">${t(ctx, 'Hier erscheint bald etwas.')}</p>`;
     else if (c.id === 'posts') list = await postTeasers(ctx, items, page === 1 && !category && !tag ? 'feature' : 'grid');
     else if (c.id === 'products') list = await productCards(ctx, items);
     else if (c.id === 'projects') list = await projectCards(ctx, items);
@@ -581,14 +586,16 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     else list = await genericCards(ctx, c, items);
     const heading = tag ? `${c.name}: #${tag}` : category ? `${c.name}: ${category}` : c.name;
     main = html`<div class="wrap art-head"><h1>${heading}</h1></div><section class="b sp-m"><div class="wrap">${filter}${list}${pager}</div></section>`;
-    description = `${c.name} von ${ctx.settings.name}${category ? ` – ${category}` : ''}.`;
+    description = category
+      ? t(ctx, '{name} von {site} – {category}.', { name: c.name, site: ctx.settings.name, category })
+      : t(ctx, '{name} von {site}.', { name: c.name, site: ctx.settings.name });
   }
   const path = c.list_route ?? '/';
   const canonicalQuery = new URLSearchParams();
   if (category) canonicalQuery.set('kategorie', category);
   if (page > 1) canonicalQuery.set('seite', String(page));
   const meta: PageMeta = {
-    title: formatTitle(ctx, c.id === 'dishes' ? 'Karte' : c.name, false),
+    title: formatTitle(ctx, c.id === 'dishes' ? t(ctx, 'Karte') : c.name, false),
     plainTitle: c.name,
     description,
     canonical: ctx.base + path + (canonicalQuery.size ? `?${canonicalQuery}` : ''),
@@ -597,8 +604,8 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     noindex: Boolean(tag),
   };
   return documentHtml(ctx, meta, main, [
-    { label: 'Start', href: '/' },
-    { label: c.id === 'dishes' ? 'Karte' : c.name, href: path },
+    { label: t(ctx, 'Start'), href: '/' },
+    { label: c.id === 'dishes' ? t(ctx, 'Karte') : c.name, href: path },
   ]);
 }
 

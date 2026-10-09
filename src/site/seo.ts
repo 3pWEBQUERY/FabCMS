@@ -6,6 +6,7 @@ import { excerpt, stripHtml } from '../shared/text';
 import { schemaOpeningHours } from '../shared/hours';
 import { variantUrl } from './picture';
 import { entryPath } from '../shared/paths';
+import { t } from './i18n';
 
 export interface PageMeta {
   title: string;
@@ -143,7 +144,7 @@ export function productLd(ctx: RenderContext, c: CollectionDef, e: { slug: strin
 export function menuLd(ctx: RenderContext, dishes: { data: EntryData }[]) {
   const sections = new Map<string, unknown[]>();
   for (const d of dishes) {
-    const cat = String(d.data.category || 'Weiteres');
+    const cat = String(d.data.category || t(ctx, 'Weiteres'));
     const prices = (d.data.prices as { label?: string; price: number }[]) ?? [];
     const tags = (d.data.tags as string[]) ?? [];
     const item = {
@@ -162,7 +163,7 @@ export function menuLd(ctx: RenderContext, dishes: { data: EntryData }[]) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Menu',
-    name: `Karte – ${ctx.settings.name}`,
+    name: t(ctx, 'Karte – {site}', { site: ctx.settings.name }),
     inLanguage: ctx.settings.locale,
     hasMenuSection: [...sections].map(([name, items]) => ({ '@type': 'MenuSection', name, hasMenuItem: items })),
   };

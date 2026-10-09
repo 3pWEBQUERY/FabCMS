@@ -1,5 +1,6 @@
 import type { OpeningHoursDay } from './types';
 import { localDay, minutesToTime, zonedToUtc } from './booking';
+import { langInfo, type Lang } from './i18n';
 
 /** Bestellung & Lieferung: time slots and totals, shared by server, site and tests. */
 
@@ -20,6 +21,14 @@ export interface SlotDay {
   slots: { at: string; time: string }[]; // at = ISO instant
 }
 
+/** «Heute» and «Morgen» for the slot labels, per language. */
+export const DAY_WORDS: Record<Lang, [string, string]> = {
+  de: ['Heute', 'Morgen'],
+  fr: ['Aujourd’hui', 'Demain'],
+  it: ['Oggi', 'Domani'],
+  en: ['Today', 'Tomorrow'],
+};
+
 const toMin = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + (m || 0);
@@ -30,8 +39,9 @@ const toMin = (t: string) => {
  * plus the kitchen's preparation time, on a regular grid. Today and the next
  * days, until `days` days with slots are found (closed days are skipped).
  */
-export function orderSlots(input: { hours: OpeningHoursDay[]; timeZone: string; now: Date; prepMinutes: number; slotMinutes: number; days?: number }): SlotDay[] {
+export function orderSlots(input: { hours: OpeningHoursDay[]; timeZone: string; now: Date; prepMinutes: number; slotMinutes: number; days?: number; lang?: Lang }): SlotDay[] {
   const { hours, timeZone, now } = input;
+  const lang = input.lang ?? 'de';
   const step = Math.max(5, input.slotMinutes);
   const earliest = now.getTime() + Math.max(0, input.prepMinutes) * 60_000;
   const out: SlotDay[] = [];
@@ -55,7 +65,7 @@ export function orderSlots(input: { hours: OpeningHoursDay[]; timeZone: string; 
     }
     if (!slots.length) continue;
     const label =
-      i === 0 ? 'Heute' : i === 1 ? 'Morgen' : new Intl.DateTimeFormat('de-CH', { timeZone, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(noonUtc));
+      i === 0 ? DAY_WORDS[lang][0] : i === 1 ? DAY_WORDS[lang][1] : new Intl.DateTimeFormat(langInfo(lang).locale, { timeZone, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(noonUtc));
     out.push({ day, label, slots });
   }
   return out;

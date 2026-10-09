@@ -1,11 +1,14 @@
 import type { Context, Hono } from 'hono';
 import type { AppEnv } from '../auth';
 import { html, type Html } from '../../site/html';
+import { T } from '../../site/i18n';
 import { renderSystemPage } from '../../site/render';
 import { getSettings } from '../settings';
 import { clientIp } from '../lib/http';
 import { rateLimit } from '../lib/ratelimit';
 import { recordGoal } from '../analytics';
+import { langOfPath, localizePath, pathMap, requestLang } from '../translations';
+import { extraLangs, type Lang } from '../../shared/i18n';
 import { confirmSubscription, subscribe, subscriberByToken, unsubscribe } from '../newsletter';
 import { ctxFor, looksLikeSpam, notFoundPage, sendHtml } from './public';
 
@@ -19,30 +22,43 @@ export function newsletterPublicRoutes(app: Hono<AppEnv>) {
     const block = String(body._block ?? '')
       .replace(/[^\w-]/g, '')
       .slice(0, 40);
+    // /_nova/… has no language prefix: the page the form was on tells the language (message, mail, way back).
+    let from = '';
+    try {
+      from = new URL(c.req.header('referer') ?? '').pathname;
+    } catch {
+      /* no referrer */
+    }
+    const lang: Lang | null = langOfPath(String(body._lang ? `/${body._lang}/` : from).toLowerCase(), extraLangs(s));
+    const map = lang ? await pathMap(lang) : null;
     const back = (params: Record<string, string>) => {
       const u = new URL(page, 'http://x');
       for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-      return c.redirect(`${u.pathname}${u.search}#nl-${block}-box`, 303);
+      const to = `${u.pathname}${u.search}`;
+      return c.redirect(`${lang && map ? localizePath(map, lang, to) : to}#nl-${block}-box`, 303);
     };
-    // Bots get the same answer as people, so they learn nothing.
-    if (looksLikeSpam(body)) return back({ nl: block });
-    if (!rateLimit(`newsletter:${clientIp(c)}`, 5, 10 * 60_000).ok)
-      return back({
-        nl_err: block,
-        meldung: 'Zu viele Versuche. Bitte warte ein paar Minuten.',
-      });
-    try {
-      await subscribe({
-        email: String(body.email ?? ''),
-        name: body.name,
-        source: page,
-        ip: clientIp(c),
-      });
-      await recordGoal('newsletter', clientIp(c), c.req.header('user-agent') ?? '', page);
-      return back({ nl: block });
-    } catch (e) {
-      return back({ nl_err: block, meldung: (e as Error).message });
-    }
+    const run = async () => {
+      // Bots get the same answer as people, so they learn nothing.
+      if (looksLikeSpam(body)) return back({ nl: block });
+      if (!rateLimit(`newsletter:${clientIp(c)}`, 5, 10 * 60_000).ok)
+        return back({
+          nl_err: block,
+          meldung: T('Zu viele Versuche. Bitte warte ein paar Minuten.'),
+        });
+      try {
+        await subscribe({
+          email: String(body.email ?? ''),
+          name: body.name,
+          source: page,
+          ip: clientIp(c),
+        });
+        await recordGoal('newsletter', clientIp(c), c.req.header('user-agent') ?? '', page);
+        return back({ nl: block });
+      } catch (e) {
+        return back({ nl_err: block, meldung: T((e as Error).message) });
+      }
+    };
+    return lang ? requestLang.run(lang, run) : run();
   });
 
   const page = async (c: Context, title: string, body: Html) => {
@@ -56,24 +72,24 @@ export function newsletterPublicRoutes(app: Hono<AppEnv>) {
     if (r.status === 'unknown')
       return page(
         c,
-        'Link nicht mehr gültig',
+        T('Link nicht mehr gültig'),
         html`<div class="wrap sys-msg">
-          <h1>Dieser Link ist nicht mehr gültig.</h1>
-          <p>Bestätigungslinks verfallen nach 30 Tagen. Melde dich einfach noch einmal an.</p>
-          <p><a class="btn" href="/">Zur Startseite</a></p>
+          <h1>${T('Dieser Link ist nicht mehr gültig.')}</h1>
+          <p>${T('Bestätigungslinks verfallen nach 30 Tagen. Melde dich einfach noch einmal an.')}</p>
+          <p><a class="btn" href="/">${T('Zur Startseite')}</a></p>
         </div>`,
       );
     return page(
       c,
-      'Anmeldung bestätigt',
+      T('Anmeldung bestätigt'),
       html`<div class="wrap sys-msg">
         <p class="label">Newsletter</p>
-        <h1>${r.status === 'already' ? 'Du bist schon dabei.' : 'Danke, du bist dabei!'}</h1>
+        <h1>${r.status === 'already' ? T('Du bist schon dabei.') : T('Danke, du bist dabei!')}</h1>
         <p>
-          Ab jetzt bekommst du Neues von ${s.name} an
-          <strong>${r.subscriber!.email}</strong>. Abmelden kannst du dich mit dem Link unten in jeder E-Mail.
+          ${T('Ab jetzt bekommst du Neues von {name} an', { name: s.name })}
+          <strong>${r.subscriber!.email}</strong>. ${T('Abmelden kannst du dich mit dem Link unten in jeder E-Mail.')}
         </p>
-        <p><a class="btn" href="/">Zur Startseite</a></p>
+        <p><a class="btn" href="/">${T('Zur Startseite')}</a></p>
       </div>`,
     );
   });
@@ -95,25 +111,25 @@ export function newsletterPublicRoutes(app: Hono<AppEnv>) {
     if (sub.status === 'unsubscribed' || c.req.query('fertig'))
       return page(
         c,
-        'Abgemeldet',
+        T('Abgemeldet'),
         html`<div class="wrap sys-msg">
           <p class="label">Newsletter</p>
-          <h1>Du bist abgemeldet.</h1>
-          <p>${sub.email} bekommt keinen Newsletter von ${s.name} mehr. Schade – aber danke fürs Lesen.</p>
+          <h1>${T('Du bist abgemeldet.')}</h1>
+          <p>${T('{email} bekommt keinen Newsletter von {name} mehr. Schade – aber danke fürs Lesen.', { email: sub.email, name: s.name })}</p>
           <form method="post" action="/newsletter/wieder/${t}">
-            <button class="btn-2">Doch wieder anmelden</button>
+            <button class="btn-2">${T('Doch wieder anmelden')}</button>
           </form>
         </div>`,
       );
     return page(
       c,
-      'Newsletter abmelden',
+      T('Newsletter abmelden'),
       html`<div class="wrap sys-msg">
         <p class="label">Newsletter</p>
-        <h1>Abmelden?</h1>
-        <p>${sub.email} bekommt dann keinen Newsletter von ${s.name} mehr.</p>
+        <h1>${T('Abmelden?')}</h1>
+        <p>${T('{email} bekommt dann keinen Newsletter von {name} mehr.', { email: sub.email, name: s.name })}</p>
         <form method="post" action="/newsletter/abmelden/${t}">
-          <button class="btn">Ja, abmelden</button>
+          <button class="btn">${T('Ja, abmelden')}</button>
         </form>
       </div>`,
     );
@@ -125,7 +141,7 @@ export function newsletterPublicRoutes(app: Hono<AppEnv>) {
     if (!sub) return c.notFound();
     const form = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
     const oneClick = String(form['List-Unsubscribe'] ?? '') === 'One-Click';
-    if (oneClick) return c.text('Abgemeldet.');
+    if (oneClick) return c.text(T('Abgemeldet.'));
     return c.redirect(`/newsletter/abmelden/${c.req.param('token')}?fertig=1`, 303);
   });
 
@@ -141,11 +157,11 @@ export function newsletterPublicRoutes(app: Hono<AppEnv>) {
     });
     return page(
       c,
-      'Bitte bestätigen',
+      T('Bitte bestätigen'),
       html`<div class="wrap sys-msg">
         <p class="label">Newsletter</p>
-        <h1>Schau in dein Postfach.</h1>
-        <p>Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist wieder dabei.</p>
+        <h1>${T('Schau in dein Postfach.')}</h1>
+        <p>${T('Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist wieder dabei.')}</p>
       </div>`,
     );
   });

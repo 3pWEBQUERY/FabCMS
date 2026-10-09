@@ -6,6 +6,9 @@ import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { sendMail } from './mail';
 import { notify } from './notify';
+import { pageLang } from './translations';
+import { T, tr } from '../site/i18n';
+import { langInfo, type Lang } from '../shared/i18n';
 import { formatMoney } from '../shared/text';
 import { BLOCKING_STATUSES, computeSlots, localDay, zonedToUtc, type BookingResource, type BookingService, type Busy, type Slot } from '../shared/booking';
 import type { SiteSettings } from '../shared/types';
@@ -97,11 +100,11 @@ export interface BookingInput {
  */
 export async function createBooking(input: BookingInput, opts: { staff?: boolean; resourceId?: string | null; source?: string } = {}): Promise<Booking> {
   const s = await getSettings();
-  if (!input.name.trim()) throw badRequest('Bitte gib deinen Namen an.');
-  if (!opts.staff && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an, damit wir dir die Bestätigung schicken können.');
+  if (!input.name.trim()) throw badRequest(T('Bitte gib deinen Namen an.'));
+  if (!opts.staff && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an, damit wir dir die Bestätigung schicken können.'));
   const services = await listServices(!opts.staff);
   const service = services.find((x) => x.id === input.serviceId);
-  if (!service) throw badRequest('Dieses Angebot kann gerade nicht gebucht werden.');
+  if (!service) throw badRequest(T('Dieses Angebot kann gerade nicht gebucht werden.'));
   const [h, m] = input.time.split(':').map(Number);
   const start = zonedToUtc(input.day, h * 60 + m, s.timezone);
   const end = new Date(start.getTime() + (service.duration_min + service.buffer_min) * 60_000);
@@ -123,7 +126,7 @@ export async function createBooking(input: BookingInput, opts: { staff?: boolean
       const slot = computeSlots({ day: input.day, timeZone: s.timezone, businessHours: s.hours, service, resources, party: input.party, busy, rules, now: new Date() }).find(
         (x) => x.time === input.time,
       );
-      if (!slot) throw badRequest('Diese Zeit ist leider gerade vergeben worden. Bitte wähle eine andere.');
+      if (!slot) throw badRequest(T('Diese Zeit ist leider gerade vergeben worden. Bitte wähle eine andere.'));
       resourceId = slot.resourceId;
     }
     const [row] = await tx`
@@ -149,8 +152,10 @@ export async function createBooking(input: BookingInput, opts: { staff?: boolean
   return booking;
 }
 
-export function formatWhen(iso: string | Date, s: SiteSettings): string {
-  return new Date(iso).toLocaleString('de-CH', { timeZone: s.timezone, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+/** Date and time of a booking; German unless a language is given (visitor pages and mails). */
+export function formatWhen(iso: string | Date, s: SiteSettings, lang: Lang = 'de'): string {
+  const when = new Date(iso).toLocaleString(langInfo(lang).locale, { timeZone: s.timezone, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return tr(lang, '{when} Uhr', { when });
 }
 
 async function notifyBusiness(b: Booking, service: BookingService, s: SiteSettings) {
@@ -183,7 +188,7 @@ const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').re
 
 function vevent(b: Booking & { service_name?: string | null; resource_name?: string | null }, s: SiteSettings, forStaff: boolean): string[] {
   const durationEnd = new Date(b.ends_at);
-  const title = forStaff ? `${b.name} (${s.booking.mode === 'table' ? `${b.party_size} P.` : b.service_name ?? 'Termin'})${b.resource_name ? ` · ${b.resource_name}` : ''}` : `${b.service_name ?? 'Reservation'} – ${s.name}`;
+  const title = forStaff ? `${b.name} (${s.booking.mode === 'table' ? `${b.party_size} P.` : b.service_name ?? 'Termin'})${b.resource_name ? ` · ${b.resource_name}` : ''}` : `${b.service_name ?? T('Reservation')} – ${s.name}`;
   const address = [s.business.street, [s.business.zip, s.business.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   return [
     'BEGIN:VEVENT',
@@ -193,7 +198,7 @@ function vevent(b: Booking & { service_name?: string | null; resource_name?: str
     `DTEND:${icsDate(durationEnd)}`,
     `SUMMARY:${icsText(title)}`,
     address ? `LOCATION:${icsText(address)}` : '',
-    forStaff ? `DESCRIPTION:${icsText([b.phone, b.email, b.note].filter(Boolean).join('\n'))}` : `DESCRIPTION:${icsText(`Ansehen oder absagen: ${base(s)}/buchung/${b.token}`)}`,
+    forStaff ? `DESCRIPTION:${icsText([b.phone, b.email, b.note].filter(Boolean).join('\n'))}` : `DESCRIPTION:${icsText(T('Ansehen oder absagen: {link}', { link: `${base(s)}/buchung/${b.token}` }))}`,
     b.status === 'cancelled' ? 'STATUS:CANCELLED' : 'STATUS:CONFIRMED',
     'END:VEVENT',
   ].filter(Boolean);
@@ -243,20 +248,22 @@ export async function bookingMail(id: string, kind: 'received' | 'confirmed' | '
   const s = await getSettings();
   const [b] = await withNames(sql`b.id = ${id}`);
   if (!b || !b.email) return;
-  const when = formatWhen(b.starts_at as string, s);
-  const what = s.booking.mode === 'table' ? `für ${b.party_size} ${b.party_size === 1 ? 'Person' : 'Personen'}` : `«${b.service_name ?? 'Termin'}»`;
+  // The guest's language during their own request (booking, cancelling); otherwise the main language.
+  const when = formatWhen(b.starts_at as string, s, pageLang());
+  const n = b.party_size as number;
+  const what = s.booking.mode === 'table' ? (n === 1 ? T('für {n} Person', { n }) : T('für {n} Personen', { n })) : `«${b.service_name ?? T('Termin')}»`;
   const link = `${base(s)}/buchung/${b.token}`;
   const subject = {
-    received: `Deine Anfrage bei ${s.name}`,
-    confirmed: `Bestätigt: ${when}`,
-    cancelled: `Abgesagt: ${when}`,
-    reminder: `Bis bald: ${when}`,
+    received: T('Deine Anfrage bei {name}', { name: s.name }),
+    confirmed: T('Bestätigt: {when}', { when }),
+    cancelled: T('Abgesagt: {when}', { when }),
+    reminder: T('Bis bald: {when}', { when }),
   }[kind];
   const lead = {
-    received: `danke für deine Anfrage ${what} am ${when}. Wir melden uns, sobald wir sie bestätigt haben.`,
-    confirmed: `wir freuen uns auf dich: ${when}, ${what}.`,
-    cancelled: `deine Reservation am ${when} ist abgesagt.`,
-    reminder: `zur Erinnerung: ${when}, ${what}.`,
+    received: T('danke für deine Anfrage {what} am {when}. Wir melden uns, sobald wir sie bestätigt haben.', { what, when }),
+    confirmed: T('wir freuen uns auf dich: {when}, {what}.', { what, when }),
+    cancelled: T('deine Reservation am {when} ist abgesagt.', { when }),
+    reminder: T('zur Erinnerung: {when}, {what}.', { what, when }),
   }[kind];
   const address = [s.business.street, [s.business.zip, s.business.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   await sendMail({
@@ -264,11 +271,11 @@ export async function bookingMail(id: string, kind: 'received' | 'confirmed' | '
     subject,
     replyTo: s.business.email || undefined,
     text: [
-      `Hallo ${String(b.name).split(' ')[0]},`,
+      T('Hallo {name},', { name: String(b.name).split(' ')[0] }),
       '',
       lead,
       address && kind !== 'cancelled' ? `\n${s.name}, ${address}` : '',
-      kind !== 'cancelled' ? `\nAnsehen oder absagen: ${link}` : '',
+      kind !== 'cancelled' ? `\n${T('Ansehen oder absagen: {link}', { link })}` : '',
       '',
       `${s.name}${s.business.phone ? ` · ${s.business.phone}` : ''}`,
     ].join('\n'),
@@ -291,12 +298,12 @@ export async function cancelByGuest(t: string): Promise<{ ok: boolean; message: 
   const s = await getSettings();
   const b = await bookingByToken(t);
   if (!b) throw notFound();
-  if (!BLOCKING_STATUSES.includes(b.status)) return { ok: false, message: 'Diese Reservation ist nicht mehr aktiv.' };
+  if (!BLOCKING_STATUSES.includes(b.status)) return { ok: false, message: T('Diese Reservation ist nicht mehr aktiv.') };
   if (new Date(b.starts_at).getTime() - Date.now() < s.booking.cancelHours * 3_600_000)
-    return { ok: false, message: `So kurzfristig geht das nur noch telefonisch${s.business.phone ? `: ${s.business.phone}` : ''}.` };
+    return { ok: false, message: s.business.phone ? T('So kurzfristig geht das nur noch telefonisch: {phone}.', { phone: s.business.phone }) : T('So kurzfristig geht das nur noch telefonisch.') };
   await setBookingStatus(b.id, 'cancelled', { mail: true });
   void notify({ kind: 'booking', cap: 'bookings.manage', title: `Abgesagt: ${b.name}`, body: formatWhen(b.starts_at, s), href: `/reservationen?tag=${localDay(new Date(b.starts_at), s.timezone).day}` });
-  return { ok: true, message: 'Deine Reservation ist abgesagt. Schade – vielleicht ein anderes Mal.' };
+  return { ok: true, message: T('Deine Reservation ist abgesagt. Schade – vielleicht ein anderes Mal.') };
 }
 
 /** Moves a booking (staff): new time and/or resource; the overlap check still applies. */
@@ -397,10 +404,10 @@ export async function depositCheckoutUrl(b: Booking): Promise<string> {
     customer_email: b.email,
     client_reference_id: b.id,
     'metadata[booking_id]': b.id,
-    locale: 'de',
+    locale: pageLang(),
     'line_items[0][price_data][currency]': s.shop.currency.toLowerCase(),
     'line_items[0][price_data][unit_amount]': String(b.deposit),
-    'line_items[0][price_data][product_data][name]': `Anzahlung ${service?.name ?? 'Reservation'} – ${formatWhen(b.starts_at, s)}`,
+    'line_items[0][price_data][product_data][name]': T('Anzahlung {what} – {when}', { what: service?.name ?? T('Reservation'), when: formatWhen(b.starts_at, s, pageLang()) }),
     'line_items[0][quantity]': '1',
   });
   const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -409,7 +416,7 @@ export async function depositCheckoutUrl(b: Booking): Promise<string> {
     body: fields.toString(),
   });
   const body = (await r.json()) as { url?: string; id?: string; error?: { message: string } };
-  if (!r.ok || !body.url) throw badRequest(`Die Anzahlung konnte nicht gestartet werden: ${body.error?.message ?? r.status}`);
+  if (!r.ok || !body.url) throw badRequest(T('Die Anzahlung konnte nicht gestartet werden: {error}', { error: body.error?.message ?? r.status }));
   await sql`update bookings set payment_ref = ${body.id ?? null} where id = ${b.id}`;
   return body.url;
 }

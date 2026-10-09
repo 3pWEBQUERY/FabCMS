@@ -4,6 +4,7 @@ import { env } from '../server/env';
 import { campaignTotal, MIN_DONATION, parseAmount, recipientName } from '../server/donations';
 import { formatMoney } from '../shared/text';
 import { validQrIban } from '../shared/qrbill';
+import { t } from './i18n';
 
 type P = Record<string, unknown>;
 
@@ -25,17 +26,17 @@ export async function donateBlock(ctx: RenderContext, id: string, p: P, head: Ht
 
   let progress: Html = html``;
   if (goal > 0 || p.showTotal) {
-    const t = await campaignTotal(campaign);
-    const pct = goal ? Math.min(100, Math.round((t.total / goal) * 100)) : 0;
+    const sum = await campaignTotal(campaign);
+    const pct = goal ? Math.min(100, Math.round((sum.total / goal) * 100)) : 0;
     progress = html`<div class="dn-progress">
       ${goal
-        ? html`<div class="dn-bar" role="progressbar" aria-label="Spendenziel" aria-valuemin="0" aria-valuemax="${goal / 100}" aria-valuenow="${t.total / 100}">
+        ? html`<div class="dn-bar" role="progressbar" aria-label="${t(ctx, 'Spendenziel')}" aria-valuemin="0" aria-valuemax="${goal / 100}" aria-valuenow="${sum.total / 100}">
             <span style="width:${pct}%"></span>
           </div>`
         : ''}
       <p>
-        <strong class="num">${money(t.total)}</strong>${goal ? html` von ${money(goal)}` : ' gesammelt'}${t.donors
-          ? html` · ${t.donors} ${t.donors === 1 ? 'Person hat' : 'Personen haben'} gespendet`
+        <strong class="num">${money(sum.total)}</strong>${goal ? html` ${t(ctx, 'von {amount}', { amount: money(goal) })}` : ` ${t(ctx, 'gesammelt')}`}${sum.donors
+          ? html` · ${t(ctx, sum.donors === 1 ? '{n} Person hat gespendet' : '{n} Personen haben gespendet', { n: sum.donors })}`
           : ''}
       </p>
     </div>`;
@@ -43,9 +44,9 @@ export async function donateBlock(ctx: RenderContext, id: string, p: P, head: Ht
 
   const iban = s.donations.iban || s.shop.iban;
   const bank = iban
-    ? html`<div class="dn-bank"><p class="label">Per Überweisung</p><p>${recipientName(s)}<br><span class="num">${iban}</span>${campaign ? html`<br>Vermerk: ${campaign}` : ''}</p>${
+    ? html`<div class="dn-bank"><p class="label">${t(ctx, 'Per Überweisung')}</p><p>${recipientName(s)}<br><span class="num">${iban}</span>${campaign ? html`<br>${t(ctx, 'Vermerk: {campaign}', { campaign })}` : ''}</p>${
         validQrIban(iban) && s.business.zip && s.business.city
-          ? html`<p><a class="btn-2" href="/_nova/spenden/einzahlungsschein${campaign ? `?kampagne=${encodeURIComponent(campaign)}` : ''}" target="_blank" rel="nofollow">Einzahlungsschein mit QR-Code</a></p>`
+          ? html`<p><a class="btn-2" href="/_nova/spenden/einzahlungsschein${campaign ? `?kampagne=${encodeURIComponent(campaign)}` : ''}" target="_blank" rel="nofollow">${t(ctx, 'Einzahlungsschein mit QR-Code')}</a></p>`
           : ''
       }</div>`
     : html``;
@@ -72,52 +73,52 @@ export async function donateBlock(ctx: RenderContext, id: string, p: P, head: Ht
         value="${Date.now().toString(36)}"
       />
       <div class="hp" aria-hidden="true">
-        <label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        <label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
       </div>
       ${p.monthly !== false
         ? html`<fieldset class="dn-interval">
-            <legend class="sr">Wie oft?</legend>
-            <label class="dn-seg"><input type="radio" name="interval" value="once" checked /><span>Einmalig</span></label
-            ><label class="dn-seg"><input type="radio" name="interval" value="month" /><span>Monatlich</span></label>
+            <legend class="sr">${t(ctx, 'Wie oft?')}</legend>
+            <label class="dn-seg"><input type="radio" name="interval" value="once" checked /><span>${t(ctx, 'Einmalig')}</span></label
+            ><label class="dn-seg"><input type="radio" name="interval" value="month" /><span>${t(ctx, 'Monatlich')}</span></label>
           </fieldset>`
         : ''}
       <fieldset class="dn-amounts">
-        <legend>Betrag</legend>
+        <legend>${t(ctx, 'Betrag')}</legend>
         <div class="dn-chips">
           ${chips}<label class="dn-own" for="${fid('own')}"
-            ><span class="sr">Anderer Betrag in ${cur}</span><span aria-hidden="true">${cur}</span
-            ><input id="${fid('own')}" name="own" inputmode="decimal" placeholder="Anderer Betrag" autocomplete="off" maxlength="9"
+            ><span class="sr">${t(ctx, 'Anderer Betrag in {currency}', { currency: cur })}</span><span aria-hidden="true">${cur}</span
+            ><input id="${fid('own')}" name="own" inputmode="decimal" placeholder="${t(ctx, 'Anderer Betrag')}" autocomplete="off" maxlength="9"
           /></label>
         </div>
       </fieldset>
       <div class="dn-person">
-        <div class="fld"><label for="${fid('name')}">Name</label><input id="${fid('name')}" name="name" autocomplete="name" maxlength="120" required /></div>
-        <div class="fld"><label for="${fid('email')}">E-Mail</label><input id="${fid('email')}" type="email" name="email" autocomplete="email" maxlength="200" required /></div>
+        <div class="fld"><label for="${fid('name')}">${t(ctx, 'Name')}</label><input id="${fid('name')}" name="name" autocomplete="name" maxlength="120" required /></div>
+        <div class="fld"><label for="${fid('email')}">${t(ctx, 'E-Mail')}</label><input id="${fid('email')}" type="email" name="email" autocomplete="email" maxlength="200" required /></div>
       </div>
       ${s.donations.taxDeductible
         ? html`<details class="dn-more">
-            <summary>Adresse für die Spendenbestätigung (fürs Steueramt)</summary>
+            <summary>${t(ctx, 'Adresse für die Spendenbestätigung (fürs Steueramt)')}</summary>
             <div class="dn-address">
-              <div class="fld"><label for="${fid('street')}">Strasse</label><input id="${fid('street')}" name="street" autocomplete="street-address" maxlength="120" /></div>
-              <div class="fld"><label for="${fid('zip')}">PLZ</label><input id="${fid('zip')}" name="zip" autocomplete="postal-code" maxlength="12" inputmode="numeric" /></div>
-              <div class="fld"><label for="${fid('city')}">Ort</label><input id="${fid('city')}" name="city" autocomplete="address-level2" maxlength="80" /></div>
+              <div class="fld"><label for="${fid('street')}">${t(ctx, 'Strasse')}</label><input id="${fid('street')}" name="street" autocomplete="street-address" maxlength="120" /></div>
+              <div class="fld"><label for="${fid('zip')}">${t(ctx, 'PLZ')}</label><input id="${fid('zip')}" name="zip" autocomplete="postal-code" maxlength="12" inputmode="numeric" /></div>
+              <div class="fld"><label for="${fid('city')}">${t(ctx, 'Ort')}</label><input id="${fid('city')}" name="city" autocomplete="address-level2" maxlength="80" /></div>
             </div>
           </details>`
         : ''}
-      <div class="fld check"><input type="checkbox" id="${fid('anon')}" name="anonymous" value="1" /><label for="${fid('anon')}">Meinen Namen nicht öffentlich nennen</label></div>
+      <div class="fld check"><input type="checkbox" id="${fid('anon')}" name="anonymous" value="1" /><label for="${fid('anon')}">${t(ctx, 'Meinen Namen nicht öffentlich nennen')}</label></div>
       <div class="dn-submit">
-        <button class="btn">Jetzt spenden</button>
+        <button class="btn">${t(ctx, 'Jetzt spenden')}</button>
         <p class="muted">
-          Sicher über Stripe: TWINT, Karte, Apple Pay, Google Pay. ${p.monthly !== false ? 'Monatliche Spenden lassen sich jederzeit mit einem Klick beenden. ' : ''}<a
+          ${t(ctx, 'Sicher über Stripe: TWINT, Karte, Apple Pay, Google Pay.')} ${p.monthly !== false ? `${t(ctx, 'Monatliche Spenden lassen sich jederzeit mit einem Klick beenden.')} ` : ''}<a
             href="/datenschutz"
-            >Datenschutz</a
+            >${t(ctx, 'Datenschutz')}</a
           >
         </p>
       </div>
     </form>
     ${bank
       ? html`<details class="dn-more">
-          <summary>Lieber per Überweisung?</summary>
+          <summary>${t(ctx, 'Lieber per Überweisung?')}</summary>
           ${bank}
         </details>`
       : ''}

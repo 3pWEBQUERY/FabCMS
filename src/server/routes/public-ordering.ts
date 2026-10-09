@@ -10,13 +10,14 @@ import { rateLimit } from '../lib/ratelimit';
 import { recordGoal } from '../analytics';
 import { addToFoodCart, cartLines, foodCheckoutUrl, foodOrderByToken, orderableDishes, placeFoodOrder, readFoodCart, slotsNow, writeFoodCart } from '../ordering';
 import { ctxFor, looksLikeSpam, notFoundPage, sendHtml } from './public';
+import { t, T } from '../../site/i18n';
 
 /** /bestellen (menu + cart), /bestellen/kasse (checkout), /essen/:token (status). */
 export function orderingPublicRoutes(app: Hono<AppEnv>) {
   const on = async () => (await getSettings()).modules.includes('ordering');
   const page = async (c: Context, title: string, body: Html, status = 200) => {
     c.header('Cache-Control', 'no-store');
-    return sendHtml(c, await renderSystemPage(await ctxFor(c), { title, body, description: `Online bestellen bei ${(await getSettings()).name}` }), status);
+    return sendHtml(c, await renderSystemPage(await ctxFor(c), { title, body, description: T('Online bestellen bei {name}', { name: (await getSettings()).name }) }), status);
   };
 
   app.get('/bestellen', async (c) => {
@@ -28,9 +29,9 @@ export function orderingPublicRoutes(app: Hono<AppEnv>) {
     return sendHtml(
       c,
       await renderSystemPage(ctx, {
-        title: 'Online bestellen',
-        body: orderPage(ctx, await orderableDishes(), lines, slotsNow(s)),
-        description: `Take-away und Lieferung von ${s.name}`,
+        title: t(ctx, 'Online bestellen'),
+        body: orderPage(ctx, await orderableDishes(), lines, slotsNow(s, undefined, ctx.lang)),
+        description: t(ctx, 'Take-away und Lieferung von {name}', { name: s.name }),
       }),
     );
   });
@@ -65,7 +66,7 @@ export function orderingPublicRoutes(app: Hono<AppEnv>) {
     const lines = await cartLines(await readFoodCart(c));
     if (!lines.length) return c.redirect('/bestellen', 303);
     const ctx = await ctxFor(c);
-    return page(c, 'Bestellen', checkoutPage(ctx, lines, slotsNow(s), {}, s.ordering.paused ? 'Die Küche nimmt gerade keine Bestellungen an.' : null));
+    return page(c, t(ctx, 'Bestellen'), checkoutPage(ctx, lines, slotsNow(s, undefined, ctx.lang), {}, s.ordering.paused ? t(ctx, 'Die Küche nimmt gerade keine Bestellungen an.') : null));
   });
 
   app.post('/bestellen/kasse', async (c) => {
@@ -73,9 +74,12 @@ export function orderingPublicRoutes(app: Hono<AppEnv>) {
     const s = await getSettings();
     const body = (await c.req.parseBody()) as Record<string, string>;
     const cart = await readFoodCart(c);
-    const again = async (msg: string, status = 400) => page(c, 'Bestellen', checkoutPage(await ctxFor(c), await cartLines(cart), slotsNow(s), body, msg), status);
+    const again = async (msg: string, status = 400) => {
+      const ctx = await ctxFor(c);
+      return page(c, t(ctx, 'Bestellen'), checkoutPage(ctx, await cartLines(cart), slotsNow(s, undefined, ctx.lang), body, msg), status);
+    };
     if (looksLikeSpam(body)) return c.redirect('/bestellen', 303);
-    if (!rateLimit(`food:${clientIp(c)}`, 6, 10 * 60_000).ok) return again('Zu viele Versuche. Bitte warte ein paar Minuten.', 429);
+    if (!rateLimit(`food:${clientIp(c)}`, 6, 10 * 60_000).ok) return again(T('Zu viele Versuche. Bitte warte ein paar Minuten.'), 429);
     try {
       const o = await placeFoodOrder({
         cart,
@@ -112,6 +116,6 @@ export function orderingPublicRoutes(app: Hono<AppEnv>) {
     // While the kitchen works on it, the page refreshes itself (no JavaScript needed).
     if (['pending_payment', 'new', 'preparing', 'ready', 'out'].includes(o.status)) c.header('Refresh', '30');
     c.header('Cache-Control', 'no-store');
-    return sendHtml(c, await renderSystemPage(ctx, { title: `Bestellung Nr. ${o.number}`, body: statusPage(ctx, o, new URL(c.req.url).searchParams), noindex: true }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Bestellung Nr. {n}', { n: o.number }), body: statusPage(ctx, o, new URL(c.req.url).searchParams), noindex: true }));
   });
 }

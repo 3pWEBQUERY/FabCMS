@@ -46,23 +46,23 @@ export function ticketCategories(d: EntryData): TicketCategory[] {
     .filter((t) => t.name);
 }
 
-const dayFmt = (tz: string) => new Intl.DateTimeFormat('de-CH', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-const timeFmt = (tz: string) => new Intl.DateTimeFormat('de-CH', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+const dayFmt = (tz: string, locale = 'de-CH') => new Intl.DateTimeFormat(locale, { timeZone: tz, weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+const timeFmt = (tz: string, locale = 'de-CH') => new Intl.DateTimeFormat(locale, { timeZone: tz, hour: '2-digit', minute: '2-digit' });
 
 /** «Sa., 24. Oktober 2026, 19:30–22:00» or across days «Sa., 24. Oktober 2026, 19:30 – So., 25. Oktober 2026, 02:00». */
-export function formatSession(s: Session, tz: string): string {
-  const day = dayFmt(tz).format(s.start);
-  const from = timeFmt(tz).format(s.start);
+export function formatSession(s: Session, tz: string, locale = 'de-CH'): string {
+  const day = dayFmt(tz, locale).format(s.start);
+  const from = timeFmt(tz, locale).format(s.start);
   if (!s.end) return `${day}, ${from}`;
-  const sameDay = dayFmt(tz).format(s.end) === day;
-  return sameDay ? `${day}, ${from}–${timeFmt(tz).format(s.end)}` : `${day}, ${from} – ${dayFmt(tz).format(s.end)}, ${timeFmt(tz).format(s.end)}`;
+  const sameDay = dayFmt(tz, locale).format(s.end) === day;
+  return sameDay ? `${day}, ${from}–${timeFmt(tz, locale).format(s.end)}` : `${day}, ${from} – ${dayFmt(tz, locale).format(s.end)}, ${timeFmt(tz, locale).format(s.end)}`;
 }
 
 /** Short date for cards: «24. Okt.» plus weekday and time. */
-export function dateBadge(d: Date, tz: string): { day: string; month: string; weekday: string; time: string } {
-  const parts = new Intl.DateTimeFormat('de-CH', { timeZone: tz, day: 'numeric', month: 'short', weekday: 'short' }).formatToParts(d);
+export function dateBadge(d: Date, tz: string, locale = 'de-CH'): { day: string; month: string; weekday: string; time: string } {
+  const parts = new Intl.DateTimeFormat(locale, { timeZone: tz, day: 'numeric', month: 'short', weekday: 'short' }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-  return { day: get('day'), month: get('month').replace('.', ''), weekday: get('weekday').replace('.', ''), time: timeFmt(tz).format(d) };
+  return { day: get('day'), month: get('month').replace('.', ''), weekday: get('weekday').replace('.', ''), time: timeFmt(tz, locale).format(d) };
 }
 
 export const MAX_TICKETS_PER_ORDER = 10;

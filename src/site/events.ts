@@ -10,6 +10,7 @@ import { entryPath } from '../shared/paths';
 import { formatMoney } from '../shared/text';
 import { dateBadge, formatSession, sessionsOf, MAX_TICKETS_PER_ORDER } from '../shared/events';
 import type { CollectionDef, EntryData } from '../shared/types';
+import { L, t } from './i18n';
 
 /** Events & Kurse on the website: detail page with tickets, cards for lists and the block. */
 
@@ -20,7 +21,9 @@ interface Item {
 }
 
 const isCourse = (c: Pick<CollectionDef, 'id'>) => c.id === 'courses';
-const money = (ctx: RenderContext, cents: number) => (cents ? formatMoney(cents, ctx.settings.shop.currency) : 'Gratis');
+/** «Anmelden» for a course means «sign up», not «sign in» (the shared key «Anmelden» is the login). */
+const signUp = (ctx: RenderContext) => t(ctx, 'Anmelden|Kurs');
+const money = (ctx: RenderContext, cents: number) => (cents ? formatMoney(cents, ctx.settings.shop.currency) : t(ctx, 'Gratis'));
 
 function place(ctx: RenderContext, d: EntryData): { name: string; address: string } {
   const b = ctx.settings.business;
@@ -50,36 +53,36 @@ export async function upcoming(collection: 'events' | 'courses', timeZone: strin
 }
 
 function statusTag(ctx: RenderContext, d: EntryData, avail: Availability[] | null, course: boolean): Html {
-  if (d.cancelled) return html`<span class="ev-tag bad">Abgesagt</span>`;
+  if (d.cancelled) return html`<span class="ev-tag bad">${t(ctx, 'Abgesagt')}</span>`;
   if (!avail || !avail.length) return html``;
   const left = avail.every((a) => a.left === null) ? null : avail.reduce((n, a) => n + (a.left ?? 999), 0);
-  if (left === 0) return html`<span class="ev-tag">${course ? 'Ausgebucht' : 'Ausverkauft'}</span>`;
-  if (left !== null && left <= 5) return html`<span class="ev-tag hot">Noch ${left} ${left === 1 ? 'Platz' : 'Plätze'}</span>`;
+  if (left === 0) return html`<span class="ev-tag">${t(ctx, course ? 'Ausgebucht' : 'Ausverkauft')}</span>`;
+  if (left !== null && left <= 5) return html`<span class="ev-tag hot">${t(ctx, left === 1 ? 'Noch {n} Platz' : 'Noch {n} Plätze', { n: left })}</span>`;
   return html``;
 }
 
 export async function eventCards(ctx: RenderContext, c: CollectionDef, items: Item[]): Promise<Html> {
-  if (!items.length) return html`<p class="muted">${isCourse(c) ? 'Gerade sind keine Kurse ausgeschrieben.' : 'Gerade sind keine Anlässe geplant.'} Schau bald wieder vorbei.</p>`;
+  if (!items.length) return html`<p class="muted">${t(ctx, isCourse(c) ? 'Gerade sind keine Kurse ausgeschrieben.' : 'Gerade sind keine Anlässe geplant.')} ${t(ctx, 'Schau bald wieder vorbei.')}</p>`;
   const tz = ctx.settings.timezone;
   await ctx.preloadMedia(items.map((i) => i.data.cover));
   const cards = await Promise.all(
     items.map(async (i) => {
       const sessions = sessionsOf(i.data, tz);
       const first = sessions[0];
-      const b = first ? dateBadge(first.start, tz) : null;
+      const b = first ? dateBadge(first.start, tz, L(ctx)) : null;
       const where = place(ctx, i.data);
       const avail = await availability({ ...i, collection: c.id as TicketEntry['collection'] });
       const from = avail.length ? Math.min(...avail.map((a) => a.price)) : null;
       const meta = [
-        b ? `${b.weekday} ${b.time}${sessions.length > 1 ? ` · ${sessions.length} Termine` : ''}` : '',
+        b ? `${b.weekday} ${b.time}${sessions.length > 1 ? ` · ${t(ctx, '{n} Termine', { n: sessions.length })}` : ''}` : '',
         where.name,
-        from === null ? '' : from === 0 && avail.every((a) => a.price === 0) ? 'Gratis' : `ab ${money(ctx, from)}`,
+        from === null ? '' : from === 0 && avail.every((a) => a.price === 0) ? t(ctx, 'Gratis') : t(ctx, 'ab {price}', { price: money(ctx, from) }),
       ].filter(Boolean);
       return html`<li>
         <a class="ev-card${i.data.cancelled ? ' is-off' : ''}" href="${entryPath(c, i.slug)}"
           >${b ? html`<span class="ev-date" aria-hidden="true"><b>${b.day}</b><span>${b.month}</span></span>` : html`<span></span>`}<span class="ev-main"
             ><span class="ev-title">${i.data.title}</span
-            ><span class="ev-meta">${first ? html`<time datetime="${first.start.toISOString()}" class="sr">${formatSession(first, tz)}</time>` : ''}${meta.join(' · ')}</span>${i
+            ><span class="ev-meta">${first ? html`<time datetime="${first.start.toISOString()}" class="sr">${formatSession(first, tz, L(ctx))}</time>` : ''}${meta.join(' · ')}</span>${i
               .data.excerpt
               ? html`<span class="ev-excerpt">${i.data.excerpt as string}</span>`
               : ''}</span
@@ -108,43 +111,43 @@ export async function eventTemplate(ctx: RenderContext, c: CollectionDef, e: { i
   const facts: Html[] = [];
   facts.push(
     html`<div>
-      <dt>${sessions.length > 1 ? 'Termine' : 'Wann'}</dt>
+      <dt>${t(ctx, sessions.length > 1 ? 'Termine' : 'Wann')}</dt>
       <dd>
         ${sessions.length > 1
           ? html`<ol class="ev-sessions">
-              ${sessions.map((s) => html`<li><time datetime="${s.start.toISOString()}">${formatSession(s, tz)}</time></li>`)}
+              ${sessions.map((s) => html`<li><time datetime="${s.start.toISOString()}">${formatSession(s, tz, L(ctx))}</time></li>`)}
             </ol>`
           : sessions[0]
-            ? html`<time datetime="${sessions[0].start.toISOString()}">${formatSession(sessions[0], tz)}</time>`
-            : 'Datum folgt'}
+            ? html`<time datetime="${sessions[0].start.toISOString()}">${formatSession(sessions[0], tz, L(ctx))}</time>`
+            : t(ctx, 'Datum folgt')}
       </dd>
     </div>`,
   );
   if (where.name || where.address)
     facts.push(
       html`<div>
-        <dt>Wo</dt>
+        <dt>${t(ctx, 'Wo')}</dt>
         <dd>${where.name}${where.name && where.address ? html`<br />` : ''}${where.address}</dd>
       </div>`,
     );
   if (d.instructor)
     facts.push(
       html`<div>
-        <dt>Leitung</dt>
+        <dt>${t(ctx, 'Leitung')}</dt>
         <dd>${d.instructor as string}</dd>
       </div>`,
     );
   if (d.level)
     facts.push(
       html`<div>
-        <dt>Niveau</dt>
+        <dt>${t(ctx, 'Niveau')}</dt>
         <dd>${d.level as string}</dd>
       </div>`,
     );
   if (avail.length)
     facts.push(
       html`<div>
-        <dt>${course ? 'Kosten' : 'Eintritt'}</dt>
+        <dt>${t(ctx, course ? 'Kosten' : 'Eintritt')}</dt>
         <dd>${avail.map((a) => html`<span class="ev-price">${a.name}: ${money(ctx, a.price)}</span>`)}</dd>
       </div>`,
     );
@@ -152,10 +155,10 @@ export async function eventTemplate(ctx: RenderContext, c: CollectionDef, e: { i
   return html`<article class="ev"><header class="wrap art-head ev-head">${d.category ? html`<a class="label" href="${c.list_route}?kategorie=${encodeURIComponent(d.category as string)}">${d.category as string}</a>` : ''}<h1${
     ctx.edit ? raw(' data-nova-entry-field="title"') : ''
   }>${d.title}</h1>${d.excerpt ? html`<p class="lead">${d.excerpt as string}</p>` : ''}${
-    d.cancelled ? html`<p class="form-err" role="status"><strong>Abgesagt.</strong> ${course ? 'Dieser Kurs' : 'Dieser Anlass'} findet nicht statt.</p>` : ''
+    d.cancelled ? html`<p class="form-err" role="status"><strong>${t(ctx, 'Abgesagt.')}</strong> ${t(ctx, course ? 'Dieser Kurs findet nicht statt.' : 'Dieser Anlass findet nicht statt.')}</p>` : ''
   }<dl class="ev-facts">${facts}</dl><div class="actions">${
-    avail.length && salesOpen(entry, ctx.settings) ? html`<a class="btn" href="#tickets">${course ? 'Anmelden' : 'Tickets'}</a>` : ''
-  }${sessions.length ? html`<a class="btn-2" href="/_nova/ics/${e.id}.ics">In den Kalender</a>` : ''}</div>${
+    avail.length && salesOpen(entry, ctx.settings) ? html`<a class="btn" href="#tickets">${course ? signUp(ctx) : t(ctx, 'Tickets')}</a>` : ''
+  }${sessions.length ? html`<a class="btn-2" href="/_nova/ics/${e.id}.ics">${t(ctx, 'In den Kalender')}</a>` : ''}</div>${
     cover ? html`<figure class="art-cover">${picture(cover, { sizes: '(min-width: 78rem) 78rem, 100vw', priority: true })}</figure>` : ''
   }</header><div class="art-body">${body}</div>${avail.length ? ticketBox(ctx, entry, avail, course) : ''}</article>`;
 }
@@ -170,28 +173,28 @@ function ticketBox(ctx: RenderContext, entry: TicketEntry, avail: Availability[]
   let inner: Html;
   if (!open)
     inner = html`<p class="muted">
-      ${entry.data.cancelled ? 'Abgesagt – keine Anmeldung möglich.' : course ? 'Die Anmeldung ist geschlossen.' : 'Dieser Anlass hat bereits begonnen oder stattgefunden.'}
+      ${t(ctx, entry.data.cancelled ? 'Abgesagt – keine Anmeldung möglich.' : course ? 'Die Anmeldung ist geschlossen.' : 'Dieser Anlass hat bereits begonnen oder stattgefunden.')}
     </p>`;
   else if (soldOut)
     inner =
       q.get('t_wait') === '1'
-        ? html`<p class="form-ok" role="status">Du stehst auf der Warteliste. Wird ein Platz frei, schreiben wir dir sofort.</p>`
+        ? html`<p class="form-ok" role="status">${t(ctx, 'Du stehst auf der Warteliste. Wird ein Platz frei, schreiben wir dir sofort.')}</p>`
         : entry.data.waitlist === false
-          ? html`<p>${course ? 'Ausgebucht.' : 'Ausverkauft.'}</p>`
-          : html`<p>${course ? 'Ausgebucht.' : 'Ausverkauft.'} Trag dich in die Warteliste ein – wird ein Platz frei, bekommst du sofort eine E-Mail.</p>
+          ? html`<p>${t(ctx, course ? 'Ausgebucht.' : 'Ausverkauft.')}</p>`
+          : html`<p>${t(ctx, course ? 'Ausgebucht.' : 'Ausverkauft.')} ${t(ctx, 'Trag dich in die Warteliste ein – wird ein Platz frei, bekommst du sofort eine E-Mail.')}</p>
               ${err ? html`<p class="form-err" role="alert">${err}</p>` : ''}
               <form class="nform tk-form" method="post" action="/_nova/tickets/${entry.id}/warteliste">
                 ${hidden(ctx)}
                 <div class="tk-person">
-                  <div class="fld"><label for="w-name">Name</label><input id="w-name" name="name" required autocomplete="name" maxlength="120" /></div>
-                  <div class="fld"><label for="w-email">E-Mail</label><input id="w-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
+                  <div class="fld"><label for="w-name">${t(ctx, 'Name')}</label><input id="w-name" name="name" required autocomplete="name" maxlength="120" /></div>
+                  <div class="fld"><label for="w-email">${t(ctx, 'E-Mail')}</label><input id="w-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
                 </div>
-                <div><button class="btn">Auf die Warteliste</button></div>
+                <div><button class="btn">${t(ctx, 'Auf die Warteliste')}</button></div>
               </form>`;
   else if (!payable)
     inner = html`<p>
-      Die Online-Anmeldung ist gerade nicht möglich.
-      ${ctx.settings.business.email ? html`Schreib uns: <a href="mailto:${ctx.settings.business.email}">${ctx.settings.business.email}</a>` : ''}
+      ${t(ctx, 'Die Online-Anmeldung ist gerade nicht möglich.')}
+      ${ctx.settings.business.email ? html`${t(ctx, 'Schreib uns:')} <a href="mailto:${ctx.settings.business.email}">${ctx.settings.business.email}</a>` : ''}
     </p>`;
   else {
     const rows = avail.map((a, i) => {
@@ -199,15 +202,15 @@ function ticketBox(ctx: RenderContext, entry: TicketEntry, avail: Availability[]
       const id = `tk-${i}`;
       const left =
         a.left === 0
-          ? html`<span class="tk-left">Ausverkauft</span>`
+          ? html`<span class="tk-left">${t(ctx, 'Ausverkauft')}</span>`
           : a.left !== null && a.left <= 10
-            ? html`<span class="tk-left">Noch ${a.left} ${a.left === 1 ? 'Platz' : 'Plätze'}</span>`
+            ? html`<span class="tk-left">${t(ctx, a.left === 1 ? 'Noch {n} Platz' : 'Noch {n} Plätze', { n: a.left })}</span>`
             : '';
       return html`<div class="tk-row${a.left === 0 ? ' is-off' : ''}">
         <label for="${id}" class="tk-name"><strong>${a.name}</strong>${a.note ? html`<span>${a.note}</span>` : ''}${left}</label
         ><span class="tk-price num">${money(ctx, a.price)}</span>${a.left === 0
           ? html`<span class="tk-qty"></span>`
-          : html`<select id="${id}" name="q_${i}" class="tk-qty" aria-label="Anzahl ${a.name}">
+          : html`<select id="${id}" name="q_${i}" class="tk-qty" aria-label="${t(ctx, 'Anzahl {name}', { name: a.name })}">
               ${Array.from({ length: max + 1 }, (_, n) => html`<option value="${n}" ${n === (avail.length === 1 ? 1 : 0) ? raw(' selected') : ''}>${n}</option>`)}
             </select>`}
       </div>`;
@@ -217,20 +220,20 @@ function ticketBox(ctx: RenderContext, entry: TicketEntry, avail: Availability[]
         ${hidden(ctx)}
         <div class="tk-rows">${rows}</div>
         <div class="tk-person">
-          <div class="fld"><label for="t-name">Name</label><input id="t-name" name="name" required autocomplete="name" maxlength="120" /></div>
-          <div class="fld"><label for="t-email">E-Mail</label><input id="t-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
+          <div class="fld"><label for="t-name">${t(ctx, 'Name')}</label><input id="t-name" name="name" required autocomplete="name" maxlength="120" /></div>
+          <div class="fld"><label for="t-email">${t(ctx, 'E-Mail')}</label><input id="t-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
         </div>
         <div class="tk-submit">
-          <button class="btn">${paid ? 'Weiter zur Zahlung' : course ? 'Verbindlich anmelden' : 'Tickets bestellen'}</button>
+          <button class="btn">${t(ctx, paid ? 'Weiter zur Zahlung' : course ? 'Verbindlich anmelden' : 'Tickets bestellen')}</button>
           <p class="muted">
-            ${paid ? 'Bezahlen mit TWINT, Karte, Apple Pay oder Google Pay. ' : ''}Die ${course ? 'Bestätigung' : 'Tickets'} kommen per E-Mail.
-            <a href="/datenschutz">Datenschutz</a>
+            ${paid ? `${t(ctx, 'Bezahlen mit TWINT, Karte, Apple Pay oder Google Pay.')} ` : ''}${t(ctx, course ? 'Die Bestätigung kommen per E-Mail.' : 'Die Tickets kommen per E-Mail.')}
+            <a href="/datenschutz">${t(ctx, 'Datenschutz')}</a>
           </p>
         </div>
       </form>`;
   }
   return html`<section class="wrap tk" id="tickets" aria-labelledby="tickets-h">
-    <h2 id="tickets-h">${course ? 'Anmeldung' : 'Tickets'}</h2>
+    <h2 id="tickets-h">${t(ctx, course ? 'Anmeldung' : 'Tickets')}</h2>
     ${inner}
   </section>`;
 }
@@ -238,7 +241,7 @@ function ticketBox(ctx: RenderContext, entry: TicketEntry, avail: Availability[]
 const hidden = (ctx: RenderContext) =>
   html`<input type="hidden" name="_back" value="${ctx.path}" /><input type="hidden" name="_t" value="${Date.now().toString(36)}" />
     <div class="hp" aria-hidden="true">
-      <label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      <label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
     </div>`;
 
 function eventLd(ctx: RenderContext, c: CollectionDef, e: Item, sessions: ReturnType<typeof sessionsOf>, avail: Availability[], image: string | null): Record<string, unknown> {

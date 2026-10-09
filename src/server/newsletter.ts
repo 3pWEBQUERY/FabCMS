@@ -6,6 +6,8 @@ import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { mailConfigured, sendMail } from './mail';
 import { notify } from './notify';
+import { pageLang } from './translations';
+import { T } from '../site/i18n';
 import { activeCollections } from './content';
 import { resolveTheme } from '../site/themes';
 import { variantUrl } from '../site/picture';
@@ -114,27 +116,22 @@ async function mirror(email: string, name: string, subscribed: boolean): Promise
 async function confirmMail(sub: Subscriber): Promise<void> {
   const s = await getSettings();
   const link = `${base(s)}/newsletter/bestaetigen/${sub.token}`;
-  const hello = sub.name ? `Hallo ${sub.name.split(' ')[0]}` : 'Hallo';
+  // In the language of the page the visitor signed up on.
+  const hello = sub.name ? T('Hallo {name},', { name: sub.name.split(' ')[0] }) : T('Hallo,');
+  const wants = T('jemand – hoffentlich du – möchte den Newsletter von {name} an diese Adresse bekommen.', { name: s.name });
+  const click = T('Ein Klick bestätigt die Anmeldung:');
+  const notYou = T('Warst du das nicht? Dann ignoriere diese E-Mail einfach. Ohne Bestätigung schicken wir nichts.');
   await sendMail({
     to: sub.email,
-    subject: `Bitte bestätige: Newsletter von ${s.name}`,
+    subject: T('Bitte bestätige: Newsletter von {name}', { name: s.name }),
     replyTo: s.business.email || undefined,
-    text: [
-      `${hello},`,
-      '',
-      `jemand – hoffentlich du – möchte den Newsletter von ${s.name} an diese Adresse bekommen.`,
-      'Ein Klick bestätigt die Anmeldung:',
-      '',
-      link,
-      '',
-      'Warst du das nicht? Dann ignoriere diese E-Mail einfach. Ohne Bestätigung schicken wir nichts.',
-      '',
-      s.name,
-    ].join('\n'),
+    text: [hello, '', wants, click, '', link, '', notYou, '', s.name].join('\n'),
     html: shell(
       s,
-      `<p style="margin:0 0 16px">${esc(hello)},</p><p style="margin:0 0 16px">jemand – hoffentlich du – möchte den Newsletter von ${esc(s.name)} an diese Adresse bekommen. Ein Klick bestätigt die Anmeldung:</p>${button(s, link, 'Anmeldung bestätigen')}<p style="margin:24px 0 0;color:#6b6b66;font-size:14px">Warst du das nicht? Dann ignoriere diese E-Mail einfach. Ohne Bestätigung schicken wir nichts.</p>`,
+      `<p style="margin:0 0 16px">${esc(hello)}</p><p style="margin:0 0 16px">${esc(wants)} ${esc(click)}</p>${button(s, link, T('Anmeldung bestätigen'))}<p style="margin:24px 0 0;color:#6b6b66;font-size:14px">${esc(notYou)}</p>`,
       '',
+      '',
+      pageLang(),
     ),
   });
 }
@@ -248,9 +245,9 @@ function button(s: SiteSettings, href: string, label: string) {
 }
 
 /** Table layout and inline styles: what Outlook, Gmail and Apple Mail all understand. */
-function shell(s: SiteSettings, body: string, footer: string, preheader = ''): string {
+function shell(s: SiteSettings, body: string, footer: string, preheader = '', lang = 'de'): string {
   const address = [s.business.legalName || s.name, s.business.street, [s.business.zip, s.business.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(s.name)}</title></head>
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(s.name)}</title></head>
 <body style="margin:0;padding:0;background:#f3f2ee;-webkit-text-size-adjust:100%">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>` : ''}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f2ee"><tr><td align="center" style="padding:32px 16px">

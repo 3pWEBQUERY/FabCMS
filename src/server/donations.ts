@@ -8,6 +8,8 @@ import { notify } from './notify';
 import { formatMoney } from '../shared/text';
 import type { SiteSettings } from '../shared/types';
 import { html, type Html } from '../site/html';
+import { L, T } from '../site/i18n';
+import { pageLang } from './translations';
 
 /**
  * Spenden: once or monthly through Stripe. Each collected payment is its own
@@ -64,11 +66,11 @@ export async function createDonation(input: {
   message?: string;
 }): Promise<Donation> {
   const s = await getSettings();
-  if (!env.stripe.secretKey) throw badRequest('Online-Spenden sind gerade nicht eingerichtet. Danke, wenn du per Überweisung spendest!');
-  if (input.amount < MIN_DONATION) throw badRequest(`Online geht es ab ${formatMoney(MIN_DONATION, s.shop.currency)} – darunter fressen die Gebühren die Spende auf.`);
-  if (input.amount > MAX_DONATION) throw badRequest('Für so grosse Beträge melde dich bitte direkt bei uns. Danke!');
+  if (!env.stripe.secretKey) throw badRequest(T('Online-Spenden sind gerade nicht eingerichtet. Danke, wenn du per Überweisung spendest!'));
+  if (input.amount < MIN_DONATION) throw badRequest(T('Online geht es ab {min} – darunter fressen die Gebühren die Spende auf.', { min: formatMoney(MIN_DONATION, s.shop.currency) }));
+  if (input.amount > MAX_DONATION) throw badRequest(T('Für so grosse Beträge melde dich bitte direkt bei uns. Danke!'));
   const email = input.email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an – für die Bestätigung.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an – für die Bestätigung.'));
   const [d] = await sql`
     insert into donations (amount, currency, interval, campaign, name, email, street, zip, city, anonymous, message, token)
     values (${input.amount}, ${s.shop.currency}, ${input.interval}, ${input.campaign.slice(0, 120)}, ${input.name.trim().slice(0, 120)}, ${email},
@@ -87,14 +89,14 @@ async function stripePost(path: string, fields: Record<string, string | number |
       .join('&'),
   });
   const json = (await r.json()) as Record<string, any>;
-  if (!r.ok) throw badRequest(`Die Zahlung konnte nicht gestartet werden: ${json.error?.message ?? r.status}`);
+  if (!r.ok) throw badRequest(T('Die Zahlung konnte nicht gestartet werden: {error}', { error: json.error?.message ?? r.status }));
   return json;
 }
 
 export async function donationCheckoutUrl(d: Donation): Promise<string> {
   const s = await getSettings();
   const monthly = d.interval === 'month';
-  const label = `Spende${d.campaign ? `: ${d.campaign}` : ''} – ${recipientName(s)}`;
+  const label = `${T('Spende')}${d.campaign ? `: ${d.campaign}` : ''} – ${recipientName(s)}`;
   const body = await stripePost(
     '/v1/checkout/sessions',
     {
@@ -110,7 +112,7 @@ export async function donationCheckoutUrl(d: Donation): Promise<string> {
       'line_items[0][price_data][unit_amount]': d.amount,
       'line_items[0][price_data][product_data][name]': label,
       ...(monthly ? { 'line_items[0][price_data][recurring][interval]': 'month' } : {}),
-      locale: 'de',
+      locale: pageLang(),
     },
     `donation-${d.id}`,
   );
@@ -123,17 +125,23 @@ async function thankYou(d: Donation, first: boolean): Promise<void> {
   const amount = formatMoney(d.amount, d.currency);
   await sendMail({
     to: d.email,
-    subject: first ? `Danke für deine Spende an ${recipientName(s)}` : `Monatliche Spende: ${amount} – danke!`,
+    subject: first ? T('Danke für deine Spende an {name}', { name: recipientName(s) }) : T('Monatliche Spende: {amount} – danke!', { amount }),
     replyTo: s.business.email || undefined,
     text: [
-      d.name ? `Hallo ${d.name.split(' ')[0]},` : 'Hallo,',
+      d.name ? T('Hallo {name},', { name: d.name.split(' ')[0] }) : T('Hallo,'),
       '',
       first
-        ? `herzlichen Dank für deine ${d.interval === 'month' ? 'monatliche ' : ''}Spende von ${amount}${d.campaign ? ` für «${d.campaign}»` : ''}. Sie kommt an.`
-        : `auch diesen Monat sind ${amount} bei uns angekommen. Danke, dass du dabei bleibst.`,
+        ? d.interval === 'month'
+          ? d.campaign
+            ? T('herzlichen Dank für deine monatliche Spende von {amount} für «{campaign}». Sie kommt an.', { amount, campaign: d.campaign })
+            : T('herzlichen Dank für deine monatliche Spende von {amount}. Sie kommt an.', { amount })
+          : d.campaign
+            ? T('herzlichen Dank für deine Spende von {amount} für «{campaign}». Sie kommt an.', { amount, campaign: d.campaign })
+            : T('herzlichen Dank für deine Spende von {amount}. Sie kommt an.', { amount })
+        : T('auch diesen Monat sind {amount} bei uns angekommen. Danke, dass du dabei bleibst.', { amount }),
       '',
-      `Bestätigung${d.interval === 'month' ? ' und Verwaltung deiner monatlichen Spende' : ''}: ${base(s)}/spende/${d.token}`,
-      s.donations.taxDeductible ? 'Eine Spendenbestätigung fürs Steueramt kannst du dort ausdrucken; Anfang Jahr schicken wir gern eine fürs ganze Jahr.' : '',
+      T(d.interval === 'month' ? 'Bestätigung und Verwaltung deiner monatlichen Spende: {url}' : 'Bestätigung: {url}', { url: `${base(s)}/spende/${d.token}` }),
+      s.donations.taxDeductible ? T('Eine Spendenbestätigung fürs Steueramt kannst du dort ausdrucken; Anfang Jahr schicken wir gern eine fürs ganze Jahr.') : '',
       '',
       recipientName(s),
     ]
@@ -184,9 +192,9 @@ export async function donationSubscriptionEnded(subscription: string): Promise<v
 export async function stopMonthly(t: string): Promise<Donation> {
   const [d] = await sql`select * from donations where token = ${t} and parent_id is null`;
   if (!d) throw notFound();
-  if (!d.stripe_subscription || !d.subscription_active) throw badRequest('Diese Spende läuft nicht monatlich.');
+  if (!d.stripe_subscription || !d.subscription_active) throw badRequest(T('Diese Spende läuft nicht monatlich.'));
   const r = await fetch(`https://api.stripe.com/v1/subscriptions/${d.stripe_subscription}`, { method: 'DELETE', headers: { Authorization: `Bearer ${env.stripe.secretKey}` } });
-  if (!r.ok && r.status !== 404) throw badRequest('Das hat nicht geklappt. Bitte versuch es später nochmals oder schreib uns.');
+  if (!r.ok && r.status !== 404) throw badRequest(T('Das hat nicht geklappt. Bitte versuch es später nochmals oder schreib uns.'));
   await donationSubscriptionEnded(d.stripe_subscription as string);
   void notify({
     kind: 'system',
@@ -225,23 +233,27 @@ export function receiptBody(
   campaign = '',
 ): Html {
   const total = rows.reduce((n, r) => n + r.amount, 0);
-  const date = (v: unknown) => new Date(v as string).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const date = (v: unknown) => new Date(v as string).toLocaleDateString(L(), { day: '2-digit', month: '2-digit', year: 'numeric' });
   const address = [donor.name, donor.street, `${donor.zip} ${donor.city}`.trim()].filter(Boolean);
   const issuer = [recipientName(s), s.business.street, `${s.business.zip} ${s.business.city}`.trim()].filter(Boolean);
-  const when = period ?? (rows[0] ? `am ${date(rows[0].paid_at)}` : '');
+  const when = period ?? (rows[0] ? T('am {date}', { date: date(rows[0].paid_at) }) : '');
+  const confirmed = T(
+    rows.length > 1 ? 'Wir bestätigen mit Dank, dass {donor} {when} folgende Spenden an {recipient} geleistet hat:' : 'Wir bestätigen mit Dank, dass {donor} {when} folgende Spende an {recipient} geleistet hat:',
+    { donor: donor.name || donor.email, when, recipient: recipientName(s) },
+  );
   return html`<div class="wrap receipt">
-    <p class="no-print actions"><button class="btn" type="button" onclick="print()">Drucken oder als PDF sichern</button></p>
+    <p class="no-print actions"><button class="btn" type="button" onclick="print()">${T('Drucken oder als PDF sichern')}</button></p>
     <header>
       <div><strong>${issuer[0]}</strong>${issuer.slice(1).map((l) => html`<br />${l}`)}</div>
       <div class="receipt-to">${address.map((l, i) => (i ? html`<br />${l}` : html`${l}`))}</div>
     </header>
-    <h1>Spendenbestätigung</h1>
-    <p>Wir bestätigen mit Dank, dass ${donor.name || donor.email} ${when} folgende Spende${rows.length > 1 ? 'n' : ''} an ${recipientName(s)} geleistet hat:</p>
+    <h1>${T('Spendenbestätigung')}</h1>
+    <p>${confirmed}</p>
     <table class="receipt-table">
       <thead>
         <tr>
-          <th>Datum</th>
-          <th class="num">Betrag</th>
+          <th>${T('Datum')}</th>
+          <th class="num">${T('Betrag')}</th>
         </tr>
       </thead>
       <tbody>
@@ -255,13 +267,13 @@ export function receiptBody(
       </tbody>
       <tfoot>
         <tr>
-          <th>Total</th>
+          <th>${T('Total')}</th>
           <th class="num">${formatMoney(total, donor.currency)}</th>
         </tr>
       </tfoot>
     </table>
-    ${campaign ? html`<p>Verwendungszweck: ${campaign}</p>` : ''}
-    <p>Es wurden keine Gegenleistungen erbracht.${s.donations.receiptNote ? ` ${s.donations.receiptNote}` : ''}</p>
+    ${campaign ? html`<p>${T('Verwendungszweck: {campaign}', { campaign })}</p>` : ''}
+    <p>${T('Es wurden keine Gegenleistungen erbracht.')}${s.donations.receiptNote ? ` ${s.donations.receiptNote}` : ''}</p>
     <p class="muted">${s.business.city ? `${s.business.city}, ` : ''}${date(new Date())} · ${recipientName(s)}</p>
   </div>`;
 }

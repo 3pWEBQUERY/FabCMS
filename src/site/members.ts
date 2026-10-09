@@ -3,17 +3,19 @@ import type { RenderContext } from './context';
 import { env } from '../server/env';
 import { formatMoney } from '../shared/text';
 import type { Access } from '../shared/members';
+import { t, L } from './i18n';
 
 /** Header link: «Anmelden» or «Mein Konto». */
 export function accountLink(ctx: RenderContext): Html {
   if (!ctx.settings.modules.includes('members')) return html``;
-  if (ctx.member) return html`<a class="acct-link" href="/konto" ${ctx.path.startsWith('/konto') ? raw(' aria-current="page"') : ''}>Mein Konto</a>`;
-  return html`<a class="acct-link" href="/konto/anmelden?weiter=${encodeURIComponent(ctx.path)}">Anmelden</a>`;
+  if (ctx.member) return html`<a class="acct-link" href="/konto" ${ctx.path.startsWith('/konto') ? raw(' aria-current="page"') : ''}>${t(ctx, 'Mein Konto')}</a>`;
+  return html`<a class="acct-link" href="/konto/anmelden?weiter=${encodeURIComponent(ctx.path)}">${t(ctx, 'Anmelden')}</a>`;
 }
 
 function price(ctx: RenderContext): string {
   const m = ctx.settings.members;
-  return `${formatMoney(m.price, ctx.settings.shop.currency)} pro ${m.interval === 'year' ? 'Jahr' : 'Monat'}`;
+  const amount = formatMoney(m.price, ctx.settings.shop.currency, L(ctx));
+  return m.interval === 'year' ? t(ctx, '{price} pro Jahr', { price: amount }) : t(ctx, '{price} pro Monat', { price: amount });
 }
 
 const paidAvailable = (ctx: RenderContext) => ctx.settings.members.price > 0 && Boolean(env.stripe.secretKey);
@@ -37,13 +39,13 @@ function actions(ctx: RenderContext, access: Access): Html {
   if (!ctx.member) {
     const register =
       open && (access === 'members' || paidAvailable(ctx))
-        ? html`<a class="btn" href="/konto/registrieren?weiter=${next}">${access === 'paid' ? 'Mitglied werden' : 'Konto erstellen'}</a>`
+        ? html`<a class="btn" href="/konto/registrieren?weiter=${next}">${access === 'paid' ? t(ctx, 'Mitglied werden') : t(ctx, 'Konto erstellen')}</a>`
         : '';
-    return html`<div class="gate-actions">${register}<a class="${register ? 'btn-2' : 'btn'}" href="/konto/anmelden?weiter=${next}">Anmelden</a></div>`;
+    return html`<div class="gate-actions">${register}<a class="${register ? 'btn-2' : 'btn'}" href="/konto/anmelden?weiter=${next}">${t(ctx, 'Anmelden')}</a></div>`;
   }
   if (access === 'paid' && paidAvailable(ctx))
     return html`<form class="gate-actions" method="post" action="/konto/abo">
-      <input type="hidden" name="weiter" value="${ctx.path}" /><button class="btn">${ctx.settings.members.planName} abschliessen – ${price(ctx)}</button>
+      <input type="hidden" name="weiter" value="${ctx.path}" /><button class="btn">${t(ctx, '{plan} abschliessen – {price}', { plan: ctx.settings.members.planName, price: price(ctx) })}</button>
     </form>`;
   return html``;
 }
@@ -53,26 +55,26 @@ export function gate(ctx: RenderContext, access: Access): Html {
   const paid = access === 'paid';
   const title = !ctx.member
     ? paid
-      ? `Weiterlesen mit der ${m.planName}`
-      : 'Weiterlesen mit deinem Konto'
+      ? t(ctx, 'Weiterlesen mit der {plan}', { plan: m.planName })
+      : t(ctx, 'Weiterlesen mit deinem Konto')
     : paidAvailable(ctx)
-      ? `Weiterlesen mit der ${m.planName}`
-      : `Dieser Inhalt ist Teil der ${m.planName}`;
+      ? t(ctx, 'Weiterlesen mit der {plan}', { plan: m.planName })
+      : t(ctx, 'Dieser Inhalt ist Teil der {plan}', { plan: m.planName });
   const text = !ctx.member
     ? paid
       ? paidAvailable(ctx)
-        ? `${price(ctx)}, jederzeit kündbar.`
-        : 'Melde dich an, wenn du schon dabei bist.'
+        ? t(ctx, '{price}, jederzeit kündbar.', { price: price(ctx) })
+        : t(ctx, 'Melde dich an, wenn du schon dabei bist.')
       : m.registration === 'open'
-        ? 'Das Konto ist kostenlos und in einer Minute erstellt.'
-        : 'Melde dich mit deinem Konto an. Neue Konten gibt es auf Einladung.'
+        ? t(ctx, 'Das Konto ist kostenlos und in einer Minute erstellt.')
+        : t(ctx, 'Melde dich mit deinem Konto an. Neue Konten gibt es auf Einladung.')
     : paidAvailable(ctx)
-      ? `${price(ctx)}, jederzeit kündbar. Bezahlt wird sicher über Stripe.`
-      : `Den Zugang vergibt ${ctx.settings.name} persönlich – schreib uns einfach.`;
+      ? t(ctx, '{price}, jederzeit kündbar. Bezahlt wird sicher über Stripe.', { price: price(ctx) })
+      : t(ctx, 'Den Zugang vergibt {site} persönlich – schreib uns einfach.', { site: ctx.settings.name });
   return html`<section class="wrap gate" id="zugang" aria-labelledby="gate-h">
     <div class="gate-box">
       <span class="gate-lock" aria-hidden="true"></span>
-      <p class="label">${paid ? 'Für zahlende Mitglieder' : 'Für Mitglieder'}</p>
+      <p class="label">${paid ? t(ctx, 'Für zahlende Mitglieder') : t(ctx, 'Für Mitglieder')}</p>
       <h2 id="gate-h">${title}</h2>
       <p>${text}</p>
       ${paid ? perks(ctx) : ''}${actions(ctx, access)}
@@ -89,27 +91,27 @@ export function membershipBox(ctx: RenderContext, p: { heading?: string; intro?:
   if (!ctx.member)
     cta =
       m.registration === 'open'
-        ? html`<a class="btn" href="/konto/registrieren?weiter=${next}">${paid ? 'Mitglied werden' : 'Konto erstellen'}</a
-            ><a class="btn-2" href="/konto/anmelden?weiter=${next}">Schon dabei? Anmelden</a>`
-        : html`<a class="btn" href="/konto/anmelden?weiter=${next}">Anmelden</a>`;
+        ? html`<a class="btn" href="/konto/registrieren?weiter=${next}">${paid ? t(ctx, 'Mitglied werden') : t(ctx, 'Konto erstellen')}</a
+            ><a class="btn-2" href="/konto/anmelden?weiter=${next}">${t(ctx, 'Schon dabei? Anmelden')}</a>`
+        : html`<a class="btn" href="/konto/anmelden?weiter=${next}">${t(ctx, 'Anmelden')}</a>`;
   else if (ctx.member.level === 'paid')
-    cta = html`<p class="form-ok" style="margin:0">Du bist dabei. Danke!</p>
-      <a class="btn-2" href="/konto">Mein Konto</a>`;
+    cta = html`<p class="form-ok" style="margin:0">${t(ctx, 'Du bist dabei. Danke!')}</p>
+      <a class="btn-2" href="/konto">${t(ctx, 'Mein Konto')}</a>`;
   else if (paid)
-    cta = html`<form method="post" action="/konto/abo"><input type="hidden" name="weiter" value="${ctx.path}" /><button class="btn">${m.planName} abschliessen</button></form>`;
-  else cta = html`<a class="btn-2" href="/konto">Mein Konto</a>`;
+    cta = html`<form method="post" action="/konto/abo"><input type="hidden" name="weiter" value="${ctx.path}" /><button class="btn">${t(ctx, '{plan} abschliessen', { plan: m.planName })}</button></form>`;
+  else cta = html`<a class="btn-2" href="/konto">${t(ctx, 'Mein Konto')}</a>`;
   return html`<div class="wrap">
     ${head}
     <div class="plan">
       <div class="plan-head">
         <h3>${m.planName}</h3>
         ${paid
-          ? html`<p class="plan-price"><span class="num">${formatMoney(m.price, ctx.settings.shop.currency)}</span> pro ${m.interval === 'year' ? 'Jahr' : 'Monat'}</p>`
-          : html`<p class="plan-price">Kostenlos</p>`}
+          ? html`<p class="plan-price"><span class="num">${formatMoney(m.price, ctx.settings.shop.currency, L(ctx))}</span> ${m.interval === 'year' ? t(ctx, 'pro Jahr') : t(ctx, 'pro Monat')}</p>`
+          : html`<p class="plan-price">${t(ctx, 'Kostenlos')}</p>`}
       </div>
       ${perks(ctx)}
       <div class="gate-actions">${cta}</div>
-      ${paid ? html`<p class="plan-note">Jederzeit kündbar. Bezahlt wird sicher über Stripe.</p>` : ''}
+      ${paid ? html`<p class="plan-note">${t(ctx, 'Jederzeit kündbar. Bezahlt wird sicher über Stripe.')}</p>` : ''}
     </div>
   </div>`;
 }

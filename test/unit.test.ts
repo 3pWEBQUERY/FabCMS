@@ -20,9 +20,13 @@ import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { generateSdk } from '../src/server/sdk';
 import { runHook, checkHookCode } from '../src/server/hooks';
+import { DICT } from '../src/site/dict';
+import { tr } from '../src/site/i18n';
+import { mergeTranslation, translatableData } from '../src/shared/i18n';
+import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -544,3 +548,52 @@ describe('sandboxed hooks', () => {
     expect(await checkHookCode('function hook( {')).toMatch(/SyntaxError/);
   });
 });
+
+describe('website translations', () => {
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? files(join(dir, d.name)) : d.name.endsWith('.ts') ? [join(dir, d.name)] : []));
+  const sources = [...files('src/site'), ...files('src/server')].filter((f) => !f.includes('/dict'));
+  const keys = new Map<string, string>();
+  for (const f of sources) {
+    const text = readFileSync(f, 'utf8');
+    // t(ctx, '…') / T('…') / tr(lang, '…') with a literal key
+    for (const m of text.matchAll(/\b(?:t\(\s*[\w.]+\s*,|T\(|tr\(\s*[\w.()]+\s*,)\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
+      if (m[1] === '`' && m[2].includes('${')) continue;
+      keys.set(m[2].replace(/\\(['"`\\])/g, '$1'), f);
+    }
+  }
+
+  it('has French, Italian and English for every text used on the website', () => {
+    const missing = [...keys].filter(([k]) => !DICT[k] || !DICT[k].fr || !DICT[k].it || !DICT[k].en).map(([k, f]) => `${f}: ${k}`);
+    expect(missing).toEqual([]);
+    expect(keys.size).toBeGreaterThan(50);
+  });
+
+  it('keeps the placeholders of every text', () => {
+    const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+    const broken = Object.entries(DICT).flatMap(([de, v]) => (['fr', 'it', 'en'] as const).filter((l) => ph(v[l]) !== ph(de)).map((l) => `${l}: ${de}`));
+    expect(broken).toEqual([]);
+    expect(tr('fr', 'Sprache')).toBe('Langue');
+    expect(tr('de', 'Gibt es nicht {x}', { x: 1 })).toBe('Gibt es nicht 1');
+  });
+
+  it('translates opening hours and keeps shared fields shared', () => {
+    const hours = [1, 2, 3, 4, 5].map((day) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] })).concat([{ day: 6, closed: true, slots: [] }, { day: 7, closed: true, slots: [] }]);
+    expect(compactHoursL(hours, 'fr')).toEqual([{ days: 'Lu–Ve', time: '09:00–18:00' }, { days: 'Sa–Di', time: 'fermé' }]);
+    // Friday 2026-10-09 20:00 in Zurich: closed, opens Monday.
+    expect(openStatus(hours, 'Europe/Zurich', new Date('2026-10-09T18:00:00Z'), 'it')?.label).toBe('Chiuso – apre lunedì alle 09:00');
+    const fields = [
+      { key: 'title', type: 'text', label: 'Titel' },
+      { key: 'price', type: 'money', label: 'Preis' },
+      { key: 'prices', type: 'group', label: 'Preise', fields: [{ key: 'label', type: 'text', label: 'Grösse' }, { key: 'price', type: 'money', label: 'Preis' }] },
+    ] as never[];
+    const text = translatableData(fields, { title: 'Plat', price: 1, prices: [{ label: 'grand', price: 1 }] }, false);
+    expect(text).toEqual({ title: 'Plat', prices: [{ label: 'grand' }] });
+    expect(mergeTranslation(fields, { title: 'Teller', price: 1800, prices: [{ label: 'gross', price: 2400 }] }, { ...text, title: '' }, false)).toEqual({
+      title: 'Teller',
+      price: 1800,
+      prices: [{ label: 'grand', price: 2400 }],
+    });
+  });
+});
+

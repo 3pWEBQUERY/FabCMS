@@ -7,7 +7,7 @@ import type { LinkValue } from '../shared/fields';
 import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
-import { compactHours, DAY_NAMES, DAY_SHORT, formatSlots, openStatus, zonedNow } from '../shared/hours';
+import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
 import { listServices, openDays, slotsFor } from '../server/booking';
 import { localDay, zonedToUtc, type BookingService } from '../shared/booking';
 import { MONTHS, longDay } from '../shared/dates';
@@ -19,6 +19,7 @@ import { eventCards, upcoming } from './events';
 import { donateBlock } from './donations';
 import { findProperties, propertyCards } from './realestate';
 import { env } from '../server/env';
+import { t, L } from './i18n';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
 
@@ -49,6 +50,11 @@ function headingTag(ctx: RenderContext): 'h1' | 'h2' {
   return 'h2';
 }
 
+/** For a German word that means something else elsewhere on the site: translate via a more specific key. */
+
+/** Day names are lowercase in French and Italian; as table headings they start with a capital. */
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+
 const empty = (ctx: RenderContext, msg: string) => (ctx.edit ? html`<div class="wrap"><div class="nova-empty">${msg}</div></div>` : html``);
 
 /* ---------- Embeds ---------- */
@@ -63,8 +69,9 @@ export function videoEmbed(url: string): { provider: 'youtube' | 'vimeo'; src: s
 
 const PROVIDER_NAMES = { youtube: 'YouTube (Google)', vimeo: 'Vimeo', maps: 'OpenStreetMap' } as const;
 
-function consentBox(kind: keyof typeof PROVIDER_NAMES, src: string, title: string, poster: Html = html``, extraClass = ''): Html {
-  return html`<div class="consent ${extraClass}" data-consent="${kind}" data-src="${src}" data-title="${title}">${poster}<div class="consent-box"><strong>${title}</strong><p style="margin:0">Beim Laden werden Daten an ${PROVIDER_NAMES[kind]} übertragen.</p><button type="button" class="btn" data-consent-load>Inhalt laden</button><label><input type="checkbox" data-consent-remember> Inhalte von ${PROVIDER_NAMES[kind]} immer laden</label><noscript><a href="${src.replace('?autoplay=1', '')}" rel="noopener">Direkt bei ${PROVIDER_NAMES[kind]} öffnen</a></noscript></div></div>`;
+function consentBox(ctx: RenderContext, kind: keyof typeof PROVIDER_NAMES, src: string, title: string, poster: Html = html``, extraClass = ''): Html {
+  const provider = PROVIDER_NAMES[kind];
+  return html`<div class="consent ${extraClass}" data-consent="${kind}" data-src="${src}" data-title="${title}">${poster}<div class="consent-box"><strong>${title}</strong><p style="margin:0">${t(ctx, 'Beim Laden werden Daten an {provider} übertragen.', { provider })}</p><button type="button" class="btn" data-consent-load>${t(ctx, 'Inhalt laden')}</button><label><input type="checkbox" data-consent-remember> ${t(ctx, 'Inhalte von {provider} immer laden', { provider })}</label><noscript><a href="${src.replace('?autoplay=1', '')}" rel="noopener">${t(ctx, 'Direkt bei {provider} öffnen', { provider })}</a></noscript></div></div>`;
 }
 
 /* ---------- Forms ---------- */
@@ -72,7 +79,7 @@ function consentBox(kind: keyof typeof PROVIDER_NAMES, src: string, title: strin
 export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): Html {
   const sent = ctx.query.get('gesendet') === form.id;
   if (sent)
-    return html`<div class="form-ok" role="status" id="form-${form.id}"><p style="margin:0">${form.settings.successMessage || 'Danke! Wir melden uns bald.'}</p></div>`;
+    return html`<div class="form-ok" role="status" id="form-${form.id}"><p style="margin:0">${form.settings.successMessage || t(ctx, 'Danke! Wir melden uns bald.')}</p></div>`;
   ctx.needs.add('form');
   const error = ctx.query.get('formfehler') === form.id ? ctx.query.get('meldung') : null;
   const groups: (typeof form.fields)[] = [[]];
@@ -99,7 +106,7 @@ export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): 
         control = html`<textarea ${common}${describedBy}></textarea>`;
         break;
       case 'select':
-        control = html`<select ${common}${describedBy}><option value="">Bitte wählen</option>${(f.options ?? []).map((o) => html`<option>${o}</option>`)}</select>`;
+        control = html`<select ${common}${describedBy}><option value="">${t(ctx, 'Bitte wählen')}</option>${(f.options ?? []).map((o) => html`<option>${o}</option>`)}</select>`;
         break;
       case 'file':
         control = html`<input type="file" ${common}${describedBy} accept="image/*,.pdf,.docx,.xlsx,.txt">`;
@@ -120,20 +127,20 @@ export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): 
   } data-nova-form>
     ${error ? html`<p class="form-err" role="alert">${error}</p>` : ''}
     <input type="hidden" name="_page" value="${ctx.path}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
-    <div class="hp" aria-hidden="true"><label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <div class="hp" aria-hidden="true"><label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
     ${groups.map(
       (g, i) =>
         html`<fieldset${i === 0 ? raw(' class="on"') : ''} data-step="${i}">${multi ? html`<legend>${i + 1}/${groups.length} · ${stepLabels[i]}</legend>` : ''}${g.map(fieldHtml)}${
           multi
-            ? html`<div class="steps-nav">${i > 0 ? html`<button type="button" class="btn-2" data-step-back>Zurück</button>` : ''}${
-                i < groups.length - 1 ? html`<button type="button" class="btn" data-step-next>Weiter</button>` : html`<button class="btn" type="submit">${form.settings.submitLabel || 'Senden'}</button>`
+            ? html`<div class="steps-nav">${i > 0 ? html`<button type="button" class="btn-2" data-step-back>${t(ctx, 'Zurück')}</button>` : ''}${
+                i < groups.length - 1 ? html`<button type="button" class="btn" data-step-next>${t(ctx, 'Weiter')}</button>` : html`<button class="btn" type="submit">${form.settings.submitLabel || t(ctx, 'Senden')}</button>`
               }</div>`
             : ''
         }</fieldset>`,
     )}
     ${turnstile ? html`<div class="cf-turnstile" data-sitekey="${env.turnstile.siteKey}"></div>` : ''}
-    ${multi ? '' : html`<div><button class="btn" type="submit">${form.settings.submitLabel || 'Senden'}</button></div>`}
-    <p class="muted" style="font-size:var(--step-n1);margin:0">Mit dem Absenden werden deine Angaben zur Bearbeitung der Anfrage gespeichert. Mehr in der <a href="/datenschutz">Datenschutzerklärung</a>.</p>
+    ${multi ? '' : html`<div><button class="btn" type="submit">${form.settings.submitLabel || t(ctx, 'Senden')}</button></div>`}
+    <p class="muted" style="font-size:var(--step-n1);margin:0">${raw(t(ctx, 'Mit dem Absenden werden deine Angaben zur Bearbeitung der Anfrage gespeichert. Mehr in der <a href="/datenschutz">Datenschutzerklärung</a>.'))}</p>
   </form>`;
 }
 
@@ -143,9 +150,9 @@ export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): 
 const noPhoto = (title: string) => html`<div class="ph ph-empty" aria-hidden="true">${(title.trim()[0] ?? '·').toUpperCase()}</div>`;
 
 /** Small «Mitglieder» tag on teasers of members-only posts. */
-function lockTag(d: EntryData): Html {
+function lockTag(ctx: RenderContext, d: EntryData): Html {
   const a = entryAccess(d);
-  return a === 'public' ? html`` : html` <span class="lock-tag">${a === 'paid' ? 'Mitgliedschaft' : 'Mitglieder'}</span>`;
+  return a === 'public' ? html`` : html` <span class="lock-tag">${a === 'paid' ? t(ctx, 'Mitgliedschaft') : t(ctx, 'Mitglieder')}</span>`;
 }
 
 export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<typeof publishedEntries>>['items'], layout: string): Promise<Html> {
@@ -153,12 +160,12 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
   await ctx.preloadMedia(items.map((i) => i.data.cover));
   const date = (i: (typeof items)[number]) => {
     const d = (i.data.date as string) || i.published_at;
-    return d ? html`<time datetime="${new Date(d).toISOString().slice(0, 10)}">${new Date(d).toLocaleDateString('de-CH', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : html`<span></span>`;
+    return d ? html`<time datetime="${new Date(d).toISOString().slice(0, 10)}">${new Date(d).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : html`<span></span>`;
   };
   if (layout === 'list')
     return html`<ul class="posts-list">${items.map(
       (i) =>
-        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}"><h3>${i.data.title}${lockTag(i.data)}</h3>${
+        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}"><h3>${i.data.title}${lockTag(ctx, i.data)}</h3>${
           i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
         }</a></li>`,
     )}</ul>`;
@@ -167,9 +174,9 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
       const img = await ctx.media(i.data.cover);
       return html`<a class="card" href="${entryPath(posts, i.slug)}">${
         img ? html`<div class="ph">${picture(img, { sizes: layout === 'feature' && idx === 0 ? '(min-width: 56rem) 60vw, 100vw' : '(min-width: 56rem) 30vw, 100vw', maxWidth: 1600, ratio: '3/2' })}</div>` : ''
-      }<div><span class="label">${(i.data.category as string) || ''}</span><h3>${i.data.title}${lockTag(i.data)}</h3>${
+      }<div><span class="label">${(i.data.category as string) || ''}</span><h3>${i.data.title}${lockTag(ctx, i.data)}</h3>${
         i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
-      }<p class="muted" style="margin-top:.5rem">${date(i)} · ${readingTime(blocksText(i.data.blocks))} Min. Lesezeit</p></div></a>`;
+      }<p class="muted" style="margin-top:.5rem">${date(i)} · ${t(ctx, '{min} Min. Lesezeit', { min: readingTime(blocksText(i.data.blocks)) })}</p></div></a>`;
     }),
   );
   return html`<div class="cards ${layout === 'feature' ? 'feature' : ''}">${cards}</div>`;
@@ -187,8 +194,8 @@ export async function productCards(ctx: RenderContext, items: Awaited<ReturnType
       const prices = variants.map((v) => v.price ?? (i.data.price as number));
       const from = prices.length && new Set(prices).size > 1 ? Math.min(...prices) : null;
       return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 25vw, 50vw', maxWidth: 960, ratio: '4/5' })}</div>` : noPhoto(i.data.title)}<div><h3>${i.data.title}</h3><div class="price-row">${
-        from !== null ? html`<span>ab ${formatPrice(from)}</span>` : html`<span>${formatPrice(i.data.price as number)}</span>`
-      }${i.data.comparePrice ? html`<s>${formatPrice(i.data.comparePrice as number)}</s>` : ''}${soldOut ? html` <span class="badge">Ausverkauft</span>` : ''}</div></div></a>`;
+        from !== null ? html`<span>${t(ctx, 'ab {price}', { price: formatPrice(from) })}</span>` : html`<span>${formatPrice(i.data.price as number)}</span>`
+      }${i.data.comparePrice ? html`<s>${formatPrice(i.data.comparePrice as number)}</s>` : ''}${soldOut ? html` <span class="badge">${t(ctx, 'Ausverkauft')}</span>` : ''}</div></div></a>`;
     }),
   );
   return html`<div class="cards products">${cards}</div>`;
@@ -216,7 +223,7 @@ export async function profileCards(ctx: RenderContext, items: Awaited<ReturnType
       const img = await ctx.media((i.data.images as string[])?.[0]);
       const today = ((i.data.availability as string[]) ?? []).includes(String(day));
       return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 22vw, 50vw', maxWidth: 960, ratio: '3/4' })}</div>` : noPhoto(i.data.title)}<h3>${i.data.title}</h3>${
-        i.data.availableNow ? html`<span class="avail">Gerade verfügbar</span>` : today ? html`<span class="avail">Heute da</span>` : ''
+        i.data.availableNow ? html`<span class="avail">${t(ctx, 'Gerade verfügbar')}</span>` : today ? html`<span class="avail">${t(ctx, 'Heute da')}</span>` : ''
       }${(i.data.languages as string[])?.length ? html`<p>${(i.data.languages as string[]).join(' · ')}</p>` : ''}</a>`;
     }),
   )}</div>`;
@@ -238,6 +245,10 @@ export async function renderMenu(ctx: RenderContext, p: P): Promise<Html> {
   if (!visible.length) return empty(ctx, 'Noch keine Gerichte. Leg sie unter «Inhalte → Gerichte» an.');
   const showAllergens = p.allergens !== false && ctx.settings.menu.showAllergens;
   const usedAllergens = new Set<string>();
+  const allergenLabel = (a: string, kind: 'label' | 'short') => {
+    const x = ALLERGENS.find((y) => y.value === a);
+    return x ? t(ctx, x[kind]) : a;
+  };
   const origins: string[] = [];
 
   const dish = (i: (typeof items)[number]) => {
@@ -245,37 +256,40 @@ export async function renderMenu(ctx: RenderContext, p: P): Promise<Html> {
     const allergens = (d.allergens as string[]) ?? [];
     allergens.forEach((a) => usedAllergens.add(a));
     if (d.origin) origins.push(`${d.title}: ${d.origin}`);
-    const tags = ((d.tags as string[]) ?? []).map((t) => DISH_TAGS.find((x) => x.value === t)?.label ?? t);
+    const tags = ((d.tags as string[]) ?? []).map((tag) => {
+      const label = DISH_TAGS.find((x) => x.value === tag)?.label;
+      return label ? t(ctx, label) : tag;
+    });
     const marks = [
-      ...tags.map((t) => html`<b>${t}</b>`),
-      ...(showAllergens && allergens.length ? [html`Allergene: ${allergens.map((a) => ALLERGENS.find((x) => x.value === a)?.short ?? a).join(', ')}`] : []),
+      ...tags.map((tag) => html`<b>${tag}</b>`),
+      ...(showAllergens && allergens.length ? [html`${t(ctx, 'Allergene: {list}', { list: allergens.map((a) => allergenLabel(a, 'short')).join(', ') })}`] : []),
     ];
     return html`<li class="${cx('dish', d.soldOut && 'out')}"><div class="dish-head"><span class="dish-name">${d.title}</span><span class="dish-lead" aria-hidden="true"></span><span class="dish-price">${dishPrices(d.prices)}</span></div>${
       d.description ? html`<p>${d.description}</p>` : ''
-    }${marks.length ? html`<div class="marks">${join(marks, ' · ')}</div>` : ''}${d.soldOut ? html`<span class="sr">Heute ausverkauft</span>` : ''}</li>`;
+    }${marks.length ? html`<div class="marks">${join(marks, ' · ')}</div>` : ''}${d.soldOut ? html`<span class="sr">${t(ctx, 'Heute ausverkauft')}</span>` : ''}</li>`;
   };
 
   const daily = p.daily !== false ? visible.filter((i) => i.data.daily) : [];
   const groups = new Map<string, typeof items>();
   for (const i of visible) {
     if (daily.includes(i)) continue;
-    const cat = String(i.data.category || 'Weiteres');
+    const cat = String(i.data.category || t(ctx, 'Weiteres'));
     if (!groups.has(cat)) groups.set(cat, []);
     groups.get(cat)!.push(i);
   }
-  const today = new Date().toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: ctx.settings.timezone });
+  const today = new Date().toLocaleDateString(L(ctx), { weekday: 'long', day: 'numeric', month: 'long', timeZone: ctx.settings.timezone });
   return html`${
     daily.length
-      ? html`<section class="daily" aria-labelledby="daily-h"><span class="label">${today}</span><h3 id="daily-h">${ctx.settings.menu.dailyTitle || 'Heute'}</h3><ul class="mn-items">${daily.map(dish)}</ul></section>`
+      ? html`<section class="daily" aria-labelledby="daily-h"><span class="label">${today}</span><h3 id="daily-h">${ctx.settings.menu.dailyTitle || t(ctx, 'Heute')}</h3><ul class="mn-items">${daily.map(dish)}</ul></section>`
       : ''
   }${[...groups].map(
     ([cat, list]) =>
       html`<section class="mn-cat"><h3>${cat}</h3><ul class="${cx('mn-items', list.length > 5 && 'two')}">${list.map(dish)}</ul></section>`,
   )}<div class="mn-legend">${
     showAllergens && usedAllergens.size
-      ? html`<p style="margin:0">Allergene: ${[...usedAllergens].map((a) => ALLERGENS.find((x) => x.value === a)?.label ?? a).join(', ')}. Bei Fragen zu Allergien und Unverträglichkeiten beraten wir dich gerne.</p>`
+      ? html`<p style="margin:0">${t(ctx, 'Allergene: {list}. Bei Fragen zu Allergien und Unverträglichkeiten beraten wir dich gerne.', { list: [...usedAllergens].map((a) => allergenLabel(a, 'label')).join(', ') })}</p>`
       : ''
-  }${origins.length ? html`<p style="margin:0">Herkunft: ${[...new Set(origins)].join(' · ')}.</p>` : ''}<p style="margin:0">Alle Preise in CHF inkl. MwSt.</p></div>`;
+  }${origins.length ? html`<p style="margin:0">${t(ctx, 'Herkunft: {list}.', { list: [...new Set(origins)].join(' · ') })}</p>` : ''}<p style="margin:0">${t(ctx, 'Alle Preise in CHF inkl. MwSt.')}</p></div>`;
 }
 
 /* ---------- Block renderers ---------- */
@@ -360,7 +374,7 @@ const R: Record<string, Renderer> = {
     if (!embed) return empty(ctx, 'Füge einen YouTube- oder Vimeo-Link ein oder lade ein Video hoch.');
     if (!ctx.settings.consent[embed.provider]) return html``;
     ctx.needs.add('consent');
-    return html`<div class="wrap"><figure>${consentBox(embed.provider, embed.src, p.caption || 'Video', poster ? picture(poster, { sizes: '(min-width: 78rem) 78rem, 100vw' }) : html``)}${caption}</figure></div>`;
+    return html`<div class="wrap"><figure>${consentBox(ctx, embed.provider, embed.src, p.caption || t(ctx, 'Video'), poster ? picture(poster, { sizes: '(min-width: 78rem) 78rem, 100vw' }) : html``)}${caption}</figure></div>`;
   },
 
   list(b, ctx) {
@@ -431,7 +445,7 @@ const R: Record<string, Renderer> = {
     const p = b.props as P;
     return html`<div class="wrap">${heading(ctx, p, 'heading', 'intro')}<div class="plans">${((p.plans as P[]) ?? []).map(
       (pl, i) =>
-        html`<div class="${cx('plan', pl.highlight && 'hl')}"><h3><span${field(ctx.edit, `plans.${i}.name`)}>${pl.name}</span>${pl.highlight ? html`<span class="tag">Empfohlen</span>` : ''}</h3><div><span class="price"${field(ctx.edit, `plans.${i}.price`)}>${pl.price}</span> <span class="per">${pl.period}</span></div>${
+        html`<div class="${cx('plan', pl.highlight && 'hl')}"><h3><span${field(ctx.edit, `plans.${i}.name`)}>${pl.name}</span>${pl.highlight ? html`<span class="tag">${t(ctx, 'Empfohlen')}</span>` : ''}</h3><div><span class="price"${field(ctx.edit, `plans.${i}.price`)}>${pl.price}</span> <span class="per">${pl.period}</span></div>${
           pl.description ? html`<p class="muted" style="margin:0">${pl.description}</p>` : ''
         }<ul>${String(pl.features ?? '')
           .split('\n')
@@ -504,16 +518,16 @@ const R: Record<string, Renderer> = {
     const id = (n: string) => `nl-${b.id}-${n}`;
     return html`<div class="wrap nl" id="${id('box')}">${head}${
       done
-        ? html`<p class="form-ok" role="status">Fast geschafft: Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist dabei.</p>`
+        ? html`<p class="form-ok" role="status">${t(ctx, 'Fast geschafft: Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist dabei.')}</p>`
         : html`<form class="nl-form${p.askName ? ' with-name' : ''}" method="post" action="/_nova/newsletter">
       ${error ? html`<p class="form-err" role="alert">${error}</p>` : ''}
       <input type="hidden" name="_page" value="${ctx.path}"><input type="hidden" name="_block" value="${b.id}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
-      <div class="hp" aria-hidden="true"><label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-      ${p.askName ? html`<div class="fld"><label for="${id('name')}">Vorname</label><input id="${id('name')}" name="name" autocomplete="given-name" maxlength="80"></div>` : ''}
-      <div class="fld"><label for="${id('email')}">E-Mail</label><input id="${id('email')}" type="email" name="email" required autocomplete="email" maxlength="200" placeholder="du@beispiel.ch"></div>
-      <button class="btn" type="submit">${p.button || 'Anmelden'}</button>
+      <div class="hp" aria-hidden="true"><label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      ${p.askName ? html`<div class="fld"><label for="${id('name')}">${t(ctx, 'Vorname')}</label><input id="${id('name')}" name="name" autocomplete="given-name" maxlength="80"></div>` : ''}
+      <div class="fld"><label for="${id('email')}">${t(ctx, 'E-Mail')}</label><input id="${id('email')}" type="email" name="email" required autocomplete="email" maxlength="200" placeholder="${t(ctx, 'du@beispiel.ch')}"></div>
+      <button class="btn" type="submit">${p.button || t(ctx, 'Anmelden|Newsletter')}</button>
     </form>
-    <p class="nl-note">Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit. <a href="/datenschutz">Datenschutz</a></p>`
+    <p class="nl-note">${t(ctx, 'Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit.')} <a href="/datenschutz">${t(ctx, 'Datenschutz')}</a></p>`
     }</div>`;
   },
 
@@ -525,7 +539,7 @@ const R: Record<string, Renderer> = {
     if (!col) return html`<div class="wrap">${head}${empty(ctx, `Aktiviere «${source === 'courses' ? 'Kurse' : 'Events & Tickets'}» unter Einstellungen → Module.`)}</div>`;
     const items = await upcoming(source, ctx.settings.timezone, { limit: Math.min(24, Number(p.count) || 4), category: (p.category as string) || undefined });
     return html`<div class="wrap">${head}${await eventCards(ctx, col, items)}${
-      col.list_route ? html`<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle ${col.name}</a></p>` : ''
+      col.list_route ? html`<p class="ev-more"><a class="btn-2" href="${col.list_route}">${t(ctx, 'Alle {name}', { name: col.name })}</a></p>` : ''
     }</div>`;
   },
 
@@ -536,7 +550,7 @@ const R: Record<string, Renderer> = {
     if (!col) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Immobilien» unter Einstellungen → Module.')}</div>`;
     const items = await findProperties({ offer: p.offer === 'rent' || p.offer === 'buy' ? p.offer : '' }, { limit: Math.min(12, Number(p.count) || 3) });
     if (!items.length) return html`<div class="wrap">${head}${empty(ctx, 'Noch keine Objekte. Leg sie unter «Inhalte → Immobilien» an.')}</div>`;
-    return html`<div class="wrap">${head}${await propertyCards(ctx, items)}<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle Objekte</a></p></div>`;
+    return html`<div class="wrap">${head}${await propertyCards(ctx, items)}<p class="ev-more"><a class="btn-2" href="${col.list_route}">${t(ctx, 'Alle Objekte')}</a></p></div>`;
   },
 
   async donate(b, ctx) {
@@ -558,13 +572,13 @@ const R: Record<string, Renderer> = {
     const s = ctx.settings;
     const biz = s.business;
     const mapsQuery = encodeURIComponent([biz.street, biz.zip, biz.city].filter(Boolean).join(', '));
-    const status = openStatus(s.hours, s.timezone, ctx.now);
+    const status = openStatus(s.hours, s.timezone, ctx.now, ctx.lang);
     return html`<div class="wrap">${heading(ctx, p, 'heading', 'text')}<div class="contact"><div><address>${biz.legalName || s.name}<br>${
       biz.street ? html`${biz.street}<br>` : ''
     }${biz.zip} ${biz.city}${biz.phone ? html`<br><a href="tel:${biz.phone.replace(/[^+\d]/g, '')}">${biz.phone}</a>` : ''}${
       biz.email ? html`<br><a href="mailto:${biz.email}">${biz.email}</a>` : ''
     }</address>${
-      mapsQuery ? html`<p style="margin-top:1rem"><a class="btn-2" href="https://www.openstreetmap.org/search?query=${raw(mapsQuery)}" rel="noopener">Route planen</a></p>` : ''
+      mapsQuery ? html`<p style="margin-top:1rem"><a class="btn-2" href="https://www.openstreetmap.org/search?query=${raw(mapsQuery)}" rel="noopener">${t(ctx, 'Route planen')}</a></p>` : ''
     }</div>${
       p.showHours !== false && s.hours.length
         ? html`<div>${status ? html`<p class="${cx('open-now', !status.open && 'closed')}">${status.label}</p>` : ''}${hoursTable(ctx)}</div>`
@@ -575,7 +589,7 @@ const R: Record<string, Renderer> = {
   hours(b, ctx) {
     const p = b.props as P;
     const s = ctx.settings;
-    const status = openStatus(s.hours, s.timezone, ctx.now);
+    const status = openStatus(s.hours, s.timezone, ctx.now, ctx.lang);
     return html`<div class="wrap">${heading(ctx, p)}${status ? html`<p class="${cx('open-now', !status.open && 'closed')}">${status.label}</p>` : ''}${hoursTable(ctx)}${
       s.hoursNote ? html`<p class="muted" style="margin-top:1rem">${s.hoursNote}</p>` : ''
     }</div>`;
@@ -590,11 +604,11 @@ const R: Record<string, Renderer> = {
     const lat = biz.lat as number | undefined;
     const lng = biz.lng as number | undefined;
     if (!lat || !lng || p.address)
-      return html`<div class="wrap"><p><a class="btn-2" href="https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}" rel="noopener">${address} auf der Karte öffnen</a></p></div>`;
+      return html`<div class="wrap"><p><a class="btn-2" href="https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}" rel="noopener">${t(ctx, '{address} auf der Karte öffnen', { address })}</a></p></div>`;
     ctx.needs.add('consent');
     const d = 0.004 * Math.pow(2, 16 - (Number(p.zoom) || 16));
     const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d * 1.6},${lat - d},${lng + d * 1.6},${lat + d}&layer=mapnik&marker=${lat},${lng}`;
-    return html`<div class="wrap">${consentBox('maps', src, `Karte: ${address}`, html``, 'map')}</div>`;
+    return html`<div class="wrap">${consentBox(ctx, 'maps', src, t(ctx, 'Karte: {address}', { address }), html``, 'map')}</div>`;
   },
 
   async posts(b, ctx) {
@@ -602,7 +616,7 @@ const R: Record<string, Renderer> = {
     const c = ctx.collections.find((x) => x.id === 'posts');
     if (!c) return empty(ctx, 'Das Blog-Modul ist nicht aktiv.');
     const { items } = await publishedEntries(c, { limit: Number(p.count) || 3, category: p.category || undefined });
-    const more = c.list_route ? html`<p style="margin-top:2rem"><a class="btn-2" href="${c.list_route}">Alle Beiträge</a></p>` : '';
+    const more = c.list_route ? html`<p style="margin-top:2rem"><a class="btn-2" href="${c.list_route}">${t(ctx, 'Alle Beiträge')}</a></p>` : '';
     return html`<div class="wrap">${heading(ctx, p)}${items.length ? await postTeasers(ctx, items, p.layout ?? 'list') : empty(ctx, 'Noch keine veröffentlichten Beiträge.')}${items.length ? more : ''}</div>`;
   },
 
@@ -628,7 +642,7 @@ const R: Record<string, Renderer> = {
     const cats = p.filter !== false ? await categoriesOf('projects') : [];
     const filter =
       cats.length > 1
-        ? html`<nav class="filters" aria-label="Nach Kategorie filtern"><a href="?#b-${b.id}" aria-current="${!active}">Alle</a>${cats.map(
+        ? html`<nav class="filters" aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="?#b-${b.id}" aria-current="${!active}">${t(ctx, 'Alle')}</a>${cats.map(
             (cat) => html`<a href="?kategorie=${encodeURIComponent(cat)}#b-${b.id}" aria-current="${active.toLowerCase() === cat.toLowerCase()}">${cat}</a>`,
           )}</nav>`
         : '';
@@ -668,14 +682,14 @@ const R: Record<string, Renderer> = {
 export function hoursTable(ctx: RenderContext): Html {
   const { day } = zonedNow(ctx.settings.timezone, ctx.now);
   const hours = [...ctx.settings.hours].sort((a, b) => a.day - b.day);
-  return html`<table class="hours"><caption class="sr">Öffnungszeiten</caption><tbody>${hours.map(
-    (h) => html`<tr class="${h.day === day ? 'today' : ''}"><th scope="row">${DAY_NAMES[h.day]}</th><td>${formatSlots(h)}</td></tr>`,
+  return html`<table class="hours"><caption class="sr">${t(ctx, 'Öffnungszeiten')}</caption><tbody>${hours.map(
+    (h) => html`<tr class="${h.day === day ? 'today' : ''}"><th scope="row">${cap(DAYS[ctx.lang].long[h.day])}</th><td>${formatSlots(h, ctx.lang)}</td></tr>`,
   )}</tbody></table>`;
 }
 
 export function hoursSummary(ctx: RenderContext): Html {
   return join(
-    compactHours(ctx.settings.hours).map((g) => html`<li>${g.days} ${g.time}</li>`),
+    compactHours(ctx.settings.hours, ctx.lang).map((g) => html`<li>${g.days} ${g.time}</li>`),
     '',
   );
 }
@@ -743,6 +757,8 @@ export { R as renderers };
 
 async function bookingSteps(ctx: RenderContext, services: BookingService[], fixed: string): Promise<Html> {
   const s = ctx.settings;
+  const monthShort = (m: number) =>
+    ctx.lang === 'de' ? MONTHS[m - 1].slice(0, 3) : new Intl.DateTimeFormat(L(ctx), { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2000, m - 1, 1))).replace('.', '');
   const q = ctx.query;
   const table = s.booking.mode === 'table';
   const keep = ['b_s', 'b_p', 'b_d', 'b_t', 'b_from'];
@@ -760,9 +776,9 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
 
   // 1 – what
   if (services.length > 1 && !fixed) {
-    out.push(html`<section class="bk-step" aria-labelledby="bk-what"><h3 id="bk-what" class="bk-label">${table ? 'Bereich' : 'Was möchtest du buchen?'}</h3><ul class="bk-services">${services.map(
+    out.push(html`<section class="bk-step" aria-labelledby="bk-what"><h3 id="bk-what" class="bk-label">${table ? t(ctx, 'Bereich|Lokal') : t(ctx, 'Was möchtest du buchen?')}</h3><ul class="bk-services">${services.map(
       (x) =>
-        html`<li><a class="bk-service" href="${link({ b_s: x.id, b_d: null, b_t: null })}"${x.id === service?.id ? raw(' aria-current="true"') : ''}><strong>${x.name}</strong><span>${[`${x.duration_min} Min.`, x.price ? formatPrice(x.price) : ''].filter(Boolean).join(' · ')}</span>${
+        html`<li><a class="bk-service" href="${link({ b_s: x.id, b_d: null, b_t: null })}"${x.id === service?.id ? raw(' aria-current="true"') : ''}><strong>${x.name}</strong><span>${[t(ctx, '{n} Min.', { n: x.duration_min }), x.price ? formatPrice(x.price) : ''].filter(Boolean).join(' · ')}</span>${
           x.description ? html`<small>${x.description}</small>` : ''
         }</a></li>`,
     )}</ul></section>`);
@@ -772,9 +788,9 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
   // 2 – how many
   if (table) {
     const max = Math.min(s.booking.maxParty, 10);
-    out.push(html`<section class="bk-step" aria-labelledby="bk-who"><h3 id="bk-who" class="bk-label">Wie viele Personen?</h3><div class="bk-chips">${Array.from({ length: max }, (_, i) => i + 1).map(
+    out.push(html`<section class="bk-step" aria-labelledby="bk-who"><h3 id="bk-who" class="bk-label">${t(ctx, 'Wie viele Personen?')}</h3><div class="bk-chips">${Array.from({ length: max }, (_, i) => i + 1).map(
       (n) => html`<a class="bk-chip" href="${link({ b_p: n, b_t: null })}"${n === party ? raw(' aria-current="true"') : ''}>${n}</a>`,
-    )}</div>${s.business.phone ? html`<p class="bk-hint">Mehr als ${max}? Ruf uns an: <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}</section>`);
+    )}</div>${s.business.phone ? html`<p class="bk-hint">${t(ctx, 'Mehr als {max}? Ruf uns an:', { max })} <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}</section>`);
     if (!party) return join(out);
   }
 
@@ -785,40 +801,40 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
   const chosen = days.find((d) => d.day === q.get('b_d')) ? q.get('b_d')! : null;
   const shift = (n: number) => localDay(new Date(zonedToUtc(from, 12 * 60, s.timezone).getTime() + n * 86_400_000), s.timezone).day;
   const lastDay = shift(s.booking.horizonDays);
-  out.push(html`<section class="bk-step" aria-labelledby="bk-when"><h3 id="bk-when" class="bk-label">An welchem Tag?</h3><div class="bk-days">${days.map((d) => {
+  out.push(html`<section class="bk-step" aria-labelledby="bk-when"><h3 id="bk-when" class="bk-label">${t(ctx, 'An welchem Tag?')}</h3><div class="bk-days">${days.map((d) => {
     const [, m, dd] = d.day.split('-').map(Number);
-    const wd = DAY_SHORT[localDay(zonedToUtc(d.day, 12 * 60, s.timezone), s.timezone).weekday];
-    const inner = html`<span class="bk-wd">${d.day === today ? 'Heute' : wd}</span><span class="bk-dn">${dd}.</span><span class="bk-mo">${MONTHS[m - 1].slice(0, 3)}</span>`;
+    const wd = cap(DAYS[ctx.lang].short[localDay(zonedToUtc(d.day, 12 * 60, s.timezone), s.timezone).weekday]);
+    const inner = html`<span class="bk-wd">${d.day === today ? t(ctx, 'Heute') : wd}</span><span class="bk-dn">${ctx.lang === 'de' ? `${dd}.` : dd}</span><span class="bk-mo">${monthShort(m)}</span>`;
     return d.free
-      ? html`<a class="bk-day" href="${link({ b_d: d.day, b_t: null })}"${d.day === chosen ? raw(' aria-current="true"') : ''} aria-label="${longDay(d.day)}">${inner}</a>`
-      : html`<span class="bk-day off" aria-label="${longDay(d.day)}: nichts frei">${inner}</span>`;
-  })}</div><div class="bk-pager">${from > today ? html`<a class="btn-2 bk-prev" href="${link({ b_from: shift(-14) <= today ? null : shift(-14), b_d: null, b_t: null })}">Frühere Tage</a>` : html`<span></span>`}${
-    shift(14) <= lastDay ? html`<a class="btn-2" href="${link({ b_from: shift(14), b_d: null, b_t: null })}">Spätere Tage</a>` : ''
+      ? html`<a class="bk-day" href="${link({ b_d: d.day, b_t: null })}"${d.day === chosen ? raw(' aria-current="true"') : ''} aria-label="${longDay(d.day, L(ctx))}">${inner}</a>`
+      : html`<span class="bk-day off" aria-label="${t(ctx, '{day}: nichts frei', { day: longDay(d.day, L(ctx)) })}">${inner}</span>`;
+  })}</div><div class="bk-pager">${from > today ? html`<a class="btn-2 bk-prev" href="${link({ b_from: shift(-14) <= today ? null : shift(-14), b_d: null, b_t: null })}">${t(ctx, 'Frühere Tage')}</a>` : html`<span></span>`}${
+    shift(14) <= lastDay ? html`<a class="btn-2" href="${link({ b_from: shift(14), b_d: null, b_t: null })}">${t(ctx, 'Spätere Tage')}</a>` : ''
   }</div></section>`);
   if (!chosen) return join(out);
 
   // 4 – what time
   const slots = await slotsFor(service.id, chosen, party, ctx.now);
   const time = slots.find((x) => x.time === q.get('b_t'))?.time ?? null;
-  out.push(html`<section class="bk-step" aria-labelledby="bk-time"><h3 id="bk-time" class="bk-label">Um wie viel Uhr?</h3>${
+  out.push(html`<section class="bk-step" aria-labelledby="bk-time"><h3 id="bk-time" class="bk-label">${t(ctx, 'Um wie viel Uhr?')}</h3>${
     slots.length
       ? html`<div class="bk-chips">${slots.map((x) => html`<a class="bk-chip num" href="${link({ b_t: x.time })}"${x.time === time ? raw(' aria-current="true"') : ''}>${x.time}</a>`)}</div>`
-      : html`<p class="bk-hint">An diesem Tag ist leider nichts mehr frei.</p>`
+      : html`<p class="bk-hint">${t(ctx, 'An diesem Tag ist leider nichts mehr frei.')}</p>`
   }</section>`);
   if (!time) return join(out);
 
   // 5 – who
-  const summary = [longDay(chosen), `${time} Uhr`, table ? `${party} ${party === 1 ? 'Person' : 'Personen'}` : service.name].join(' · ');
-  out.push(html`<section class="bk-step" aria-labelledby="bk-you"><h3 id="bk-you" class="bk-label">Deine Angaben</h3><p class="bk-summary">${summary}</p>
+  const summary = [longDay(chosen, L(ctx)), t(ctx, '{time} Uhr', { time }), table ? t(ctx, party === 1 ? '{n} Person' : '{n} Personen', { n: party }) : service.name].join(' · ');
+  out.push(html`<section class="bk-step" aria-labelledby="bk-you"><h3 id="bk-you" class="bk-label">${t(ctx, 'Deine Angaben')}</h3><p class="bk-summary">${summary}</p>
     <form class="nform" method="post" action="/_nova/booking" data-booking>
       <input type="hidden" name="service" value="${service.id}"><input type="hidden" name="day" value="${chosen}"><input type="hidden" name="time" value="${time}"><input type="hidden" name="party" value="${party}"><input type="hidden" name="_back" value="${link({})}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
-      <div class="hp" aria-hidden="true"><label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-      <div class="two-col"><div class="fld"><label for="bk-name">Name <span class="req" aria-hidden="true">*</span></label><input id="bk-name" name="name" required autocomplete="name"></div>
-      <div class="fld"><label for="bk-mail">E-Mail <span class="req" aria-hidden="true">*</span></label><input id="bk-mail" name="email" type="email" required autocomplete="email"></div></div>
-      <div class="fld"><label for="bk-tel">Telefon <span class="muted">(für Rückfragen)</span></label><input id="bk-tel" name="phone" type="tel" autocomplete="tel"></div>
-      <div class="fld"><label for="bk-note">Bemerkung <span class="muted">(optional)</span></label><textarea id="bk-note" name="note" maxlength="1000" placeholder="${table ? 'Allergien, Kinderstuhl, Anlass …' : 'Was wir vorher wissen sollten'}"></textarea></div>
-      <div><button class="btn">${service.deposit && env.stripe.secretKey ? `Weiter zur Anzahlung (${formatPrice(service.deposit)})` : s.booking.autoConfirm ? 'Verbindlich reservieren' : 'Anfrage senden'}</button></div>
-      <p class="muted" style="font-size:var(--step-n1);margin:0">${s.booking.cancelHours ? `Absagen geht bis ${s.booking.cancelHours} Stunden vorher über den Link in der Bestätigung. ` : ''}Mehr zum Datenschutz in der <a href="/datenschutz">Datenschutzerklärung</a>.</p>
+      <div class="hp" aria-hidden="true"><label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="two-col"><div class="fld"><label for="bk-name">${t(ctx, 'Name')} <span class="req" aria-hidden="true">*</span></label><input id="bk-name" name="name" required autocomplete="name"></div>
+      <div class="fld"><label for="bk-mail">${t(ctx, 'E-Mail')} <span class="req" aria-hidden="true">*</span></label><input id="bk-mail" name="email" type="email" required autocomplete="email"></div></div>
+      <div class="fld"><label for="bk-tel">${t(ctx, 'Telefon')} <span class="muted">${t(ctx, '(für Rückfragen)')}</span></label><input id="bk-tel" name="phone" type="tel" autocomplete="tel"></div>
+      <div class="fld"><label for="bk-note">${t(ctx, 'Bemerkung')} <span class="muted">${t(ctx, '(optional)')}</span></label><textarea id="bk-note" name="note" maxlength="1000" placeholder="${table ? t(ctx, 'Allergien, Kinderstuhl, Anlass …') : t(ctx, 'Was wir vorher wissen sollten')}"></textarea></div>
+      <div><button class="btn">${service.deposit && env.stripe.secretKey ? t(ctx, 'Weiter zur Anzahlung ({price})', { price: formatPrice(service.deposit) }) : s.booking.autoConfirm ? t(ctx, 'Verbindlich reservieren') : t(ctx, 'Anfrage senden')}</button></div>
+      <p class="muted" style="font-size:var(--step-n1);margin:0">${s.booking.cancelHours ? `${t(ctx, 'Absagen geht bis {hours} Stunden vorher über den Link in der Bestätigung.', { hours: s.booking.cancelHours })} ` : ''}${raw(t(ctx, 'Mehr zum Datenschutz in der <a href="/datenschutz">Datenschutzerklärung</a>.'))}</p>
     </form></section>`);
   return join(out);
 }

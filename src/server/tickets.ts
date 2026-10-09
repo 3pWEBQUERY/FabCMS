@@ -10,6 +10,8 @@ import { notify } from './notify';
 import { formatMoney } from '../shared/text';
 import { formatSession, sessionsOf, ticketCategories, MAX_TICKETS_PER_ORDER, type TicketCategory } from '../shared/events';
 import type { EntryData, SiteSettings } from '../shared/types';
+import { pageLang } from './translations';
+import { L, T } from '../site/i18n';
 
 /**
  * Events & Kurse share one engine: an order of one or more tickets for an
@@ -89,8 +91,8 @@ export function salesOpen(entry: TicketEntry, s: SiteSettings, now = new Date())
 export function describeWhen(entry: Pick<TicketEntry, 'data'>, s: SiteSettings): string {
   const sessions = sessionsOf(entry.data, s.timezone);
   if (!sessions.length) return '';
-  if (sessions.length === 1) return formatSession(sessions[0], s.timezone);
-  return `${sessions.length} Termine ab ${formatSession(sessions[0], s.timezone)}`;
+  if (sessions.length === 1) return formatSession(sessions[0], s.timezone, L());
+  return T('{n} Termine ab {date}', { n: sessions.length, date: formatSession(sessions[0], s.timezone, L()) });
 }
 
 export async function createTicketOrder(input: {
@@ -108,16 +110,16 @@ export async function createTicketOrder(input: {
   if (!entry) throw notFound();
   const name = input.name.trim().slice(0, 120);
   const email = input.email.trim().toLowerCase().slice(0, 200);
-  if (!name) throw badRequest('Bitte gib deinen Namen an.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an – dorthin schicken wir die Tickets.');
-  if (!input.override && !salesOpen(entry, s)) throw badRequest(entry.data.cancelled ? 'Dieser Anlass ist abgesagt.' : 'Die Anmeldung ist geschlossen.');
+  if (!name) throw badRequest(T('Bitte gib deinen Namen an.'));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an – dorthin schicken wir die Tickets.'));
+  if (!input.override && !salesOpen(entry, s)) throw badRequest(T(entry.data.cancelled ? 'Dieser Anlass ist abgesagt.' : 'Die Anmeldung ist geschlossen.'));
   const categories = ticketCategories(entry.data);
   const items = categories.map((c) => ({ category: c.name, qty: Math.max(0, Math.floor(Number(input.quantities[c.name]) || 0)), price: c.price })).filter((i) => i.qty > 0);
   const count = items.reduce((n, i) => n + i.qty, 0);
-  if (!count) throw badRequest('Wähle mindestens ein Ticket.');
-  if (count > MAX_TICKETS_PER_ORDER && !input.override) throw badRequest(`Pro Bestellung gehen höchstens ${MAX_TICKETS_PER_ORDER} Tickets.`);
+  if (!count) throw badRequest(T('Wähle mindestens ein Ticket.'));
+  if (count > MAX_TICKETS_PER_ORDER && !input.override) throw badRequest(T('Pro Bestellung gehen höchstens {max} Tickets.', { max: MAX_TICKETS_PER_ORDER }));
   const total = items.reduce((n, i) => n + i.qty * i.price, 0);
-  if (total > 0 && !env.stripe.secretKey && input.source !== 'admin') throw badRequest('Die Online-Zahlung ist gerade nicht eingerichtet. Melde dich bitte direkt bei uns.');
+  if (total > 0 && !env.stripe.secretKey && input.source !== 'admin') throw badRequest(T('Die Online-Zahlung ist gerade nicht eingerichtet. Melde dich bitte direkt bei uns.'));
 
   const order = await sql.begin(async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext('nova-tickets'))`;
@@ -127,7 +129,7 @@ export async function createTicketOrder(input: {
         const cat = categories.find((c) => c.name === i.category)!;
         if (cat.capacity === null) continue;
         const left = cat.capacity - (taken.get(cat.name) ?? 0);
-        if (left < i.qty) throw badRequest(left <= 0 ? `«${cat.name}» ist ausverkauft.` : `Für «${cat.name}» sind nur noch ${left} Plätze frei.`);
+        if (left < i.qty) throw badRequest(left <= 0 ? T('«{name}» ist ausverkauft.', { name: cat.name }) : T('Für «{name}» sind nur noch {n} Plätze frei.', { name: cat.name, n: left }));
       }
     }
     // Free tickets and those the team issues at the box office count as paid right away.
@@ -183,7 +185,7 @@ export async function ticketCheckoutUrl(o: TicketOrder): Promise<string> {
     'metadata[ticket_order_id]': o.id,
     // Stripe ends the session with our hold, so nobody pays for places that were released.
     expires_at: Math.floor(Date.now() / 1000) + HOLD_MINUTES * 60 + 60,
-    locale: 'de',
+    locale: pageLang(),
   };
   o.items
     .filter((i) => i.price > 0)
@@ -201,7 +203,7 @@ export async function ticketCheckoutUrl(o: TicketOrder): Promise<string> {
       .join('&'),
   });
   const body = (await r.json()) as { url?: string; id?: string; error?: { message: string } };
-  if (!r.ok || !body.url) throw badRequest(`Die Zahlung konnte nicht gestartet werden: ${body.error?.message ?? r.status}`);
+  if (!r.ok || !body.url) throw badRequest(T('Die Zahlung konnte nicht gestartet werden: {error}', { error: body.error?.message ?? r.status }));
   await sql`update ticket_orders set payment_ref = ${body.id ?? null} where id = ${o.id}`;
   return body.url;
 }
@@ -249,12 +251,12 @@ export async function cancelTicketOrder(orderId: string): Promise<TicketOrder> {
   const s = await getSettings();
   await sendMail({
     to: o.email as string,
-    subject: `Storniert: ${o.entry_title}`,
+    subject: T('Storniert: {title}', { title: o.entry_title }),
     replyTo: s.business.email || undefined,
     text: [
-      `Hallo ${String(o.name).split(' ')[0]},`,
+      T('Hallo {name},', { name: String(o.name).split(' ')[0] }),
       '',
-      `deine Tickets für «${o.entry_title}» sind storniert.${o.total ? ' Eine Rückzahlung erhältst du auf dem gleichen Weg, wie du bezahlt hast.' : ''}`,
+      `${T('deine Tickets für «{title}» sind storniert.', { title: o.entry_title })}${o.total ? ` ${T('Eine Rückzahlung erhältst du auf dem gleichen Weg, wie du bezahlt hast.')}` : ''}`,
       '',
       s.name,
     ].join('\n'),
@@ -278,12 +280,12 @@ export async function offerFreedPlaces(entryId: string): Promise<void> {
   for (const w of waiting)
     await sendMail({
       to: w.email as string,
-      subject: `Ein Platz ist frei: ${entry.data.title}`,
+      subject: T('Ein Platz ist frei: {title}', { title: entry.data.title }),
       replyTo: s.business.email || undefined,
       text: [
-        `Hallo ${String(w.name).split(' ')[0]},`,
+        T('Hallo {name},', { name: String(w.name).split(' ')[0] }),
         '',
-        `für «${entry.data.title}» (${describeWhen(entry, s)}) ist wieder ein Platz frei. Wer zuerst kommt …`,
+        T('für «{title}» ({when}) ist wieder ein Platz frei. Wer zuerst kommt …', { title: entry.data.title, when: describeWhen(entry, s) }),
         '',
         `${base(s)}${path}#tickets`,
         '',
@@ -296,8 +298,8 @@ export async function joinWaitlist(entryId: string, name: string, email: string)
   const entry = await ticketEntry(entryId);
   if (!entry || entry.data.waitlist === false) throw notFound();
   const e = email.trim().toLowerCase();
-  if (!name.trim()) throw badRequest('Bitte gib deinen Namen an.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an.');
+  if (!name.trim()) throw badRequest(T('Bitte gib deinen Namen an.'));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) throw badRequest(T('Bitte gib eine gültige E-Mail-Adresse an.'));
   await sql`
     insert into ticket_waitlist (entry_id, name, email) values (${entryId}, ${name.trim().slice(0, 120)}, ${e})
     on conflict (entry_id, lower(email)) do update set notified_at = null`;
@@ -352,12 +354,12 @@ export async function ticketMail(orderId: string): Promise<void> {
   const where = entry ? [entry.data.venue, entry.data.address || [s.business.street, s.business.city].filter(Boolean).join(', ')].filter(Boolean).join(', ') : '';
   await sendMail({
     to: o.email as string,
-    subject: `${list.length === 1 ? 'Dein Ticket' : 'Deine Tickets'}: ${o.entry_title}`,
+    subject: T(list.length === 1 ? 'Dein Ticket: {title}' : 'Deine Tickets: {title}', { title: o.entry_title }),
     replyTo: s.business.email || undefined,
     text: [
-      `Hallo ${String(o.name).split(' ')[0]},`,
+      T('Hallo {name},', { name: String(o.name).split(' ')[0] }),
       '',
-      `danke! ${list.length === 1 ? 'Dein Platz ist' : `Deine ${list.length} Plätze sind`} reserviert:`,
+      T(list.length === 1 ? 'danke! Dein Platz ist reserviert:' : 'danke! Deine {n} Plätze sind reserviert:', { n: list.length }),
       '',
       String(o.entry_title),
       when,
@@ -365,7 +367,7 @@ export async function ticketMail(orderId: string): Promise<void> {
       '',
       ...list.map((t) => `${t.category}: ${t.code}`),
       '',
-      `Tickets mit QR-Code (zum Vorzeigen am Eingang oder Ausdrucken):`,
+      T('Tickets mit QR-Code (zum Vorzeigen am Eingang oder Ausdrucken):'),
       `${base(s)}/tickets/${o.token}`,
       '',
       s.name,

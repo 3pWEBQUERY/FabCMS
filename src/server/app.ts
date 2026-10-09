@@ -10,7 +10,7 @@ import { headlessRoutes } from './routes/headless';
 import { getSettings } from './settings';
 import { env } from './env';
 import { sql } from './db';
-import { currentLang, langOfPath, localizeHtml, localizePath, mainPath, pathMap, requestLang } from './translations';
+import { currentLang, langOfPath, localizeHtml, localizePath, pathMap, requestLang } from './translations';
 import { extraLangs, UNPREFIXED, type Lang } from '../shared/i18n';
 
 /**
@@ -29,7 +29,9 @@ export function createApp() {
     let lang: Lang | null = null;
     if (/^\/[a-z]{2}(?:\/|$)/i.test(url.pathname) && !UNPREFIXED.test(url.pathname)) {
       const s = await getSettings();
-      const path = (decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/').toLowerCase();
+      // Case matters for tokens (/fr/bestellung/AbC…): compare in lower case, keep the original for the app.
+      const raw = decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/';
+      const path = raw.toLowerCase();
       lang = langOfPath(path, extraLangs(s));
       if (lang) {
         const map = await pathMap(lang);
@@ -38,11 +40,21 @@ export function createApp() {
           const [r] = await sql`select to_path, code from redirects where from_path = ${path}`;
           if (r) return c.redirect(String(r.to_path) + url.search, Number(r.code) === 302 ? 302 : 301);
         }
-        const main = mainPath(map, lang, path);
+        const main = map.toMain.get(path) ?? (raw.slice(lang.length + 1) || '/');
         // /fr/kontakt when the French page lives at /fr/contact: one address per page.
         const own = map.toLocal.get(main);
         if (own && own !== path && req.method === 'GET') return c.redirect(own + url.search, 301);
         url.pathname = main;
+      }
+    }
+    // Forms post to /_nova/… without a prefix: they answer in the language of the page they came from.
+    if (!lang && url.pathname.startsWith('/_nova/')) {
+      const ref = req.headers.get('referer');
+      try {
+        const from = ref ? new URL(ref) : null;
+        if (from && from.host === url.host) lang = langOfPath(from.pathname.toLowerCase(), extraLangs(await getSettings()));
+      } catch {
+        /* no usable referer */
       }
     }
     const next = new Request(url, { method: req.method, headers, body: req.body, redirect: 'manual', signal: req.signal, duplex: 'half' } as RequestInit);

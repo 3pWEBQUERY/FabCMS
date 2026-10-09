@@ -13,6 +13,7 @@ import { notify } from '../notify';
 import { sendMail } from '../mail';
 import { activeCollections } from '../content';
 import { looksLikeSpam } from './public';
+import { T } from '../../site/i18n';
 
 /** Inquiry for a property: becomes a contact in the CRM (with the request as a note) and a mail to the office. */
 export function realestatePublicRoutes(app: Hono<AppEnv>) {
@@ -26,7 +27,7 @@ export function realestatePublicRoutes(app: Hono<AppEnv>) {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const back = (params: string) => c.redirect(`${path}?${params}#anfrage`, 303);
     if (looksLikeSpam(body)) return back('anfrage=1');
-    if (!rateLimit(`property:${clientIp(c)}`, 5, 10 * 60_000).ok) return back(`a_err=${encodeURIComponent('Zu viele Anfragen. Bitte warte ein paar Minuten.')}`);
+    if (!rateLimit(`property:${clientIp(c)}`, 5, 10 * 60_000).ok) return back(`a_err=${encodeURIComponent(T('Zu viele Anfragen. Bitte warte ein paar Minuten.'))}`);
     const name = String(body.name ?? '')
       .trim()
       .slice(0, 120);
@@ -41,8 +42,8 @@ export function realestatePublicRoutes(app: Hono<AppEnv>) {
       .trim()
       .slice(0, 2000);
     const visit = body.visit === '1';
-    if (!name) return back(`a_err=${encodeURIComponent('Bitte gib deinen Namen an.')}`);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return back(`a_err=${encodeURIComponent('Bitte gib eine gültige E-Mail-Adresse an.')}`);
+    if (!name) return back(`a_err=${encodeURIComponent(T('Bitte gib deinen Namen an.'))}`);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return back(`a_err=${encodeURIComponent(T('Bitte gib eine gültige E-Mail-Adresse an.'))}`);
     const title = String(e.data.title ?? '');
     const note = { id: shortId(8), text: `Anfrage zu «${title}»${visit ? ' – möchte besichtigen' : ''}:\n${message}`, at: new Date().toISOString(), by: 'Website' };
     const source = `Immobilie: ${title}`.slice(0, 120);

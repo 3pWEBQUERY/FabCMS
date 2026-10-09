@@ -4,6 +4,7 @@ import { getSettings } from './settings';
 import { orderQrBill, type QuoteLine } from './shop';
 import { QR_BILL_CSS, qrBillHtml } from './qrbill';
 import { formatPrice } from '../shared/text';
+import { L, T } from '../site/i18n';
 
 /** Printable invoice (A4); open invoices carry the Swiss QR bill at the bottom of the page. */
 export async function invoiceHtml(o: Record<string, any>) {
@@ -14,10 +15,10 @@ export async function invoiceHtml(o: Record<string, any>) {
   // Open invoices get the Swiss QR bill at the bottom of the page.
   const bill = o.status === 'pending' && o.payment_method === 'invoice' ? await orderQrBill(o) : null;
   return html`<!doctype html>
-    <html lang="de-CH">
+    <html lang="${L()}">
       <head>
         <meta charset="utf-8" />
-        <title>Rechnung ${o.number}</title>
+        <title>${T('Rechnung {number}', { number: o.number })}</title>
         <style>
           ${raw(css)}${raw(QR_BILL_CSS)} .qrb-page {
             position: fixed;
@@ -75,8 +76,8 @@ export async function invoiceHtml(o: Record<string, any>) {
               ${b.city}<br />${b.email}${b.uid ? html`<br />${b.uid}` : ''}
             </div>
             <div style="text-align:right">
-              <h1>Rechnung</h1>
-              Nr. ${o.number}<br />${new Date(o.created_at).toLocaleDateString('de-CH')}
+              <h1>${T('Rechnung')}</h1>
+              ${T('Nr. {number}', { number: o.number })}<br />${new Date(o.created_at).toLocaleDateString(L())}
             </div>
           </header>
           <address class="addr">
@@ -85,10 +86,10 @@ export async function invoiceHtml(o: Record<string, any>) {
           <table class="cart-table">
             <thead>
               <tr>
-                <th>Artikel</th>
-                <th class="num">Menge</th>
-                <th class="num">Preis</th>
-                <th class="num">Total</th>
+                <th>${T('Artikel')}</th>
+                <th class="num">${T('Menge')}</th>
+                <th class="num">${T('Preis')}</th>
+                <th class="num">${T('Total')}</th>
               </tr>
             </thead>
             <tbody>
@@ -104,17 +105,19 @@ export async function invoiceHtml(o: Record<string, any>) {
             </tbody>
           </table>
           <div class="totals">
-            <div><span>Zwischensumme</span><span>${formatPrice(o.subtotal)}</span></div>
-            ${o.discount ? html`<div><span>Rabatt${o.coupon ? ` (${o.coupon})` : ''}</span><span>−${formatPrice(o.discount)}</span></div>` : ''}${o.shipping
-              ? html`<div><span>Versand</span><span>${formatPrice(o.shipping)}</span></div>`
+            <div><span>${T('Zwischensumme')}</span><span>${formatPrice(o.subtotal)}</span></div>
+            ${o.discount ? html`<div><span>${T('Rabatt')}${o.coupon ? ` (${o.coupon})` : ''}</span><span>−${formatPrice(o.discount)}</span></div>` : ''}${o.shipping
+              ? html`<div><span>${T('Versand')}</span><span>${formatPrice(o.shipping)}</span></div>`
               : ''}
-            <div class="grand"><span>Total ${o.currency}</span><span>${formatPrice(o.total)}</span></div>
-            ${(o.vat as { rate: number; amount: number }[]).map((v) => html`<div class="muted"><span>inkl. ${v.rate}% MwSt.</span><span>${formatPrice(v.amount)}</span></div>`)}
+            <div class="grand"><span>${T('Total')} ${o.currency}</span><span>${formatPrice(o.total)}</span></div>
+            ${(o.vat as { rate: number; amount: number }[]).map((v) => html`<div class="muted"><span>${T('inkl. {rate}% MwSt.', { rate: v.rate })}</span><span>${formatPrice(v.amount)}</span></div>`)}
           </div>
           <p style="margin-top:3rem">
             ${o.status === 'pending' && o.payment_method === 'invoice'
-              ? html`Zahlbar innert 30 Tagen. <span style="white-space:pre-line">${s.shop.invoiceNote}</span>`
-              : `Bezahlt${o.paid_at ? ` am ${new Date(o.paid_at).toLocaleDateString('de-CH')}` : ''}. Danke!`}
+              ? html`${T('Zahlbar innert 30 Tagen.')} <span style="white-space:pre-line">${s.shop.invoiceNote}</span>`
+              : o.paid_at
+                ? T('Bezahlt am {date}. Danke!', { date: new Date(o.paid_at).toLocaleDateString(L()) })
+                : T('Bezahlt. Danke!')}
           </p>
         </div>
         ${bill ? html`<div class="qrb-page">${qrBillHtml(bill)}</div>` : ''}

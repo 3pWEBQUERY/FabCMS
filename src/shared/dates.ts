@@ -38,10 +38,12 @@ export function formatDay(s: string): string {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
 }
 
-/** "2026-10-09" → "Freitag, 9. Oktober 2026" (for screen readers and titles) */
-export function longDay(s: string): string {
+/** "2026-10-09" → "Freitag, 9. Oktober 2026" (for screen readers and titles); other languages via Intl. */
+export function longDay(s: string, locale = 'de-CH'): string {
   const d = fromIsoDay(s);
-  return d ? `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : '';
+  if (!d) return '';
+  if (locale.startsWith('de')) return `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
 }
 
 /**

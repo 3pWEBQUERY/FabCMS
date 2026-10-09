@@ -1,7 +1,7 @@
 import type { Context, Hono } from 'hono';
 import { formHooks } from '../hooks';
 import { alternates, currentLang, localized, localizedOne, localizePath, pathMap } from '../translations';
-import { defaultLang, extraLangs, langInfo } from '../../shared/i18n';
+import { defaultLang, extraLangs, langInfo, type Lang } from '../../shared/i18n';
 import { getCookie, setCookie } from 'hono/cookie';
 import { createRequire } from 'node:module';
 import { createReadStream, statSync } from 'node:fs';
@@ -51,7 +51,8 @@ import { entryAccess, mayRead } from '../../shared/members';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
-import { html, raw } from '../../site/html';
+import { esc, html, raw, SafeHtml, type Html } from '../../site/html';
+import { L, t, T, tr } from '../../site/i18n';
 import { picture } from '../../site/picture';
 import { resolveTheme, themeCss } from '../../site/themes';
 import { entryPath, matchRoute } from '../../shared/paths';
@@ -142,6 +143,11 @@ export function sendHtml(c: Context, body: string, status = 200, etag?: string) 
   return c.body(body, status as 200);
 }
 
+/** A translated sentence with markup in its placeholders: the text is escaped, the parts are not. */
+function tHtml(lang: Lang, de: string, parts: Record<string, Html | string>): Html {
+  return raw(esc(tr(lang, de)).replace(/\{(\w+)\}/g, (m, k: string) => (k in parts ? (parts[k] instanceof SafeHtml ? parts[k].value : esc(parts[k])) : m)));
+}
+
 /* ---------- page resolution ---------- */
 
 type Resolved =
@@ -182,15 +188,15 @@ export async function notFoundPage(c: Context) {
   const ctx = await ctxFor(c);
   ctx.path = '/404';
   const body = await renderSystemPage(ctx, {
-    title: 'Seite nicht gefunden',
+    title: t(ctx, 'Seite nicht gefunden'),
     body: html`<div class="wrap nf">
       <p class="code" aria-hidden="true">404</p>
-      <h1>Diese Seite gibt es nicht (mehr).</h1>
-      <p class="lead">Vielleicht wurde sie verschoben. Such hier oder geh zur Startseite.</p>
+      <h1>${t(ctx, 'Diese Seite gibt es nicht (mehr).')}</h1>
+      <p class="lead">${t(ctx, 'Vielleicht wurde sie verschoben. Such hier oder geh zur Startseite.')}</p>
       <form class="search-form" action="/suche" role="search">
-        <label class="sr" for="q">Suchbegriff</label><input id="q" name="q" type="search" placeholder="Suchen …" /><button class="btn">Suchen</button>
+        <label class="sr" for="q">${t(ctx, 'Suchbegriff')}</label><input id="q" name="q" type="search" placeholder="${t(ctx, 'Suchen …')}" /><button class="btn">${t(ctx, 'Suchen')}</button>
       </form>
-      <p><a class="btn-2" href="/">Zur Startseite</a></p>
+      <p><a class="btn-2" href="/">${t(ctx, 'Zur Startseite')}</a></p>
     </div>`,
   });
   return sendHtml(c, body, 404);
@@ -199,7 +205,7 @@ export async function notFoundPage(c: Context) {
 /** Before the first «Veröffentlichen» the public sees this instead of example content. */
 async function holdingPage(c: Context, s: SiteSettings) {
   const { css } = themeCss(s);
-  const body = `<!doctype html><html lang="${s.locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${html`${s.name}`}</title><style>${css}</style></head><body><main class="wrap nf" style="min-height:100vh"><p class="label">${html`${s.name}`}</p><h1 style="font-size:var(--step-6);max-width:14ch">Hier entsteht etwas.</h1><p class="lead">Diese Website ist bald online.${s.business.email ? html` Fragen? <a href="mailto:${s.business.email}">${s.business.email}</a>` : ''}</p></main></body></html>`;
+  const body = `<!doctype html><html lang="${currentLang() ? L() : s.locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${html`${s.name}`}</title><style>${css}</style></head><body><main class="wrap nf" style="min-height:100vh"><p class="label">${html`${s.name}`}</p><h1 style="font-size:var(--step-6);max-width:14ch">${html`${T('Hier entsteht etwas.')}`}</h1><p class="lead">${html`${T('Diese Website ist bald online.')}`}${s.business.email ? html` ${T('Fragen?')} <a href="mailto:${s.business.email}">${s.business.email}</a>` : ''}</p></main></body></html>`;
   c.header('Cache-Control', 'no-store');
   return sendHtml(c, body, 200);
 }
@@ -366,12 +372,12 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const fail = (message: string) =>
       wantsJson ? c.json({ ok: false, message }, 400) : c.redirect(`${page}?formfehler=${form.id}&meldung=${encodeURIComponent(message)}#form-${form.id}`, 303);
     const success = () =>
-      wantsJson ? c.json({ ok: true, message: form.settings.successMessage || 'Danke! Wir melden uns bald.' }) : c.redirect(`${page}?gesendet=${form.id}#form-${form.id}`, 303);
+      wantsJson ? c.json({ ok: true, message: form.settings.successMessage || T('Danke! Wir melden uns bald.') }) : c.redirect(`${page}?gesendet=${form.id}#form-${form.id}`, 303);
 
     if (looksLikeSpam(body)) return success(); // pretend success, store nothing
-    if (!rateLimit(`form:${form.id}:${ip}`, 5, 10 * 60_000).ok) return fail('Du hast gerade mehrere Anfragen gesendet. Bitte warte ein paar Minuten.');
+    if (!rateLimit(`form:${form.id}:${ip}`, 5, 10 * 60_000).ok) return fail(T('Du hast gerade mehrere Anfragen gesendet. Bitte warte ein paar Minuten.'));
     if (form.settings.turnstile && env.turnstile.secret && !(await verifyTurnstile(String(body['cf-turnstile-response'] ?? ''), ip)))
-      return fail('Die Spam-Prüfung hat nicht geklappt. Bitte lade die Seite neu.');
+      return fail(T('Die Spam-Prüfung hat nicht geklappt. Bitte lade die Seite neu.'));
 
     const data: Record<string, string> = {};
     for (const f of form.fields) if (f.type !== 'step' && f.type !== 'file') data[f.name] = typeof body[f.name] === 'string' ? (body[f.name] as string).trim().slice(0, 5000) : '';
@@ -381,18 +387,18 @@ export function publicRoutes(app: Hono<AppEnv>) {
       if (f.type === 'file') {
         const file = body[f.name];
         if (file instanceof File && file.size > 0) {
-          if (file.size > 10 * 1024 * 1024) return fail(`«${f.label}» ist grösser als 10 MB.`);
+          if (file.size > 10 * 1024 * 1024) return fail(T('«{label}» ist grösser als 10 MB.', { label: f.label }));
           try {
             const m = await storeUpload({ buffer: Buffer.from(await file.arrayBuffer()), filename: file.name, folder: 'Formulare', private: true });
             files.push({ field: f.name, media: m.id, filename: m.filename });
           } catch (e) {
             return fail((e as Error).message);
           }
-        } else if (f.required) return fail(`Bitte lade eine Datei bei «${f.label}» hoch.`);
+        } else if (f.required) return fail(T('Bitte lade eine Datei bei «{label}» hoch.', { label: f.label }));
         continue;
       }
-      if (f.required && !data[f.name]) return fail(`Bitte fülle «${f.label}» aus.`);
-      if (f.type === 'email' && data[f.name] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data[f.name])) return fail(`«${f.label}» ist keine gültige E-Mail-Adresse.`);
+      if (f.required && !data[f.name]) return fail(T('Bitte fülle «{label}» aus.', { label: f.label }));
+      if (f.type === 'email' && data[f.name] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data[f.name])) return fail(T('«{label}» ist keine gültige E-Mail-Adresse.', { label: f.label }));
     }
 
     const hooked = await formHooks({ form: { id: form.id, name: form.name }, fields: data, page });
@@ -497,7 +503,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     await saveCart(c, kept);
     const count = kept.reduce((s, i) => s + i.q, 0);
     const added = q.lines.some((l) => l.productId === product);
-    const message = added ? (q.problems[0] ?? 'Im Warenkorb.') : (q.problems[0] ?? 'Das Produkt ist nicht verfügbar.');
+    const message = added ? (q.problems[0] ?? T('Im Warenkorb.')) : (q.problems[0] ?? T('Das Produkt ist nicht verfügbar.'));
     if (wantsJson) return c.json({ ok: added, count, message });
     const [e] = await sql`select slug from entries where id = ${/^[0-9a-f-]{36}$/.test(product) ? product : '00000000-0000-0000-0000-000000000000'}`;
     const back = e ? entryPath(await getCollection('products'), e.slug as string) : '/warenkorb';
@@ -529,28 +535,28 @@ export function publicRoutes(app: Hono<AppEnv>) {
           <td class="c-name">
             <a href="${entryPath(await getCollection('products'), l.slug)}">${l.title}</a>${l.variantName ? html`<br /><span class="muted">${l.variantName}</span>` : ''}
           </td>
-          <td class="num c-price" data-label="Preis">${formatPrice(l.unit)}</td>
-          <td class="c-qty"><label class="sr" for="q${i}">Menge</label><input id="q${i}" name="qty_${i}" type="number" min="0" max="99" value="${l.qty}" inputmode="numeric" /></td>
+          <td class="num c-price" data-label="${t(ctx, 'Preis')}">${formatPrice(l.unit)}</td>
+          <td class="c-qty"><label class="sr" for="q${i}">${t(ctx, 'Menge')}</label><input id="q${i}" name="qty_${i}" type="number" min="0" max="99" value="${l.qty}" inputmode="numeric" /></td>
           <td class="num c-total">${formatPrice(l.total)}</td>
-          <td class="c-rm"><button class="btn-2" name="remove_${i}" value="1" aria-label="${l.title} entfernen">Entfernen</button></td>
+          <td class="c-rm"><button class="btn-2" name="remove_${i}" value="1" aria-label="${t(ctx, '{title} entfernen', { title: l.title })}">${t(ctx, 'Entfernen')}</button></td>
         </tr>`;
       }),
     );
     const body = q.lines.length
       ? html`<div class="wrap" style="padding-block:var(--sp-s)">
-          <h1 style="font-size:var(--step-5);margin-bottom:2rem">Warenkorb</h1>
+          <h1 style="font-size:var(--step-5);margin-bottom:2rem">${t(ctx, 'Warenkorb')}</h1>
           ${q.problems.map((p) => html`<p class="form-err">${p}</p>`)}
           <form method="post" action="/warenkorb/update">
             <div class="table-wrap">
               <table class="cart-table">
                 <thead>
                   <tr>
-                    <th><span class="sr">Bild</span></th>
-                    <th>Produkt</th>
-                    <th class="num">Preis</th>
-                    <th>Menge</th>
-                    <th class="num">Total</th>
-                    <th><span class="sr">Aktion</span></th>
+                    <th><span class="sr">${t(ctx, 'Bild')}</span></th>
+                    <th>${t(ctx, 'Produkt')}</th>
+                    <th class="num">${t(ctx, 'Preis')}</th>
+                    <th>${t(ctx, 'Menge')}</th>
+                    <th class="num">${t(ctx, 'Total')}</th>
+                    <th><span class="sr">${t(ctx, 'Aktion')}</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -559,20 +565,20 @@ export function publicRoutes(app: Hono<AppEnv>) {
               </table>
             </div>
             <div class="actions" style="justify-content:space-between">
-              <div class="fld" style="max-width:18rem"><label for="coupon">Gutscheincode</label><input id="coupon" name="coupon" value="${coupon}" autocomplete="off" /></div>
-              <button class="btn-2">Aktualisieren</button>
+              <div class="fld" style="max-width:18rem"><label for="coupon">${t(ctx, 'Gutscheincode')}</label><input id="coupon" name="coupon" value="${coupon}" autocomplete="off" /></div>
+              <button class="btn-2">${t(ctx, 'Aktualisieren')}</button>
             </div>
           </form>
           ${q.coupon
-            ? html`<p class="${q.coupon.ok ? 'form-ok' : 'form-err'}">${q.coupon.ok ? `Gutschein ${q.coupon.code}: ${q.coupon.message}` : q.coupon.message}</p>`
-            : ''}${totalsHtml(q)}
-          <div class="actions" style="justify-content:flex-end"><a class="btn" href="/kasse${coupon ? `?gutschein=${encodeURIComponent(coupon)}` : ''}">Zur Kasse</a></div>
+            ? html`<p class="${q.coupon.ok ? 'form-ok' : 'form-err'}">${q.coupon.ok ? t(ctx, 'Gutschein {code}: {message}', { code: q.coupon.code, message: q.coupon.message }) : q.coupon.message}</p>`
+            : ''}${totalsHtml(ctx, q)}
+          <div class="actions" style="justify-content:flex-end"><a class="btn" href="/kasse${coupon ? `?gutschein=${encodeURIComponent(coupon)}` : ''}">${t(ctx, 'Zur Kasse')}</a></div>
         </div>`
       : html`<div class="wrap nf">
-          <h1>Dein Warenkorb ist leer.</h1>
-          <p><a class="btn" href="${ctx.collections.find((x) => x.id === 'products')?.list_route ?? '/'}">Zum Laden</a></p>
+          <h1>${t(ctx, 'Dein Warenkorb ist leer.')}</h1>
+          <p><a class="btn" href="${ctx.collections.find((x) => x.id === 'products')?.list_route ?? '/'}">${t(ctx, 'Zum Laden')}</a></p>
         </div>`;
-    return sendHtml(c, await renderSystemPage(ctx, { title: 'Warenkorb', body }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Warenkorb'), body }));
   });
 
   app.get('/kasse', async (c) => {
@@ -587,81 +593,83 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const error = c.req.query('fehler');
     const legal = await sql`select slug from entries where collection = 'pages' and slug = 'agb' and status = 'published'`;
     const body = html`<div class="wrap" style="padding-block:var(--sp-s)">
-      <h1 style="font-size:var(--step-5);margin-bottom:2rem">Kasse</h1>
+      <h1 style="font-size:var(--step-5);margin-bottom:2rem">${t(ctx, 'Kasse')}</h1>
       ${error ? html`<p class="form-err" role="alert">${error}</p>` : ''}
       <div class="checkout">
         <form class="nform" method="post" action="/kasse" style="max-width:none">
           <input type="hidden" name="coupon" value="${coupon}" />
           <fieldset>
-            <legend>Kontakt</legend>
+            <legend>${t(ctx, 'Kontakt')}</legend>
             <div class="two-col">
-              <div class="fld"><label for="k-name">Vor- und Nachname</label><input id="k-name" name="name" required autocomplete="name" /></div>
-              <div class="fld"><label for="k-mail">E-Mail</label><input id="k-mail" name="email" type="email" required autocomplete="email" /></div>
+              <div class="fld"><label for="k-name">${t(ctx, 'Vor- und Nachname')}</label><input id="k-name" name="name" required autocomplete="name" /></div>
+              <div class="fld"><label for="k-mail">${t(ctx, 'E-Mail')}</label><input id="k-mail" name="email" type="email" required autocomplete="email" /></div>
             </div>
             <div class="two-col">
               <div class="fld">
-                <label for="k-tel">Telefon <span class="muted">(optional)</span></label
+                <label for="k-tel">${t(ctx, 'Telefon')} <span class="muted">${t(ctx, '(optional)')}</span></label
                 ><input id="k-tel" name="phone" type="tel" autocomplete="tel" />
               </div>
               <div class="fld">
-                <label for="k-firma">Firma <span class="muted">(optional)</span></label
+                <label for="k-firma">${t(ctx, 'Firma')} <span class="muted">${t(ctx, '(optional)')}</span></label
                 ><input id="k-firma" name="company" autocomplete="organization" />
               </div>
             </div>
           </fieldset>
           ${q.needsShipping
             ? html`<fieldset>
-                <legend>Lieferung</legend>
+                <legend>${t(ctx, 'Lieferung')}</legend>
                 <div class="pay-opts">
                   <label class="pay-opt"
-                    ><input type="radio" name="shippingMethod" value="ship" checked /> Versand
+                    ><input type="radio" name="shippingMethod" value="ship" checked /> ${t(ctx, 'Versand')}
                     ${s.shop.shipping.freeFrom !== null
-                      ? `(${formatPrice(s.shop.shipping.flat)}, ab ${formatPrice(s.shop.shipping.freeFrom)} gratis)`
+                      ? t(ctx, '({price}, ab {free} gratis)', { price: formatPrice(s.shop.shipping.flat), free: formatPrice(s.shop.shipping.freeFrom) })
                       : `(${formatPrice(s.shop.shipping.flat)})`}</label
                   >${s.shop.shipping.pickup
                     ? html`<label class="pay-opt"
-                        ><input type="radio" name="shippingMethod" value="pickup" /> Abholen${s.business.city ? ` in ${s.business.city}` : ''} (gratis)</label
+                        ><input type="radio" name="shippingMethod" value="pickup" /> ${s.business.city ? t(ctx, 'Abholen in {city} (gratis)', { city: s.business.city }) : t(ctx, 'Abholen (gratis)')}</label
                       >`
                     : ''}
                 </div>
-                <div class="fld"><label for="k-str">Strasse und Nr.</label><input id="k-str" name="street" autocomplete="street-address" /></div>
+                <div class="fld"><label for="k-str">${t(ctx, 'Strasse und Nr.')}</label><input id="k-str" name="street" autocomplete="street-address" /></div>
                 <div class="two-col">
-                  <div class="fld"><label for="k-plz">PLZ</label><input id="k-plz" name="zip" autocomplete="postal-code" inputmode="numeric" /></div>
-                  <div class="fld"><label for="k-ort">Ort</label><input id="k-ort" name="city" autocomplete="address-level2" /></div>
+                  <div class="fld"><label for="k-plz">${t(ctx, 'PLZ')}</label><input id="k-plz" name="zip" autocomplete="postal-code" inputmode="numeric" /></div>
+                  <div class="fld"><label for="k-ort">${t(ctx, 'Ort')}</label><input id="k-ort" name="city" autocomplete="address-level2" /></div>
                   <div class="fld">
-                    <label for="k-land">Land</label
+                    <label for="k-land">${t(ctx, 'Land')}</label
                     ><select id="k-land" name="country" autocomplete="country">
-                      ${s.shop.shipping.countries.map((cc) => html`<option value="${cc}">${new Intl.DisplayNames(['de-CH'], { type: 'region' }).of(cc) ?? cc}</option>`)}
+                      ${s.shop.shipping.countries.map((cc) => html`<option value="${cc}">${new Intl.DisplayNames([L(ctx)], { type: 'region' }).of(cc) ?? cc}</option>`)}
                     </select>
                   </div>
                 </div>
               </fieldset>`
             : html`<input type="hidden" name="shippingMethod" value="pickup" />`}
           <fieldset>
-            <legend>Bezahlung</legend>
+            <legend>${t(ctx, 'Bezahlung')}</legend>
             <div class="pay-opts">
               ${pay.stripe
-                ? html`<label class="pay-opt"><input type="radio" name="payment" value="stripe" checked /> Online bezahlen – TWINT, Karte, Apple Pay, Google Pay</label>`
+                ? html`<label class="pay-opt"><input type="radio" name="payment" value="stripe" checked /> ${t(ctx, 'Online bezahlen – TWINT, Karte, Apple Pay, Google Pay')}</label>`
                 : ''}${pay.invoice
-                ? html`<label class="pay-opt"><input type="radio" name="payment" value="invoice" ${pay.stripe ? '' : raw(' checked')} /> Rechnung (zahlbar innert 30 Tagen)</label>`
+                ? html`<label class="pay-opt"><input type="radio" name="payment" value="invoice" ${pay.stripe ? '' : raw(' checked')} /> ${t(ctx, 'Rechnung (zahlbar innert 30 Tagen)')}</label>`
                 : ''}
             </div>
-            ${!pay.stripe && !pay.invoice ? html`<p class="form-err">Zurzeit ist keine Zahlungsart eingerichtet.</p>` : ''}
+            ${!pay.stripe && !pay.invoice ? html`<p class="form-err">${t(ctx, 'Zurzeit ist keine Zahlungsart eingerichtet.')}</p>` : ''}
           </fieldset>
           <div class="fld">
-            <label for="k-note">Bemerkung <span class="muted">(optional)</span></label
+            <label for="k-note">${t(ctx, 'Bemerkung')} <span class="muted">${t(ctx, '(optional)')}</span></label
             ><textarea id="k-note" name="note" maxlength="1000" style="min-height:5rem"></textarea>
           </div>
           <div class="fld check">
             <input type="checkbox" id="k-agb" name="acceptTerms" value="1" required /><label for="k-agb"
-              >Ich habe die ${legal.length ? html`<a href="/agb" target="_blank">AGB</a>` : 'AGB'} und die
-              <a href="/datenschutz" target="_blank">Datenschutzerklärung</a> gelesen.</label
+              >${tHtml(ctx.lang, 'Ich habe die {agb} und die {datenschutz} gelesen.', {
+                agb: legal.length ? html`<a href="/agb" target="_blank">${t(ctx, 'AGB')}</a>` : t(ctx, 'AGB'),
+                datenschutz: html`<a href="/datenschutz" target="_blank">${t(ctx, 'Datenschutzerklärung')}</a>`,
+              })}</label
             >
           </div>
-          <div><button class="btn" ${!pay.stripe && !pay.invoice ? raw('disabled') : ''}>Zahlungspflichtig bestellen · ${formatMoney(q.total, s.shop.currency)}</button></div>
+          <div><button class="btn" ${!pay.stripe && !pay.invoice ? raw('disabled') : ''}>${t(ctx, 'Zahlungspflichtig bestellen')} · ${formatMoney(q.total, s.shop.currency)}</button></div>
         </form>
-        <aside aria-label="Zusammenfassung">
-          <h2 style="font-size:var(--step-2);margin-bottom:1rem">Deine Bestellung</h2>
+        <aside aria-label="${t(ctx, 'Zusammenfassung')}">
+          <h2 style="font-size:var(--step-2);margin-bottom:1rem">${t(ctx, 'Deine Bestellung')}</h2>
           <ul style="list-style:none;margin:0;padding:0;display:grid;gap:.5rem">
             ${q.lines.map(
               (l) =>
@@ -670,11 +678,11 @@ export function publicRoutes(app: Hono<AppEnv>) {
                 </li>`,
             )}
           </ul>
-          ${totalsHtml(q)}
+          ${totalsHtml(ctx, q)}
         </aside>
       </div>
     </div>`;
-    return sendHtml(c, await renderSystemPage(ctx, { title: 'Kasse', body }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Kasse'), body }));
   });
 
   app.post('/kasse', async (c) => {
@@ -695,7 +703,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
       coupon: String(body.coupon ?? ''),
       acceptTerms: body.acceptTerms === '1',
     };
-    if (!rateLimit(`checkout:${clientIp(c)}`, 10, 10 * 60_000).ok) return c.redirect(`/kasse?fehler=${encodeURIComponent('Zu viele Versuche. Bitte warte kurz.')}`, 303);
+    if (!rateLimit(`checkout:${clientIp(c)}`, 10, 10 * 60_000).ok) return c.redirect(`/kasse?fehler=${encodeURIComponent(T('Zu viele Versuche. Bitte warte kurz.'))}`, 303);
     try {
       const order = await createOrder(items, input);
       await saveCart(c, []);
@@ -703,7 +711,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
       void sendOrderMails(order.id);
       return c.redirect(`/bestellung/${order.token}`, 303);
     } catch (e) {
-      const msg = e instanceof HttpError ? e.message : 'Die Bestellung konnte nicht abgeschlossen werden. Bitte versuch es nochmals.';
+      const msg = e instanceof HttpError ? e.message : T('Die Bestellung konnte nicht abgeschlossen werden. Bitte versuch es nochmals.');
       if (!(e instanceof HttpError)) console.error('[kasse]', e);
       const q = new URLSearchParams({ fehler: msg });
       if (input.coupon) q.set('gutschein', input.coupon);
@@ -723,21 +731,20 @@ export function publicRoutes(app: Hono<AppEnv>) {
       : [];
     const status =
       o.status === 'cancelled'
-        ? html`<p class="form-err">Diese Bestellung wurde storniert.${c.req.query('abgebrochen') ? ' Die Zahlung wurde abgebrochen.' : ''}</p>`
+        ? html`<p class="form-err">${t(ctx, 'Diese Bestellung wurde storniert.')}${c.req.query('abgebrochen') ? ` ${t(ctx, 'Die Zahlung wurde abgebrochen.')}` : ''}</p>`
         : paid
-          ? html`<p class="form-ok">Bezahlt. Danke! Eine Bestätigung ist unterwegs an ${o.email}.</p>`
+          ? html`<p class="form-ok">${t(ctx, 'Bezahlt. Danke! Eine Bestätigung ist unterwegs an {email}.', { email: o.email })}</p>`
           : o.payment_method === 'invoice'
             ? html`<p class="form-ok">
-                  Danke für deine Bestellung! Bitte überweise ${formatMoney(o.total, o.currency)} innert 30
-                  Tagen.${s.shop.invoiceNote ? html`<br /><span style="white-space:pre-line">${s.shop.invoiceNote}</span>` : ''}
+                  ${t(ctx, 'Danke für deine Bestellung! Bitte überweise {amount} innert 30 Tagen.', { amount: formatMoney(o.total, o.currency) })}${s.shop.invoiceNote ? html`<br /><span style="white-space:pre-line">${s.shop.invoiceNote}</span>` : ''}
                 </p>
-                ${s.shop.iban ? html`<p><a class="btn" href="/bestellung/${o.token}/rechnung" target="_blank">Rechnung mit QR-Code</a></p>` : ''}`
+                ${s.shop.iban ? html`<p><a class="btn" href="/bestellung/${o.token}/rechnung" target="_blank">${t(ctx, 'Rechnung mit QR-Code')}</a></p>` : ''}`
             : c.req.query('bezahlt')
-              ? html`<p class="form-ok">Die Zahlung wird bestätigt – das dauert meist nur Sekunden. Lade die Seite gleich neu.</p>`
-              : html`<p class="form-err">Die Zahlung ist noch offen. <a href="/bestellung/${o.token}/bezahlen">Jetzt bezahlen</a></p>`;
+              ? html`<p class="form-ok">${t(ctx, 'Die Zahlung wird bestätigt – das dauert meist nur Sekunden. Lade die Seite gleich neu.')}</p>`
+              : html`<p class="form-err">${t(ctx, 'Die Zahlung ist noch offen.')} <a href="/bestellung/${o.token}/bezahlen">${t(ctx, 'Jetzt bezahlen')}</a></p>`;
     const body = html`<div class="wrap" style="padding-block:var(--sp-s);max-width:48rem">
-      <p class="label">Bestellung ${o.number}</p>
-      <h1 style="font-size:var(--step-5);margin:.5rem 0 1.5rem">Danke, ${o.customer.name}.</h1>
+      <p class="label">${t(ctx, 'Bestellung {number}', { number: o.number })}</p>
+      <h1 style="font-size:var(--step-5);margin:.5rem 0 1.5rem">${t(ctx, 'Danke, {name}.', { name: o.customer.name })}</h1>
       ${status}
       <table class="cart-table" style="margin-top:2rem">
         <tbody>
@@ -750,7 +757,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
           )}
         </tbody>
       </table>
-      ${totalsHtml({
+      ${totalsHtml(ctx, {
         subtotal: o.subtotal,
         discount: o.discount,
         shipping: o.shipping,
@@ -759,13 +766,13 @@ export function publicRoutes(app: Hono<AppEnv>) {
         currency: o.currency,
         needsShipping: o.shipping > 0,
       })}${digital.length
-        ? html`<h2 style="font-size:var(--step-2);margin-top:2rem">Downloads</h2>
+        ? html`<h2 style="font-size:var(--step-2);margin-top:2rem">${t(ctx, 'Downloads')}</h2>
             <ul>
               ${digital.filter((d) => d.file).map((d) => html`<li><a href="/_nova/download/${o.token}/${d.file}">${d.title}</a></li>`)}
             </ul>`
         : ''}
     </div>`;
-    return sendHtml(c, await renderSystemPage(ctx, { title: `Bestellung ${o.number}`, body }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Bestellung {number}', { number: o.number }), body }));
   });
 
   /** The customer's invoice with the Swiss QR bill, to print or scan with the banking app. */
@@ -944,18 +951,22 @@ export function publicRoutes(app: Hono<AppEnv>) {
         .filter((x): x is { title: string; href: string; text: string } => x !== null);
     }
     const body = html`<div class="wrap" style="padding-block:var(--sp-s)">
-      <h1 style="font-size:var(--step-5);margin-bottom:1.5rem">Suche</h1>
+      <h1 style="font-size:var(--step-5);margin-bottom:1.5rem">${t(ctx, 'Suche')}</h1>
       <form class="search-form" role="search">
-        <label class="sr" for="sq">Suchbegriff</label><input id="sq" name="q" type="search" value="${q}" autofocus /><button class="btn">Suchen</button>
+        <label class="sr" for="sq">${t(ctx, 'Suchbegriff')}</label><input id="sq" name="q" type="search" value="${q}" autofocus /><button class="btn">${t(ctx, 'Suchen')}</button>
       </form>
       ${q
-        ? html`<p class="muted" style="margin-top:1.5rem">${results.length ? `${results.length} Treffer für «${q}»` : `Keine Treffer für «${q}». Versuch ein anderes Wort.`}</p>`
+        ? html`<p class="muted" style="margin-top:1.5rem">${results.length
+            ? results.length === 1
+              ? t(ctx, '1 Treffer für «{q}»', { q })
+              : t(ctx, '{count} Treffer für «{q}»', { count: results.length, q })
+            : t(ctx, 'Keine Treffer für «{q}». Versuch ein anderes Wort.', { q })}</p>`
         : ''}
       <ul class="results">
         ${results.map((r) => html`<li><a href="${r.href}">${r.title}</a>${r.text ? html`<p class="muted" style="margin:.35rem 0 0">${r.text}</p>` : ''}</li>`)}
       </ul>
     </div>`;
-    return sendHtml(c, await renderSystemPage(ctx, { title: q ? `Suche: ${q}` : 'Suche', body }));
+    return sendHtml(c, await renderSystemPage(ctx, { title: q ? t(ctx, 'Suche: {q}', { q }) : t(ctx, 'Suche'), body }));
   });
 
   /* printable menu (save as PDF from the browser) */
@@ -965,8 +976,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const ctx = await ctxFor(c);
     const { css } = themeCss(s);
     const menu = await renderMenu(ctx, { daily: false, allergens: true });
-    const page = `<!doctype html><html lang="${s.locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Karte – ${html`${s.name}`}</title><meta name="robots" content="noindex"><style>${css}
-      @page{size:A4;margin:16mm 14mm}body{background:#fff;color:#111;--bg:#fff;--ink:#111;--ink-2:#444;--line:#bbb}.print-head{text-align:center;margin-bottom:10mm}.print-head h1{font-size:2.4rem}.mn-cat{break-inside:avoid-page}.dish{break-inside:avoid}.no-print{margin:1rem 0}@media print{.no-print{display:none}}</style></head><body><div class="wrap" style="padding-block:2rem"><p class="no-print"><button class="btn" onclick="print()">Drucken oder als PDF sichern</button></p><header class="print-head"><h1>${html`${s.name}`}</h1><p class="muted">${html`${[s.business.street, `${s.business.zip} ${s.business.city}`.trim(), s.business.phone].filter(Boolean).join(' · ')}`}</p></header>${menu}</div></body></html>`;
+    const page = `<!doctype html><html lang="${currentLang() ? L(ctx) : s.locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html`${t(ctx, 'Karte – {name}', { name: s.name })}`}</title><meta name="robots" content="noindex"><style>${css}
+      @page{size:A4;margin:16mm 14mm}body{background:#fff;color:#111;--bg:#fff;--ink:#111;--ink-2:#444;--line:#bbb}.print-head{text-align:center;margin-bottom:10mm}.print-head h1{font-size:2.4rem}.mn-cat{break-inside:avoid-page}.dish{break-inside:avoid}.no-print{margin:1rem 0}@media print{.no-print{display:none}}</style></head><body><div class="wrap" style="padding-block:2rem"><p class="no-print"><button class="btn" onclick="print()">${html`${t(ctx, 'Drucken oder als PDF sichern')}`}</button></p><header class="print-head"><h1>${html`${s.name}`}</h1><p class="muted">${html`${[s.business.street, `${s.business.zip} ${s.business.city}`.trim(), s.business.phone].filter(Boolean).join(' · ')}`}</p></header>${menu}</div></body></html>`;
     c.header('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'");
     return sendHtml(c, page);
   });
@@ -982,7 +993,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const [redirect] = await sql`select id, to_path, code from redirects where from_path = ${path}`;
     if (redirect) {
       void sql`update redirects set hits = hits + 1 where id = ${redirect.id}`.catch(() => {});
-      if (redirect.code === 410) return c.body('Diese Seite wurde entfernt.', 410);
+      if (redirect.code === 410) return c.body(T('Diese Seite wurde entfernt.'), 410);
       return c.redirect(redirect.to_path + url.search, redirect.code as 301 | 302);
     }
 
@@ -1014,13 +1025,13 @@ export function publicRoutes(app: Hono<AppEnv>) {
   });
 }
 
-function totalsHtml(q: { subtotal: number; discount: number; shipping: number; total: number; vat: { rate: number; amount: number }[]; currency: string; needsShipping: boolean }) {
+function totalsHtml(ctx: { lang: Lang }, q: { subtotal: number; discount: number; shipping: number; total: number; vat: { rate: number; amount: number }[]; currency: string; needsShipping: boolean }) {
   return html`<div class="totals">
-    <div><span>Zwischensumme</span><span>${formatPrice(q.subtotal)}</span></div>
-    ${q.discount ? html`<div><span>Rabatt</span><span>−${formatPrice(q.discount)}</span></div>` : ''}${q.needsShipping
-      ? html`<div><span>Versand</span><span>${q.shipping ? formatPrice(q.shipping) : 'gratis'}</span></div>`
+    <div><span>${t(ctx, 'Zwischensumme')}</span><span>${formatPrice(q.subtotal)}</span></div>
+    ${q.discount ? html`<div><span>${t(ctx, 'Rabatt')}</span><span>−${formatPrice(q.discount)}</span></div>` : ''}${q.needsShipping
+      ? html`<div><span>${t(ctx, 'Versand')}</span><span>${q.shipping ? formatPrice(q.shipping) : t(ctx, 'gratis')}</span></div>`
       : ''}
-    <div class="grand"><span>Total ${q.currency}</span><span>${formatPrice(q.total)}</span></div>
-    ${q.vat.map((v) => html`<div class="muted"><span>inkl. ${v.rate}% MwSt.</span><span>${formatPrice(v.amount)}</span></div>`)}
+    <div class="grand"><span>${t(ctx, 'Total')} ${q.currency}</span><span>${formatPrice(q.total)}</span></div>
+    ${q.vat.map((v) => html`<div class="muted"><span>${t(ctx, 'inkl. {rate}% MwSt.', { rate: v.rate })}</span><span>${formatPrice(v.amount)}</span></div>`)}
   </div>`;
 }

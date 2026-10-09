@@ -8,6 +8,7 @@ import { entryPath } from '../shared/paths';
 import { formatMoney } from '../shared/text';
 import { PROPERTY_FEATURES, PROPERTY_KINDS, PROPERTY_OFFERS, PROPERTY_STATUS } from '../shared/collections';
 import type { CollectionDef, EntryData } from '../shared/types';
+import { L, t } from './i18n';
 
 /** Immobilien: search with filters (server-side, works without JavaScript), cards, detail page with inquiry. */
 
@@ -17,16 +18,21 @@ interface Item {
   data: EntryData;
 }
 
-const label = (list: { value: string; label: string }[], v: unknown) => list.find((x) => x.value === v)?.label ?? '';
-const rooms = (v: unknown) => (typeof v === 'number' && v > 0 ? `${String(v).replace('.5', '½').replace(/^0½/, '½')} Zi.` : '');
-const num = (v: unknown) => (typeof v === 'number' ? v.toLocaleString('de-CH') : '');
+/** Option label in the page language (the lists in shared/collections are German). */
+const label = (ctx: RenderContext, list: { value: string; label: string }[], v: unknown) => {
+  const l = list.find((x) => x.value === v)?.label;
+  return l ? t(ctx, l) : '';
+};
+const roomCount = (v: unknown) => (typeof v === 'number' && v > 0 ? String(v).replace('.5', '½').replace(/^0½/, '½') : '');
+const rooms = (ctx: RenderContext, v: unknown) => (roomCount(v) ? t(ctx, '{n} Zi.', { n: roomCount(v) }) : '');
+const num = (ctx: RenderContext, v: unknown) => (typeof v === 'number' ? v.toLocaleString(L(ctx)) : '');
 
 const chf = (ctx: RenderContext, cents: number) => formatMoney(cents, ctx.settings.shop.currency).replace(/\.00$/, '.–');
 
 function priceText(ctx: RenderContext, d: EntryData): string {
   const p = typeof d.price === 'number' && d.price > 0 ? chf(ctx, d.price) : '';
-  if (!p) return 'Preis auf Anfrage';
-  return d.offer === 'rent' ? `${p} / Mt.` : p;
+  if (!p) return t(ctx, 'Preis auf Anfrage');
+  return d.offer === 'rent' ? t(ctx, '{price} / Mt.', { price: p }) : p;
 }
 
 function place(d: EntryData): string {
@@ -77,13 +83,13 @@ export async function propertyCards(ctx: RenderContext, items: Item[]): Promise<
       items.map(async (i) => {
         const d = i.data;
         const img = await ctx.media((d.images as string[] | undefined)?.[0]);
-        const facts = [rooms(d.rooms), d.area ? `${num(d.area)} m²` : '', label(PROPERTY_KINDS, d.kind)].filter(Boolean);
-        const status = d.status && d.status !== 'available' ? html`<span class="re-status">${label(PROPERTY_STATUS, d.status)}</span>` : '';
+        const facts = [rooms(ctx, d.rooms), d.area ? `${num(ctx, d.area)} m²` : '', label(ctx, PROPERTY_KINDS, d.kind)].filter(Boolean);
+        const status = d.status && d.status !== 'available' ? html`<span class="re-status">${label(ctx, PROPERTY_STATUS, d.status)}</span>` : '';
         return html`<a class="card re-card${d.status === 'done' ? ' is-off' : ''}" href="${entryPath(c, i.slug)}"
           ><div class="ph">
             ${img ? picture(img, { sizes: '(min-width: 56rem) 30vw, 100vw', maxWidth: 1280, ratio: '4/3' }) : html`<span class="re-noimg" aria-hidden="true"></span>`}${status}<span
               class="re-offer"
-              >${label(PROPERTY_OFFERS, d.offer)}</span
+              >${label(ctx, PROPERTY_OFFERS, d.offer)}</span
             >
           </div>
           <div class="re-body">
@@ -107,46 +113,48 @@ export async function propertyList(ctx: RenderContext, c: CollectionDef): Promis
   ).map((r) => r.city as string);
   const opt = (value: string, text: string, current: string) => html`<option value="${value}" ${value === current ? raw(' selected') : ''}>${text}</option>`;
   const filtered = f.offer || f.kind || f.rooms || f.maxPrice || f.city;
-  const form = html`<form class="re-filter" method="get" action="${c.list_route}" role="search" aria-label="Objekte filtern">
+  const form = html`<form class="re-filter" method="get" action="${c.list_route}" role="search" aria-label="${t(ctx, 'Objekte filtern')}">
     <div class="fld">
-      <label for="re-offer">Angebot</label
+      <label for="re-offer">${t(ctx, 'Angebot')}</label
       ><select id="re-offer" name="angebot">
-        ${opt('', 'Miete & Kauf', f.offer)}${PROPERTY_OFFERS.map((o) => opt(o.value, o.label, f.offer))}
+        ${opt('', t(ctx, 'Miete & Kauf'), f.offer)}${PROPERTY_OFFERS.map((o) => opt(o.value, t(ctx, o.label), f.offer))}
       </select>
     </div>
     <div class="fld">
-      <label for="re-kind">Art</label
+      <label for="re-kind">${t(ctx, 'Art')}</label
       ><select id="re-kind" name="art">
-        ${opt('', 'Alle', f.kind)}${PROPERTY_KINDS.map((o) => opt(o.value, o.label, f.kind))}
+        ${opt('', t(ctx, 'Alle'), f.kind)}${PROPERTY_KINDS.map((o) => opt(o.value, t(ctx, o.label), f.kind))}
       </select>
     </div>
     <div class="fld">
-      <label for="re-rooms">Zimmer ab</label
+      <label for="re-rooms">${t(ctx, 'Zimmer ab')}</label
       ><select id="re-rooms" name="zimmer">
-        ${opt('', 'egal', f.rooms ? String(f.rooms) : '')}${['1', '2', '2.5', '3', '3.5', '4', '4.5', '5'].map((r) => opt(r, r.replace('.5', '½'), f.rooms ? String(f.rooms) : ''))}
+        ${opt('', t(ctx, 'egal'), f.rooms ? String(f.rooms) : '')}${['1', '2', '2.5', '3', '3.5', '4', '4.5', '5'].map((r) => opt(r, r.replace('.5', '½'), f.rooms ? String(f.rooms) : ''))}
       </select>
     </div>
     <div class="fld">
-      <label for="re-max">Preis bis</label
+      <label for="re-max">${t(ctx, 'Preis bis')}</label
       ><input id="re-max" name="bis" inputmode="numeric" placeholder="CHF" value="${f.maxPrice ? String(f.maxPrice / 100) : ''}" maxlength="9" />
     </div>
     <div class="fld">
-      <label for="re-city">Ort oder PLZ</label><input id="re-city" name="ort" value="${f.city}" maxlength="60" placeholder="${cities.slice(0, 2).join(', ')}" autocomplete="off" />
+      <label for="re-city">${t(ctx, 'Ort oder PLZ')}</label><input id="re-city" name="ort" value="${f.city}" maxlength="60" placeholder="${cities.slice(0, 2).join(', ')}" autocomplete="off" />
     </div>
-    <div class="re-filter-go"><button class="btn">Suchen</button>${filtered ? html`<a class="btn-2" href="${c.list_route}">Zurücksetzen</a>` : ''}</div>
+    <div class="re-filter-go"><button class="btn">${t(ctx, 'Suchen')}</button>${filtered ? html`<a class="btn-2" href="${c.list_route}">${t(ctx, 'Zurücksetzen')}</a>` : ''}</div>
   </form>`;
-  const count = html`<p class="re-count" role="status">${items.length ? `${items.length} ${items.length === 1 ? 'Objekt' : 'Objekte'}` : ''}</p>`;
+  const count = html`<p class="re-count" role="status">${items.length ? (items.length === 1 ? t(ctx, '{n} Objekt', { n: 1 }) : t(ctx, '{n} Objekte', { n: items.length })) : ''}</p>`;
   const results = items.length
     ? await propertyCards(ctx, items)
     : html`<p class="muted">
         ${filtered
-          ? 'Mit diesen Filtern passt gerade nichts. Lockere die Suche – oder lass dich benachrichtigen, wenn etwas Passendes kommt: '
-          : 'Gerade ist alles vergeben. '}${ctx.settings.business.email ? html`<a href="mailto:${ctx.settings.business.email}">Schreib uns</a>.` : ''}
+          ? `${t(ctx, 'Mit diesen Filtern passt gerade nichts. Lockere die Suche – oder lass dich benachrichtigen, wenn etwas Passendes kommt:')} `
+          : `${t(ctx, 'Gerade ist alles vergeben.')} `}${ctx.settings.business.email ? html`<a href="mailto:${ctx.settings.business.email}">${t(ctx, 'Schreib uns')}</a>.` : ''}
       </p>`;
   return {
     main: html`<div class="wrap art-head"><h1>${c.name}</h1></div>
       <section class="b sp-m"><div class="wrap">${form}${count}${results}</div></section>`,
-    description: `${items.length} Objekte von ${ctx.settings.name}${f.city ? ` in ${f.city}` : ''}.`,
+    description: f.city
+      ? t(ctx, '{n} Objekte von {name} in {city}.', { n: items.length, name: ctx.settings.name, city: f.city })
+      : t(ctx, '{n} Objekte von {name}.', { n: items.length, name: ctx.settings.name }),
   };
 }
 
@@ -159,19 +167,19 @@ export async function propertyTemplate(ctx: RenderContext, c: CollectionDef, e: 
   if (imgs.length) ctx.needs.add('lightbox');
   const doc = await ctx.media(d.documents);
   const rows: [string, string][] = [
-    ['Angebot', label(PROPERTY_OFFERS, d.offer)],
-    ['Art', label(PROPERTY_KINDS, d.kind)],
-    ['Zimmer', rooms(d.rooms).replace(' Zi.', '')],
-    ['Fläche', d.area ? `${num(d.area)} m²` : ''],
-    ['Grundstück', d.plot ? `${num(d.plot)} m²` : ''],
-    ['Etage', (d.floor as string) || ''],
-    ['Baujahr', d.yearBuilt ? String(d.yearBuilt) : ''],
-    ['Bezug', (d.availableFrom as string) || ''],
-    [d.offer === 'rent' ? 'Miete brutto' : 'Preis', priceText(ctx, d)],
-    ['Nebenkosten', d.offer === 'rent' && typeof d.extraCosts === 'number' && d.extraCosts > 0 ? `${chf(ctx, d.extraCosts)} / Mt.` : ''],
-    ['Adresse', place(d)],
+    [t(ctx, 'Angebot'), label(ctx, PROPERTY_OFFERS, d.offer)],
+    [t(ctx, 'Art'), label(ctx, PROPERTY_KINDS, d.kind)],
+    [t(ctx, 'Zimmer'), roomCount(d.rooms)],
+    [t(ctx, 'Fläche'), d.area ? `${num(ctx, d.area)} m²` : ''],
+    [t(ctx, 'Grundstück'), d.plot ? `${num(ctx, d.plot)} m²` : ''],
+    [t(ctx, 'Etage'), (d.floor as string) || ''],
+    [t(ctx, 'Baujahr'), d.yearBuilt ? String(d.yearBuilt) : ''],
+    [t(ctx, 'Bezug'), (d.availableFrom as string) || ''],
+    [d.offer === 'rent' ? t(ctx, 'Miete brutto') : t(ctx, 'Preis'), priceText(ctx, d)],
+    [t(ctx, 'Nebenkosten'), d.offer === 'rent' && typeof d.extraCosts === 'number' && d.extraCosts > 0 ? t(ctx, '{price} / Mt.', { price: chf(ctx, d.extraCosts) }) : ''],
+    [t(ctx, 'Adresse'), place(d)],
   ];
-  const features = ((d.features as string[] | undefined) ?? []).map((f) => label(PROPERTY_FEATURES, f)).filter(Boolean);
+  const features = ((d.features as string[] | undefined) ?? []).map((f) => label(ctx, PROPERTY_FEATURES, f)).filter(Boolean);
   ctx.jsonLd.push(
     propertyLd(
       ctx,
@@ -185,17 +193,17 @@ export async function propertyTemplate(ctx: RenderContext, c: CollectionDef, e: 
   const err = q.get('a_err');
   const statusNote =
     d.status === 'reserved'
-      ? 'Reserviert – du kannst dich trotzdem melden, falls es nicht klappt.'
+      ? t(ctx, 'Reserviert – du kannst dich trotzdem melden, falls es nicht klappt.')
       : d.status === 'done'
         ? d.offer === 'rent'
-          ? 'Bereits vermietet.'
-          : 'Bereits verkauft.'
+          ? t(ctx, 'Bereits vermietet.')
+          : t(ctx, 'Bereits verkauft.')
         : '';
   const [hero, ...rest] = imgs;
   return html`<article class="re"><header class="wrap art-head"><span class="label">${place(d)}</span><h1${ctx.edit ? raw(' data-nova-entry-field="title"') : ''}>${d.title}</h1><p class="re-headline"><strong class="num">${priceText(
     ctx,
     d,
-  )}</strong>${[rooms(d.rooms), d.area ? `${num(d.area)} m²` : ''].filter(Boolean).map((x) => html`<span>${x}</span>`)}</p>${statusNote ? html`<p class="form-err" role="status">${statusNote}</p>` : ''}</header>${
+  )}</strong>${[rooms(ctx, d.rooms), d.area ? `${num(ctx, d.area)} m²` : ''].filter(Boolean).map((x) => html`<span>${x}</span>`)}</p>${statusNote ? html`<p class="form-err" role="status">${statusNote}</p>` : ''}</header>${
     hero
       ? html`<div class="wrap re-gallery" data-lightbox>
           <a class="re-hero" href="${variantUrl(hero, 1920, 'webp')}" data-caption="${hero.caption || hero.alt}"
@@ -224,37 +232,37 @@ export async function propertyTemplate(ctx: RenderContext, c: CollectionDef, e: 
         </div>`,
     )}</dl>${
     features.length
-      ? html`<h2 class="re-h">Ausstattung</h2>
+      ? html`<h2 class="re-h">${t(ctx, 'Ausstattung')}</h2>
           <ul class="re-features">
             ${features.map((f) => html`<li>${f}</li>`)}
           </ul>`
       : ''
-  }${doc ? html`<p><a class="btn-2" href="${originalUrl(doc)}" download>Dokumentation herunterladen (PDF)</a></p>` : ''}</div><aside class="re-aside" id="anfrage" aria-labelledby="anfrage-h"><h2 id="anfrage-h">Interessiert?</h2>${
+  }${doc ? html`<p><a class="btn-2" href="${originalUrl(doc)}" download>${t(ctx, 'Dokumentation herunterladen (PDF)')}</a></p>` : ''}</div><aside class="re-aside" id="anfrage" aria-labelledby="anfrage-h"><h2 id="anfrage-h">${t(ctx, 'Interessiert?')}</h2>${
     sent
-      ? html`<p class="form-ok" role="status">Danke! Wir melden uns so bald wie möglich.</p>`
+      ? html`<p class="form-ok" role="status">${t(ctx, 'Danke! Wir melden uns so bald wie möglich.')}</p>`
       : html`${err ? html`<p class="form-err" role="alert">${err}</p>` : ''}
           <form class="nform" method="post" action="/_nova/immobilien/${e.id}/anfrage">
             <input type="hidden" name="_t" value="${Date.now().toString(36)}" />
             <div class="hp" aria-hidden="true">
-              <label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+              <label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
             </div>
-            <div class="fld"><label for="a-name">Name</label><input id="a-name" name="name" required autocomplete="name" maxlength="120" /></div>
-            <div class="fld"><label for="a-email">E-Mail</label><input id="a-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
+            <div class="fld"><label for="a-name">${t(ctx, 'Name')}</label><input id="a-name" name="name" required autocomplete="name" maxlength="120" /></div>
+            <div class="fld"><label for="a-email">${t(ctx, 'E-Mail')}</label><input id="a-email" type="email" name="email" required autocomplete="email" maxlength="200" /></div>
             <div class="fld">
-              <label for="a-phone">Telefon <span class="muted">(freiwillig)</span></label
+              <label for="a-phone">${t(ctx, 'Telefon')} <span class="muted">${t(ctx, '(freiwillig)')}</span></label
               ><input id="a-phone" type="tel" name="phone" autocomplete="tel" maxlength="40" />
             </div>
             <div class="fld">
-              <label for="a-msg">Nachricht</label><textarea id="a-msg" name="message" maxlength="2000" rows="4">Ich interessiere mich für «${d.title}».</textarea>
+              <label for="a-msg">${t(ctx, 'Nachricht')}</label><textarea id="a-msg" name="message" maxlength="2000" rows="4">${t(ctx, 'Ich interessiere mich für «{title}».', { title: String(d.title ?? '') })}</textarea>
             </div>
-            <div class="fld check"><input type="checkbox" id="a-visit" name="visit" value="1" /><label for="a-visit">Ich möchte das Objekt besichtigen</label></div>
-            <div><button class="btn">Anfrage senden</button></div>
-            <p class="muted" style="font-size:var(--step-n1);margin:0">Deine Angaben verwenden wir nur für diese Anfrage. <a href="/datenschutz">Datenschutz</a></p>
+            <div class="fld check"><input type="checkbox" id="a-visit" name="visit" value="1" /><label for="a-visit">${t(ctx, 'Ich möchte das Objekt besichtigen')}</label></div>
+            <div><button class="btn">${t(ctx, 'Anfrage senden')}</button></div>
+            <p class="muted" style="font-size:var(--step-n1);margin:0">${t(ctx, 'Deine Angaben verwenden wir nur für diese Anfrage.')} <a href="/datenschutz">${t(ctx, 'Datenschutz')}</a></p>
           </form>`
-  }${ctx.settings.business.phone ? html`<p class="re-phone">Oder ruf an: <a href="tel:${ctx.settings.business.phone.replace(/[^+\d]/g, '')}">${ctx.settings.business.phone}</a></p>` : ''}</aside></div><div class="art-body">${await renderBlocks(
+  }${ctx.settings.business.phone ? html`<p class="re-phone">${t(ctx, 'Oder ruf an:')} <a href="tel:${ctx.settings.business.phone.replace(/[^+\d]/g, '')}">${ctx.settings.business.phone}</a></p>` : ''}</aside></div><div class="art-body">${await renderBlocks(
     d.blocks ?? [],
     ctx,
-  )}</div><nav class="wrap pager" aria-label="Zurück"><a class="btn-2" href="${c.list_route}">Alle Objekte</a></nav></article>`;
+  )}</div><nav class="wrap pager" aria-label="${t(ctx, 'Zurück')}"><a class="btn-2" href="${c.list_route}">${t(ctx, 'Alle Objekte')}</a></nav></article>`;
 }
 
 function propertyLd(ctx: RenderContext, c: CollectionDef, e: Item, images: string[]): Record<string, unknown> {

@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { sql, json } from './db';
 import { badRequest, HttpError, notFound } from './lib/http';
 import { activeCollections, getCollection, sanitizeEntryData, type SaveContext } from './content';
-import { bumpGeneration, contentGeneration, getSettings } from './settings';
+import { bumpGeneration, contentGeneration, getSettings, mainLang } from './settings';
 import { entryPath, RESERVED_PREFIXES } from '../shared/paths';
 import { slugify } from '../shared/text';
 import { defaultLang, extraLangs, isLang, mergeTranslation, translatableData, UNPREFIXED, type Lang } from '../shared/i18n';
@@ -16,6 +16,10 @@ import type { CollectionDef, Entry, EntryData } from '../shared/types';
 
 /** Language of the current request; set once per request in app.ts. */
 export const requestLang = new AsyncLocalStorage<Lang>();
+/** Language a visitor sees on this request – the main language unless under /fr/ etc. */
+export function pageLang(): Lang {
+  return requestLang.getStore() ?? mainLang();
+}
 /** null = main language, nothing to translate. */
 export function currentLang(): Lang | null {
   return requestLang.getStore() ?? null;
@@ -106,14 +110,6 @@ export function localizePath(map: PathMap, lang: Lang, href: string): string {
   if (p === `/${lang}` || p.startsWith(`/${lang}/`)) return href;
   const local = map.toLocal.get(p) ?? (p === '/' ? `/${lang}` : `/${lang}${p}`);
   return local + rest;
-}
-
-/** /fr/… → the main-language path the app understands, or null if this isn't a language path. */
-export function mainPath(map: PathMap, lang: Lang, path: string): string {
-  const hit = map.toMain.get(path);
-  if (hit) return hit;
-  const rest = path.slice(lang.length + 1);
-  return rest || '/';
 }
 
 /** Which language a path belongs to, given the switched-on languages. */

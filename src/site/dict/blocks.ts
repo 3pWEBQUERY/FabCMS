@@ -1,0 +1,132 @@
+/** Website texts (blocks), keyed by the German original. */
+export const blocks: Record<string, { fr: string; it: string; en: string }> = {
+  // Consent (video, map)
+  'Beim Laden werden Daten an {provider} übertragen.': {
+    fr: 'Le chargement transmet des données à {provider}.',
+    it: 'Caricando il contenuto, i dati vengono trasmessi a {provider}.',
+    en: 'Loading this sends data to {provider}.',
+  },
+  'Inhalt laden': { fr: 'Charger le contenu', it: 'Carica contenuto', en: 'Load content' },
+  'Inhalte von {provider} immer laden': { fr: 'Toujours charger les contenus de {provider}', it: 'Carica sempre i contenuti di {provider}', en: 'Always load content from {provider}' },
+  'Direkt bei {provider} öffnen': { fr: 'Ouvrir directement sur {provider}', it: 'Apri direttamente su {provider}', en: 'Open directly on {provider}' },
+  Video: { fr: 'Vidéo', it: 'Video', en: 'Video' },
+  'Karte: {address}': { fr: 'Carte : {address}', it: 'Mappa: {address}', en: 'Map: {address}' },
+  '{address} auf der Karte öffnen': { fr: 'Voir {address} sur la carte', it: 'Apri {address} sulla mappa', en: 'Open {address} on the map' },
+
+  // Forms
+  'Danke! Wir melden uns bald.': { fr: 'Merci ! Nous vous répondrons bientôt.', it: 'Grazie! Ti risponderemo presto.', en: 'Thank you! We’ll be in touch soon.' },
+  'Bitte wählen': { fr: 'Veuillez choisir', it: 'Seleziona', en: 'Please choose' },
+  'Bitte leer lassen': { fr: 'Veuillez laisser vide', it: 'Lascia vuoto', en: 'Please leave empty' },
+  Zurück: { fr: 'Retour', it: 'Indietro', en: 'Back' },
+  Weiter: { fr: 'Suivant', it: 'Avanti', en: 'Next' },
+  Senden: { fr: 'Envoyer', it: 'Invia', en: 'Send' },
+  'Mit dem Absenden werden deine Angaben zur Bearbeitung der Anfrage gespeichert. Mehr in der <a href="/datenschutz">Datenschutzerklärung</a>.': {
+    fr: 'En envoyant ce formulaire, vos données sont enregistrées pour traiter votre demande. Plus d’informations dans la <a href="/datenschutz">déclaration de protection des données</a>.',
+    it: 'Inviando il modulo, i tuoi dati vengono salvati per gestire la richiesta. Maggiori informazioni nell’<a href="/datenschutz">informativa sulla privacy</a>.',
+    en: 'By submitting, your details are stored to process your request. More in our <a href="/datenschutz">privacy policy</a>.',
+  },
+
+  // Teasers and cards
+  Mitgliedschaft: { fr: 'Adhésion', it: 'Abbonamento', en: 'Membership' },
+  Mitglieder: { fr: 'Membres', it: 'Membri', en: 'Members' },
+  '{min} Min. Lesezeit': { fr: '{min} min de lecture', it: '{min} min di lettura', en: '{min} min read' },
+  'ab {price}': { fr: 'dès {price}', it: 'da {price}', en: 'from {price}' },
+  'Heute da': { fr: 'Disponible aujourd’hui', it: 'Presente oggi', en: 'Here today' },
+  Empfohlen: { fr: 'Recommandé', it: 'Consigliato', en: 'Recommended' },
+  'Alle {name}': { fr: '{name} – tout voir', it: '{name} – vedi tutto', en: 'All {name}' },
+  'Alle Objekte': { fr: 'Tous les biens', it: 'Tutti gli immobili', en: 'All properties' },
+  'Alle Beiträge': { fr: 'Tous les articles', it: 'Tutti gli articoli', en: 'All posts' },
+
+  // Menu
+  'Allergene: {list}': { fr: 'Allergènes : {list}', it: 'Allergeni: {list}', en: 'Allergens: {list}' },
+  'Allergene: {list}. Bei Fragen zu Allergien und Unverträglichkeiten beraten wir dich gerne.': {
+    fr: 'Allergènes : {list}. Pour toute question sur les allergies et intolérances, nous vous conseillons volontiers.',
+    it: 'Allergeni: {list}. Per domande su allergie e intolleranze siamo a tua disposizione.',
+    en: 'Allergens: {list}. If you have questions about allergies or intolerances, we’re happy to help.',
+  },
+  'Heute ausverkauft': { fr: 'Épuisé aujourd’hui', it: 'Esaurito oggi', en: 'Sold out today' },
+  Heute: { fr: 'Aujourd’hui', it: 'Oggi', en: 'Today' },
+  'Herkunft: {list}.': { fr: 'Provenance : {list}.', it: 'Provenienza: {list}.', en: 'Origin: {list}.' },
+  'Alle Preise in CHF inkl. MwSt.': { fr: 'Tous les prix en CHF, TVA incluse.', it: 'Tutti i prezzi in CHF, IVA inclusa.', en: 'All prices in CHF incl. VAT.' },
+  // Allergens (labels and short forms from shared/collections.ts)
+  'Glutenhaltiges Getreide': { fr: 'Céréales contenant du gluten', it: 'Cereali contenenti glutine', en: 'Cereals containing gluten' },
+  Gluten: { fr: 'Gluten', it: 'Glutine', en: 'Gluten' },
+  Krebstiere: { fr: 'Crustacés', it: 'Crostacei', en: 'Crustaceans' },
+  Eier: { fr: 'Œufs', it: 'Uova', en: 'Eggs' },
+  Ei: { fr: 'Œuf', it: 'Uovo', en: 'Egg' },
+  Fisch: { fr: 'Poisson', it: 'Pesce', en: 'Fish' },
+  Erdnüsse: { fr: 'Arachides', it: 'Arachidi', en: 'Peanuts' },
+  Erdnuss: { fr: 'Arachide', it: 'Arachidi', en: 'Peanut' },
+  Soja: { fr: 'Soja', it: 'Soia', en: 'Soy' },
+  'Milch (inkl. Laktose)': { fr: 'Lait (y c. lactose)', it: 'Latte (incl. lattosio)', en: 'Milk (incl. lactose)' },
+  Milch: { fr: 'Lait', it: 'Latte', en: 'Milk' },
+  'Schalenfrüchte (Nüsse)': { fr: 'Fruits à coque (noix)', it: 'Frutta a guscio (noci)', en: 'Tree nuts' },
+  Nüsse: { fr: 'Noix', it: 'Noci', en: 'Nuts' },
+  Sellerie: { fr: 'Céleri', it: 'Sedano', en: 'Celery' },
+  Senf: { fr: 'Moutarde', it: 'Senape', en: 'Mustard' },
+  Sesam: { fr: 'Sésame', it: 'Sesamo', en: 'Sesame' },
+  'Schwefeldioxid & Sulfite': { fr: 'Anhydride sulfureux et sulfites', it: 'Anidride solforosa e solfiti', en: 'Sulphur dioxide & sulphites' },
+  Sulfite: { fr: 'Sulfites', it: 'Solfiti', en: 'Sulphites' },
+  Lupinen: { fr: 'Lupin', it: 'Lupini', en: 'Lupin' },
+  Weichtiere: { fr: 'Mollusques', it: 'Molluschi', en: 'Molluscs' },
+  // Dish tags
+  Vegetarisch: { fr: 'Végétarien', it: 'Vegetariano', en: 'Vegetarian' },
+  Vegan: { fr: 'Végane', it: 'Vegano', en: 'Vegan' },
+  Scharf: { fr: 'Épicé', it: 'Piccante', en: 'Spicy' },
+  Hausspezialität: { fr: 'Spécialité de la maison', it: 'Specialità della casa', en: 'House speciality' },
+
+  // Newsletter
+  'Fast geschafft: Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist dabei.': {
+    fr: 'Presque terminé : nous vous avons envoyé un e-mail. Cliquez sur le lien qu’il contient pour confirmer votre inscription.',
+    it: 'Quasi fatto: ti abbiamo inviato un’e-mail. Clicca sul link che contiene e sei iscritto.',
+    en: 'Almost done: we’ve sent you an email. Click the link in it and you’re in.',
+  },
+  Vorname: { fr: 'Prénom', it: 'Nome', en: 'First name' },
+  'du@beispiel.ch': { fr: 'vous@exemple.ch', it: 'tu@esempio.ch', en: 'you@example.com' },
+  'Anmelden|Newsletter': { fr: 'S’abonner', it: 'Iscriviti', en: 'Subscribe' },
+  'Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit.': {
+    fr: 'Vous recevrez d’abord un e-mail de confirmation. Désinscription possible à tout moment.',
+    it: 'Riceverai prima un’e-mail di conferma. Puoi disiscriverti in qualsiasi momento.',
+    en: 'You’ll first get an email to confirm. You can unsubscribe at any time.',
+  },
+  Datenschutz: { fr: 'Protection des données', it: 'Privacy', en: 'Privacy' },
+
+  // Contact and opening hours
+  'Route planen': { fr: 'Planifier l’itinéraire', it: 'Pianifica il percorso', en: 'Get directions' },
+
+  // Booking
+  'Bereich|Lokal': { fr: 'Espace', it: 'Zona', en: 'Area' },
+  'Was möchtest du buchen?': { fr: 'Que souhaitez-vous réserver ?', it: 'Cosa vuoi prenotare?', en: 'What would you like to book?' },
+  '{n} Min.': { fr: '{n} min', it: '{n} min', en: '{n} min' },
+  'Wie viele Personen?': { fr: 'Combien de personnes ?', it: 'Quante persone?', en: 'How many people?' },
+  'Mehr als {max}? Ruf uns an:': { fr: 'Plus de {max} ? Appelez-nous :', it: 'Più di {max}? Chiamaci:', en: 'More than {max}? Give us a call:' },
+  'An welchem Tag?': { fr: 'Quel jour ?', it: 'Quale giorno?', en: 'Which day?' },
+  '{day}: nichts frei': { fr: '{day} : complet', it: '{day}: tutto occupato', en: '{day}: fully booked' },
+  'Frühere Tage': { fr: 'Jours précédents', it: 'Giorni precedenti', en: 'Earlier days' },
+  'Spätere Tage': { fr: 'Jours suivants', it: 'Giorni successivi', en: 'Later days' },
+  'Um wie viel Uhr?': { fr: 'À quelle heure ?', it: 'A che ora?', en: 'What time?' },
+  'An diesem Tag ist leider nichts mehr frei.': { fr: 'Malheureusement, ce jour est complet.', it: 'Purtroppo questo giorno è al completo.', en: 'Sorry, this day is fully booked.' },
+  '{time} Uhr': { fr: '{time}', it: 'ore {time}', en: '{time}' },
+  '{n} Person': { fr: '{n} personne', it: '{n} persona', en: '{n} person' },
+  '{n} Personen': { fr: '{n} personnes', it: '{n} persone', en: '{n} people' },
+  'Deine Angaben': { fr: 'Vos coordonnées', it: 'I tuoi dati', en: 'Your details' },
+  Telefon: { fr: 'Téléphone', it: 'Telefono', en: 'Phone' },
+  '(für Rückfragen)': { fr: '(pour toute question)', it: '(per eventuali domande)', en: '(in case we have questions)' },
+  Bemerkung: { fr: 'Remarque', it: 'Osservazioni', en: 'Note' },
+  '(optional)': { fr: '(facultatif)', it: '(facoltativo)', en: '(optional)' },
+  'Allergien, Kinderstuhl, Anlass …': { fr: 'Allergies, chaise haute, occasion …', it: 'Allergie, seggiolone, occasione …', en: 'Allergies, high chair, occasion …' },
+  'Was wir vorher wissen sollten': { fr: 'Ce que nous devrions savoir à l’avance', it: 'Cosa dovremmo sapere prima', en: 'Anything we should know beforehand' },
+  'Weiter zur Anzahlung ({price})': { fr: 'Continuer vers l’acompte ({price})', it: 'Continua con l’acconto ({price})', en: 'Continue to deposit ({price})' },
+  'Verbindlich reservieren': { fr: 'Réserver ferme', it: 'Prenota in modo vincolante', en: 'Confirm booking' },
+  'Anfrage senden': { fr: 'Envoyer la demande', it: 'Invia richiesta', en: 'Send request' },
+  'Absagen geht bis {hours} Stunden vorher über den Link in der Bestätigung.': {
+    fr: 'Annulation possible jusqu’à {hours} heures avant, via le lien de la confirmation.',
+    it: 'Puoi disdire fino a {hours} ore prima tramite il link nella conferma.',
+    en: 'You can cancel up to {hours} hours before via the link in the confirmation.',
+  },
+  'Mehr zum Datenschutz in der <a href="/datenschutz">Datenschutzerklärung</a>.': {
+    fr: 'Plus d’informations dans la <a href="/datenschutz">déclaration de protection des données</a>.',
+    it: 'Maggiori informazioni nell’<a href="/datenschutz">informativa sulla privacy</a>.',
+    en: 'More in our <a href="/datenschutz">privacy policy</a>.',
+  },
+};

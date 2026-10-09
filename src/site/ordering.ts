@@ -3,7 +3,8 @@ import type { RenderContext } from './context';
 import { env } from '../server/env';
 import { formatMoney } from '../shared/text';
 import { ALLERGENS } from '../shared/collections';
-import { FOOD_STATUS, foodTotals, type FoodLine, type SlotDay } from '../shared/ordering';
+import { DAY_WORDS, FOOD_STATUS, foodTotals, type FoodLine, type SlotDay } from '../shared/ordering';
+import { L, t } from './i18n';
 import type { Dish, FoodOrder } from '../server/ordering';
 import type { EntryData } from '../shared/types';
 
@@ -19,12 +20,12 @@ function cartBox(ctx: RenderContext, lines: FoodLine[], checkout: boolean): Html
   const o = ctx.settings.ordering;
   if (!lines.length)
     return html`<aside class="fo-cart" id="warenkorb" aria-labelledby="fo-cart-h">
-      <h2 id="fo-cart-h">Deine Bestellung</h2>
-      <p class="muted">Noch leer. Tipp auf «+» bei einem Gericht.</p>
+      <h2 id="fo-cart-h">${t(ctx, 'Deine Bestellung')}</h2>
+      <p class="muted">${t(ctx, 'Noch leer. Tipp auf «+» bei einem Gericht.')}</p>
     </aside>`;
-  const t = foodTotals(lines, 0, ctx.settings.shop.vatRates);
+  const totals = foodTotals(lines, 0, ctx.settings.shop.vatRates);
   return html`<aside class="fo-cart" id="warenkorb" aria-labelledby="fo-cart-h">
-    <h2 id="fo-cart-h">Deine Bestellung</h2>
+    <h2 id="fo-cart-h">${t(ctx, 'Deine Bestellung')}</h2>
     <ul class="fo-lines">
       ${lines.map(
         (l) =>
@@ -36,18 +37,18 @@ function cartBox(ctx: RenderContext, lines: FoodLine[], checkout: boolean): Html
                   <input type="hidden" name="d" value="${l.id}" /><input type="hidden" name="s" value="${l.s ?? 0}" /><button
                     name="q"
                     value="${l.q - 1}"
-                    aria-label="Eins weniger: ${l.title}"
+                    aria-label="${t(ctx, 'Eins weniger: {dish}', { dish: l.title })}"
                   >
                     −</button
-                  ><button name="q" value="${l.q + 1}" aria-label="Eins mehr: ${l.title}">+</button>
+                  ><button name="q" value="${l.q + 1}" aria-label="${t(ctx, 'Eins mehr: {dish}', { dish: l.title })}">+</button>
                 </form>`}
           </li>`,
       )}
     </ul>
-    <p class="fo-sum"><span>Zwischensumme</span><strong class="num">${money(ctx, t.subtotal)}</strong></p>
-    ${o.delivery && !checkout ? html`<p class="muted fo-small">Lieferung ${money(ctx, o.deliveryFee)}, ab ${money(ctx, o.deliveryMin)} Bestellwert.</p>` : ''}${checkout
+    <p class="fo-sum"><span>${t(ctx, 'Zwischensumme')}</span><strong class="num">${money(ctx, totals.subtotal)}</strong></p>
+    ${o.delivery && !checkout ? html`<p class="muted fo-small">${t(ctx, 'Lieferung {fee}, ab {min} Bestellwert.', { fee: money(ctx, o.deliveryFee), min: money(ctx, o.deliveryMin) })}</p>` : ''}${checkout
       ? ''
-      : html`<a class="btn fo-go" href="/bestellen/kasse">Weiter zur Bestellung</a>`}
+      : html`<a class="btn fo-go" href="/bestellen/kasse">${t(ctx, 'Weiter zur Bestellung')}</a>`}
   </aside>`;
 }
 
@@ -55,25 +56,33 @@ export function orderPage(ctx: RenderContext, dishes: Dish[], lines: FoodLine[],
   const o = ctx.settings.ordering;
   const groups = new Map<string, Dish[]>();
   for (const d of dishes) {
-    const cat = String(d.data.category || 'Weiteres');
+    const cat = String(d.data.category || t(ctx, 'Weiteres'));
     if (!groups.has(cat)) groups.set(cat, []);
     groups.get(cat)!.push(d);
   }
   const first = slots[0]?.slots[0];
   const added = ctx.query.get('hinzu');
+  // «Heute»/«Morgen» are lower-cased in the sentence; dates only in German (as before) – «Sat, Oct 24» stays as it is.
+  const dayWords: string[] = DAY_WORDS[ctx.lang];
+  const lower = (label: string) => (ctx.lang === 'de' || dayWords.includes(label) ? label.toLowerCase() : label);
+  const modes = [o.pickup ? t(ctx, 'Abholen') : '', o.delivery ? t(ctx, 'Liefern lassen') : ''].filter(Boolean);
   const banner = o.paused
-    ? html`<p class="form-err" role="status">Die Küche ist gerade voll und nimmt keine neuen Bestellungen an. Bitte versuch es etwas später.</p>`
+    ? html`<p class="form-err" role="status">${t(ctx, 'Die Küche ist gerade voll und nimmt keine neuen Bestellungen an. Bitte versuch es etwas später.')}</p>`
     : !first
-      ? html`<p class="form-err" role="status">Gerade sind keine Bestellungen möglich – schau während der Öffnungszeiten wieder vorbei.</p>`
+      ? html`<p class="form-err" role="status">${t(ctx, 'Gerade sind keine Bestellungen möglich – schau während der Öffnungszeiten wieder vorbei.')}</p>`
       : html`<p class="fo-next">
-          ${[o.pickup ? 'Abholen' : '', o.delivery ? 'Liefern lassen' : ''].filter(Boolean).join(' oder ')} · frühestens ${slots[0].label.toLowerCase()} ${first.time} Uhr
+          ${t(ctx, '{modes} · frühestens {day} {time} Uhr', {
+            modes: modes.length === 2 ? t(ctx, '{a} oder {b}', { a: modes[0], b: modes[1] }) : modes.join(''),
+            day: lower(slots[0].label),
+            time: first.time,
+          })}
         </p>`;
   return html`<div class="wrap fo">
     <div class="fo-head">
       <p class="label">${ctx.settings.name}</p>
-      <h1>Online bestellen</h1>
+      <h1>${t(ctx, 'Online bestellen')}</h1>
       ${banner}${o.note ? html`<p class="muted">${o.note}</p>` : ''}${added
-        ? html`<p class="form-ok fo-added" role="status">${added} ist in deiner Bestellung. <a href="#warenkorb">Ansehen</a></p>`
+        ? html`<p class="form-ok fo-added" role="status">${t(ctx, '{dish} ist in deiner Bestellung.', { dish: added })} <a href="#warenkorb">${t(ctx, 'Ansehen')}</a></p>`
         : ''}
     </div>
     <div class="fo-layout">
@@ -85,22 +94,25 @@ export function orderPage(ctx: RenderContext, dishes: Dish[], lines: FoodLine[],
               <ul class="fo-dishes">
                 ${list.map((d) => {
                   const ps = prices(d.data);
-                  const allergens = ((d.data.allergens as string[]) ?? []).map((a) => ALLERGENS.find((x) => x.value === a)?.short ?? a);
+                  const allergens = ((d.data.allergens as string[]) ?? []).map((a) => {
+                    const short = ALLERGENS.find((x) => x.value === a)?.short;
+                    return short ? t(ctx, short) : a;
+                  });
                   return html`<li class="fo-dish${d.data.soldOut ? ' is-off' : ''}" id="d-${d.id}">
                     <div class="fo-dish-text">
                       <strong>${d.data.title}</strong>${d.data.description ? html`<p>${d.data.description as string}</p>` : ''}${allergens.length && ctx.settings.menu.showAllergens
-                        ? html`<p class="fo-small muted">Allergene: ${allergens.join(', ')}</p>`
+                        ? html`<p class="fo-small muted">${t(ctx, 'Allergene: {list}', { list: allergens.join(', ') })}</p>`
                         : ''}
                     </div>
                     <div class="fo-buy">
                       ${d.data.soldOut
-                        ? html`<span class="muted fo-small">Heute ausverkauft</span>`
+                        ? html`<span class="muted fo-small">${t(ctx, 'Heute ausverkauft')}</span>`
                         : ps.map(
                             (p, i) =>
                               html`<form method="post" action="/bestellen/dazu">
                                 <input type="hidden" name="d" value="${d.id}" /><input type="hidden" name="s" value="${i}" /><button
                                   class="fo-add"
-                                  aria-label="${d.data.title}${p.label ? ` ${p.label}` : ''} hinzufügen, ${money(ctx, p.price)}"
+                                  aria-label="${t(ctx, '{dish} hinzufügen, {price}', { dish: `${d.data.title}${p.label ? ` ${p.label}` : ''}`, price: money(ctx, p.price) })}"
                                 >
                                   ${p.label ? html`<span class="fo-size">${p.label}</span>` : ''}<span class="num">${money(ctx, p.price)}</span
                                   ><span class="fo-plus" aria-hidden="true">+</span>
@@ -118,7 +130,7 @@ export function orderPage(ctx: RenderContext, dishes: Dish[], lines: FoodLine[],
     </div>
     ${lines.length
       ? html`<a class="fo-bar" href="#warenkorb"
-          ><span>Bestellung ansehen <span class="fo-count">${lines.reduce((n, l) => n + l.q, 0)}</span></span
+          ><span>${t(ctx, 'Bestellung ansehen')} <span class="fo-count">${lines.reduce((n, l) => n + l.q, 0)}</span></span
           ><strong class="num"
             >${money(
               ctx,
@@ -145,79 +157,79 @@ export function checkoutPage(ctx: RenderContext, lines: FoodLine[], slots: SlotD
     >`;
   return html`<div class="wrap fo">
     <div class="fo-head">
-      <p class="label"><a href="/bestellen">← Zur Karte</a></p>
-      <h1>Bestellen</h1>
+      <p class="label"><a href="/bestellen">${t(ctx, '← Zur Karte')}</a></p>
+      <h1>${t(ctx, 'Bestellen')}</h1>
     </div>
     <div class="fo-layout">
       <form class="nform fo-checkout" method="post" action="/bestellen/kasse">
         ${error ? html`<p class="form-err" role="alert">${error}</p>` : ''}
         <input type="hidden" name="_t" value="${Date.now().toString(36)}" />
         <div class="hp" aria-hidden="true">
-          <label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+          <label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
         </div>
         <fieldset>
-          <legend>Wie?</legend>
+          <legend>${t(ctx, 'Wie?')}</legend>
           <div class="fo-choices">
-            ${o.pickup ? radio('mode', 'pickup', 'Abholen', mode, s.business.street ? `${s.business.street}, ${s.business.city}` : '') : ''}${o.delivery
-              ? radio('mode', 'delivery', 'Liefern', mode, `${money(ctx, o.deliveryFee)}, ab ${money(ctx, o.deliveryMin)} · PLZ ${o.deliveryZips.join(', ')}`)
+            ${o.pickup ? radio('mode', 'pickup', t(ctx, 'Abholen'), mode, s.business.street ? `${s.business.street}, ${s.business.city}` : '') : ''}${o.delivery
+              ? radio('mode', 'delivery', t(ctx, 'Liefern'), mode, t(ctx, '{fee}, ab {min} · PLZ {zips}', { fee: money(ctx, o.deliveryFee), min: money(ctx, o.deliveryMin), zips: o.deliveryZips.join(', ') }))
               : ''}
           </div>
         </fieldset>
         <fieldset>
-          <legend>Wann?</legend>
+          <legend>${t(ctx, 'Wann?')}</legend>
           <div class="fld">
-            <label for="fo-slot">Uhrzeit</label
+            <label for="fo-slot">${t(ctx, 'Uhrzeit')}</label
             ><select id="fo-slot" name="slot" required>
               ${slots.map(
                 (d) =>
                   html`<optgroup label="${d.label}">
-                    ${d.slots.map((x) => html`<option value="${x.at}" ${x.at === v('slot') ? raw(' selected') : ''}>${d.label}, ${x.time} Uhr</option>`)}
+                    ${d.slots.map((x) => html`<option value="${x.at}" ${x.at === v('slot') ? raw(' selected') : ''}>${t(ctx, '{day}, {time} Uhr', { day: d.label, time: x.time })}</option>`)}
                   </optgroup>`,
               )}
             </select>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Wer?</legend>
+          <legend>${t(ctx, 'Wer?')}</legend>
           <div class="fo-grid">
-            <div class="fld"><label for="fo-name">Name</label><input id="fo-name" name="name" required autocomplete="name" maxlength="120" value="${v('name')}" /></div>
+            <div class="fld"><label for="fo-name">${t(ctx, 'Name')}</label><input id="fo-name" name="name" required autocomplete="name" maxlength="120" value="${v('name')}" /></div>
             <div class="fld">
-              <label for="fo-phone">Telefon</label><input id="fo-phone" type="tel" name="phone" required autocomplete="tel" maxlength="40" value="${v('phone')}" />
+              <label for="fo-phone">${t(ctx, 'Telefon')}</label><input id="fo-phone" type="tel" name="phone" required autocomplete="tel" maxlength="40" value="${v('phone')}" />
             </div>
             <div class="fld fo-wide">
-              <label for="fo-email">E-Mail</label><input id="fo-email" type="email" name="email" required autocomplete="email" maxlength="200" value="${v('email')}" />
+              <label for="fo-email">${t(ctx, 'E-Mail')}</label><input id="fo-email" type="email" name="email" required autocomplete="email" maxlength="200" value="${v('email')}" />
             </div>
           </div>
         </fieldset>
         ${o.delivery
           ? html`<fieldset class="fo-address">
-              <legend>Lieferadresse <span class="muted">(nur beim Liefern)</span></legend>
+              <legend>${t(ctx, 'Lieferadresse')} <span class="muted">${t(ctx, '(nur beim Liefern)')}</span></legend>
               <div class="fo-grid">
                 <div class="fld fo-wide">
-                  <label for="fo-street">Strasse und Nr.</label><input id="fo-street" name="street" autocomplete="street-address" maxlength="120" value="${v('street')}" />
+                  <label for="fo-street">${t(ctx, 'Strasse und Nr.')}</label><input id="fo-street" name="street" autocomplete="street-address" maxlength="120" value="${v('street')}" />
                 </div>
                 <div class="fld">
-                  <label for="fo-zip">PLZ</label><input id="fo-zip" name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="12" value="${v('zip')}" />
+                  <label for="fo-zip">${t(ctx, 'PLZ')}</label><input id="fo-zip" name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="12" value="${v('zip')}" />
                 </div>
-                <div class="fld"><label for="fo-city">Ort</label><input id="fo-city" name="city" autocomplete="address-level2" maxlength="80" value="${v('city')}" /></div>
+                <div class="fld"><label for="fo-city">${t(ctx, 'Ort')}</label><input id="fo-city" name="city" autocomplete="address-level2" maxlength="80" value="${v('city')}" /></div>
               </div>
             </fieldset>`
           : ''}
         <div class="fld">
-          <label for="fo-note">Bemerkung <span class="muted">(freiwillig)</span></label
-          ><textarea id="fo-note" name="note" maxlength="500" rows="2" placeholder="z. B. ohne Zwiebeln, 2. Stock links">${v('note')}</textarea>
+          <label for="fo-note">${t(ctx, 'Bemerkung')} <span class="muted">${t(ctx, '(freiwillig)')}</span></label
+          ><textarea id="fo-note" name="note" maxlength="500" rows="2" placeholder="${t(ctx, 'z. B. ohne Zwiebeln, 2. Stock links')}">${v('note')}</textarea>
         </div>
         <fieldset>
-          <legend>Bezahlen</legend>
+          <legend>${t(ctx, 'Bezahlen')}</legend>
           <div class="fo-choices">
-            ${online ? radio('payment', 'online', 'Jetzt online', payment, 'TWINT, Karte, Apple Pay, Google Pay') : ''}${o.payOnSite
-              ? radio('payment', 'onsite', mode === 'delivery' ? 'Bei der Lieferung' : 'Bei der Abholung', payment, 'Bar oder TWINT')
+            ${online ? radio('payment', 'online', t(ctx, 'Jetzt online'), payment, t(ctx, 'TWINT, Karte, Apple Pay, Google Pay')) : ''}${o.payOnSite
+              ? radio('payment', 'onsite', mode === 'delivery' ? t(ctx, 'Bei der Lieferung') : t(ctx, 'Bei der Abholung'), payment, t(ctx, 'Bar oder TWINT'))
               : ''}
           </div>
         </fieldset>
         <div class="fo-submit">
-          <button class="btn">Verbindlich bestellen</button>
-          <p class="muted fo-small">Preise inkl. MwSt. <a href="/datenschutz">Datenschutz</a></p>
+          <button class="btn">${t(ctx, 'Verbindlich bestellen')}</button>
+          <p class="muted fo-small">${t(ctx, 'Preise inkl. MwSt.')} <a href="/datenschutz">${t(ctx, 'Datenschutz')}</a></p>
         </div>
       </form>
       ${cartBox(ctx, lines, true)}
@@ -227,44 +239,44 @@ export function checkoutPage(ctx: RenderContext, lines: FoodLine[], slots: SlotD
 
 export function statusPage(ctx: RenderContext, o: FoodOrder, q: URLSearchParams): Html {
   const s = ctx.settings;
-  const when = new Date(o.slot_at).toLocaleString('de-CH', { timeZone: s.timezone, weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  const when = new Date(o.slot_at).toLocaleString(L(ctx), { timeZone: s.timezone, weekday: 'long', hour: '2-digit', minute: '2-digit' });
   const steps = o.mode === 'delivery' ? ['new', 'preparing', 'out', 'done'] : ['new', 'preparing', 'ready', 'done'];
   const at = steps.indexOf(o.status);
   return html`<div class="wrap fo fo-status">
-    <p class="label">Bestellung</p>
-    <h1>Nr. ${o.number}</h1>
+    <p class="label">${t(ctx, 'Bestellung')}</p>
+    <h1>${t(ctx, 'Nr. {n}', { n: o.number })}</h1>
     ${q.get('abgebrochen') && o.status === 'pending_payment'
-      ? html`<p class="form-err" role="status">Die Zahlung wurde abgebrochen. <a href="/essen/${o.token}/bezahlen">Nochmals versuchen</a></p>`
-      : html`<p class="fo-big" role="status" aria-live="polite">${FOOD_STATUS[o.status].guest}</p>`}${at >= 0
+      ? html`<p class="form-err" role="status">${t(ctx, 'Die Zahlung wurde abgebrochen.')} <a href="/essen/${o.token}/bezahlen">${t(ctx, 'Nochmals versuchen')}</a></p>`
+      : html`<p class="fo-big" role="status" aria-live="polite">${t(ctx, FOOD_STATUS[o.status].guest)}</p>`}${at >= 0
       ? html`<ol class="fo-steps">
-          ${steps.map((st, i) => html`<li class="${i < at ? 'done' : i === at ? 'now' : ''}">${FOOD_STATUS[st].label}</li>`)}
+          ${steps.map((st, i) => html`<li class="${i < at ? 'done' : i === at ? 'now' : ''}">${t(ctx, FOOD_STATUS[st].label)}</li>`)}
         </ol>`
       : ''}
     <dl class="booking-facts">
       <div>
-        <dt>${o.mode === 'delivery' ? 'Lieferung' : 'Abholung'}</dt>
-        <dd>${when} Uhr</dd>
+        <dt>${o.mode === 'delivery' ? t(ctx, 'Lieferung') : t(ctx, 'Abholung')}</dt>
+        <dd>${t(ctx, '{when} Uhr', { when })}</dd>
       </div>
       ${o.mode === 'delivery'
         ? html`<div>
-            <dt>Adresse</dt>
+            <dt>${t(ctx, 'Adresse')}</dt>
             <dd>${o.street}, ${o.zip} ${o.city}</dd>
           </div>`
         : s.business.street
           ? html`<div>
-              <dt>Wo</dt>
+              <dt>${t(ctx, 'Wo')}</dt>
               <dd>${s.name}, ${s.business.street}, ${s.business.zip} ${s.business.city}</dd>
             </div>`
           : ''}
       <div>
-        <dt>Bestellt</dt>
+        <dt>${t(ctx, 'Bestellt')}</dt>
         <dd>${o.items.map((l) => html`${l.q}× ${l.title}${l.size ? ` (${l.size})` : ''}<br />`)}</dd>
       </div>
       <div>
-        <dt>Total</dt>
-        <dd>${money(ctx, o.total)} · ${o.payment === 'online' ? (o.paid_at ? 'bezahlt' : 'Zahlung offen') : 'bezahlen vor Ort'}</dd>
+        <dt>${t(ctx, 'Total')}</dt>
+        <dd>${money(ctx, o.total)} · ${o.payment === 'online' ? (o.paid_at ? t(ctx, 'bezahlt') : t(ctx, 'Zahlung offen')) : t(ctx, 'bezahlen vor Ort')}</dd>
       </div>
     </dl>
-    ${s.business.phone ? html`<p class="muted">Fragen? <a href="tel:${s.business.phone.replace(/[^+\d]/g, '')}">${s.business.phone}</a></p>` : ''}
+    ${s.business.phone ? html`<p class="muted">${t(ctx, 'Fragen?')} <a href="tel:${s.business.phone.replace(/[^+\d]/g, '')}">${s.business.phone}</a></p>` : ''}
   </div>`;
 }
