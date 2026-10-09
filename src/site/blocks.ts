@@ -16,6 +16,7 @@ import { blocksText } from '../shared/blocks';
 import { entryAccess } from '../shared/members';
 import { membershipBox } from './members';
 import { eventCards, upcoming } from './events';
+import { donateBlock } from './donations';
 import { env } from '../server/env';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
@@ -525,6 +526,13 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap">${head}${await eventCards(ctx, col, items)}${
       col.list_route ? html`<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle ${col.name}</a></p>` : ''
     }</div>`;
+  },
+
+  async donate(b, ctx) {
+    const p = b.props as P;
+    const head = heading(ctx, p, 'heading', 'intro');
+    if (!ctx.settings.modules.includes('donations')) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Spenden» unter Einstellungen → Module.')}</div>`;
+    return donateBlock(ctx, b.id, p, head);
   },
 
   membership(b, ctx) {

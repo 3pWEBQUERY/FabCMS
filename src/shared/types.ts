@@ -193,6 +193,16 @@ export interface SiteSettings {
     /** Secret part of the calendar subscription URL. */
     feedToken: string;
   };
+  donations: {
+    /** Organisation that issues receipts (defaults to the business name). */
+    recipient: string;
+    /** For donations by bank transfer, shown when Stripe is not set up or as an alternative. */
+    iban: string;
+    /** Recognised as charitable: receipts mention tax deductibility. */
+    taxDeductible: boolean;
+    /** Sentence on the receipt, e.g. the tax exemption ruling. */
+    receiptNote: string;
+  };
   members: {
     /** «open»: anyone can create an account; «invite»: only the team adds people. */
     registration: 'open' | 'invite';

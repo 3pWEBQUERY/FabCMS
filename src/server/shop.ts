@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { handleMemberStripeEvent } from './members';
 import { ticketsPaid } from './tickets';
+import { donationPaid, donationRenewed, donationSubscriptionEnded } from './donations';
 import { sql, json } from './db';
 import { env } from './env';
 import { getSettings, bumpGeneration } from './settings';
@@ -400,6 +401,20 @@ export function verifyStripeSignature(payload: string, header: string | undefine
 
 export async function handleStripeEvent(event: { type: string; data: { object: Record<string, any> } }): Promise<void> {
   const obj = event.data.object;
+  // Donations: one-off and monthly (subscription + an invoice every month).
+  const donationId = obj.metadata?.donation_id as string | undefined;
+  if (event.type === 'invoice.paid') {
+    const sub = (obj.subscription ?? obj.parent?.subscription_details?.subscription) as string | undefined;
+    if (sub) await donationRenewed(sub, String(obj.id), Number(obj.amount_paid) || 0, String(obj.billing_reason ?? ''));
+    return;
+  }
+  if (donationId) {
+    if (event.type === 'checkout.session.completed' && (obj.payment_status === 'paid' || obj.mode === 'subscription'))
+      await donationPaid(donationId, String(obj.payment_intent ?? obj.subscription ?? obj.id), (obj.subscription as string) ?? null);
+    if (event.type === 'checkout.session.async_payment_succeeded') await donationPaid(donationId, String(obj.payment_intent ?? obj.id), null);
+    if (event.type === 'customer.subscription.deleted') await donationSubscriptionEnded(String(obj.id));
+    return;
+  }
   // Memberships (subscriptions), tickets and reservation deposits travel through the same webhook.
   if (event.type.startsWith('customer.subscription.') || (event.type === 'checkout.session.completed' && obj.mode === 'subscription')) {
     await handleMemberStripeEvent(event);

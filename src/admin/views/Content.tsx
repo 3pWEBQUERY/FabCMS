@@ -40,6 +40,7 @@ export function ContentHub() {
     { to: '/newsletter', icon: 'mail', name: 'Newsletter', sub: 'Ausgaben, Abonnent:innen, Wochenrückblick', show: can('newsletter.manage') && mods.includes('newsletter') },
     { to: '/mitglieder', icon: 'key', name: 'Mitglieder', sub: 'Konten, Mitgliedschaft, geschützte Inhalte', show: can('members.manage') && mods.includes('members') },
     { to: '/tickets', icon: 'ticket', name: 'Tickets & Anmeldungen', sub: 'Verkauf, Teilnehmerlisten, Einlass', show: can('events.manage') && (mods.includes('events') || mods.includes('courses')) },
+    { to: '/spenden', icon: 'star', name: 'Spenden', sub: 'Eingänge, Kampagnen, Bestätigungen', show: can('donations.manage') && mods.includes('donations') },
     { to: '/bestellungen', icon: 'receipt', name: 'Bestellungen', sub: 'Shop-Bestellungen', show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
     { to: '/gutscheine', icon: 'ticket', name: 'Gutscheine', sub: 'Rabattcodes', show: can('orders.manage') && mods.includes('shop') },
     { to: '/kommentare', icon: 'chat', name: 'Kommentare', sub: 'Moderation', show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },

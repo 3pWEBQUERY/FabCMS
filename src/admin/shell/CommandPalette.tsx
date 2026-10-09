@@ -121,6 +121,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: 'members', label: 'Mitglieder', group: 'Gehe zu', icon: 'key', keywords: 'konto abo mitgliedschaft paywall login', cap: 'members.manage', module: 'members', run: go('/mitglieder') },
       { id: 'tickets', label: 'Tickets & Anmeldungen', group: 'Gehe zu', icon: 'ticket', keywords: 'event kurs teilnehmer verkauf anmeldung', cap: 'events.manage', run: go('/tickets') },
       { id: 'checkin', label: 'Einlass: Tickets scannen', group: 'Aktionen', icon: 'qr', keywords: 'check-in qr scannen eingang tür kasse', cap: 'events.manage', run: go('/einlass') },
+      { id: 'donations', label: 'Spenden', group: 'Gehe zu', icon: 'star', keywords: 'spende kampagne bestätigung steuer', cap: 'donations.manage', module: 'donations', run: go('/spenden') },
       { id: 's-booking', label: 'Reservation einrichten', group: 'Einstellungen', icon: 'calendar', keywords: 'tische zeiten leistungen sperrzeit ferien kalender', cap: 'settings.manage', module: 'booking', run: go('/einstellungen/reservation') },
       { id: 'coupons', label: 'Gutscheine', group: 'Gehe zu', icon: 'ticket', keywords: 'rabatt code aktion', cap: 'orders.manage', module: 'shop', run: go('/gutscheine') },
       { id: 'comments', label: 'Kommentare', group: 'Gehe zu', icon: 'chat', keywords: 'moderieren freigeben spam', cap: 'comments.moderate', module: 'blog', run: go('/kommentare') },

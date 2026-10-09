@@ -15,6 +15,7 @@ export type Capability =
   | 'newsletter.manage'
   | 'members.manage'
   | 'events.manage'
+  | 'donations.manage'
   | 'comments.moderate'
   | 'settings.manage'
   | 'users.manage'
@@ -39,6 +40,7 @@ const ALL: Capability[] = [
   'newsletter.manage',
   'members.manage',
   'events.manage',
+  'donations.manage',
   'comments.moderate',
   'settings.manage',
   'users.manage',
@@ -67,6 +69,7 @@ export const ROLE_CAPS: Record<Role, Capability[]> = {
     'newsletter.manage',
     'members.manage',
     'events.manage',
+    'donations.manage',
     'comments.moderate',
   ],
   author: ['content.edit.own', 'media.upload'],

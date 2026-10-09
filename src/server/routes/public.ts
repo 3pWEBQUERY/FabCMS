@@ -39,6 +39,7 @@ import { bookingPublicRoutes } from './public-booking';
 import { newsletterPublicRoutes } from './public-newsletter';
 import { membersPublicRoutes } from './public-members';
 import { ticketsPublicRoutes } from './public-tickets';
+import { donationsPublicRoutes } from './public-donations';
 import { currentMember } from '../members';
 import { entryAccess, mayRead } from '../../shared/members';
 import { FONT_FILES } from '../../site/fonts';
@@ -215,6 +216,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
   newsletterPublicRoutes(app);
   membersPublicRoutes(app);
   ticketsPublicRoutes(app);
+  donationsPublicRoutes(app);
   app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
     const name = c.req.param('name').replace('.js', '') as RuntimeName;
     const { code } = await runtimeScript(name);

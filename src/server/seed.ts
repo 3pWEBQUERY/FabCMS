@@ -610,6 +610,7 @@ function nonprofit(): Seed {
       b('hero', { variant: 'statement', eyebrow: 'Verein', title: 'Ausrangierte Velos reparieren – und an Menschen weitergeben, die eines brauchen.', primary: { label: 'Unterstützen', href: '/kontakt' } }),
       b('stats', { heading: 'Seit 2019', items: [{ value: '1 240', label: 'Velos repariert' }, { value: '38', label: 'Freiwillige' }, { value: '12', label: 'Partnerorganisationen' }] }),
       b('split', { eyebrow: 'Wie es funktioniert', heading: 'Jeden Samstag in der Werkstatt.', body: '<p>Freiwillige reparieren gespendete Velos. Sozialdienste vermitteln sie weiter. Wer mag, schraubt mit und lernt dabei.</p>', side: 'right' }),
+      b('donate', { heading: 'Neue Werkstatt', intro: 'Unsere Werkstatt wird zu klein. Mit 20 000 Franken richten wir einen zweiten Raum ein – für doppelt so viele Velos.', campaign: 'Neue Werkstatt', goal: 2000000, amounts: '30, 60, 120, 250', monthly: true }),
       b('posts', { heading: 'Neuigkeiten', count: 3 }),
       b('newsletter', { heading: 'Auf dem Laufenden bleiben', intro: 'Ein paar Mal im Jahr: was in der Werkstatt läuft und wo wir Hilfe brauchen.', button: 'Anmelden', askName: false }),
       b('cta', { heading: 'Ein Velo im Keller?', text: 'Wir holen es ab – in der ganzen Stadt.', primary: { label: 'Velo spenden', href: '/kontakt' } }, { tone: 'accent' }),

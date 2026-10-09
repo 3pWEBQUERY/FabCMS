@@ -11,6 +11,7 @@ import { bookingApi } from './api-booking';
 import { newsletterApi } from './api-newsletter';
 import { membersApi } from './api-members';
 import { ticketsApi } from './api-tickets';
+import { donationsApi } from './api-donations';
 
 /**
  * CSRF protection for the admin API: state-changing requests must carry the
@@ -45,4 +46,5 @@ export function apiRoutes(app: Hono<AppEnv>) {
   newsletterApi(app);
   membersApi(app);
   ticketsApi(app);
+  donationsApi(app);
 }

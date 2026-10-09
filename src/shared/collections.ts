@@ -371,6 +371,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
   { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
   { id: 'members', name: 'Mitglieder', description: 'Konten für Besucher:innen, Seiten und Beiträge nur für Mitglieder, bezahlte Mitgliedschaft im Abo über Stripe.', collections: [], status: 'ready' },
+  { id: 'donations', name: 'Spenden', description: 'Spendenformular mit Beträgen, einmalig oder monatlich über Stripe, Kampagnenziel mit Fortschritt, Spendenbestätigungen fürs Steueramt.', collections: [], status: 'ready' },
   { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien mit Kontingent, gratis oder über Stripe, Tickets mit QR-Code und Einlass-Scanner, Warteliste.', collections: ['events'], status: 'ready' },
   { id: 'courses', name: 'Kurse', description: 'Kurse mit mehreren Terminen, Plätzen und Preisen, Anmeldung online, Teilnehmerliste und Warteliste.', collections: ['courses'], status: 'ready' },
 ];
@@ -396,7 +397,7 @@ export const SECTORS: SectorDef[] = [
   { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
   { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter', 'members', 'events'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
-  { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
+  { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter', 'donations'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
   { id: 'adult', name: 'Erotikbetrieb', hint: 'Bordell, Studio, Agentur – mit Altersschranke', modules: ['profiles', 'leads'], themes: ['salon', 'kante', 'feuilleton'], businessType: 'LocalBusiness' },
 ];
 

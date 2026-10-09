@@ -4,10 +4,12 @@ import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
 import { syncBuiltinCollections, invalidateCollections } from '../src/server/content';
-import { invalidateSettings } from '../src/server/settings';
+import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
 import { outbox } from '../src/server/mail';
+import { env } from '../src/server/env';
+import { handleStripeEvent } from '../src/server/shop';
 
 /**
  * Runs against a real Postgres (TEST_DATABASE_URL, default: local nova_test).
@@ -473,6 +475,66 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/kurse', undefined, { cookies: new Map() })).data).toContain('3 Termine');
     const ics = await req('GET', `/_nova/ics/${course.data.entry.id}.ics`, undefined, { cookies: new Map() });
     expect((ics.data.match(/BEGIN:VEVENT/g) ?? []).length).toBe(3);
+  });
+
+  it('takes donations once and monthly, counts campaigns and issues receipts', async () => {
+    const settings = await req('GET', '/api/settings');
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'donations'])] });
+    await req('PUT', '/api/donations/settings', { recipient: 'Velowerk', iban: 'CH93 0076 2011 6238 5295 7', taxDeductible: true, receiptNote: 'Steuerbefreit seit 2019.' });
+    const page = await req('POST', '/api/entries', {
+      collection: 'pages',
+      slug: 'spenden',
+      data: { title: 'Spenden', blocks: [{ id: 'dn1', type: 'donate', props: { heading: 'Helfen', campaign: 'Werkstatt', goal: 100000, amounts: '20, 50', monthly: true } }] },
+    });
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    // Without Stripe the block shows the bank details instead of a form.
+    const noStripe = await req('GET', '/spenden', undefined, { cookies: new Map() });
+    expect(noStripe.data).toContain('CH93 0076 2011 6238 5295 7');
+    expect(noStripe.data).not.toContain('Jetzt spenden');
+
+    // With Stripe (simulated): checkout, then the webhook.
+    const realFetch = globalThis.fetch;
+    const sent: string[] = [];
+    env.stripe.secretKey = 'sk_test_nova';
+    bumpGeneration(); // keys only change with a restart in real life
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      if (String(url).startsWith('https://api.stripe.com/')) {
+        sent.push(String(init?.body ?? ''));
+        return new Response(JSON.stringify({ id: 'cs_test_1', url: 'https://checkout.stripe.com/c/pay/cs_test_1' }), { status: 200 });
+      }
+      return realFetch(url, init);
+    }) as typeof fetch;
+    try {
+      expect((await req('GET', '/spenden', undefined, { cookies: new Map() })).data).toContain('Jetzt spenden');
+      const form = { amount: '50', own: '', interval: 'month', campaign: 'Werkstatt', name: 'Rita Graf', email: 'rita@example.ch', zip: '8000', city: 'Zürich', street: 'Bahnhofstrasse 1', _back: '/spenden', _block: 'dn1', _t: (Date.now() - 5000).toString(36) };
+      const tooSmall = await req('POST', '/_nova/spenden', undefined, { cookies: new Map(), form: { ...form, own: '2' } });
+      expect(new URL(tooSmall.headers.get('location')!, 'http://x').searchParams.get('d_err')).toMatch(/ab CHF.5\.00/);
+      const go = await req('POST', '/_nova/spenden', undefined, { cookies: new Map(), form });
+      expect(go.headers.get('location')).toBe('https://checkout.stripe.com/c/pay/cs_test_1');
+      expect(sent[0]).toContain('mode=subscription');
+      expect(sent[0]).toContain('recurring%5D%5Binterval%5D=month');
+      const [d] = await sql`select * from donations where email = 'rita@example.ch'`;
+      expect(d.amount).toBe(5000);
+      outbox.length = 0;
+      await handleStripeEvent({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', metadata: { donation_id: d.id }, subscription: 'sub_1', id: 'cs_test_1' } } });
+      await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_1', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_create' } } });
+      await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_2', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_cycle' } } });
+      await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_2', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_cycle' } } });
+      expect(outbox[0].subject).toBe('Danke für deine Spende an Velowerk');
+      const rows = await sql`select amount, status from donations where email = 'rita@example.ch' and status = 'paid'`;
+      expect(rows).toHaveLength(2); // first month + one renewal, the duplicate webhook ignored
+      // The campaign bar counts both months.
+      expect((await req('GET', '/spenden', undefined, { cookies: new Map() })).data).toMatch(/CHF.100\.–/);
+      const receipt = await req('GET', `/spende/${d.token}/bestaetigung`, undefined, { cookies: new Map() });
+      expect(receipt.data).toContain('Spendenbestätigung');
+      expect(receipt.data).toMatch(/CHF.100\.00/);
+      expect(receipt.data).toContain('Steuerbefreit seit 2019.');
+      const donors = await req('GET', `/api/donations/donors?jahr=${new Date().getFullYear()}`);
+      expect(donors.data.donors[0]).toMatchObject({ email: 'rita@example.ch', total: 10000, count: 2 });
+    } finally {
+      globalThis.fetch = realFetch;
+      env.stripe.secretKey = '';
+    }
   });
 
   it('keeps authors out of other people’s work', async () => {

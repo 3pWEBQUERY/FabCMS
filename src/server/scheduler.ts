@@ -6,6 +6,7 @@ import { notify } from './notify';
 import { importCalendars, releaseUnpaid, sendReminders } from './booking';
 import { newsletterJobs } from './newsletter';
 import { releaseUnpaidTickets } from './tickets';
+import { dropAbandonedDonations } from './donations';
 
 /**
  * In-process jobs. Nova runs as one service, so a timer is all we need.
@@ -34,6 +35,7 @@ export function startScheduler() {
     await sendReminders();
     await releaseUnpaid();
     await releaseUnpaidTickets();
+    await dropAbandonedDonations();
   });
   every(15 * 60_000, 'booking calendars', importCalendars);
   every(10 * 60_000, 'newsletter', () => newsletterJobs());

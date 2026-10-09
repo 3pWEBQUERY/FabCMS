@@ -79,6 +79,7 @@ export function defaultSettings(): SiteSettings {
       notifyEmail: '',
       feedToken: '',
     },
+    donations: { recipient: '', iban: '', taxDeductible: false, receiptNote: '' },
     members: { registration: 'open', planName: 'Mitgliedschaft', price: 0, interval: 'month', perks: '' },
     newsletter: { auto: 'off', weekday: 1 },
     blog: { comments: true, perPage: 10 },

@@ -964,7 +964,7 @@ function DataSettings() {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen', members: 'Mitgliederkonten', ticketOrders: 'Ticketbestellungen', waitlist: 'Wartelisten-Einträge' };
+  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen', members: 'Mitgliederkonten', ticketOrders: 'Ticketbestellungen', waitlist: 'Wartelisten-Einträge', donations: 'Spenden' };
   return (
     <>
       <PageHead title="Daten & Datenschutz" sub="Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support." />
