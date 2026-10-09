@@ -225,6 +225,53 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(o.total).toBe(3582);
   });
 
+  it('books tables online without double bookings, and guests can cancel', async () => {
+    const settings = await req('GET', '/api/settings');
+    const modules = [...new Set([...settings.data.settings.modules, 'booking'])];
+    // Opening hours every day 11–23 so the test does not depend on today's weekday.
+    const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: false, slots: [{ from: '11:00', to: '23:00' }] }));
+    await req('PATCH', '/api/settings', { modules, hours, booking: { ...settings.data.settings.booking, leadMinutes: 0, autoConfirm: true } });
+    const table = await req('POST', '/api/booking/resources', { name: 'Fenstertisch', kind: 'table', capacity: 4 });
+    expect(table.status).toBe(200);
+    // Bound to this one table, so the second guest really competes for it.
+    const svc = await req('POST', '/api/booking/services', { name: 'Fenster', duration_min: 120, resource_ids: [table.data.resource.id] });
+    expect(svc.status).toBe(200);
+
+    const day = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    const slots = await req('GET', `/api/booking/slots?service=${svc.data.service.id}&day=${day}&party=2`);
+    expect(slots.data.slots.map((x: { time: string }) => x.time)).toContain('19:00');
+
+    const guest = new Map<string, string>();
+    const form = (name: string) => ({ service: svc.data.service.id, day, time: '19:00', party: '2', name, email: `${name.toLowerCase()}@example.ch`, _t: (Date.now() - 5000).toString(36), _back: '/reservation' });
+    const first = await req('POST', '/_nova/booking', undefined, { cookies: guest, form: form('Anna') });
+    expect(first.status).toBe(303);
+    const where = first.headers.get('location')!;
+    expect(where).toMatch(/^\/buchung\/[\w-]+\?neu=1$/);
+    // The only table is taken now: the same time must be refused.
+    const second = await req('POST', '/_nova/booking', undefined, { cookies: guest, form: form('Beat') });
+    expect(second.headers.get('location')).toContain('b_err=');
+    const [count] = await sql`select count(*)::int as n from bookings where status = 'confirmed' and service_id = ${svc.data.service.id}`;
+    expect(count.n).toBe(1);
+
+    const page = await req('GET', where, undefined, { cookies: new Map() });
+    expect(page.data).toContain('Deine Reservation ist bestätigt');
+    const ics = await req('GET', where.replace('?neu=1', '.ics'), undefined, { cookies: new Map() });
+    expect(ics.data).toContain('BEGIN:VEVENT');
+    const cancel = await req('POST', `${where.replace('?neu=1', '')}/absagen`, undefined, { cookies: new Map(), form: {} });
+    expect(cancel.headers.get('location')).toContain('abgesagt=1');
+    const freeAgain = await req('GET', `/api/booking/slots?service=${svc.data.service.id}&day=${day}&party=2`);
+    expect(freeAgain.data.slots.map((x: { time: string }) => x.time)).toContain('19:00');
+
+    // The team can book by phone, but not onto a table that is taken.
+    const phone = await req('POST', '/api/bookings', { serviceId: svc.data.service.id, day, time: '12:00', party: 3, name: 'Telefon', resourceId: table.data.resource.id });
+    expect(phone.status).toBe(200);
+    const clash = await req('POST', '/api/bookings', { serviceId: svc.data.service.id, day, time: '13:00', party: 2, name: 'Zu früh', resourceId: table.data.resource.id });
+    expect(clash.status).toBe(400);
+    await new Promise((r) => setTimeout(r, 50));
+    const notes = await req('GET', '/api/notifications');
+    expect(notes.data.items.some((n: { title: string }) => n.title === 'Neue Reservation: Anna')).toBe(true);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

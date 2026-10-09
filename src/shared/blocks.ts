@@ -570,6 +570,22 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'booking',
+    label: 'Reservation',
+    description: 'Online reservieren oder einen Termin buchen – mit den freien Zeiten aus deinem Kalender.',
+    icon: 'calendar',
+    category: 'contact',
+    module: 'booking',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+      { key: 'service', type: 'text', label: 'Nur dieses Angebot (ID, leer = alle)', pro: true },
+    ],
+    defaults: { heading: 'Tisch reservieren', intro: 'Wähle Tag und Zeit – die Bestätigung kommt sofort per E-Mail.', service: '' },
+    text: (p) => sentences(p.heading, p.intro),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'contact',
     label: 'Kontaktangaben',
     description: 'Adresse, Telefon und E-Mail – kommt aus den Einstellungen.',

@@ -7,6 +7,7 @@ import { mediaApi } from './api-media';
 import { businessApi } from './api-business';
 import { systemApi } from './api-system';
 import { notifyApi } from './api-notify';
+import { bookingApi } from './api-booking';
 
 /**
  * CSRF protection for the admin API: state-changing requests must carry the
@@ -37,4 +38,5 @@ export function apiRoutes(app: Hono<AppEnv>) {
   businessApi(app);
   systemApi(app);
   notifyApi(app);
+  bookingApi(app);
 }

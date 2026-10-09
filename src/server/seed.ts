@@ -3,7 +3,7 @@ import { createBlock } from '../shared/blocks';
 import { SECTOR_MAP } from '../shared/collections';
 import { slugify, shortId } from '../shared/text';
 import type { Block, FormFieldDef, NavItem } from '../shared/types';
-import { bumpGeneration } from './settings';
+import { bumpGeneration, getSettings, updateSettings } from './settings';
 
 /**
  * Starter content for the setup assistant. Realistic Swiss examples the
@@ -28,6 +28,12 @@ interface Seed {
   entries: { collection: string; data: Record<string, unknown> }[];
   tagline: string;
   footer: string;
+  /** Reservation & Termine: what can be booked, with what or whom. */
+  booking?: {
+    mode: 'table' | 'appointment';
+    services: { name: string; description?: string; duration: number; buffer?: number; price?: number }[];
+    resources: { name: string; kind: 'table' | 'staff' | 'room'; capacity: number }[];
+  };
 }
 
 const contactForm = {
@@ -83,7 +89,7 @@ function restaurant(name: string): Seed {
       b('contact', { heading: 'Anfahrt', showHours: false }),
     ],
     pages: [
-      { slug: 'reservation', title: 'Reservation', blocks: [b('form', { heading: 'Tisch anfragen', intro: 'Für Gruppen ab 10 Personen ruf uns bitte an.', form: '@form:reservation' }), b('hours', { heading: 'Öffnungszeiten' })] },
+      { slug: 'reservation', title: 'Reservation', blocks: [b('booking', { heading: 'Tisch reservieren', intro: 'Wähle Tag und Uhrzeit – die Bestätigung kommt sofort per E-Mail. Für Gruppen ab 9 Personen ruf uns bitte an.' }), b('hours', { heading: 'Öffnungszeiten' })] },
       { slug: 'ueber-uns', title: 'Über uns', blocks: [b('text', { heading: 'Ein Wirtshaus, wie es sein soll', body: '<p>Wir sind ein kleines Team aus Küche und Service. Seit drei Generationen steht hier jemand aus der Familie am Herd – heute mit etwas mehr Gemüse und etwas weniger Butter als früher.</p>' }), b('people', { heading: 'Team', items: [{ name: 'Anna Meier', role: 'Küche', text: 'Kocht hier seit 2009.', image: null }, { name: 'Marco Bühler', role: 'Service & Wein', text: 'Kennt jeden Winzer am See persönlich.', image: null }] })] },
       contactPage(),
     ],
@@ -93,24 +99,19 @@ function restaurant(name: string): Seed {
       { id: shortId(), label: 'Über uns', href: '/ueber-uns' },
       { id: shortId(), label: 'Kontakt', href: '/kontakt' },
     ],
-    forms: [
-      contactForm,
-      {
-        key: 'reservation',
-        name: 'Reservation',
-        submit: 'Anfrage senden',
-        success: 'Danke! Wir bestätigen deine Reservation so bald wie möglich per E-Mail oder Telefon.',
-        fields: [
-          f('text', 'Name', true),
-          f('email', 'E-Mail', true),
-          f('tel', 'Telefon', true),
-          f('date', 'Datum', true),
-          f('select', 'Uhrzeit', true, { options: ['11:30', '12:00', '12:30', '13:00', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30'] }),
-          f('select', 'Personen', true, { options: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }),
-          f('textarea', 'Bemerkung', false, { placeholder: 'Allergien, Kinderstuhl, Anlass …' }),
-        ],
-      },
-    ],
+    forms: [contactForm],
+    booking: {
+      mode: 'table',
+      services: [{ name: 'Tisch', duration: 120 }],
+      resources: [
+        { name: 'Tisch 1', kind: 'table', capacity: 2 },
+        { name: 'Tisch 2', kind: 'table', capacity: 2 },
+        { name: 'Tisch 3', kind: 'table', capacity: 4 },
+        { name: 'Tisch 4', kind: 'table', capacity: 4 },
+        { name: 'Tisch 5', kind: 'table', capacity: 4 },
+        { name: 'Stammtisch', kind: 'table', capacity: 8 },
+      ],
+    },
     entries: [
       dish('Mittagsmenü: Gemüsesuppe, Hackbraten mit Kartoffelstock', 'Tageskarte', [['', 24.5]], { daily: true, allergens: ['milk', 'celery', 'eggs', 'gluten'], origin: 'Rind/Schwein: Schweiz', category: 'Hauptgänge' }),
       dish('Nüsslisalat mit Ei und Speckwürfeli', 'Vorspeisen', [['', 14.5]], { allergens: ['eggs', 'mustard'], origin: 'Schwein: Schweiz', description: 'Hausdressing mit Senf und Apfelessig' }),
@@ -370,30 +371,26 @@ function studio(): Seed {
       b('hours', { heading: 'Öffnungszeiten' }),
       b('cta', { heading: 'Lust auf etwas Neues?', primary: { label: 'Termin anfragen', href: '/termin' } }, { tone: 'accent' }),
     ],
-    pages: [{ slug: 'termin', title: 'Termin', blocks: [b('form', { heading: 'Termin anfragen', intro: 'Wir bestätigen deinen Termin per SMS oder E-Mail.', form: '@form:termin' }), b('contact', { heading: 'Lieber anrufen?', showHours: true })] }, contactPage()],
+    pages: [{ slug: 'termin', title: 'Termin', blocks: [b('booking', { heading: 'Termin buchen', intro: 'Wähle, was wir machen dürfen, und eine freie Zeit. Die Bestätigung kommt per E-Mail.' }), b('contact', { heading: 'Lieber anrufen?', showHours: true })] }, contactPage()],
     nav: [
       { id: shortId(), label: 'Preise', href: '/#preise' },
       { id: shortId(), label: 'Termin', href: '/termin' },
       { id: shortId(), label: 'Kontakt', href: '/kontakt' },
     ],
-    forms: [
-      contactForm,
-      {
-        key: 'termin',
-        name: 'Terminanfrage',
-        submit: 'Anfrage senden',
-        success: 'Danke! Wir melden uns mit einem Terminvorschlag.',
-        fields: [
-          f('select', 'Leistung', true, { options: ['Damen Schnitt', 'Herren Schnitt', 'Farbe', 'Strähnen', 'Kinder', 'Beratung'] }),
-          f('select', 'Bei wem?', false, { options: ['Egal', 'Sina', 'Luca'] }),
-          f('date', 'Wunschdatum', true),
-          f('select', 'Tageszeit', false, { options: ['Vormittag', 'Mittag', 'Nachmittag', 'Abend'] }),
-          f('text', 'Name', true),
-          f('tel', 'Telefon', true),
-          f('email', 'E-Mail'),
-        ],
-      },
-    ],
+    forms: [contactForm],
+    booking: {
+      mode: 'appointment',
+      services: [
+        { name: 'Damen Schnitt', description: 'Waschen, schneiden, föhnen.', duration: 60, buffer: 10, price: 89 },
+        { name: 'Herren Schnitt', description: 'Mit Waschen.', duration: 30, buffer: 5, price: 49 },
+        { name: 'Farbe', description: 'Ansatz oder ganz, inkl. Schnitt.', duration: 120, buffer: 15, price: 165 },
+        { name: 'Beratung', description: 'Kostenlos, 15 Minuten.', duration: 15, price: 0 },
+      ],
+      resources: [
+        { name: 'Sina', kind: 'staff', capacity: 1 },
+        { name: 'Luca', kind: 'staff', capacity: 1 },
+      ],
+    },
     entries: [],
   };
 }
@@ -403,7 +400,7 @@ function practice(): Seed {
     tagline: 'Physiotherapie im Quartier',
     footer: 'Termine nach ärztlicher Verordnung oder als Selbstzahler.',
     home: [
-      b('hero', { variant: 'statement', eyebrow: 'Physiotherapie', title: 'Wieder schmerzfrei bewegen – Schritt für Schritt.', text: 'Wir behandeln nach ärztlicher Verordnung und begleiten Sie mit einem Übungsplan, der in Ihren Alltag passt.', primary: { label: 'Termin anfragen', href: '/kontakt' } }),
+      b('hero', { variant: 'statement', eyebrow: 'Physiotherapie', title: 'Wieder schmerzfrei bewegen – Schritt für Schritt.', text: 'Wir behandeln nach ärztlicher Verordnung und begleiten Sie mit einem Übungsplan, der in Ihren Alltag passt.', primary: { label: 'Termin buchen', href: '/termin' } }),
       b('list', {
         heading: 'Angebot',
         style: 'columns',
@@ -424,10 +421,27 @@ function practice(): Seed {
       b('hours'),
       b('contact', { heading: 'Praxis', showHours: false }),
     ],
-    pages: [contactPage('kontakt', 'Termin anfragen')],
-    nav: [{ id: shortId(), label: 'Kontakt', href: '/kontakt' }],
+    pages: [
+      { slug: 'termin', title: 'Termin', blocks: [b('booking', { heading: 'Termin buchen', intro: 'Bitte bringen Sie zur ersten Behandlung die ärztliche Verordnung mit.' }), b('contact', { heading: 'Lieber anrufen?', showHours: true })] },
+      contactPage('kontakt', 'Termin anfragen'),
+    ],
+    nav: [
+      { id: shortId(), label: 'Termin', href: '/termin' },
+      { id: shortId(), label: 'Kontakt', href: '/kontakt' },
+    ],
     forms: [contactForm],
     entries: [],
+    booking: {
+      mode: 'appointment',
+      services: [
+        { name: 'Erste Behandlung', description: 'Befund und erste Therapie, mit Verordnung.', duration: 45, buffer: 15 },
+        { name: 'Folgebehandlung', description: 'Laufende Therapie.', duration: 30, buffer: 10 },
+      ],
+      resources: [
+        { name: 'Sandra Keller', kind: 'staff', capacity: 1 },
+        { name: 'Jonas Frei', kind: 'staff', capacity: 1 },
+      ],
+    },
   };
 }
 
@@ -647,7 +661,25 @@ export async function seedSite(sectors: string[], siteName: string, userId: stri
           on conflict (collection, slug) do nothing`;
       }
     for (const s of seeds) for (const n of s.nav) if (!nav.some((x) => x.href === n.href)) nav.push(n);
+    // Reservation & Termine: only on a fresh setup, never on top of the business's own.
+    const booking = seeds.find((s) => s.booking)?.booking;
+    const [{ n: existing }] = await tx`select count(*)::int as n from booking_services`;
+    if (booking && !existing) {
+      let i = 0;
+      for (const r of booking.resources)
+        await tx`insert into booking_resources (name, kind, capacity, sort_index) values (${r.name}, ${r.kind}, ${r.capacity}, ${i++})`;
+      i = 0;
+      for (const sv of booking.services)
+        await tx`
+          insert into booking_services (name, description, duration_min, buffer_min, price, sort_index)
+          values (${sv.name}, ${sv.description ?? ''}, ${sv.duration}, ${sv.buffer ?? 0}, ${sv.price === undefined ? null : chf(sv.price)}, ${i++})`;
+    }
   });
+  const bookingMode = seeds.find((s) => s.booking)?.booking?.mode;
+  if (bookingMode) {
+    const current = await getSettings();
+    await updateSettings({ booking: { ...current.booking, mode: bookingMode, autoConfirm: bookingMode === 'table' } });
+  }
   bumpGeneration();
   return { tagline: primary.tagline, footer: primary.footer, nav };
 }

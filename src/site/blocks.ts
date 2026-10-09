@@ -7,7 +7,10 @@ import type { LinkValue } from '../shared/fields';
 import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
-import { compactHours, DAY_NAMES, formatSlots, openStatus, zonedNow } from '../shared/hours';
+import { compactHours, DAY_NAMES, DAY_SHORT, formatSlots, openStatus, zonedNow } from '../shared/hours';
+import { listServices, openDays, slotsFor } from '../server/booking';
+import { localDay, zonedToUtc, type BookingService } from '../shared/booking';
+import { MONTHS, longDay } from '../shared/dates';
 import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { env } from '../server/env';
@@ -471,6 +474,16 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap form-grid">${heading(ctx, p, 'heading', 'intro')}${renderForm(form, ctx, b.id)}</div>`;
   },
 
+  async booking(b, ctx) {
+    const p = b.props as P;
+    const s = ctx.settings;
+    const head = heading(ctx, p, 'heading', 'intro');
+    if (!s.modules.includes('booking')) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Reservation & Termine» unter Einstellungen → Module.')}</div>`;
+    const services = (await listServices(true)).filter((x) => !p.service || x.id === p.service);
+    if (!services.length) return html`<div class="wrap">${head}${empty(ctx, 'Lege unter Einstellungen → Reservation zuerst fest, was gebucht werden kann.')}</div>`;
+    return html`<div class="wrap bk" id="buchen">${head}${await bookingSteps(ctx, services, String(p.service ?? ''))}</div>`;
+  },
+
   contact(b, ctx) {
     const p = b.props as P;
     const s = ctx.settings;
@@ -656,3 +669,87 @@ export function scopeCss(css: string, id: string): string {
 }
 
 export { R as renderers };
+
+/* ---------- booking steps (server-rendered, works without JavaScript) ---------- */
+
+async function bookingSteps(ctx: RenderContext, services: BookingService[], fixed: string): Promise<Html> {
+  const s = ctx.settings;
+  const q = ctx.query;
+  const table = s.booking.mode === 'table';
+  const keep = ['b_s', 'b_p', 'b_d', 'b_t', 'b_from'];
+  const link = (change: Record<string, string | number | null>) => {
+    const u = new URLSearchParams();
+    for (const k of keep) if (q.get(k)) u.set(k, q.get(k)!);
+    for (const [k, v] of Object.entries(change)) v === null ? u.delete(k) : u.set(k, String(v));
+    return `${ctx.path}?${u}#buchen`;
+  };
+  const service = services.length === 1 ? services[0] : services.find((x) => x.id === q.get('b_s'));
+  const party = table ? Math.min(s.booking.maxParty, Math.max(0, Number(q.get('b_p')) || 0)) : 1;
+  const out: Html[] = [];
+  const error = q.get('b_err');
+  if (error) out.push(html`<p class="form-err" role="alert">${error}</p>`);
+
+  // 1 – what
+  if (services.length > 1 && !fixed) {
+    out.push(html`<section class="bk-step" aria-labelledby="bk-what"><h3 id="bk-what" class="bk-label">${table ? 'Bereich' : 'Was möchtest du buchen?'}</h3><ul class="bk-services">${services.map(
+      (x) =>
+        html`<li><a class="bk-service" href="${link({ b_s: x.id, b_d: null, b_t: null })}"${x.id === service?.id ? raw(' aria-current="true"') : ''}><strong>${x.name}</strong><span>${[`${x.duration_min} Min.`, x.price ? formatPrice(x.price) : ''].filter(Boolean).join(' · ')}</span>${
+          x.description ? html`<small>${x.description}</small>` : ''
+        }</a></li>`,
+    )}</ul></section>`);
+  }
+  if (!service) return join(out);
+
+  // 2 – how many
+  if (table) {
+    const max = Math.min(s.booking.maxParty, 10);
+    out.push(html`<section class="bk-step" aria-labelledby="bk-who"><h3 id="bk-who" class="bk-label">Wie viele Personen?</h3><div class="bk-chips">${Array.from({ length: max }, (_, i) => i + 1).map(
+      (n) => html`<a class="bk-chip" href="${link({ b_p: n, b_t: null })}"${n === party ? raw(' aria-current="true"') : ''}>${n}</a>`,
+    )}</div>${s.business.phone ? html`<p class="bk-hint">Mehr als ${max}? Ruf uns an: <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}</section>`);
+    if (!party) return join(out);
+  }
+
+  // 3 – which day (two weeks at a time)
+  const today = localDay(ctx.now, s.timezone).day;
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(q.get('b_from') ?? '') && q.get('b_from')! > today ? q.get('b_from')! : today;
+  const days = await openDays(service.id, party, from, 14, ctx.now);
+  const chosen = days.find((d) => d.day === q.get('b_d')) ? q.get('b_d')! : null;
+  const shift = (n: number) => localDay(new Date(zonedToUtc(from, 12 * 60, s.timezone).getTime() + n * 86_400_000), s.timezone).day;
+  const lastDay = shift(s.booking.horizonDays);
+  out.push(html`<section class="bk-step" aria-labelledby="bk-when"><h3 id="bk-when" class="bk-label">An welchem Tag?</h3><div class="bk-days">${days.map((d) => {
+    const [, m, dd] = d.day.split('-').map(Number);
+    const wd = DAY_SHORT[localDay(zonedToUtc(d.day, 12 * 60, s.timezone), s.timezone).weekday];
+    const inner = html`<span class="bk-wd">${d.day === today ? 'Heute' : wd}</span><span class="bk-dn">${dd}.</span><span class="bk-mo">${MONTHS[m - 1].slice(0, 3)}</span>`;
+    return d.free
+      ? html`<a class="bk-day" href="${link({ b_d: d.day, b_t: null })}"${d.day === chosen ? raw(' aria-current="true"') : ''} aria-label="${longDay(d.day)}">${inner}</a>`
+      : html`<span class="bk-day off" aria-label="${longDay(d.day)}: nichts frei">${inner}</span>`;
+  })}</div><div class="bk-pager">${from > today ? html`<a class="btn-2 bk-prev" href="${link({ b_from: shift(-14) <= today ? null : shift(-14), b_d: null, b_t: null })}">Frühere Tage</a>` : html`<span></span>`}${
+    shift(14) <= lastDay ? html`<a class="btn-2" href="${link({ b_from: shift(14), b_d: null, b_t: null })}">Spätere Tage</a>` : ''
+  }</div></section>`);
+  if (!chosen) return join(out);
+
+  // 4 – what time
+  const slots = await slotsFor(service.id, chosen, party, ctx.now);
+  const time = slots.find((x) => x.time === q.get('b_t'))?.time ?? null;
+  out.push(html`<section class="bk-step" aria-labelledby="bk-time"><h3 id="bk-time" class="bk-label">Um wie viel Uhr?</h3>${
+    slots.length
+      ? html`<div class="bk-chips">${slots.map((x) => html`<a class="bk-chip num" href="${link({ b_t: x.time })}"${x.time === time ? raw(' aria-current="true"') : ''}>${x.time}</a>`)}</div>`
+      : html`<p class="bk-hint">An diesem Tag ist leider nichts mehr frei.</p>`
+  }</section>`);
+  if (!time) return join(out);
+
+  // 5 – who
+  const summary = [longDay(chosen), `${time} Uhr`, table ? `${party} ${party === 1 ? 'Person' : 'Personen'}` : service.name].join(' · ');
+  out.push(html`<section class="bk-step" aria-labelledby="bk-you"><h3 id="bk-you" class="bk-label">Deine Angaben</h3><p class="bk-summary">${summary}</p>
+    <form class="nform" method="post" action="/_nova/booking" data-booking>
+      <input type="hidden" name="service" value="${service.id}"><input type="hidden" name="day" value="${chosen}"><input type="hidden" name="time" value="${time}"><input type="hidden" name="party" value="${party}"><input type="hidden" name="_back" value="${link({})}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
+      <div class="hp" aria-hidden="true"><label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="two-col"><div class="fld"><label for="bk-name">Name <span class="req" aria-hidden="true">*</span></label><input id="bk-name" name="name" required autocomplete="name"></div>
+      <div class="fld"><label for="bk-mail">E-Mail <span class="req" aria-hidden="true">*</span></label><input id="bk-mail" name="email" type="email" required autocomplete="email"></div></div>
+      <div class="fld"><label for="bk-tel">Telefon <span class="muted">(für Rückfragen)</span></label><input id="bk-tel" name="phone" type="tel" autocomplete="tel"></div>
+      <div class="fld"><label for="bk-note">Bemerkung <span class="muted">(optional)</span></label><textarea id="bk-note" name="note" maxlength="1000" placeholder="${table ? 'Allergien, Kinderstuhl, Anlass …' : 'Was wir vorher wissen sollten'}"></textarea></div>
+      <div><button class="btn">${service.deposit && env.stripe.secretKey ? `Weiter zur Anzahlung (${formatPrice(service.deposit)})` : s.booking.autoConfirm ? 'Verbindlich reservieren' : 'Anfrage senden'}</button></div>
+      <p class="muted" style="font-size:var(--step-n1);margin:0">${s.booking.cancelHours ? `Absagen geht bis ${s.booking.cancelHours} Stunden vorher über den Link in der Bestätigung. ` : ''}Mehr zum Datenschutz in der <a href="/datenschutz">Datenschutzerklärung</a>.</p>
+    </form></section>`);
+  return join(out);
+}

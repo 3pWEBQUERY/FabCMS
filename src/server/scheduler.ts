@@ -3,6 +3,7 @@ import { dailyBackup } from './backup';
 import { sql } from './db';
 import { bumpGeneration } from './settings';
 import { notify } from './notify';
+import { importCalendars, releaseUnpaid, sendReminders } from './booking';
 
 /**
  * In-process jobs. Nova runs as one service, so a timer is all we need.
@@ -27,6 +28,11 @@ function every(ms: number, name: string, job: () => Promise<unknown>) {
 
 export function startScheduler() {
   every(30_000, 'scheduled publishing', publishDue);
+  every(5 * 60_000, 'booking reminders', async () => {
+    await sendReminders();
+    await releaseUnpaid();
+  });
+  every(15 * 60_000, 'booking calendars', importCalendars);
   every(60 * 60_000, 'backup', async () => {
     try {
       await dailyBackup();

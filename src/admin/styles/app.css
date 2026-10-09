@@ -3228,3 +3228,218 @@ button.list-item {
   border-radius: 50%;
   animation: btn-spin 0.7s linear infinite;
 }
+
+/* ---------- reservations ---------- */
+.badge.warn {
+  background: color-mix(in srgb, #d18a00 16%, transparent);
+  color: #8a5a00;
+}
+:root[data-theme='dark'] .badge.warn,
+.badge.warn:where(:root[data-theme='dark'] *) {
+  color: #f0b34a;
+}
+.badge.muted {
+  color: var(--ink-3);
+}
+.danger-text {
+  color: var(--bad);
+}
+.list.bordered {
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  overflow: hidden;
+}
+.list.bordered > li + li {
+  border-top: 1px solid var(--line);
+}
+.bk-pending {
+  margin-bottom: 1rem;
+  border-left: 3px solid #d18a00;
+}
+.bk-grid-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 12rem);
+}
+.bk-grid {
+  display: grid;
+  position: relative;
+  min-width: max-content;
+}
+.bk-corner,
+.bk-col-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.bk-corner {
+  left: 0;
+  z-index: 4;
+}
+.bk-col-head {
+  display: grid;
+  padding: 0.55rem 0.75rem;
+  border-left: 1px solid var(--line);
+}
+.bk-col-head strong {
+  font-size: var(--t-s);
+}
+.bk-col-head span {
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+.bk-times {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--panel);
+}
+.bk-times span {
+  position: absolute;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.bk-times span:first-child {
+  transform: none;
+}
+.bk-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% 64px;
+}
+.bk-item {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  display: grid;
+  align-content: start;
+  gap: 0.05rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-left: 3px solid var(--sel);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sel) 12%, var(--panel));
+  color: var(--ink);
+  text-align: left;
+  font-size: var(--t-xs);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.bk-item:hover {
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+}
+.bk-item strong {
+  font-size: var(--t-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bk-item-time,
+.bk-item-meta {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.bk-item-note {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  color: var(--ink-3);
+}
+.bk-item.s-pending,
+.bk-item.s-awaiting_payment {
+  border-left-color: #d18a00;
+  background: color-mix(in srgb, #d18a00 12%, var(--panel));
+  border-style: dashed;
+  border-left-style: solid;
+}
+.bk-item.s-done {
+  border-left-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 10%, var(--panel));
+}
+.bk-item.s-no_show,
+.bk-item.s-cancelled {
+  border-left-color: var(--ink-3);
+  background: var(--sunken);
+  color: var(--ink-3);
+}
+.bk-item.s-cancelled strong {
+  text-decoration: line-through;
+}
+.bk-closed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(135deg, var(--sunken) 0 6px, transparent 6px 12px);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  pointer-events: none;
+}
+.bk-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e5484d;
+  z-index: 1;
+  pointer-events: none;
+}
+.bk-now::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5484d;
+}
+.bk-list .bk-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.bk-row-time {
+  min-width: 3rem;
+  font-weight: 650;
+}
+.bk-row.s-cancelled .title {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.bk-contact {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+}
+.bk-contact div {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.75rem;
+  font-size: var(--t-s);
+}
+.bk-contact dt {
+  color: var(--ink-3);
+}
+.bk-contact dd {
+  margin: 0;
+}
+.bk-actions {
+  flex-wrap: wrap;
+}
+.bk-free {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}

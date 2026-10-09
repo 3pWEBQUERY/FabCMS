@@ -6,6 +6,7 @@ import { sign, unsign, token } from './lib/crypto';
 import { badRequest } from './lib/http';
 import { emit } from './events';
 import { notify } from './notify';
+import { depositPaid } from './booking';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
 import type { EntryData, SiteSettings } from '../shared/types';
@@ -397,6 +398,13 @@ export function verifyStripeSignature(payload: string, header: string | undefine
 
 export async function handleStripeEvent(event: { type: string; data: { object: Record<string, any> } }): Promise<void> {
   const obj = event.data.object;
+  // Deposits for reservations travel through the same webhook.
+  const bookingId = obj.metadata?.booking_id as string | undefined;
+  if (bookingId) {
+    if (event.type === 'checkout.session.completed' && obj.payment_status === 'paid') await depositPaid(bookingId, String(obj.payment_intent ?? obj.id));
+    if (event.type === 'checkout.session.async_payment_succeeded') await depositPaid(bookingId, String(obj.payment_intent ?? obj.id));
+    return;
+  }
   const orderId = (obj.metadata?.order_id ?? obj.client_reference_id) as string | undefined;
   if (!orderId) return;
   switch (event.type) {

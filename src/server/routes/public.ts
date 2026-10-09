@@ -35,6 +35,7 @@ import {
 } from '../shop';
 import { runtimeScript, type RuntimeName } from '../../site/assets';
 import { notify as notifyTeam } from '../notify';
+import { bookingPublicRoutes } from './public-booking';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
@@ -70,7 +71,7 @@ async function saveCart(c: Context, items: CartItem[]) {
   });
 }
 
-async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boolean } = {}) {
+export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boolean } = {}) {
   const settings = await getSettings();
   const url = new URL(c.req.url);
   const cart = settings.modules.includes('shop') ? await cartItems(c) : [];
@@ -117,7 +118,7 @@ function hashCode(s: string) {
 /** Pages with opening-hour status depend on the clock: re-render at least every 5 minutes. */
 const timeBucket = () => Math.floor(Date.now() / 300_000);
 
-function sendHtml(c: Context, body: string, status = 200, etag?: string) {
+export function sendHtml(c: Context, body: string, status = 200, etag?: string) {
   c.header('Content-Type', 'text/html; charset=utf-8');
   c.header('Cache-Control', 'public, max-age=0, must-revalidate');
   if (etag) c.header('ETag', etag);
@@ -156,7 +157,7 @@ async function resolve(path: string): Promise<Resolved | null> {
   return null;
 }
 
-async function notFoundPage(c: Context) {
+export async function notFoundPage(c: Context) {
   const ctx = await ctxFor(c);
   ctx.path = '/404';
   const body = await renderSystemPage(ctx, {
@@ -192,7 +193,7 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
 }
 
 /** Bots fill the hidden field or submit within a second; humans don't. */
-function looksLikeSpam(body: Record<string, unknown>): boolean {
+export function looksLikeSpam(body: Record<string, unknown>): boolean {
   if (typeof body.website === 'string' && body.website.trim()) return true;
   const t = parseInt(String(body._t ?? ''), 36);
   if (!t || Number.isNaN(t)) return true;
@@ -203,6 +204,7 @@ function looksLikeSpam(body: Record<string, unknown>): boolean {
 /* ---------- routes ---------- */
 
 export function publicRoutes(app: Hono<AppEnv>) {
+  bookingPublicRoutes(app);
   app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
     const name = c.req.param('name').replace('.js', '') as RuntimeName;
     const { code } = await runtimeScript(name);
@@ -770,4 +772,3 @@ function totalsHtml(q: { subtotal: number; discount: number; shipping: number; t
   )}</div>`;
 }
 
-export { ctxFor };

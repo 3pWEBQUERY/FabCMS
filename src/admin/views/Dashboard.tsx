@@ -13,7 +13,7 @@ import type { EntryStatus } from '../../shared/types';
 import { relativeTime } from '../../shared/text';
 
 interface DashboardData {
-  counts: { unread: number; comments: number; to_ship: number; review: number; new_leads: number; missing_alt: number };
+  counts: { unread: number; comments: number; to_ship: number; review: number; new_leads: number; missing_alt: number; pending_bookings: number; today_bookings: number };
   recent: { id: string; collection: string; slug: string; status: EntryStatus; title: string; updated_at: string; author_name: string }[];
   checklist: { id: string; label: string; done: boolean; href: string }[];
   stats: { totals: { visitors: number; pageviews: number; visitorsPrev: number }; series: DayPoint[] } | null;
@@ -61,6 +61,8 @@ export function Dashboard() {
 
   const inbox = data
     ? [
+        { n: data.counts.pending_bookings, label: 'Reservationsanfragen offen', to: '/reservationen', icon: 'calendar', show: can('bookings.manage') && settings?.modules.includes('booking') },
+        { n: data.counts.today_bookings, label: 'Reservationen heute', to: '/reservationen', icon: 'calendar', show: can('bookings.manage') && settings?.modules.includes('booking') },
         { n: data.counts.unread, label: 'neue Formular-Einträge', to: '/formulare', icon: 'inbox', show: can('forms.manage') },
         { n: data.counts.new_leads, label: 'neue Kontakte', to: '/kontakte', icon: 'people', show: can('leads.view') && settings?.modules.includes('leads') },
         { n: data.counts.to_ship, label: 'Bestellungen zu versenden', to: '/bestellungen?status=paid', icon: 'receipt', show: can('orders.view') },

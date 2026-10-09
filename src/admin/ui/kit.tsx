@@ -4,7 +4,7 @@ import * as RMenu from '@radix-ui/react-dropdown-menu';
 import * as RTooltip from '@radix-ui/react-tooltip';
 import * as RSelect from '@radix-ui/react-select';
 import { AnimatePresence, motion, LayoutGroup } from 'motion/react';
-import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon } from './icons';
 import type { EntryStatus } from '../../shared/types';
@@ -816,6 +816,9 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
   );
 }
 
+/** Controls that take an `id`, so a Field's label can point at them. */
+const LABELLABLE = new Set<unknown>(['input', 'textarea', 'select']);
+
 export function Field({
   label,
   help,
@@ -831,14 +834,35 @@ export function Field({
   htmlFor?: string;
   keyName?: string;
 }) {
+  // Without an explicit id the label is tied to the control automatically,
+  // so screen readers announce it and clicking the label focuses the field.
+  const auto = useId();
+  const hintId = useId();
+  let control = children;
+  let target = htmlFor;
+  if (!htmlFor && isValidElement<{ id?: string }>(children) && children.props.id === undefined && LABELLABLE.has(children.type)) {
+    control = cloneElement(children, { id: auto });
+    target = auto;
+  }
+  const note = error ?? help;
+  if (note && isValidElement<{ 'aria-describedby'?: string }>(control) && LABELLABLE.has(control.type) && !control.props['aria-describedby'])
+    control = cloneElement(control, { 'aria-describedby': hintId });
   return (
     <div className="field">
-      <label htmlFor={htmlFor}>
+      <label htmlFor={target}>
         {label}
         {keyName && <span className="field-key">{keyName}</span>}
       </label>
-      {children}
-      {error ? <span className="field-error">{error}</span> : help ? <span className="field-help">{help}</span> : null}
+      {control}
+      {error ? (
+        <span className="field-error" id={hintId}>
+          {error}
+        </span>
+      ) : help ? (
+        <span className="field-help" id={hintId}>
+          {help}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -906,3 +930,9 @@ export function PageHead({ title, sub, actions, back }: { title: ReactNode; sub?
 }
 
 export { motion, AnimatePresence, spring };
+
+// Own controls that accept an id are labellable too.
+LABELLABLE.add(Select);
+LABELLABLE.add(DateInput);
+LABELLABLE.add(DateTimeInput);
+LABELLABLE.add(SuggestInput);

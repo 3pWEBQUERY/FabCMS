@@ -2,7 +2,7 @@ import { sql } from './db';
 import { can, type Capability } from '../shared/roles';
 import type { Role } from '../shared/types';
 
-export type NotificationKind = 'form' | 'order' | 'paid' | 'comment' | 'review' | 'stock' | 'system';
+export type NotificationKind = 'form' | 'order' | 'paid' | 'comment' | 'review' | 'stock' | 'system' | 'booking';
 
 export interface Notification {
   id: string;

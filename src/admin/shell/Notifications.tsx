@@ -8,7 +8,7 @@ import { relativeTime } from '../../shared/text';
 
 interface Notice {
   id: string;
-  kind: 'form' | 'order' | 'paid' | 'comment' | 'review' | 'stock' | 'system';
+  kind: 'form' | 'order' | 'paid' | 'comment' | 'review' | 'stock' | 'system' | 'booking';
   title: string;
   body: string;
   href: string;
@@ -24,6 +24,7 @@ const KIND_ICON: Record<Notice['kind'], string> = {
   review: 'eye',
   stock: 'bag',
   system: 'alert',
+  booking: 'calendar',
 };
 
 interface Ctx {

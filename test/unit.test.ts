@@ -3,6 +3,7 @@ import { sanitizeRichText, safeHref } from '../src/shared/richtext';
 import { slugify, readability, formatPrice, excerpt } from '../src/shared/text';
 import { openStatus, compactHours, parseTime } from '../src/shared/hours';
 import { parseDay, formatDay, addMonths, monthGrid, longDay } from '../src/shared/dates';
+import { computeSlots, zonedToUtc, localDay, type BookingResource, type BookingService } from '../src/shared/booking';
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { createBlock, sentences } from '../src/shared/blocks';
 import { validateFields } from '../src/shared/fields';
@@ -106,6 +107,44 @@ describe('dates', () => {
     expect(grid).toHaveLength(42);
     expect(grid[0]).toBe('2026-09-28'); // Monday before 1 October (a Thursday)
     expect(grid[3]).toBe('2026-10-01');
+  });
+});
+
+describe('booking availability', () => {
+  const tz = 'Europe/Zurich';
+  const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: day === 1, slots: [{ from: '18:00', to: '22:00' }] }));
+  const table = (id: string, capacity: number): BookingResource => ({ id, name: id, kind: 'table', capacity, hours: null, ical_url: '', active: true, sort_index: 0 });
+  const service: BookingService = { id: 's', name: 'Tisch', description: '', duration_min: 120, buffer_min: 0, price: null, deposit: 0, resource_ids: [], active: true, sort_index: 0 };
+  const rules = { slotStep: 30, leadMinutes: 60, horizonDays: 60, maxParty: 8 };
+  const now = new Date('2026-10-20T08:00:00Z');
+  const base = { day: '2026-10-24', timeZone: tz, businessHours: hours, service, party: 2, busy: [], rules, now };
+
+  it('converts local times across summer and winter time', () => {
+    expect(zonedToUtc('2026-10-24', 19 * 60, tz).toISOString()).toBe('2026-10-24T17:00:00.000Z'); // CEST
+    expect(zonedToUtc('2026-10-26', 19 * 60, tz).toISOString()).toBe('2026-10-26T18:00:00.000Z'); // CET
+    expect(localDay(new Date('2026-10-24T22:30:00Z'), tz)).toMatchObject({ day: '2026-10-25', weekday: 7, minutes: 30 });
+  });
+  it('offers start times inside opening hours that leave room for the whole stay', () => {
+    const slots = computeSlots({ ...base, resources: [table('t1', 4)] });
+    expect(slots.map((s) => s.time)).toEqual(['18:00', '18:30', '19:00', '19:30', '20:00']);
+    expect(computeSlots({ ...base, day: '2026-10-26', resources: [table('t1', 4)] })).toEqual([]); // closed Mondays
+  });
+  it('fills the smallest fitting table and skips taken ones', () => {
+    const resources = [table('big', 6), table('small', 2)];
+    expect(computeSlots({ ...base, resources })[0].resourceId).toBe('small');
+    const busy = [{ resourceId: 'small', start: zonedToUtc('2026-10-24', 18 * 60, tz), end: zonedToUtc('2026-10-24', 20 * 60, tz) }];
+    const slots = computeSlots({ ...base, resources, busy });
+    expect(slots.find((s) => s.time === '18:00')?.resourceId).toBe('big');
+    expect(slots.find((s) => s.time === '20:00')?.resourceId).toBe('small');
+    expect(computeSlots({ ...base, party: 5, resources })).toHaveLength(5); // only the big table fits
+    expect(computeSlots({ ...base, party: 9, resources })).toEqual([]); // over the limit
+  });
+  it('respects closures, lead time and the booking horizon', () => {
+    const closure = [{ resourceId: null, start: zonedToUtc('2026-10-24', 0, tz), end: zonedToUtc('2026-10-25', 0, tz) }];
+    expect(computeSlots({ ...base, resources: [table('t', 4)], busy: closure })).toEqual([]);
+    const soon = new Date('2026-10-24T16:30:00Z'); // 18:30 local → 19:30 is the earliest
+    expect(computeSlots({ ...base, now: soon, resources: [table('t', 4)] })[0].time).toBe('19:30');
+    expect(computeSlots({ ...base, day: '2027-02-01', resources: [table('t', 4)] })).toEqual([]);
   });
 });
 

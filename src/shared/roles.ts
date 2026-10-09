@@ -11,6 +11,7 @@ export type Capability =
   | 'leads.view'
   | 'orders.view'
   | 'orders.manage'
+  | 'bookings.manage'
   | 'comments.moderate'
   | 'settings.manage'
   | 'users.manage'
@@ -31,6 +32,7 @@ const ALL: Capability[] = [
   'leads.view',
   'orders.view',
   'orders.manage',
+  'bookings.manage',
   'comments.moderate',
   'settings.manage',
   'users.manage',
@@ -55,6 +57,7 @@ export const ROLE_CAPS: Record<Role, Capability[]> = {
     'leads.view',
     'orders.view',
     'orders.manage',
+    'bookings.manage',
     'comments.moderate',
   ],
   author: ['content.edit.own', 'media.upload'],

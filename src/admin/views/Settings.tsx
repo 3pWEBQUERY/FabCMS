@@ -5,16 +5,17 @@ import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, TimeInput, Toggle, confirm } from '../ui/kit';
+import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, Toggle, confirm } from '../ui/kit';
 import { MediaField } from '../ui/FieldInput';
 import { LoadingFrame } from '../ui/loading';
+import { HoursEditor } from '../ui/HoursEditor';
+import { BookingSettings } from './BookingSettings';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
-import { DAY_NAMES } from '../../shared/hours';
 import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { shortId } from '../../shared/text';
-import type { NavItem, OpeningHoursDay, Role, SiteSettings, User } from '../../shared/types';
+import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 
@@ -35,6 +36,7 @@ const SECTIONS: Section[] = [
   { id: 'rechtliches', label: 'Rechtliches', icon: 'scale', cap: 'settings.manage' },
   { id: 'domain', label: 'Domain', icon: 'globe', cap: 'settings.manage' },
   { id: 'shop', label: 'Shop', icon: 'bag', cap: 'settings.manage', module: 'shop' },
+  { id: 'reservation', label: 'Reservation & Termine', icon: 'calendar', cap: 'settings.manage', module: 'booking' },
   { id: 'module', label: 'Module', icon: 'grid', cap: 'settings.manage' },
   { id: 'team', label: 'Team & Rollen', icon: 'people', cap: 'users.manage' },
   { id: 'daten', label: 'Daten & Datenschutz', icon: 'database', cap: 'privacy.manage' },
@@ -96,6 +98,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'rechtliches' && <LegalSettings />}
           {current.id === 'domain' && <DomainSettings />}
           {current.id === 'shop' && <ShopSettings />}
+          {current.id === 'reservation' && <BookingSettings />}
           {current.id === 'module' && <ModuleSettings />}
           {current.id === 'team' && <TeamSettings />}
           {current.id === 'daten' && <DataSettings />}
@@ -124,52 +127,6 @@ function Section({ title, sub, children, id }: { title: string; sub?: ReactNode;
 }
 
 /* ---------- website ---------- */
-
-function HoursEditor({ hours, onChange }: { hours: OpeningHoursDay[]; onChange: (h: OpeningHoursDay[]) => void }) {
-  const set = (day: number, patch: Partial<OpeningHoursDay>) => onChange(hours.map((h) => (h.day === day ? { ...h, ...patch } : h)));
-  const copyFromMonday = () => {
-    const mon = hours.find((h) => h.day === 1);
-    if (mon) onChange(hours.map((h) => (h.day <= 5 ? { ...mon, day: h.day, slots: mon.slots.map((s) => ({ ...s })) } : h)));
-  };
-  return (
-    <div className="stack tight">
-      {[...hours]
-        .sort((a, b) => a.day - b.day)
-        .map((h) => (
-          <div key={h.day} className="row wrap" style={{ gap: '0.6rem', alignItems: 'center' }}>
-            <span style={{ width: '6.5rem', fontWeight: 550 }} className="small">
-              {DAY_NAMES[h.day]}
-            </span>
-            <label className="check small" style={{ width: '7.5rem' }}>
-              <input type="checkbox" checked={!h.closed} onChange={(e) => set(h.day, { closed: !e.target.checked, slots: e.target.checked && !h.slots.length ? [{ from: '09:00', to: '18:00' }] : h.slots })} />
-              {h.closed ? 'geschlossen' : 'geöffnet'}
-            </label>
-            {!h.closed &&
-              h.slots.map((s, i) => (
-                <span key={i} className="row" style={{ gap: '0.3rem' }}>
-                  <TimeInput label={`${DAY_NAMES[h.day]} von`} value={s.from} onChange={(v) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, from: v } : x)) })} />
-                  –
-                  <TimeInput label={`${DAY_NAMES[h.day]} bis`} value={s.to} onChange={(v) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, to: v } : x)) })} />
-                  {h.slots.length > 1 && (
-                    <button className="btn ghost s icon-only" aria-label="Zeitfenster entfernen" onClick={() => set(h.day, { slots: h.slots.filter((_, j) => j !== i) })}>
-                      <Icon name="x" size="s" />
-                    </button>
-                  )}
-                </span>
-              ))}
-            {!h.closed && h.slots.length < 3 && (
-              <button className="btn ghost s" onClick={() => set(h.day, { slots: [...h.slots, { from: '14:00', to: '18:00' }] })}>
-                + Mittagspause
-              </button>
-            )}
-          </div>
-        ))}
-      <button className="linkish small" style={{ justifySelf: 'start' }} onClick={copyFromMonday}>
-        Montag auf Dienstag bis Freitag übertragen
-      </button>
-    </div>
-  );
-}
 
 function WebsiteSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();

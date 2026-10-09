@@ -26,12 +26,13 @@ const Comments = lazy(() => import('../views/Comments').then((m) => ({ default: 
 const Settings = lazy(() => import('../views/Settings').then((m) => ({ default: m.Settings })));
 const Account = lazy(() => import('../views/Account').then((m) => ({ default: m.Account })));
 const Stats = lazy(() => import('../views/Stats').then((m) => ({ default: m.Stats })));
+const Bookings = lazy(() => import('../views/Bookings').then((m) => ({ default: m.Bookings })));
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
 
 const LEVELS = [
   { to: '/seiten', label: 'Seiten', icon: 'page', match: ['/seiten'] },
-  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare'] },
+  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen'] },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings', match: ['/einstellungen', '/konto'] },
 ];
 
@@ -148,6 +149,7 @@ export function Shell() {
                 { path: '/bestellungen', render: () => <Orders /> },
                 { path: '/bestellungen/:id', render: (p) => <OrderDetail key={p.id} id={p.id} /> },
                 { path: '/gutscheine', render: () => <Coupons /> },
+                { path: '/reservationen', render: () => <Bookings /> },
                 { path: '/kommentare', render: () => <Comments /> },
                 { path: '/einstellungen', render: () => <Settings section="website" /> },
                 { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },

@@ -177,6 +177,22 @@ export interface SiteSettings {
     orderPrefix: string;
     notifyEmail: string;
   };
+  booking: {
+    /** «table» asks for the number of people; «appointment» for a service and optionally a person. */
+    mode: 'table' | 'appointment';
+    slotStep: number;
+    leadMinutes: number;
+    horizonDays: number;
+    maxParty: number;
+    /** Off: bookings arrive as «Offen» and are confirmed by hand. */
+    autoConfirm: boolean;
+    reminderHours: number;
+    /** Guests can cancel themselves until this many hours before. */
+    cancelHours: number;
+    notifyEmail: string;
+    /** Secret part of the calendar subscription URL. */
+    feedToken: string;
+  };
   blog: { comments: boolean; perPage: number };
   menu: { showAllergens: boolean; dailyTitle: string };
   roleModes: Record<Role, Mode[]>;

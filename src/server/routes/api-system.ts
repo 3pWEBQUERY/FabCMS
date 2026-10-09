@@ -274,7 +274,9 @@ export function systemApi(app: Hono<AppEnv>) {
              (select count(*)::int from orders where status = 'paid') as to_ship,
              (select count(*)::int from entries where status = 'review') as review,
              (select count(*)::int from contacts where status = 'new') as new_leads,
-             (select count(*)::int from media where mime like 'image/%' and alt = '' and not private) as missing_alt`;
+             (select count(*)::int from media where mime like 'image/%' and alt = '' and not private) as missing_alt,
+             (select count(*)::int from bookings where status = 'pending' and starts_at > now()) as pending_bookings,
+             (select count(*)::int from bookings where status = 'confirmed' and (starts_at at time zone ${s.timezone})::date = (now() at time zone ${s.timezone})::date) as today_bookings`;
     const recent = await sql`
       select e.id, e.collection, e.slug, e.status, e.data ->> 'title' as title, e.updated_at, u.name as author_name
       from entries e left join users u on u.id = e.author_id

@@ -70,6 +70,8 @@ export function organizationLd(ctx: RenderContext, logo: MediaItem | null): Reco
   if (b.type !== 'Organization' && b.type !== 'NGO' && s.hours.length) ld.openingHoursSpecification = schemaOpeningHours(s.hours);
   if (b.priceRange) ld.priceRange = b.priceRange;
   if (b.servesCuisine) ld.servesCuisine = b.servesCuisine;
+  // Tells search engines that tables can be booked on this site.
+  if (ctx.settings.modules.includes('booking') && ['Restaurant', 'CafeOrCoffeeShop', 'BarOrPub'].includes(b.type)) ld.acceptsReservations = true;
   if (s.modules.includes('menu')) ld.hasMenu = `${ctx.base}/karte`;
   if (s.social.length) ld.sameAs = s.social.map((x) => x.href);
   return ld;
