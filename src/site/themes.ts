@@ -70,6 +70,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--step-0);line-height:1.6;font-kerning:normal;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 img,picture,video,svg{display:block;max-width:100%}
 img{height:auto}
+/* a broken image shows a calm tile with its description instead of the browser's broken-image icon */
+img{position:relative}
+img::before{content:"";position:absolute;inset:0;background:var(--surface)}
+img::after{content:attr(alt);position:absolute;inset:0;display:grid;place-items:center;padding:1rem;text-align:center;font-family:var(--font-body);font-size:var(--step-n1);line-height:1.4;color:var(--ink-2)}
 a{color:inherit;text-decoration-thickness:.06em;text-underline-offset:.2em;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);text-decoration-skip-ink:auto;transition:text-decoration-color .15s,text-decoration-thickness .15s,text-underline-offset .15s}
 a:hover{text-decoration-color:var(--accent);text-decoration-thickness:.12em;text-underline-offset:.24em}
 a:active{color:var(--accent)}

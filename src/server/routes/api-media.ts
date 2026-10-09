@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import { z } from 'zod';
 import { sql, json } from '../db';
 import { audit, requireAnyCap, requireCap, type AppEnv } from '../auth';
-import { bumpMediaVersion, deleteMedia, isImage, storeUpload, effectiveSize } from '../media';
+import { bumpMediaVersion, deleteMedia, isImage, refreshPlaceholder, storeUpload, effectiveSize } from '../media';
 import { storage } from '../storage';
 import { badRequest, notFound } from '../lib/http';
 import { bumpGeneration } from '../settings';
@@ -98,6 +98,7 @@ export function mediaApi(app: Hono<AppEnv>) {
       if (crop && (crop.x + crop.w > 1.0001 || crop.y + crop.h > 1.0001)) throw badRequest('Der Zuschnitt liegt ausserhalb des Bildes.');
       await sql`update media set edits = ${json(body.edits)} where id = ${id}`;
       await bumpMediaVersion(id);
+      await refreshPlaceholder(id);
     }
     bumpGeneration();
     const [next] = await sql`select * from media where id = ${id}`;

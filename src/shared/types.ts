@@ -202,6 +202,10 @@ export interface MediaItem {
   tags: string[];
   version: number;
   created_at: string;
+  /** Main colour while loading; '' = none (transparent image). */
+  color?: string | null;
+  /** Tiny WebP preview, base64. */
+  lqip?: string | null;
 }
 
 export interface MediaEdits {

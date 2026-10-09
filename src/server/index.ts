@@ -5,9 +5,10 @@ import { migrate } from './migrate';
 import { env, s3Configured } from './env';
 import { syncBuiltinCollections } from './content';
 import { getSetupCode, hasUsers } from './auth';
-import { getSettings } from './settings';
+import { bumpGeneration, getSettings } from './settings';
 import { startScheduler } from './scheduler';
 import { runtimeScript } from '../site/assets';
+import { backfillPlaceholders } from './media';
 import { sql } from './db';
 
 async function main() {
@@ -36,6 +37,14 @@ async function main() {
     console.info('');
   }
   startScheduler();
+  // Loading previews for images uploaded before they existed; runs once, in the background.
+  void backfillPlaceholders()
+    .then((n) => {
+      if (!n) return;
+      console.info(`[nova] Vorschaubilder berechnet: ${n}`);
+      bumpGeneration(); // cached pages pick them up
+    })
+    .catch((e) => console.error('[nova] Vorschaubilder:', e));
 
   const shutdown = async () => {
     await sql.end({ timeout: 5 });

@@ -99,8 +99,44 @@ export async function storeUpload(input: UploadInput): Promise<MediaItem> {
     returning id`;
   const key = `media/${row.id}/original${storedExt}`;
   await storage.put(key, buffer, mime);
-  const [item] = await sql`update media set storage_key = ${key} where id = ${row.id} returning *`;
+  await sql`update media set storage_key = ${key} where id = ${row.id}`;
+  if (width) await storePlaceholder(row.id as string, buffer, {});
+  const [item] = await sql`select * from media where id = ${row.id}`;
   return item as unknown as MediaItem;
+}
+
+/**
+ * Main colour and a ~24 px WebP of the (edited) image. The site shows them,
+ * blurred, until the real image has loaded. Images with transparency get none:
+ * the preview would stay visible behind transparent areas.
+ */
+export async function computePlaceholder(original: Buffer, edits: MediaEdits): Promise<{ color: string; lqip: string }> {
+  const small = await renderVariant(original, edits, 24, 'webp');
+  const stats = await sharp(small).stats();
+  if (!stats.isOpaque) return { color: '', lqip: '' };
+  const { r, g, b } = stats.dominant;
+  const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  return { color: hex, lqip: small.toString('base64') };
+}
+
+async function storePlaceholder(id: string, original: Buffer, edits: MediaEdits) {
+  const p = await computePlaceholder(original, edits).catch(() => ({ color: '', lqip: '' }));
+  await sql`update media set color = ${p.color}, lqip = ${p.lqip} where id = ${id}`;
+}
+
+/** After an edit (crop, rotation, brightness) the preview has to match again. */
+export async function refreshPlaceholder(id: string): Promise<void> {
+  const [m] = await sql`select storage_key, mime, edits from media where id = ${id}`;
+  if (!m || !IMAGE_MIMES.has(m.mime)) return;
+  const original = await storage.getBuffer(m.storage_key);
+  if (original) await storePlaceholder(id, original, m.edits as MediaEdits);
+}
+
+/** Images uploaded before placeholders existed get theirs in the background, a few at a time. */
+export async function backfillPlaceholders(limit = 500): Promise<number> {
+  const rows = await sql`select id from media where color is null and mime like 'image/%' and mime <> 'image/svg+xml' order by created_at desc limit ${limit}`;
+  for (const r of rows) await refreshPlaceholder(r.id as string).catch(() => sql`update media set color = '', lqip = '' where id = ${r.id}`);
+  return rows.length;
 }
 
 export const isImage = (m: { mime: string }) => IMAGE_MIMES.has(m.mime);
