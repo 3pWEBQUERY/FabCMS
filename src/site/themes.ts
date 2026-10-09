@@ -102,6 +102,19 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);le
 .btn:active{transform:translateY(0)}
 .btn-2{display:inline-flex;align-items:center;gap:.4em;min-height:2.75rem;font-weight:600;text-decoration:underline;text-decoration-color:var(--line)}
 .btn-2::after{content:"→";transition:transform .15s}.btn-2:hover::after{transform:translateX(3px)}
+/* buttons: own states instead of browser defaults (grey face, tap flash, no disabled/busy look) */
+html{-webkit-tap-highlight-color:transparent}
+.btn{position:relative;-webkit-user-select:none;user-select:none}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn:disabled,.btn[aria-disabled=true]{opacity:.45;cursor:not-allowed;transform:none}
+.btn[aria-busy=true]{color:transparent!important;background:var(--btn-bg,var(--ink))!important;cursor:progress;transform:none}
+.btn[aria-busy=true]::after{content:"";position:absolute;inset:0;margin:auto;width:1.15em;height:1.15em;border:2px solid var(--btn-ink,var(--bg));border-right-color:transparent;border-radius:50%;animation:nspin .7s linear infinite}
+@keyframes nspin{to{transform:rotate(1turn)}}
+button.btn-2{padding:0;border:0;background:none;color:inherit;cursor:pointer}
+button.btn-2::after{content:none}
+button.btn-2:hover{text-decoration-color:var(--accent)}
+button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
+.btn-2[data-step-back]::before{content:"←";transition:transform .15s}.btn-2[data-step-back]:hover::before{transform:translateX(-3px)}
 
 /* header */
 .site-header{position:relative;z-index:20;background:var(--bg);border-bottom:1px solid var(--header-rule,transparent)}

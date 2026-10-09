@@ -256,7 +256,8 @@ d.querySelectorAll<HTMLFormElement>('form[data-nova-form]').forEach((form) => {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const button = form.querySelector<HTMLButtonElement>('button[type=submit]:not([hidden])') ?? form.querySelector('button[type=submit]');
-    if (button) button.disabled = true;
+    if (button?.getAttribute('aria-busy')) return;
+    button?.setAttribute('aria-busy', 'true');
     form.querySelector('.form-err')?.remove();
     try {
       const r = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
@@ -276,7 +277,7 @@ d.querySelectorAll<HTMLFormElement>('form[data-nova-form]').forEach((form) => {
       p.setAttribute('role', 'alert');
       p.textContent = (err as Error).message || 'Das hat nicht geklappt. Bitte versuch es nochmals.';
       form.prepend(p);
-      if (button) button.disabled = false;
+      button?.removeAttribute('aria-busy');
     }
   });
 });
@@ -293,8 +294,9 @@ d.querySelectorAll<HTMLSelectElement>('select[name=variant]').forEach((sel) => {
 d.querySelectorAll<HTMLFormElement>('form[data-add-to-cart]').forEach((form) => {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const button = form.querySelector('button');
-    if (button) button.disabled = true;
+    const button = form.querySelector('button[type=submit], button:not([type])');
+    if (button?.getAttribute('aria-busy')) return;
+    button?.setAttribute('aria-busy', 'true');
     try {
       const r = await fetch(form.action, { method: 'POST', body: new URLSearchParams(new FormData(form) as unknown as Record<string, string>), headers: { Accept: 'application/json' } });
       const res = (await r.json()) as { ok: boolean; count: number; message: string };
@@ -318,7 +320,22 @@ d.querySelectorAll<HTMLFormElement>('form[data-add-to-cart]').forEach((form) => 
         note.append(a);
       }
     } finally {
-      if (button) button.disabled = false;
+      button?.removeAttribute('aria-busy');
     }
   });
+});
+
+/* ---------- buttons: busy state while a normal form submits, no double orders ---------- */
+d.addEventListener('submit', (e) => {
+  if (e.defaultPrevented) return; // async forms above handle themselves
+  const form = e.target as HTMLFormElement;
+  if (form.dataset.busy) return e.preventDefault();
+  form.dataset.busy = '1';
+  (e.submitter ?? form.querySelector('button[type=submit], button:not([type])'))?.setAttribute('aria-busy', 'true');
+});
+// Back/forward cache: a page restored after navigating away must not stay busy.
+addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  d.querySelectorAll('[aria-busy]').forEach((b) => b.removeAttribute('aria-busy'));
+  d.querySelectorAll<HTMLFormElement>('form[data-busy]').forEach((f) => delete f.dataset.busy);
 });
