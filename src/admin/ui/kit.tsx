@@ -4,11 +4,12 @@ import * as RMenu from '@radix-ui/react-dropdown-menu';
 import * as RTooltip from '@radix-ui/react-tooltip';
 import * as RSelect from '@radix-ui/react-select';
 import { AnimatePresence, motion, LayoutGroup } from 'motion/react';
-import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon } from './icons';
 import type { EntryStatus } from '../../shared/types';
 import { parseTime } from '../../shared/hours';
+import { MONTHS, WEEKDAYS_SHORT, addDays, addMonths, formatDay, fromIsoDay, isoDay, longDay, monthGrid, parseDay } from '../../shared/dates';
 
 /* ---------- pointer origin: dialogs grow out of what was clicked ---------- */
 
@@ -475,6 +476,269 @@ export function TimeInput({ value, onChange, label, className, style }: { value:
         </RPopover.Content>
       </RPopover.Portal>
     </RPopover.Root>
+  );
+}
+
+/* ---------- date: Swiss text field with our own calendar ---------- */
+
+export function DateInput({
+  value,
+  onChange,
+  id,
+  label,
+  min,
+  clearable = true,
+  className,
+}: {
+  /** "YYYY-MM-DD" or "" */
+  value: string;
+  onChange: (v: string) => void;
+  id?: string;
+  label?: string;
+  /** Earliest selectable day, "YYYY-MM-DD". */
+  min?: string;
+  clearable?: boolean;
+  className?: string;
+}) {
+  const today = isoDay(new Date());
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(formatDay(value));
+  const [active, setActive] = useState(value || today);
+  const input = useRef<HTMLInputElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const inGrid = useRef(false);
+  // Focus returns to the field after a pick; that must not reopen the calendar.
+  const quietFocus = useRef(false);
+  const gridId = useId();
+  useEffect(() => setText(formatDay(value)), [value]);
+  useEffect(() => {
+    if (inGrid.current) panel.current?.querySelector<HTMLElement>(`[data-day="${active}"]`)?.focus();
+  }, [active]);
+
+  const allowed = (d: string) => !min || d >= min;
+  const view = fromIsoDay(active) ?? new Date();
+  const days = monthGrid(view.getFullYear(), view.getMonth());
+  const viewMonth = active.slice(0, 7);
+
+  const commit = (t: string) => {
+    if (!t.trim()) {
+      setText('');
+      if (clearable && value) onChange('');
+      else if (!clearable) setText(formatDay(value));
+      return;
+    }
+    const d = parseDay(t);
+    if (d && allowed(d)) {
+      setText(formatDay(d));
+      if (d !== value) onChange(d);
+    } else setText(formatDay(value));
+  };
+  const close = (refocus: boolean) => {
+    inGrid.current = false;
+    setOpen(false);
+    if (refocus && document.activeElement !== input.current) {
+      quietFocus.current = true;
+      input.current?.focus();
+    }
+  };
+  const pick = (d: string) => {
+    if (!allowed(d)) return;
+    setActive(d);
+    setText(formatDay(d));
+    if (d !== value) onChange(d);
+    close(true);
+  };
+  const openAt = (d: string) => {
+    setActive(d);
+    setOpen(true);
+  };
+  /** Where the calendar opens: what is typed, else the value, else today (or the earliest allowed day). */
+  const start = () => parseDay(text) ?? (value || (min && min > today ? min : today));
+  const leaving = (to: EventTarget | null) => !(to instanceof Node && (panel.current?.contains(to) || input.current === to));
+
+  const gridKeys = (e: ReactKeyboardEvent) => {
+    const moves: Record<string, () => string> = {
+      ArrowLeft: () => addDays(active, -1),
+      ArrowRight: () => addDays(active, 1),
+      ArrowUp: () => addDays(active, -7),
+      ArrowDown: () => addDays(active, 7),
+      PageUp: () => addMonths(active, -1),
+      PageDown: () => addMonths(active, 1),
+      Home: () => addDays(active, -((fromIsoDay(active)!.getDay() + 6) % 7)),
+      End: () => addDays(active, 6 - ((fromIsoDay(active)!.getDay() + 6) % 7)),
+    };
+    if (moves[e.key]) {
+      e.preventDefault();
+      setActive(moves[e.key]());
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      pick(active);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    }
+  };
+
+  return (
+    <RPopover.Root open={open} onOpenChange={(o) => (o ? setOpen(true) : close(false))}>
+      <RPopover.Anchor asChild>
+        <span className={`date-input ${className ?? ''}`}>
+          <input
+            ref={input}
+            id={id}
+            className="input num"
+            placeholder="TT.MM.JJJJ"
+            inputMode="numeric"
+            autoComplete="off"
+            role="combobox"
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={gridId}
+            aria-invalid={text.trim() !== '' && text !== formatDay(value) && !parseDay(text) ? true : undefined}
+            value={text}
+            onFocus={() => {
+              if (quietFocus.current) quietFocus.current = false;
+              else openAt(start());
+            }}
+            onClick={() => !open && openAt(start())}
+            onChange={(e) => {
+              setText(e.target.value);
+              const d = parseDay(e.target.value);
+              if (d) setActive(d);
+              setOpen(true);
+            }}
+            onBlur={(e) => {
+              if (!leaving(e.relatedTarget)) return;
+              commit(text);
+              close(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const from = open ? active : start();
+                setActive(from);
+                setOpen(true);
+                inGrid.current = true;
+                requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>(`[data-day="${from}"]`)?.focus());
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                commit(text);
+                close(false);
+              } else if (e.key === 'Escape' && open) {
+                e.stopPropagation();
+                setText(formatDay(value));
+                close(false);
+              }
+            }}
+          />
+          <Icon name="calendar" size="s" className="date-icon" />
+        </span>
+      </RPopover.Anchor>
+      <RPopover.Portal>
+        <RPopover.Content
+          ref={panel}
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="popover cal pop-anim"
+          role="dialog"
+          aria-label={label ? `${label}: Datum wählen` : 'Datum wählen'}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.target instanceof Node && input.current?.parentElement?.contains(e.target) && e.preventDefault()}
+          // Clicks on plain text inside the panel must not steal focus (that would read as leaving).
+          onMouseDown={(e) => e.target instanceof Element && !e.target.closest('button') && e.preventDefault()}
+          onBlur={(e) => {
+            if (leaving(e.relatedTarget)) {
+              commit(text);
+              close(false);
+            }
+          }}
+        >
+          <div className="cal-head">
+            <button type="button" className="btn ghost s icon-only" aria-label="Vorheriger Monat" onMouseDown={(e) => e.preventDefault()} onClick={() => setActive(addMonths(active, -1))}>
+              <Icon name="chevronLeft" size="s" />
+            </button>
+            <strong aria-live="polite">
+              {MONTHS[view.getMonth()]} {view.getFullYear()}
+            </strong>
+            <button type="button" className="btn ghost s icon-only" aria-label="Nächster Monat" onMouseDown={(e) => e.preventDefault()} onClick={() => setActive(addMonths(active, 1))}>
+              <Icon name="chevronRight" size="s" />
+            </button>
+          </div>
+          <div role="grid" id={gridId} className="cal-grid" onKeyDown={gridKeys}>
+            <div role="row" className="cal-row">
+              {WEEKDAYS_SHORT.map((w) => (
+                <span key={w} role="columnheader" className="cal-wd">
+                  {w}
+                </span>
+              ))}
+            </div>
+            {[0, 1, 2, 3, 4, 5].map((r) => (
+              <div key={r} role="row" className="cal-row">
+                {days.slice(r * 7, r * 7 + 7).map((d) => (
+                  <span key={d} role="gridcell" aria-selected={d === value}>
+                    <button
+                      type="button"
+                      data-day={d}
+                      tabIndex={d === active ? 0 : -1}
+                      className="cal-day num"
+                      data-outside={d.slice(0, 7) !== viewMonth ? '' : undefined}
+                      data-today={d === today ? '' : undefined}
+                      data-selected={d === value ? '' : undefined}
+                      data-active={d === active ? '' : undefined}
+                      disabled={!allowed(d)}
+                      aria-label={longDay(d)}
+                      onMouseDown={(e) => !inGrid.current && e.preventDefault()}
+                      onFocus={() => {
+                        inGrid.current = true;
+                        if (d !== active) setActive(d);
+                      }}
+                      onClick={() => pick(d)}
+                    >
+                      {Number(d.slice(8))}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="cal-foot">
+            <button type="button" className="linkish small" disabled={!allowed(today)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(today)}>
+              Heute
+            </button>
+            {clearable && value && (
+              <button
+                type="button"
+                className="linkish small muted"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setText('');
+                  onChange('');
+                  close(true);
+                }}
+              >
+                Leeren
+              </button>
+            )}
+          </div>
+        </RPopover.Content>
+      </RPopover.Portal>
+    </RPopover.Root>
+  );
+}
+
+/** Date + time as "YYYY-MM-DDTHH:MM" (local), built from DateInput and TimeInput. */
+export function DateTimeInput({ value, onChange, id, label, min, defaultTime = '09:00' }: { value: string; onChange: (v: string) => void; id?: string; label?: string; min?: string; defaultTime?: string }) {
+  const day = value.slice(0, 10);
+  const time = value.slice(11, 16);
+  return (
+    <div className="row" style={{ gap: '0.5rem', flexWrap: 'nowrap' }}>
+      <DateInput id={id} label={label ? `${label}, Datum` : 'Datum'} value={day} min={min?.slice(0, 10)} onChange={(d) => onChange(d ? `${d}T${time || defaultTime}` : '')} />
+      <TimeInput label={label ? `${label}, Uhrzeit` : 'Uhrzeit'} value={time} onChange={(t) => onChange(`${day || isoDay(new Date())}T${t}`)} />
+    </div>
   );
 }
 

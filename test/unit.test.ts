@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sanitizeRichText, safeHref } from '../src/shared/richtext';
 import { slugify, readability, formatPrice, excerpt } from '../src/shared/text';
 import { openStatus, compactHours, parseTime } from '../src/shared/hours';
+import { parseDay, formatDay, addMonths, monthGrid, longDay } from '../src/shared/dates';
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { createBlock, sentences } from '../src/shared/blocks';
 import { validateFields } from '../src/shared/fields';
@@ -87,6 +88,24 @@ describe('opening hours', () => {
     for (const [typed, want] of [['9', '09:00'], ['930', '09:30'], ['0930', '09:30'], ['9.30', '09:30'], ['9h30', '09:30'], ['18:15', '18:15'], ['1815', '18:15'], ['18 Uhr', '18:00'], ['24', '00:00']] as const)
       expect(parseTime(typed), typed).toBe(want);
     for (const bad of ['', 'abc', '25', '9:75', '24:30', '9:5', '12345']) expect(parseTime(bad), bad).toBeNull();
+  });
+});
+
+describe('dates', () => {
+  const today = new Date(2026, 9, 9); // Fr, 9. Oktober 2026
+  it('reads typed dates the Swiss way', () => {
+    for (const [typed, want] of [['9.10.2026', '2026-10-09'], ['09.10.26', '2026-10-09'], ['9.10.', '2026-10-09'], ['9.10', '2026-10-09'], ['9/10/2026', '2026-10-09'], ['2026-10-09', '2026-10-09'], ['heute', '2026-10-09'], ['morgen', '2026-10-10'], ['29.2.2028', '2028-02-29']] as const)
+      expect(parseDay(typed, today), typed).toBe(want);
+    for (const bad of ['', 'bald', '31.2.2026', '29.2.2026', '13.13.2026', '0.1.2026']) expect(parseDay(bad, today), bad).toBeNull();
+  });
+  it('formats and walks the calendar', () => {
+    expect(formatDay('2026-10-09')).toBe('09.10.2026');
+    expect(longDay('2026-10-09')).toBe('Freitag, 9. Oktober 2026');
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28');
+    const grid = monthGrid(2026, 9);
+    expect(grid).toHaveLength(42);
+    expect(grid[0]).toBe('2026-09-28'); // Monday before 1 October (a Thursday)
+    expect(grid[3]).toBe('2026-10-01');
   });
 });
 

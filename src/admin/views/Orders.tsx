@@ -3,10 +3,11 @@ import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Switch, confirm, Select } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Switch, confirm, DateInput, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatMoney, formatPrice } from '../../shared/text';
+import { isoDay } from '../../shared/dates';
 
 interface Line {
   title: string;
@@ -366,7 +367,7 @@ export function Coupons() {
             </Field>
           </div>
           <Field label="Gültig bis">
-            <input className="input" type="date" value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
+            <DateInput label="Gültig bis" value={f.until} min={isoDay(new Date())} onChange={(v) => setF({ ...f, until: v })} />
           </Field>
         </div>
         <div className="dialog-actions">

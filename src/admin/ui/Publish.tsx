@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
-import { Dialog, Menu, confirm } from './kit';
+import { DateTimeInput, Dialog, Menu, confirm } from './kit';
+import { isoDay } from '../../shared/dates';
 import { Icon } from './icons';
 import { useToast } from './toast';
 import { celebrate } from './confetti';
@@ -37,6 +38,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
     d.setHours(8, 0, 0, 0);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   });
+  const past = Boolean(when) && new Date(when).getTime() <= Date.now();
   const e = doc.entry;
   if (!e) return null;
   const canPublish = can('content.publish');
@@ -103,12 +105,13 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
         />
       )}
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen} title="Später veröffentlichen" description="Nova veröffentlicht automatisch zum gewählten Zeitpunkt.">
-        <input className="input" type="datetime-local" value={when} onChange={(ev) => setWhen(ev.target.value)} min={new Date().toISOString().slice(0, 16)} />
+        <DateTimeInput label="Veröffentlichen am" value={when} onChange={setWhen} min={isoDay(new Date())} defaultTime="08:00" />
+        {past && <p className="field-error">Dieser Zeitpunkt liegt in der Vergangenheit.</p>}
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setScheduleOpen(false)}>
             Abbrechen
           </button>
-          <button className="btn primary" disabled={busy} onClick={() => publish(when)}>
+          <button className="btn primary" disabled={busy || !when || past} onClick={() => publish(when)}>
             Planen
           </button>
         </div>

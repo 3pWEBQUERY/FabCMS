@@ -1184,7 +1184,7 @@ button.list-item {
   }
 }
 .popover {
-  z-index: 70;
+  z-index: 85; /* above dialogs (81): selects, menus and calendars also open inside them */
   background: var(--panel);
   border-radius: var(--r-l);
   box-shadow: var(--shadow-2);
@@ -2620,4 +2620,101 @@ button.list-item {
   min-width: 7rem;
   max-height: min(16rem, var(--radix-popover-content-available-height, 60vh));
   overflow: auto;
+}
+
+/* Date fields: Swiss text field with our own calendar. */
+.date-input {
+  position: relative;
+  display: inline-flex;
+  width: 9.5rem;
+  flex: none;
+}
+.date-input .input {
+  padding-right: 2rem;
+}
+.date-icon {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.popover.cal {
+  width: 17.5rem;
+  padding: 0.6rem;
+  overflow: visible;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.cal-head strong {
+  font-size: var(--t-s);
+  font-weight: 650;
+}
+.cal-grid {
+  display: grid;
+  gap: 2px;
+}
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-wd {
+  text-align: center;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 0.2rem 0;
+}
+.cal-day {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: var(--r-m);
+  background: none;
+  font-size: var(--t-s);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cal-day:hover,
+.cal-day[data-active] {
+  background: var(--hover);
+}
+.cal-day:focus-visible {
+  outline: 2px solid var(--sel);
+  outline-offset: -2px;
+}
+.cal-day[data-outside] {
+  color: var(--ink-3);
+}
+.cal-day[data-today] {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.cal-day[data-selected] {
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 650;
+}
+.cal-day:disabled {
+  color: var(--ink-3);
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: none;
+}
+.cal-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0 0.2rem;
+}
+@media (pointer: coarse) {
+  .date-input {
+    width: 10.5rem;
+  }
 }

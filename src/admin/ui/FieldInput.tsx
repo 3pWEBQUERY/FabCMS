@@ -6,7 +6,7 @@ import { shortId } from '../../shared/text';
 import { useSession } from '../lib/session';
 import { useApi } from '../lib/hooks';
 import { Icon } from './icons';
-import { Field, Select, SuggestInput, Toggle } from './kit';
+import { DateInput, DateTimeInput, Field, Select, SuggestInput, Toggle } from './kit';
 import { RichText } from './RichText';
 import { MediaPicker, useMedia } from './MediaPicker';
 
@@ -97,9 +97,9 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
     case 'money':
       return wrap(<MoneyInput id={id} value={value as number | null} onChange={onChange} />);
     case 'date':
-      return wrap(<input id={id} className="input" type="date" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)} />);
+      return wrap(<DateInput id={id} value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} />);
     case 'datetime':
-      return wrap(<input id={id} className="input" type="datetime-local" value={(value as string)?.slice(0, 16) ?? ''} onChange={(e) => onChange(e.target.value || null)} />);
+      return wrap(<DateTimeInput id={id} value={(value as string)?.slice(0, 16) ?? ''} onChange={(v) => onChange(v || null)} />);
     case 'boolean':
       return (
         <div className="field">
