@@ -173,7 +173,18 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(cart.data).toContain('inkl. 8.1% MwSt.');
     const order = await req('POST', '/kasse', undefined, {
       cookies: shop,
-      form: { name: 'Erika', email: 'erika@example.ch', street: 'Weg 1', zip: '8000', city: 'Zürich', country: 'CH', shippingMethod: 'ship', payment: 'invoice', coupon: 'LINDE10', acceptTerms: '1' },
+      form: {
+        name: 'Erika',
+        email: 'erika@example.ch',
+        street: 'Weg 1',
+        zip: '8000',
+        city: 'Zürich',
+        country: 'CH',
+        shippingMethod: 'ship',
+        payment: 'invoice',
+        coupon: 'LINDE10',
+        acceptTerms: '1',
+      },
     });
     expect(order.status).toBe(303);
     expect(order.headers.get('location')).toMatch(/^\/bestellung\//);
@@ -186,7 +197,11 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
   it('accepts form submissions, rejects bots silently, creates a lead', async () => {
     const [form] = await sql`select id, fields from forms where name = 'Kontakt'`;
     const anon = new Map<string, string>();
-    const bot = await req('POST', `/_nova/forms/${form.id}`, undefined, { cookies: anon, headers: { Accept: 'application/json' }, form: { website: 'spam', _t: Date.now().toString(36), name: 'Bot' } });
+    const bot = await req('POST', `/_nova/forms/${form.id}`, undefined, {
+      cookies: anon,
+      headers: { Accept: 'application/json' },
+      form: { website: 'spam', _t: Date.now().toString(36), name: 'Bot' },
+    });
     expect(bot.data.ok).toBe(true);
     const human = await req('POST', `/_nova/forms/${form.id}`, undefined, {
       cookies: anon,
@@ -219,6 +234,44 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(write.status).toBe(401);
   });
 
+  it('answers GraphQL queries generated from the content types', async () => {
+    const anon = { cookies: new Map() };
+    const q = await req(
+      'POST',
+      '/api/v1/graphql',
+      { query: '{ site { name } dishes(limit: 2, filter: {category: "Desserts"}) { total items { title slug prices { label price } allergens } } }' },
+      anon,
+    );
+    expect(q.status).toBe(200);
+    expect(q.data.errors).toBeUndefined();
+    expect(q.data.data.site.name).toBe('Gasthaus Linde');
+    expect(q.data.data.dishes.items.length).toBeGreaterThan(0);
+    const slug = q.data.data.dishes.items[0].slug;
+    const one = await req(
+      'GET',
+      `/api/v1/graphql?query=${encodeURIComponent('query($s: String) { dish(slug: $s) { title url } }')}&variables=${encodeURIComponent(JSON.stringify({ s: slug }))}`,
+      undefined,
+      anon,
+    );
+    expect(one.data.data.dish.title).toBe(q.data.data.dishes.items[0].title);
+
+    // Schema as SDL, unknown fields and too deep queries are rejected before anything runs.
+    expect((await req('GET', '/api/v1/graphql/schema.graphql', undefined, anon)).data).toContain('type Dish {');
+    expect((await req('POST', '/api/v1/graphql', { query: '{ dishes { items { nope } } }' }, anon)).status).toBe(400);
+    const tooDeep = '{ site { name } ' + 'pages { items { '.repeat(5) + 'title' + ' } }'.repeat(5) + ' }';
+    expect((await req('POST', '/api/v1/graphql', { query: tooDeep }, anon)).data.errors[0].message).toMatch(/verschachtelt/);
+
+    // Writes need a token with write scope; GET never mutates.
+    const create =
+      'mutation { createDish(data: {title: \"Zitronentarte\", category: \"Desserts\", prices: [{label: \"\", price: 1200}]}, publish: true) { id title status prices { price } } }';
+    expect((await req('POST', '/api/v1/graphql', { query: create }, anon)).data.errors[0].message).toMatch(/Schreibrecht/);
+    const token = (await req('POST', '/api/tokens', { name: 'GraphQL', scopes: ['read', 'write'] })).data.secret;
+    const auth = { cookies: new Map(), headers: { authorization: `Bearer ${token}` } };
+    expect((await req('GET', `/api/v1/graphql?query=${encodeURIComponent(create)}`, undefined, auth)).status).toBe(405);
+    const made = await req('POST', '/api/v1/graphql', { query: create }, auth);
+    expect(made.data.data.createDish).toMatchObject({ title: 'Zitronentarte', status: 'published' });
+  });
+
   it('answers privacy requests and anonymises orders', async () => {
     const info = await req('GET', '/api/privacy?email=erika@example.ch');
     expect(info.data.counts.orders).toBe(1);
@@ -246,7 +299,16 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(slots.data.slots.map((x: { time: string }) => x.time)).toContain('19:00');
 
     const guest = new Map<string, string>();
-    const form = (name: string) => ({ service: svc.data.service.id, day, time: '19:00', party: '2', name, email: `${name.toLowerCase()}@example.ch`, _t: (Date.now() - 5000).toString(36), _back: '/reservation' });
+    const form = (name: string) => ({
+      service: svc.data.service.id,
+      day,
+      time: '19:00',
+      party: '2',
+      name,
+      email: `${name.toLowerCase()}@example.ch`,
+      _t: (Date.now() - 5000).toString(36),
+      _back: '/reservation',
+    });
     const first = await req('POST', '/_nova/booking', undefined, { cookies: guest, form: form('Anna') });
     expect(first.status).toBe(303);
     const where = first.headers.get('location')!;
@@ -342,7 +404,12 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const text = (body: string) => ({ id: Math.random().toString(36).slice(2), type: 'text', props: { heading: '', body } });
     const post = await req('POST', '/api/entries', {
       collection: 'posts',
-      data: { title: 'Nur für Mitglieder', excerpt: 'Ein Blick hinter die Kulissen.', access: 'members', blocks: [text('<p>Der Einstieg ist für alle.</p>'), text('<p>Geheimzutat Kardamom.</p>')] },
+      data: {
+        title: 'Nur für Mitglieder',
+        excerpt: 'Ein Blick hinter die Kulissen.',
+        access: 'members',
+        blocks: [text('<p>Der Einstieg ist für alle.</p>'), text('<p>Geheimzutat Kardamom.</p>')],
+      },
     });
     await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
     const path = `/journal/${post.data.entry.slug}`;
@@ -357,6 +424,9 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/suche?q=Kardamom', undefined, { cookies: new Map() })).data).not.toContain('Kardamom</');
     expect((await req('GET', '/feed.xml', undefined, { cookies: new Map() })).data).not.toContain('Kardamom');
     expect(JSON.stringify((await req('GET', '/api/v1/posts', undefined, { cookies: new Map() })).data)).not.toContain('Kardamom');
+    const gq = await req('POST', '/api/v1/graphql', { query: '{ posts { items { title blocks } } }' }, { cookies: new Map() });
+    expect(JSON.stringify(gq.data)).toContain('Nur für Mitglieder');
+    expect(JSON.stringify(gq.data)).not.toContain('Kardamom');
 
     // Sign up → confirmation link → signed in.
     const visitor = new Map<string, string>();
@@ -404,7 +474,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('POST', '/konto/passwort-vergessen', undefined, { cookies: new Map(), form: { email: 'mia@example.ch' } });
     const reset = outbox[0].text.match(/\/konto\/passwort\/[\w-]+/)![0];
     expect((await req('POST', reset, undefined, { cookies: new Map(), form: { password: 'noch ein langes passwort' } })).headers.get('location')).toBe('/konto?ok=passwort');
-    const login = await req('POST', '/konto/anmelden', undefined, { cookies: new Map(), form: { email: 'mia@example.ch', password: 'noch ein langes passwort', weiter: '/konto' } });
+    const login = await req('POST', '/konto/anmelden', undefined, {
+      cookies: new Map(),
+      form: { email: 'mia@example.ch', password: 'noch ein langes passwort', weiter: '/konto' },
+    });
     expect(login.headers.get('location')).toBe('/konto');
 
     const info = await req('GET', '/api/privacy?email=mia@example.ch');
@@ -445,7 +518,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
 
     // Sold out: the waitlist takes over.
     expect((await req('GET', path, undefined, { cookies: new Map() })).data).toContain('Auf die Warteliste');
-    const wait = await req('POST', `/_nova/tickets/${ev.data.entry.id}/warteliste`, undefined, { cookies: buyer, form: { name: 'Jon', email: 'jon@example.ch', _back: path, _t: (Date.now() - 5000).toString(36) } });
+    const wait = await req('POST', `/_nova/tickets/${ev.data.entry.id}/warteliste`, undefined, {
+      cookies: buyer,
+      form: { name: 'Jon', email: 'jon@example.ch', _back: path, _t: (Date.now() - 5000).toString(36) },
+    });
     expect(wait.headers.get('location')).toContain('t_wait=1');
 
     // At the door: once, then «already»; lower case and without dash works too.
@@ -462,14 +538,21 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('POST', '/api/tickets/checkin', { code: codes[1].code })).data.status).toBe('cancelled');
 
     // Paid tickets need Stripe; without it the form says so instead of failing later.
-    const paid = await req('POST', '/api/entries', { collection: 'events', data: { title: 'Gala', start: local(20, '18:00'), tickets: [{ name: 'Gala', price: 9000, capacity: 50 }] } });
+    const paid = await req('POST', '/api/entries', {
+      collection: 'events',
+      data: { title: 'Gala', start: local(20, '18:00'), tickets: [{ name: 'Gala', price: 9000, capacity: 50 }] },
+    });
     await req('POST', `/api/entries/${paid.data.entry.id}/publish`, {});
     expect((await req('GET', `/events/${paid.data.entry.slug}`, undefined, { cookies: new Map() })).data).toContain('Die Online-Anmeldung ist gerade nicht möglich');
 
     // A course with three dates: sorted by its first date, all three in the calendar file.
     const course = await req('POST', '/api/entries', {
       collection: 'courses',
-      data: { title: 'Brotbackkurs', sessions: [{ start: local(14, '18:00') }, { start: local(7, '18:00'), end: local(7, '21:00') }, { start: local(21, '18:00') }], tickets: [{ name: 'Teilnahme', capacity: 8 }] },
+      data: {
+        title: 'Brotbackkurs',
+        sessions: [{ start: local(14, '18:00') }, { start: local(7, '18:00'), end: local(7, '21:00') }, { start: local(21, '18:00') }],
+        tickets: [{ name: 'Teilnahme', capacity: 8 }],
+      },
     });
     expect(course.data.entry.data.start).toBe(local(7, '18:00'));
     await req('POST', `/api/entries/${course.data.entry.id}/publish`, {});
@@ -507,7 +590,20 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     }) as typeof fetch;
     try {
       expect((await req('GET', '/spenden', undefined, { cookies: new Map() })).data).toContain('Jetzt spenden');
-      const form = { amount: '50', own: '', interval: 'month', campaign: 'Werkstatt', name: 'Rita Graf', email: 'rita@example.ch', zip: '8000', city: 'Zürich', street: 'Bahnhofstrasse 1', _back: '/spenden', _block: 'dn1', _t: (Date.now() - 5000).toString(36) };
+      const form = {
+        amount: '50',
+        own: '',
+        interval: 'month',
+        campaign: 'Werkstatt',
+        name: 'Rita Graf',
+        email: 'rita@example.ch',
+        zip: '8000',
+        city: 'Zürich',
+        street: 'Bahnhofstrasse 1',
+        _back: '/spenden',
+        _block: 'dn1',
+        _t: (Date.now() - 5000).toString(36),
+      };
       const tooSmall = await req('POST', '/_nova/spenden', undefined, { cookies: new Map(), form: { ...form, own: '2' } });
       expect(new URL(tooSmall.headers.get('location')!, 'http://x').searchParams.get('d_err')).toMatch(/ab CHF.5\.00/);
       const go = await req('POST', '/_nova/spenden', undefined, { cookies: new Map(), form });
@@ -517,7 +613,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       const [d] = await sql`select * from donations where email = 'rita@example.ch'`;
       expect(d.amount).toBe(5000);
       outbox.length = 0;
-      await handleStripeEvent({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', metadata: { donation_id: d.id }, subscription: 'sub_1', id: 'cs_test_1' } } });
+      await handleStripeEvent({
+        type: 'checkout.session.completed',
+        data: { object: { mode: 'subscription', metadata: { donation_id: d.id }, subscription: 'sub_1', id: 'cs_test_1' } },
+      });
       await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_1', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_create' } } });
       await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_2', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_cycle' } } });
       await handleStripeEvent({ type: 'invoice.paid', data: { object: { id: 'in_2', subscription: 'sub_1', amount_paid: 5000, billing_reason: 'subscription_cycle' } } });
@@ -547,7 +646,19 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       await req('POST', `/api/entries/${r.data.entry.id}/publish`, {});
       return r.data.entry;
     };
-    const flat = await make({ title: 'Dachwohnung', offer: 'rent', kind: 'apartment', rooms: 3.5, area: 90, price: 260000, city: 'Winterthur', zip: '8400', street: 'Geheimweg 1', showStreet: false, features: ['balcony'] });
+    const flat = await make({
+      title: 'Dachwohnung',
+      offer: 'rent',
+      kind: 'apartment',
+      rooms: 3.5,
+      area: 90,
+      price: 260000,
+      city: 'Winterthur',
+      zip: '8400',
+      street: 'Geheimweg 1',
+      showStreet: false,
+      features: ['balcony'],
+    });
     await make({ title: 'Villa', offer: 'buy', kind: 'house', rooms: 7, price: 250000000, city: 'Küsnacht', zip: '8700' });
     await make({ title: 'Studio', offer: 'rent', kind: 'apartment', rooms: 1, price: 120000, city: 'Winterthur', zip: '8400', status: 'done' });
 
@@ -583,7 +694,17 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const settings = await req('GET', '/api/settings');
     const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: false, slots: [{ from: '00:00', to: '23:45' }] }));
     await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'menu', 'ordering'])], hours });
-    await req('PUT', '/api/kitchen/settings', { pickup: true, delivery: true, deliveryZips: ['8400'], deliveryFee: 500, deliveryMin: 4000, prepMinutes: 20, slotMinutes: 15, payOnSite: true, note: '' });
+    await req('PUT', '/api/kitchen/settings', {
+      pickup: true,
+      delivery: true,
+      deliveryZips: ['8400'],
+      deliveryFee: 500,
+      deliveryMin: 4000,
+      prepMinutes: 20,
+      slotMinutes: 15,
+      payOnSite: true,
+      note: '',
+    });
     const dish = await req('POST', '/api/entries', { collection: 'dishes', data: { title: 'Pizza Margherita', category: 'Pizza', prices: [{ label: '', price: 1900 }] } });
     await req('POST', `/api/entries/${dish.data.entry.id}/publish`, {});
     const guest = new Map<string, string>();
@@ -594,7 +715,18 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(decodeURIComponent(added.headers.get('location')!)).toContain('hinzu=Pizza Margherita');
     const checkout = await req('GET', '/bestellen/kasse', undefined, { cookies: guest });
     const slot = checkout.data.match(/<option value="([^"]+Z)"/)![1];
-    const form = { mode: 'delivery', slot, name: 'Nina Roth', phone: '079 555 66 77', email: 'nina@example.ch', street: 'Bahnhofplatz 1', zip: '8001', city: 'Zürich', payment: 'onsite', _t: (Date.now() - 5000).toString(36) };
+    const form = {
+      mode: 'delivery',
+      slot,
+      name: 'Nina Roth',
+      phone: '079 555 66 77',
+      email: 'nina@example.ch',
+      street: 'Bahnhofplatz 1',
+      zip: '8001',
+      city: 'Zürich',
+      payment: 'onsite',
+      _t: (Date.now() - 5000).toString(36),
+    };
     // Outside the delivery area, then below the minimum (2 × 19 = 38 < 40).
     expect((await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form })).data).toContain('Nach 8001 liefern wir leider nicht');
     expect((await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form: { ...form, zip: '8400', city: 'Winterthur' } })).data).toContain('Liefern ab');
@@ -655,7 +787,12 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const login = await req('POST', '/api/login/passkey/options', {}, { cookies: new Map() });
     expect(login.data.key).toMatch(/^[\w-]{20,}$/);
     expect(login.data.options.allowCredentials).toEqual([]);
-    const unknown = await req('POST', '/api/login/passkey', { key: login.data.key, response: { id: 'unbekannt', rawId: 'unbekannt', type: 'public-key', response: {} } }, { cookies: new Map() });
+    const unknown = await req(
+      'POST',
+      '/api/login/passkey',
+      { key: login.data.key, response: { id: 'unbekannt', rawId: 'unbekannt', type: 'public-key', response: {} } },
+      { cookies: new Map() },
+    );
     expect(unknown.status).toBe(401);
     // A challenge is good for one try only.
     const again = await req('POST', '/api/login/passkey', { key: login.data.key, response: { id: 'unbekannt' } }, { cookies: new Map() });

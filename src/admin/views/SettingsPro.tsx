@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Skeleton, Select, SuggestInput, Toggle, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Select, SuggestInput, Toggle, confirm } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { FIELD_TYPE_LABELS, type FieldDef, type FieldType } from '../../shared/fields';
@@ -13,14 +13,43 @@ import { SaveBar, useSettingsDraft } from './settingsDraft';
 
 /* ---------- content types ---------- */
 
-const FIELD_TYPES: FieldType[] = ['text', 'textarea', 'richtext', 'number', 'money', 'date', 'datetime', 'boolean', 'select', 'multiselect', 'tags', 'image', 'images', 'file', 'url', 'email', 'color', 'location', 'relation', 'group', 'json'];
+const FIELD_TYPES: FieldType[] = [
+  'text',
+  'textarea',
+  'richtext',
+  'number',
+  'money',
+  'date',
+  'datetime',
+  'boolean',
+  'select',
+  'multiselect',
+  'tags',
+  'image',
+  'images',
+  'file',
+  'url',
+  'email',
+  'color',
+  'location',
+  'relation',
+  'group',
+  'json',
+];
 
 function FieldEditor({ field, onChange, onRemove, nested = false }: { field: FieldDef; onChange: (f: FieldDef) => void; onRemove: () => void; nested?: boolean }) {
   const controls = useDragControls();
   const [open, setOpen] = useState(!field.label);
   const { data: cols } = useApi<{ collections: CollectionDef[] }>(field.type === 'relation' ? '/api/collections' : null);
   return (
-    <Reorder.Item value={field} dragListener={false} dragControls={controls} className="repeat-item" style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, zIndex: 4, boxShadow: 'var(--shadow-3)' }}>
+    <Reorder.Item
+      value={field}
+      dragListener={false}
+      dragControls={controls}
+      className="repeat-item"
+      style={{ listStyle: 'none' }}
+      whileDrag={{ scale: 1.01, zIndex: 4, boxShadow: 'var(--shadow-3)' }}
+    >
       <header onPointerDown={(e) => !(e.target as HTMLElement).closest('button') && controls.start(e)}>
         <span className="grip">
           <Icon name="grip" size="s" />
@@ -36,7 +65,25 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
         <div className="body">
           <div className="grid-2">
             <Field label="Beschriftung im Studio" help="Alltagssprache, z. B. «Preis pro Person»">
-              <input className="input" value={field.label} onChange={(e) => onChange({ ...field, label: e.target.value, key: field.key.startsWith('feld_') ? e.target.value.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').replace(/^(\d)/, 'f_$1') || field.key : field.key })} />
+              <input
+                className="input"
+                value={field.label}
+                onChange={(e) =>
+                  onChange({
+                    ...field,
+                    label: e.target.value,
+                    key: field.key.startsWith('feld_')
+                      ? e.target.value
+                          .toLowerCase()
+                          .normalize('NFKD')
+                          .replace(/[̀-ͯ]/g, '')
+                          .replace(/[^a-z0-9]+/g, '_')
+                          .replace(/^_|_$/g, '')
+                          .replace(/^(\d)/, 'f_$1') || field.key
+                      : field.key,
+                  })
+                }
+              />
             </Field>
             <Field label="Schlüssel" keyName="key" help="Für API und Code. Kleinbuchstaben, Zahlen, _">
               <input className="input mono" value={field.key} onChange={(e) => onChange({ ...field, key: e.target.value })} />
@@ -86,17 +133,29 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
           {['number', 'money'].includes(field.type) && (
             <div className="grid-2">
               <Field label="Minimum">
-                <input className="input num" type="number" value={field.min ?? ''} onChange={(e) => onChange({ ...field, min: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                <input
+                  className="input num"
+                  type="number"
+                  value={field.min ?? ''}
+                  onChange={(e) => onChange({ ...field, min: e.target.value === '' ? undefined : Number(e.target.value) })}
+                />
               </Field>
               <Field label="Maximum">
-                <input className="input num" type="number" value={field.max ?? ''} onChange={(e) => onChange({ ...field, max: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                <input
+                  className="input num"
+                  type="number"
+                  value={field.max ?? ''}
+                  onChange={(e) => onChange({ ...field, max: e.target.value === '' ? undefined : Number(e.target.value) })}
+                />
               </Field>
             </div>
           )}
           <div className="row wrap" style={{ gap: '1.5rem' }}>
             <Toggle checked={Boolean(field.required)} onChange={(v) => onChange({ ...field, required: v })} label="Pflichtfeld" />
             <Toggle checked={Boolean(field.pro)} onChange={(v) => onChange({ ...field, pro: v })} label="Nur in der Werkbank sichtbar" />
-            {['file', 'image'].includes(field.type) && <Toggle checked={Boolean(field.private)} onChange={(v) => onChange({ ...field, private: v })} label="Privat (nie öffentlich)" />}
+            {['file', 'image'].includes(field.type) && (
+              <Toggle checked={Boolean(field.private)} onChange={(v) => onChange({ ...field, private: v })} label="Privat (nie öffentlich)" />
+            )}
           </div>
           {field.type === 'group' && (
             <div className="stack tight">
@@ -118,7 +177,13 @@ function FieldsBuilder({ fields, onChange, nested }: { fields: FieldDef[]; onCha
     <div className="stack tight">
       <Reorder.Group axis="y" values={fields} onReorder={onChange} style={{ padding: 0, margin: 0, display: 'grid', gap: '0.5rem' }}>
         {fields.map((f, i) => (
-          <FieldEditor key={i + f.type} field={f} nested={nested} onChange={(nf) => onChange(fields.map((x) => (x === f ? nf : x)))} onRemove={() => onChange(fields.filter((x) => x !== f))} />
+          <FieldEditor
+            key={i + f.type}
+            field={f}
+            nested={nested}
+            onChange={(nf) => onChange(fields.map((x) => (x === f ? nf : x)))}
+            onRemove={() => onChange(fields.filter((x) => x !== f))}
+          />
         ))}
       </Reorder.Group>
       <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => onChange([...fields, { key: `feld_${shortId(4)}`, type: 'text', label: '' }])}>
@@ -159,7 +224,23 @@ export function ContentTypes() {
         title="Inhaltstypen"
         sub="Eigene Typen mit Feldern, Relationen und Validierung. Jedes Feld bekommt eine Studio-Beschriftung – so bleibt alles auch für Laien bedienbar."
         actions={
-          <button className="btn primary" onClick={() => setEdit({ isNew: true, id: '', name: '', singular: '', icon: 'layers', fields: [{ key: 'title', type: 'text', label: 'Titel', required: true }], route: null, list_route: null, has_blocks: false, title_field: 'title' })}>
+          <button
+            className="btn primary"
+            onClick={() =>
+              setEdit({
+                isNew: true,
+                id: '',
+                name: '',
+                singular: '',
+                icon: 'layers',
+                fields: [{ key: 'title', type: 'text', label: 'Titel', required: true }],
+                route: null,
+                list_route: null,
+                has_blocks: false,
+                title_field: 'title',
+              })
+            }
+          >
             <Icon name="plus" size="s" /> Neuer Typ
           </button>
         }
@@ -218,7 +299,12 @@ export function ContentTypes() {
             </div>
             {!edit.builtin && (
               <>
-                <Toggle checked={Boolean(edit.has_blocks)} onChange={(v) => setEdit({ ...edit, has_blocks: v })} label="Mit Seiteninhalt (Blöcke)" help="Einträge bekommen zusätzlich den visuellen Editor." />
+                <Toggle
+                  checked={Boolean(edit.has_blocks)}
+                  onChange={(v) => setEdit({ ...edit, has_blocks: v })}
+                  label="Mit Seiteninhalt (Blöcke)"
+                  help="Einträge bekommen zusätzlich den visuellen Editor."
+                />
                 <div className="row between">
                   <span className="section-title">Felder</span>
                   <button className="btn ghost s" onClick={() => setCodeView((v) => !v)} aria-pressed={codeView}>
@@ -271,7 +357,21 @@ export function ContentTypes() {
 
 /* ---------- CSS & tokens ---------- */
 
-const TOKEN_HINTS = ['--accent', '--bg', '--ink', '--ink-2', '--surface', '--line', '--accent-ink', '--max', '--measure', '--display-weight', '--display-tracking', '--btn-radius', '--hero-size'];
+const TOKEN_HINTS = [
+  '--accent',
+  '--bg',
+  '--ink',
+  '--ink-2',
+  '--surface',
+  '--line',
+  '--accent-ink',
+  '--max',
+  '--measure',
+  '--display-weight',
+  '--display-tracking',
+  '--btn-radius',
+  '--hero-size',
+];
 
 export function CodeSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
@@ -292,7 +392,14 @@ export function CodeSettings() {
               <span className="mono small" style={{ width: '11rem' }}>
                 {k}
               </span>
-              {/^#|rgb|hsl|oklch/.test(v) && <input type="color" value={v.startsWith('#') ? v.slice(0, 7) : '#000000'} onChange={(e) => set('theme', { ...t, tokens: { ...t.tokens, [k]: e.target.value } })} style={{ width: '2.25rem', height: '2.25rem', border: 0, background: 'none' }} />}
+              {/^#|rgb|hsl|oklch/.test(v) && (
+                <input
+                  type="color"
+                  value={v.startsWith('#') ? v.slice(0, 7) : '#000000'}
+                  onChange={(e) => set('theme', { ...t, tokens: { ...t.tokens, [k]: e.target.value } })}
+                  style={{ width: '2.25rem', height: '2.25rem', border: 0, background: 'none' }}
+                />
+              )}
               <input className="input mono grow" value={v} onChange={(e) => set('theme', { ...t, tokens: { ...t.tokens, [k]: e.target.value } })} />
               <button
                 className="btn ghost s icon-only"
@@ -308,7 +415,14 @@ export function CodeSettings() {
             </div>
           ))}
           <div className="row">
-            <SuggestInput className="input mono" style={{ width: '11rem' }} aria-label="Token-Name" value={newKey} onChange={setNewKey} suggestions={TOKEN_HINTS.map((x) => ({ value: x }))} />
+            <SuggestInput
+              className="input mono"
+              style={{ width: '11rem' }}
+              aria-label="Token-Name"
+              value={newKey}
+              onChange={setNewKey}
+              suggestions={TOKEN_HINTS.map((x) => ({ value: x }))}
+            />
             <button className="btn s" onClick={() => /^--[a-z0-9-]+$/.test(newKey) && set('theme', { ...t, tokens: { ...t.tokens, [newKey]: '' } })}>
               <Icon name="plus" size="s" /> Token
             </button>
@@ -319,7 +433,14 @@ export function CodeSettings() {
             <h2>Eigenes CSS</h2>
             <p>Gilt für die ganze Website. Pro Block geht es auch im Editor unter «Code».</p>
           </header>
-          <textarea className="textarea code" style={{ minHeight: '16rem' }} spellCheck={false} value={t.css} onChange={(e) => set('theme', { ...t, css: e.target.value })} placeholder={'.b-hero h1 {\n  text-transform: uppercase;\n}'} />
+          <textarea
+            className="textarea code"
+            style={{ minHeight: '16rem' }}
+            spellCheck={false}
+            value={t.css}
+            onChange={(e) => set('theme', { ...t, css: e.target.value })}
+            placeholder={'.b-hero h1 {\n  text-transform: uppercase;\n}'}
+          />
         </div>
         <div className="form-section">
           <Toggle
@@ -355,6 +476,8 @@ export function ApiSettings() {
   const [secret, setSecret] = useState<string | null>(null);
   const [explorer, setExplorer] = useState('/api/v1/pages?limit=3');
   const [out, setOut] = useState('');
+  const [mode, setMode] = useState<'rest' | 'graphql'>('rest');
+  const [gql, setGql] = useState('{\n  site { name }\n  pages(limit: 3) {\n    total\n    items { title path updatedAt }\n  }\n}');
   const create = async () => {
     try {
       const r = await api.post<{ secret: string }>('/api/tokens', { name: newToken.name, scopes: newToken.write ? ['read', 'write'] : ['read'] });
@@ -367,31 +490,75 @@ export function ApiSettings() {
   };
   if (!draft) return <Skeleton />;
   const hooks = draft.webhooks;
-  const setHook = (i: number, patch: Partial<Webhook>) => set('webhooks', hooks.map((h, j) => (j === i ? { ...h, ...patch } : h)));
+  const setHook = (i: number, patch: Partial<Webhook>) =>
+    set(
+      'webhooks',
+      hooks.map((h, j) => (j === i ? { ...h, ...patch } : h)),
+    );
   return (
     <>
       <PageHead title="API & Webhooks" sub="Nova ist headless-fähig: dieselben Inhalte für Apps, andere Websites oder Automationen (Zapier, Make, n8n)." />
       <div className="stack loose">
         <section className="card">
           <div className="card-head">
-            <h2>REST-Explorer</h2>
-            <a className="small" href="/api/v1" target="_blank" rel="noreferrer">
-              /api/v1
-            </a>
+            <h2>Explorer</h2>
+            <Segmented
+              label="Schnittstelle"
+              value={mode}
+              onChange={(v) => {
+                setMode(v);
+                setOut('');
+              }}
+              options={[
+                { value: 'rest', label: 'REST' },
+                { value: 'graphql', label: 'GraphQL' },
+              ]}
+            />
           </div>
           <div className="form-section">
-            <form
-              className="row"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const r = await fetch(explorer);
-                setOut(`${r.status} ${r.statusText}\n\n${JSON.stringify(await r.json().catch(() => null), null, 2)}`);
-              }}
-            >
-              <span className="badge">GET</span>
-              <input className="input mono grow" value={explorer} onChange={(e) => setExplorer(e.target.value)} />
-              <button className="btn">Senden</button>
-            </form>
+            {mode === 'rest' ? (
+              <form
+                className="row"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const r = await fetch(explorer);
+                  setOut(`${r.status} ${r.statusText}\n\n${JSON.stringify(await r.json().catch(() => null), null, 2)}`);
+                }}
+              >
+                <span className="badge">GET</span>
+                <input className="input mono grow" value={explorer} onChange={(e) => setExplorer(e.target.value)} aria-label="Adresse" />
+                <button className="btn">Senden</button>
+              </form>
+            ) : (
+              <form
+                className="stack"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const r = await fetch('/api/v1/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: gql }) });
+                  setOut(`${r.status} ${r.statusText}\n\n${JSON.stringify(await r.json().catch(() => null), null, 2)}`);
+                }}
+              >
+                <textarea
+                  className="input mono"
+                  rows={8}
+                  value={gql}
+                  spellCheck={false}
+                  aria-label="GraphQL-Abfrage"
+                  onChange={(e) => setGql(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
+                  }}
+                />
+                <div className="row">
+                  <button className="btn">
+                    Abfrage senden <kbd>⌘↵</kbd>
+                  </button>
+                  <a className="small" href="/api/v1/graphql/schema.graphql" target="_blank" rel="noreferrer">
+                    Schema ansehen
+                  </a>
+                </div>
+              </form>
+            )}
             {out && <pre className="code-out">{out}</pre>}
           </div>
         </section>
@@ -424,7 +591,13 @@ export function ApiSettings() {
             ))}
           </ul>
           <div className="form-section row wrap">
-            <input className="input" style={{ maxWidth: '16rem' }} placeholder="Name, z. B. «iOS-App»" value={newToken.name} onChange={(e) => setNewToken({ ...newToken, name: e.target.value })} />
+            <input
+              className="input"
+              style={{ maxWidth: '16rem' }}
+              placeholder="Name, z. B. «iOS-App»"
+              value={newToken.name}
+              onChange={(e) => setNewToken({ ...newToken, name: e.target.value })}
+            />
             <Toggle checked={newToken.write} onChange={(v) => setNewToken({ ...newToken, write: v })} label="Darf schreiben" />
             <button className="btn" onClick={create} disabled={!newToken.name}>
               Token erstellen
@@ -444,13 +617,28 @@ export function ApiSettings() {
               <div className="row">
                 <input className="input mono grow" value={h.url} onChange={(e) => setHook(i, { url: e.target.value })} />
                 <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label="aktiv" />
-                <button className="btn ghost s icon-only" aria-label="Entfernen" onClick={() => set('webhooks', hooks.filter((_, j) => j !== i))}>
+                <button
+                  className="btn ghost s icon-only"
+                  aria-label="Entfernen"
+                  onClick={() =>
+                    set(
+                      'webhooks',
+                      hooks.filter((_, j) => j !== i),
+                    )
+                  }
+                >
                   <Icon name="trash" size="s" />
                 </button>
               </div>
               <div className="chips">
                 {EVENTS.map(([ev, label]) => (
-                  <button key={ev} type="button" className="chip" aria-pressed={h.events.includes(ev)} onClick={() => setHook(i, { events: h.events.includes(ev) ? h.events.filter((x) => x !== ev) : [...h.events, ev] })}>
+                  <button
+                    key={ev}
+                    type="button"
+                    className="chip"
+                    aria-pressed={h.events.includes(ev)}
+                    onClick={() => setHook(i, { events: h.events.includes(ev) ? h.events.filter((x) => x !== ev) : [...h.events, ev] })}
+                  >
                     {label}
                   </button>
                 ))}
@@ -508,7 +696,10 @@ export function Redirects() {
   };
   return (
     <>
-      <PageHead title="Weiterleitungen" sub="Wenn sich die Adresse einer veröffentlichten Seite ändert, legt Nova automatisch eine 301-Weiterleitung an. Hier kannst du eigene ergänzen, z. B. nach einem Umzug von WordPress." />
+      <PageHead
+        title="Weiterleitungen"
+        sub="Wenn sich die Adresse einer veröffentlichten Seite ändert, legt Nova automatisch eine 301-Weiterleitung an. Hier kannst du eigene ergänzen, z. B. nach einem Umzug von WordPress."
+      />
       <section className="card">
         <div className="form-section row wrap">
           <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder="/alte-adresse" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
@@ -550,7 +741,11 @@ export function Redirects() {
                     <td className="mono">{r.to_path}</td>
                     <td>
                       {r.code}
-                      {r.auto && <span className="badge" style={{ marginLeft: 6 }}>automatisch</span>}
+                      {r.auto && (
+                        <span className="badge" style={{ marginLeft: 6 }}>
+                          automatisch
+                        </span>
+                      )}
                     </td>
                     <td className="right num">{r.hits}</td>
                     <td className="right">
@@ -572,7 +767,7 @@ export function Redirects() {
 /* ---------- SQL ---------- */
 
 export function SqlConsole() {
-  const [q, setQ] = useState("select collection, status, count(*) from entries group by 1, 2 order by 1");
+  const [q, setQ] = useState('select collection, status, count(*) from entries group by 1, 2 order by 1');
   const [res, setRes] = useState<{ columns: string[]; rows: Record<string, unknown>[]; truncated: boolean; ms: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const run = async () => {
@@ -598,7 +793,9 @@ export function SqlConsole() {
           }}
         />
         <div className="row between">
-          <span className="xsmall muted">Tabellen: entries, collections, media, forms, submissions, contacts, orders, coupons, comments, redirects, analytics_events, users, audit_log</span>
+          <span className="xsmall muted">
+            Tabellen: entries, collections, media, forms, submissions, contacts, orders, coupons, comments, redirects, analytics_events, users, audit_log
+          </span>
           <button className="btn primary" onClick={run}>
             Ausführen
           </button>
@@ -641,7 +838,9 @@ export function SqlConsole() {
 /* ---------- audit ---------- */
 
 export function AuditLog() {
-  const { data } = useApi<{ entries: { id: number; action: string; entity: string; entity_id: string; meta: Record<string, unknown>; ip: string; created_at: string; user_name: string | null }[] }>('/api/audit?limit=300');
+  const { data } = useApi<{
+    entries: { id: number; action: string; entity: string; entity_id: string; meta: Record<string, unknown>; ip: string; created_at: string; user_name: string | null }[];
+  }>('/api/audit?limit=300');
   return (
     <>
       <PageHead title="Protokoll" sub="Wer hat wann was getan. Einträge werden zwei Jahre aufbewahrt." />

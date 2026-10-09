@@ -73,15 +73,15 @@ export async function saveCollection(input: Partial<CollectionDef> & { id: strin
   const id = slugify(input.id).replace(/-/g, '_');
   if (!/^[a-z][a-z0-9_]{1,40}$/.test(id)) throw badRequest('Der technische Name muss mit einem Buchstaben beginnen und darf nur a–z, 0–9 und _ enthalten.');
   const existing = (await listCollections()).find((c) => c.id === id);
+  if (isNew && ['graphql', 'collections', 'sdk', 'schema'].includes(id)) throw badRequest('Dieser technische Name ist für die API reserviert.');
   if (isNew && existing) throw badRequest('Einen Inhaltstyp mit diesem Namen gibt es schon.');
   if (!isNew && !existing) throw notFound();
   if (existing?.builtin && input.fields) throw badRequest('Die Felder eingebauter Typen sind fest. Leg einen eigenen Typ an, um Felder frei zu definieren.');
   const fields = input.fields ?? existing?.fields ?? [{ key: 'title', type: 'text', label: 'Titel', required: true }];
   checkFieldDefs(fields);
-  if (!fields.some((f) => f.key === (input.title_field ?? existing?.title_field ?? 'title')))
-    throw badRequest('Das Titelfeld muss eines der Felder sein.');
-  const route = input.route === undefined ? existing?.route ?? null : input.route || null;
-  const listRoute = input.list_route === undefined ? existing?.list_route ?? null : input.list_route || null;
+  if (!fields.some((f) => f.key === (input.title_field ?? existing?.title_field ?? 'title'))) throw badRequest('Das Titelfeld muss eines der Felder sein.');
+  const route = input.route === undefined ? (existing?.route ?? null) : input.route || null;
+  const listRoute = input.list_route === undefined ? (existing?.list_route ?? null) : input.list_route || null;
   if (route && !/^\/[a-z0-9\-/]*:slug$/.test(route)) throw badRequest('Die Detail-Adresse muss mit «/» beginnen und auf «:slug» enden, z. B. /rezepte/:slug.');
   if (listRoute && !/^\/[a-z0-9\-/]+$/.test(listRoute)) throw badRequest('Die Übersichts-Adresse muss mit «/» beginnen, z. B. /rezepte.');
   const others = (await listCollections()).filter((c) => c.id !== id);
@@ -119,7 +119,7 @@ function sanitizeValue(f: FieldDef, v: unknown): unknown {
     case 'textarea':
       return sanitizePlain(v, true);
     case 'url':
-      return typeof v === 'string' ? (v === '' ? '' : safeHref(v) ?? '') : '';
+      return typeof v === 'string' ? (v === '' ? '' : (safeHref(v) ?? '')) : '';
     case 'link': {
       const l = v as { label?: unknown; href?: unknown };
       if (!l || typeof l !== 'object' || !l.href) return null;
@@ -351,32 +351,34 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
   }
 
   let firstOfEntry = false;
-  const result = await sql.begin(async (tx) => {
-    const [prev] = await tx`select published_slug, published_at from entries where id = ${id}`;
-    const oldSlug = (prev.published_slug as string | null) ?? null;
-    const isNew = !prev.published_at;
-    const [e] = await tx`
+  const result = await sql
+    .begin(async (tx) => {
+      const [prev] = await tx`select published_slug, published_at from entries where id = ${id}`;
+      const oldSlug = (prev.published_slug as string | null) ?? null;
+      const isNew = !prev.published_at;
+      const [e] = await tx`
       update entries set published_data = data, published_slug = slug, status = 'published', publish_at = null,
         published_at = coalesce(published_at, now()), updated_at = now()
       where id = ${id} returning *`;
-    await tx`insert into revisions (entry_id, data, kind, user_id) values (${id}, ${json(e.data)}, 'publish', ${userId})`;
-    // Automatic 301 when the address of a live entry changes.
-    if (oldSlug !== null && oldSlug !== e.slug) {
-      const from = entryPath(c, oldSlug);
-      const to = entryPath(c, e.slug);
-      if (from && to && from !== to) {
-        await tx`delete from redirects where from_path = ${to}`;
-        await tx`
+      await tx`insert into revisions (entry_id, data, kind, user_id) values (${id}, ${json(e.data)}, 'publish', ${userId})`;
+      // Automatic 301 when the address of a live entry changes.
+      if (oldSlug !== null && oldSlug !== e.slug) {
+        const from = entryPath(c, oldSlug);
+        const to = entryPath(c, e.slug);
+        if (from && to && from !== to) {
+          await tx`delete from redirects where from_path = ${to}`;
+          await tx`
           insert into redirects (from_path, to_path, code, auto) values (${from}, ${to}, 301, true)
           on conflict (from_path) do update set to_path = excluded.to_path`;
-        await tx`update redirects set to_path = ${to} where to_path = ${from}`;
+          await tx`update redirects set to_path = ${to} where to_path = ${from}`;
+        }
       }
-    }
-    return { entry: e as unknown as Entry, isNew };
-  }).then((r) => {
-    firstOfEntry = r.isNew;
-    return r.entry;
-  });
+      return { entry: e as unknown as Entry, isNew };
+    })
+    .then((r) => {
+      firstOfEntry = r.isNew;
+      return r.entry;
+    });
 
   bumpGeneration();
   const settings = await getSettings();

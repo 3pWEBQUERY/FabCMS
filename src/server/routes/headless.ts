@@ -9,6 +9,9 @@ import { clientIp } from '../lib/http';
 import { entryPath } from '../../shared/paths';
 import { entryAccess } from '../../shared/members';
 import type { EntryData } from '../../shared/types';
+import { graphql, printSchema, specifiedRules, validate, parse, GraphQLError } from 'graphql';
+import { currentSchema, depthLimit } from '../graphql';
+import { mediaLoader } from '../../site/context';
 
 /**
  * Headless REST API. Published content is public (read without token, CORS
@@ -56,9 +59,57 @@ export function headlessRoutes(app: Hono<AppEnv>) {
         collections: '/api/v1/collections',
         entries: '/api/v1/{collection}?limit=20&offset=0&sort=-published_at&filter[category]=…',
         entry: '/api/v1/{collection}/{slug}',
+        graphql: '/api/v1/graphql',
+        graphql_schema: '/api/v1/graphql/schema.graphql',
       },
     }),
   );
+
+  /* GraphQL: same tokens and rules as REST. */
+
+  app.get('/api/v1/graphql/schema.graphql', async (c) => c.text(printSchema(await currentSchema())));
+
+  const runGraphql = async (c: Context<AppEnv>, body: { query?: unknown; variables?: unknown; operationName?: unknown }) => {
+    if (typeof body.query !== 'string' || !body.query.trim()) return c.json({ errors: [{ message: 'Es fehlt eine Abfrage (query).' }] }, 400);
+    if (body.query.length > 20_000) return c.json({ errors: [{ message: 'Die Abfrage ist zu lang.' }] }, 400);
+    const schema = await currentSchema();
+    let doc;
+    try {
+      doc = parse(body.query);
+    } catch (e) {
+      return c.json({ errors: [{ message: (e as GraphQLError).message }] }, 400);
+    }
+    const invalid = validate(schema, doc, [...specifiedRules, depthLimit]);
+    if (invalid.length) return c.json({ errors: invalid.map((e) => ({ message: e.message, locations: e.locations })) }, 400);
+    const isMutation = doc.definitions.some((d) => d.kind === 'OperationDefinition' && d.operation === 'mutation');
+    if (isMutation && c.req.method !== 'POST') return c.json({ errors: [{ message: 'Änderungen nur per POST.' }] }, 405);
+    const token = await tokenScopes(c);
+    const result = await graphql({
+      schema,
+      source: body.query,
+      variableValues: body.variables && typeof body.variables === 'object' ? (body.variables as Record<string, unknown>) : undefined,
+      operationName: typeof body.operationName === 'string' ? body.operationName : undefined,
+      contextValue: { token, media: mediaLoader(), entries: new Map() },
+    });
+    return c.json({
+      ...result,
+      errors: result.errors?.map((e) => ({
+        message: e.originalError && !(e.originalError instanceof GraphQLError) && !(e.originalError instanceof HttpError) ? 'Interner Fehler.' : e.message,
+        path: e.path,
+      })),
+    });
+  };
+  app.post('/api/v1/graphql', async (c) => runGraphql(c, await c.req.json().catch(() => ({}))));
+  app.get('/api/v1/graphql', async (c) => {
+    const q = c.req.query();
+    let variables: unknown;
+    try {
+      variables = q.variables ? JSON.parse(q.variables) : undefined;
+    } catch {
+      return c.json({ errors: [{ message: 'variables ist kein gültiges JSON.' }] }, 400);
+    }
+    return runGraphql(c, { query: q.query, variables, operationName: q.operationName });
+  });
 
   app.get('/api/v1/collections', async (c) => {
     const cols = await activeCollections();
