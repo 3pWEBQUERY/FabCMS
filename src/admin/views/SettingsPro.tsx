@@ -9,6 +9,7 @@ import { useToast } from '../ui/toast';
 import { FIELD_TYPE_LABELS, type FieldDef, type FieldType } from '../../shared/fields';
 import { shortId } from '../../shared/text';
 import type { CollectionDef, Webhook } from '../../shared/types';
+import { HOOK_EVENTS, type HookEvent, type ServerHook } from '../../shared/hooks';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 
 /* ---------- content types ---------- */
@@ -539,7 +540,7 @@ export function ApiSettings() {
                 }}
               >
                 <textarea
-                  className="input mono"
+                  className="textarea code"
                   rows={8}
                   value={gql}
                   spellCheck={false}
@@ -882,6 +883,172 @@ export function AuditLog() {
           </div>
         )}
       </section>
+    </>
+  );
+}
+
+interface HookTest {
+  input: Record<string, unknown>;
+  run: { ok: boolean; result: Record<string, unknown> | null; error: string | null; logs: string[]; ms: number };
+}
+
+export function HooksSettings() {
+  const toast = useToast();
+  const { draft, set, dirty, save, reset } = useSettingsDraft();
+  const cols = useApi<{ collections: CollectionDef[] }>('/api/collections');
+  const [tests, setTests] = useState<Record<number, HookTest | 'busy'>>({});
+  if (!draft) return <Skeleton />;
+  const hooks = draft.hooks ?? [];
+  const setHook = (i: number, patch: Partial<ServerHook>) =>
+    set(
+      'hooks',
+      hooks.map((h, j) => (j === i ? { ...h, ...patch } : h)),
+    );
+  const add = () => {
+    const ev = HOOK_EVENTS[0];
+    set('hooks', [...hooks, { id: '', name: 'Neuer Hook', event: ev.value, collection: '', code: ev.template, active: true }]);
+  };
+  const test = async (i: number) => {
+    setTests((t) => ({ ...t, [i]: 'busy' }));
+    try {
+      const h = hooks[i];
+      const r = await api.post<HookTest>('/api/hooks/test', { code: h.code, event: h.event, collection: h.collection });
+      setTests((t) => ({ ...t, [i]: r }));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+      setTests((t) => {
+        const { [i]: _drop, ...rest } = t;
+        return rest;
+      });
+    }
+  };
+  return (
+    <>
+      <PageHead
+        title="Hooks"
+        sub="Kleine JavaScript-Funktionen, die bei Ereignissen auf dem Server laufen – abgeschottet in einer eigenen Sandbox: kein Netz, keine Dateien, 50 ms und 16 MB pro Aufruf."
+        actions={
+          <button className="btn" onClick={add}>
+            <Icon name="plus" size="s" /> Hook
+          </button>
+        }
+      />
+      <div className="stack loose">
+        {!hooks.length && (
+          <section className="card">
+            <Empty
+              title="Noch keine Hooks"
+              action={
+                <button className="btn primary" onClick={add}>
+                  Ersten Hook anlegen
+                </button>
+              }
+            >
+              Zum Beispiel: Titel vor dem Speichern bereinigen, Veröffentlichen ohne Kurzfassung verhindern oder Formular-Spam mit eigenen Regeln aussortieren. Mit{' '}
+              <code>throw new Error(«…»)</code> wird abgelehnt – die Meldung erscheint so im Studio bzw. beim Besucher.
+            </Empty>
+          </section>
+        )}
+        {hooks.map((h, i) => {
+          const ev = HOOK_EVENTS.find((e) => e.value === h.event) ?? HOOK_EVENTS[0];
+          const t = tests[i];
+          return (
+            <section key={i} className="card">
+              <div className="card-head">
+                <input
+                  className="input"
+                  style={{ maxWidth: '20rem', fontWeight: 600 }}
+                  value={h.name}
+                  aria-label="Name des Hooks"
+                  onChange={(e) => setHook(i, { name: e.target.value })}
+                />
+                <div className="row">
+                  <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label="aktiv" />
+                  <button
+                    className="btn ghost s icon-only"
+                    aria-label="Hook entfernen"
+                    onClick={async () => {
+                      if (await confirm({ title: `Hook «${h.name}» entfernen?`, confirm: 'Entfernen', danger: true }))
+                        set(
+                          'hooks',
+                          hooks.filter((_, j) => j !== i),
+                        );
+                    }}
+                  >
+                    <Icon name="trash" size="s" />
+                  </button>
+                </div>
+              </div>
+              <div className="form-section stack">
+                <div className="grid-2">
+                  <Field label="Ereignis" help={ev.help}>
+                    <Select
+                      value={h.event}
+                      onChange={(v) => {
+                        const next = HOOK_EVENTS.find((e) => e.value === v)!;
+                        const untouched = HOOK_EVENTS.some((e) => e.template === h.code);
+                        setHook(i, { event: v as HookEvent, code: untouched ? next.template : h.code, collection: v === 'form.beforeSubmit' ? '' : h.collection });
+                      }}
+                      options={HOOK_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
+                    />
+                  </Field>
+                  {h.event !== 'form.beforeSubmit' && (
+                    <Field label="Für Inhaltstyp">
+                      <Select
+                        value={h.collection}
+                        onChange={(v) => setHook(i, { collection: v })}
+                        options={[
+                          { value: '', label: 'Alle Inhaltstypen' },
+                          ...(cols.data?.collections ?? []).filter((c) => c.id !== 'sections').map((c) => ({ value: c.id, label: c.name })),
+                        ]}
+                      />
+                    </Field>
+                  )}
+                </div>
+                <textarea
+                  className="textarea code"
+                  style={{ minHeight: '14rem' }}
+                  spellCheck={false}
+                  value={h.code}
+                  aria-label="Code"
+                  onChange={(e) => setHook(i, { code: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      e.preventDefault();
+                      const el = e.currentTarget;
+                      const at = el.selectionStart;
+                      setHook(i, { code: `${h.code.slice(0, at)}  ${h.code.slice(el.selectionEnd)}` });
+                      requestAnimationFrame(() => el.setSelectionRange(at + 2, at + 2));
+                    }
+                  }}
+                />
+                <div className="row">
+                  <button className="btn s" onClick={() => test(i)} disabled={t === 'busy'} data-busy={t === 'busy' || undefined}>
+                    Mit echten Daten testen
+                  </button>
+                  <span className="xsmall muted">Speichert nichts – läuft mit dem zuletzt geänderten Eintrag bzw. dem ersten Formular.</span>
+                </div>
+                {t && t !== 'busy' && (
+                  <div className="stack">
+                    <p className={`hint${t.run.ok ? '' : ' bad'}`}>
+                      <span>
+                        {t.run.ok ? `Durchgelaufen in ${t.run.ms} ms.` : `Abgelehnt: ${t.run.error}`}
+                        {t.run.ok && h.event === 'form.beforeSubmit' && t.run.result?.spam === true ? ' Würde als Spam verworfen.' : ''}
+                      </span>
+                    </p>
+                    {t.run.logs.length > 0 && <pre className="code-out">{t.run.logs.join('\n')}</pre>}
+                    <details>
+                      <summary className="small">Eingabe und Ergebnis</summary>
+                      <pre className="code-out">{`// event\n${JSON.stringify(t.input, null, 2)}\n\n// Ergebnis\n${JSON.stringify(t.run.result, null, 2)}`}</pre>
+                    </details>
+                  </div>
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
   );
 }

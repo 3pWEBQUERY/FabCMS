@@ -29,10 +29,12 @@ import { FONT_PAIRS } from '../../site/fonts';
 import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { EntryData, SiteSettings } from '../../shared/types';
+import { HOOK_EVENTS } from '../../shared/hooks';
+import { checkHookCode, runHook } from '../hooks';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme']);
-const DEV_KEYS = new Set(['webhooks', 'roleModes', 'security']);
+const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security']);
 
 async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | null> {
   const q = [s.business.street, s.business.zip, s.business.city, s.business.country].filter(Boolean).join(', ');
@@ -60,7 +62,7 @@ export function systemApi(app: Hono<AppEnv>) {
   app.get('/api/settings', async (c) => {
     const user = requireUser(c);
     const s = await getSettings();
-    const safe = can(user.role, 'dev') ? s : { ...s, webhooks: [] };
+    const safe = can(user.role, 'dev') ? s : { ...s, webhooks: [], hooks: [] };
     return c.json({
       settings: safe,
       themes: THEMES.map(({ css: _css, ...t }) => t),
@@ -84,7 +86,8 @@ export function systemApi(app: Hono<AppEnv>) {
       if (DESIGN_KEYS.has(key) && !can(user.role, 'design.manage')) throw forbidden();
       if (!DESIGN_KEYS.has(key) && !can(user.role, 'settings.manage')) throw forbidden();
     }
-    if (patch.theme && (patch.theme.tokens !== undefined || patch.theme.css !== undefined) && !can(user.role, 'dev')) throw forbidden('Eigenes CSS und Design-Tokens gibt es in der Werkbank.');
+    if (patch.theme && (patch.theme.tokens !== undefined || patch.theme.css !== undefined) && !can(user.role, 'dev'))
+      throw forbidden('Eigenes CSS und Design-Tokens gibt es in der Werkbank.');
     if (patch.baseUrl !== undefined && patch.baseUrl && !/^https?:\/\/[^/]+$/.test(patch.baseUrl.replace(/\/$/, '')))
       throw badRequest('Die Adresse muss wie «https://www.beispiel.ch» aussehen.');
     if (patch.shop?.iban) {
@@ -96,6 +99,22 @@ export function systemApi(app: Hono<AppEnv>) {
         if (!/^https:\/\//.test(w.url)) throw badRequest('Webhooks müssen eine https-Adresse haben.');
         w.id ||= shortId();
         w.secret ||= token(24);
+      }
+    }
+    if (patch.hooks) {
+      if (!Array.isArray(patch.hooks) || patch.hooks.length > 50) throw badRequest('Höchstens 50 Hooks.');
+      for (const h of patch.hooks) {
+        if (!HOOK_EVENTS.some((e) => e.value === h.event)) throw badRequest('Unbekanntes Ereignis für einen Hook.');
+        h.id ||= shortId();
+        h.name =
+          String(h.name ?? '')
+            .trim()
+            .slice(0, 80) || 'Hook';
+        h.collection = h.event === 'form.beforeSubmit' ? '' : String(h.collection ?? '');
+        h.code = String(h.code ?? '');
+        h.active = Boolean(h.active);
+        const problem = await checkHookCode(h.code);
+        if (problem) throw badRequest(`Hook «${h.name}»: ${problem}`);
       }
     }
     const before = await getSettings();
@@ -111,6 +130,35 @@ export function systemApi(app: Hono<AppEnv>) {
     return c.json({ settings: next });
   });
 
+  /** Runs a hook against real data without saving anything. */
+  app.post('/api/hooks/test', async (c) => {
+    requireCap(c, 'dev');
+    const { code, event, collection } = z
+      .object({ code: z.string().max(20_000), event: z.enum(['entry.beforeSave', 'entry.beforePublish', 'form.beforeSubmit']), collection: z.string().default('') })
+      .parse(await c.req.json());
+    let sample: Record<string, unknown>;
+    if (event === 'form.beforeSubmit') {
+      const [f] = await sql`select id, name, fields from forms order by created_at limit 1`;
+      const fields = Object.fromEntries(
+        ((f?.fields as { name: string; type: string }[]) ?? [])
+          .filter((x) => x.type !== 'step' && x.type !== 'file')
+          .map((x) => [x.name, x.type === 'email' ? 'test@example.ch' : 'Test']),
+      );
+      sample = { form: { id: f?.id ?? '', name: f?.name ?? 'Kontakt' }, fields, page: '/kontakt', spam: false };
+    } else {
+      const [e] = collection
+        ? await sql`select collection, slug, data from entries where collection = ${collection} order by updated_at desc limit 1`
+        : await sql`select collection, slug, data from entries where collection <> 'sections' order by updated_at desc limit 1`;
+      sample = {
+        collection: e?.collection ?? (collection || 'pages'),
+        slug: e?.slug ?? 'beispiel',
+        ...(event === 'entry.beforeSave' ? { isNew: false } : {}),
+        data: e?.data ?? { title: 'Beispiel' },
+      };
+    }
+    return c.json({ input: sample, run: await runHook(code, sample) });
+  });
+
   app.post('/api/webhooks/test', async (c) => {
     requireCap(c, 'dev');
     const { url } = z.object({ url: z.string().url() }).parse(await c.req.json());
@@ -121,7 +169,12 @@ export function systemApi(app: Hono<AppEnv>) {
     const sig = createHmac('sha256', hook.secret).update(body).digest('hex');
     const started = Date.now();
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Nova-Signature': `sha256=${sig}` }, body, signal: AbortSignal.timeout(10_000) });
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Nova-Signature': `sha256=${sig}` },
+        body,
+        signal: AbortSignal.timeout(10_000),
+      });
       return c.json({ ok: r.ok, status: r.status, ms: Date.now() - started });
     } catch (e) {
       return c.json({ ok: false, status: 0, error: (e as Error).message, ms: Date.now() - started });
@@ -140,7 +193,12 @@ export function systemApi(app: Hono<AppEnv>) {
     } catch {
       throw badRequest('Das sieht nicht nach einer Web-Adresse aus.');
     }
-    if (!/^https?:$/.test(url.protocol) || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[|0\.)/.test(url.hostname) || url.hostname.endsWith('.internal') || url.hostname.endsWith('.railway.internal'))
+    if (
+      !/^https?:$/.test(url.protocol) ||
+      /^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[|0\.)/.test(url.hostname) ||
+      url.hostname.endsWith('.internal') ||
+      url.hostname.endsWith('.railway.internal')
+    )
       throw badRequest('Diese Adresse kann Nova nicht abrufen.');
     if (!rateLimit(`import:${requireUser(c).id}`, 10, 60_000).ok) throw new HttpError(429, 'Bitte warte kurz.');
     const r = await fetch(url, { headers: { 'User-Agent': 'NovaCMS-Import/0.1' }, redirect: 'follow', signal: AbortSignal.timeout(8000) }).catch(() => null);
@@ -149,7 +207,12 @@ export function systemApi(app: Hono<AppEnv>) {
     const meta = (name: string) =>
       new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]+content=["']([^"']*)["']`, 'i').exec(html)?.[1] ??
       new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:name|property)=["']${name}["']`, 'i').exec(html)?.[1];
-    const decode = (s?: string) => s?.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+    const decode = (s?: string) =>
+      s
+        ?.replace(/&amp;/g, '&')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .trim();
     const out: Record<string, unknown> = {
       name: decode(meta('og:site_name') ?? /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.split(/[|–\-·]/)[0]),
       description: decode(meta('description') ?? meta('og:description')),
@@ -159,11 +222,20 @@ export function systemApi(app: Hono<AppEnv>) {
     for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
       try {
         const data = JSON.parse(m[1]);
-        const items = (Array.isArray(data) ? data : data['@graph'] ?? [data]) as Record<string, any>[];
+        const items = (Array.isArray(data) ? data : (data['@graph'] ?? [data])) as Record<string, any>[];
         const biz = items.find((i) => i.address || i.telephone || i.openingHoursSpecification);
         if (biz) {
           const a = biz.address ?? {};
-          out.business = { type: biz['@type'], legalName: biz.name, street: a.streetAddress, zip: a.postalCode, city: a.addressLocality, country: a.addressCountry?.name ?? a.addressCountry, phone: biz.telephone, email: biz.email };
+          out.business = {
+            type: biz['@type'],
+            legalName: biz.name,
+            street: a.streetAddress,
+            zip: a.postalCode,
+            city: a.addressLocality,
+            country: a.addressCountry?.name ?? a.addressCountry,
+            phone: biz.telephone,
+            email: biz.email,
+          };
           const spec = ([] as Record<string, any>[]).concat(biz.openingHoursSpecification ?? []);
           if (spec.length) {
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -224,7 +296,9 @@ export function systemApi(app: Hono<AppEnv>) {
 
   app.post('/api/onboarding/finish', async (c) => {
     const user = requireCap(c, 'settings.manage');
-    const body = z.object({ theme: z.string(), palette: z.string().default('default'), mode: z.enum(['studio', 'werkbank']), baseUrl: z.string().optional() }).parse(await c.req.json());
+    const body = z
+      .object({ theme: z.string(), palette: z.string().default('default'), mode: z.enum(['studio', 'werkbank']), baseUrl: z.string().optional() })
+      .parse(await c.req.json());
     const s = await getSettings();
     if (!THEMES.some((t) => t.id === body.theme)) throw badRequest('Unbekannter Stil.');
     const baseUrl = body.baseUrl?.trim() ? body.baseUrl.trim().replace(/\/$/, '') : s.baseUrl;
@@ -331,7 +405,9 @@ export function systemApi(app: Hono<AppEnv>) {
         pathOf.set(e.id as string, p);
       }
     }
-    const linkedTo = new Set<string>(s.nav.flatMap((n) => [n.href, ...(n.children ?? []).map((x) => x.href)]).concat(s.footer.columns.flatMap((col) => col.links.map((l) => l.href))));
+    const linkedTo = new Set<string>(
+      s.nav.flatMap((n) => [n.href, ...(n.children ?? []).map((x) => x.href)]).concat(s.footer.columns.flatMap((col) => col.links.map((l) => l.href))),
+    );
     const issues: { kind: string; severity: 'bad' | 'warn'; message: string; entryId?: string; title?: string }[] = [];
     const titles = new Map<string, { id: string; title: string }[]>();
 
@@ -361,16 +437,37 @@ export function systemApi(app: Hono<AppEnv>) {
         issues.push({ kind: 'description', severity: 'warn', message: 'Keine eigene Beschreibung für Suchmaschinen.', entryId: e.id as string, title: d.title });
       if (path && d.seo?.noindex) issues.push({ kind: 'noindex', severity: 'warn', message: 'Für Suchmaschinen gesperrt.', entryId: e.id as string, title: d.title });
       if (col.id === 'pages' && path) {
-        const r = analyzeSeo({ title: d.title, slug: e.slug as string, isHome: path === '/', ownH1: false, seo: d.seo ?? {}, blocks: d.blocks ?? [], siteName: s.name, titleTemplate: s.seo.titleTemplate, alts });
-        if (r.checks.some((x) => x.id === 'h1' && x.status === 'bad')) issues.push({ kind: 'h1', severity: 'bad', message: 'Keine Hauptüberschrift (H1).', entryId: e.id as string, title: d.title });
+        const r = analyzeSeo({
+          title: d.title,
+          slug: e.slug as string,
+          isHome: path === '/',
+          ownH1: false,
+          seo: d.seo ?? {},
+          blocks: d.blocks ?? [],
+          siteName: s.name,
+          titleTemplate: s.seo.titleTemplate,
+          alts,
+        });
+        if (r.checks.some((x) => x.id === 'h1' && x.status === 'bad'))
+          issues.push({ kind: 'h1', severity: 'bad', message: 'Keine Hauptüberschrift (H1).', entryId: e.id as string, title: d.title });
       }
     }
-    for (const [t, list] of titles) if (list.length > 1) for (const x of list) issues.push({ kind: 'duplicate-title', severity: 'warn', message: `Gleicher Seitentitel wie ${list.length - 1} andere: «${t}».`, entryId: x.id, title: x.title });
+    for (const [t, list] of titles)
+      if (list.length > 1)
+        for (const x of list)
+          issues.push({ kind: 'duplicate-title', severity: 'warn', message: `Gleicher Seitentitel wie ${list.length - 1} andere: «${t}».`, entryId: x.id, title: x.title });
     for (const e of entries) {
       if (e.collection !== 'pages') continue;
       const p = pathOf.get(e.id as string);
       if (!p || p === '/' || ['/impressum', '/datenschutz', '/agb'].includes(p)) continue;
-      if (!linkedTo.has(p)) issues.push({ kind: 'orphan', severity: 'warn', message: 'Keine andere Seite verlinkt hierher – Besucher finden sie kaum.', entryId: e.id as string, title: (e.data as EntryData).title });
+      if (!linkedTo.has(p))
+        issues.push({
+          kind: 'orphan',
+          severity: 'warn',
+          message: 'Keine andere Seite verlinkt hierher – Besucher finden sie kaum.',
+          entryId: e.id as string,
+          title: (e.data as EntryData).title,
+        });
     }
     const order = { bad: 0, warn: 1 };
     issues.sort((a, b) => order[a.severity] - order[b.severity]);
@@ -387,11 +484,16 @@ export function systemApi(app: Hono<AppEnv>) {
   app.post('/api/redirects', async (c) => {
     requireAnyCap(c, 'settings.manage', 'content.publish');
     const b = z
-      .object({ from_path: z.string().regex(/^\/[^\s]*$/, 'Die alte Adresse muss mit / beginnen.'), to_path: z.string().min(1), code: z.union([z.literal(301), z.literal(302), z.literal(410)]).default(301) })
+      .object({
+        from_path: z.string().regex(/^\/[^\s]*$/, 'Die alte Adresse muss mit / beginnen.'),
+        to_path: z.string().min(1),
+        code: z.union([z.literal(301), z.literal(302), z.literal(410)]).default(301),
+      })
       .parse(await c.req.json());
     const from = b.from_path.replace(/\/+$/, '') || '/';
     if (from === b.to_path) throw badRequest('Eine Weiterleitung auf sich selbst geht nicht.');
-    const [r] = await sql`insert into redirects (from_path, to_path, code) values (${from.toLowerCase()}, ${b.to_path}, ${b.code}) on conflict (from_path) do update set to_path = excluded.to_path, code = excluded.code returning *`;
+    const [r] =
+      await sql`insert into redirects (from_path, to_path, code) values (${from.toLowerCase()}, ${b.to_path}, ${b.code}) on conflict (from_path) do update set to_path = excluded.to_path, code = excluded.code returning *`;
     bumpGeneration();
     return c.json({ redirect: r });
   });
@@ -424,7 +526,8 @@ export function systemApi(app: Hono<AppEnv>) {
     const user = requireCap(c, 'dev');
     const b = z.object({ name: z.string().trim().min(1).max(80), scopes: z.array(z.enum(['read', 'write'])).min(1) }).parse(await c.req.json());
     const raw = `nova_${token(24)}`;
-    const [t] = await sql`insert into api_tokens (name, token_hash, scopes, created_by) values (${b.name}, ${sha256(raw)}, ${b.scopes}, ${user.id}) returning id, name, scopes, created_at`;
+    const [t] =
+      await sql`insert into api_tokens (name, token_hash, scopes, created_by) values (${b.name}, ${sha256(raw)}, ${b.scopes}, ${user.id}) returning id, name, scopes, created_at`;
     await audit(c, 'token.create', 'token', t.id as string, { scopes: b.scopes });
     return c.json({ token: t, secret: raw });
   });
@@ -461,8 +564,10 @@ export function systemApi(app: Hono<AppEnv>) {
     const members = await sql`select id, email, name, status, email_verified_at, paid_until, subscription_status, created_at, last_login_at from members where lower(email) = ${e}`;
     const ticketOrders = await sql`select id, entry_title, name, email, phone, items, total, status, created_at from ticket_orders where lower(email) = ${e}`;
     const waitlist = await sql`select id, entry_id, name, email, created_at from ticket_waitlist where lower(email) = ${e}`;
-    const donations = await sql`select id, amount, currency, interval, campaign, name, email, street, zip, city, status, created_at, paid_at from donations where lower(email) = ${e}`;
-    const foodOrders = await sql`select id, number, mode, slot_at, name, phone, email, street, zip, city, items, total, status, created_at from food_orders where lower(email) = ${e}`;
+    const donations =
+      await sql`select id, amount, currency, interval, campaign, name, email, street, zip, city, status, created_at, paid_at from donations where lower(email) = ${e}`;
+    const foodOrders =
+      await sql`select id, number, mode, slot_at, name, phone, email, street, zip, city, items, total, status, created_at from food_orders where lower(email) = ${e}`;
     return { contacts, submissions, orders, comments, users, bookings, subscribers, members, ticketOrders, waitlist, donations, foodOrders };
   }
 
@@ -591,7 +696,14 @@ export function systemApi(app: Hono<AppEnv>) {
     const cols = await listCollections();
     return c.json({
       results: [
-        ...entries.map((e) => ({ kind: 'entry', id: e.id, collection: e.collection, collectionName: cols.find((x) => x.id === e.collection)?.singular ?? e.collection, title: e.title || '(ohne Titel)', status: e.status })),
+        ...entries.map((e) => ({
+          kind: 'entry',
+          id: e.id,
+          collection: e.collection,
+          collectionName: cols.find((x) => x.id === e.collection)?.singular ?? e.collection,
+          title: e.title || '(ohne Titel)',
+          status: e.status,
+        })),
         ...media.map((m) => ({ kind: 'media', id: m.id, title: m.filename, thumb: `/media/${m.id}/v${m.version}/160.webp` })),
         ...contacts.map((x) => ({ kind: 'contact', id: x.id, title: x.name || x.email, subtitle: x.email })),
         ...orders.map((x) => ({ kind: 'order', id: x.id, title: `Bestellung ${x.number}`, subtitle: x.email })),
@@ -618,5 +730,4 @@ export function systemApi(app: Hono<AppEnv>) {
     const ok = await sendMail({ to: user.email, subject: 'Test von Nova', text: 'Wenn du das liest, funktioniert der E-Mail-Versand.' });
     return c.json({ ok, configured: mailConfigured() });
   });
-
 }

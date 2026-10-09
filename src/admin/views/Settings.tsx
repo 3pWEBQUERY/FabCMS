@@ -17,7 +17,7 @@ import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
-import { ContentTypes, CodeSettings, ApiSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
+import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 
 interface Section {
@@ -45,6 +45,7 @@ const SECTIONS: Section[] = [
   { id: 'typen', label: 'Inhaltstypen', icon: 'database', cap: 'dev', pro: true },
   { id: 'code', label: 'CSS & Tokens', icon: 'code', cap: 'dev', pro: true },
   { id: 'api', label: 'API & Webhooks', icon: 'webhook', cap: 'dev', pro: true },
+  { id: 'hooks', label: 'Hooks', icon: 'code', cap: 'dev', pro: true },
   { id: 'weiterleitungen', label: 'Weiterleitungen', icon: 'arrowRight', cap: 'settings.manage', pro: true },
   { id: 'sql', label: 'SQL-Abfrage', icon: 'database', cap: 'data.sql', pro: true },
   { id: 'protokoll', label: 'Protokoll', icon: 'history', cap: 'audit.view', pro: true },
@@ -108,6 +109,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'typen' && <ContentTypes />}
           {current.id === 'code' && <CodeSettings />}
           {current.id === 'api' && <ApiSettings />}
+          {current.id === 'hooks' && <HooksSettings />}
           {current.id === 'weiterleitungen' && <Redirects />}
           {current.id === 'sql' && <SqlConsole />}
           {current.id === 'protokoll' && <AuditLog />}
@@ -184,7 +186,11 @@ function WebsiteSettings() {
               <input className="input" type="email" value={b.email} onChange={(e) => setB({ email: e.target.value })} />
             </Field>
           </div>
-          {b.lat && <p className="xsmall faint">Auf der Karte gefunden ({b.lat.toFixed(4)}, {b.lng?.toFixed(4)}).</p>}
+          {b.lat && (
+            <p className="xsmall faint">
+              Auf der Karte gefunden ({b.lat.toFixed(4)}, {b.lng?.toFixed(4)}).
+            </p>
+          )}
         </Section>
         <Section title="Öffnungszeiten" id="zeiten" sub="Erscheinen im Block «Öffnungszeiten», im Footer und bei Google. «Jetzt geöffnet» rechnet Nova selbst aus.">
           <HoursEditor hours={draft.hours} onChange={(h) => set('hours', h)} />
@@ -195,9 +201,39 @@ function WebsiteSettings() {
         <Section title="Social Media">
           {draft.social.map((s, i) => (
             <div key={i} className="row">
-              <input className="input" style={{ maxWidth: '10rem' }} value={s.label} placeholder="Instagram" onChange={(e) => set('social', draft.social.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-              <input className="input grow" value={s.href} placeholder="https://instagram.com/…" onChange={(e) => set('social', draft.social.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)))} />
-              <button className="btn ghost icon-only" aria-label="Entfernen" onClick={() => set('social', draft.social.filter((_, j) => j !== i))}>
+              <input
+                className="input"
+                style={{ maxWidth: '10rem' }}
+                value={s.label}
+                placeholder="Instagram"
+                onChange={(e) =>
+                  set(
+                    'social',
+                    draft.social.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                  )
+                }
+              />
+              <input
+                className="input grow"
+                value={s.href}
+                placeholder="https://instagram.com/…"
+                onChange={(e) =>
+                  set(
+                    'social',
+                    draft.social.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
+                  )
+                }
+              />
+              <button
+                className="btn ghost icon-only"
+                aria-label="Entfernen"
+                onClick={() =>
+                  set(
+                    'social',
+                    draft.social.filter((_, j) => j !== i),
+                  )
+                }
+              >
                 <Icon name="x" size="s" />
               </button>
             </div>
@@ -274,7 +310,14 @@ function DesignSettings() {
           <Section title="Farben">
             <div className="row wrap" style={{ gap: '0.75rem' }}>
               {theme.palettes.map((p) => (
-                <button key={p.id} type="button" className="chip" aria-pressed={t.palette === p.id} onClick={() => setT({ palette: p.id })} style={{ height: '2.25rem', paddingLeft: '0.35rem' }}>
+                <button
+                  key={p.id}
+                  type="button"
+                  className="chip"
+                  aria-pressed={t.palette === p.id}
+                  onClick={() => setT({ palette: p.id })}
+                  style={{ height: '2.25rem', paddingLeft: '0.35rem' }}
+                >
                   <span className="swatch" style={{ width: '1.5rem', height: '1.5rem', background: `linear-gradient(135deg, ${p.bg} 0 50%, ${p.accent} 50% 100%)` }} />
                   {p.label}
                 </button>
@@ -314,7 +357,12 @@ function DesignSettings() {
         </div>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
-      <Dialog open={offer} onOpenChange={setOffer} title="Zur Werkbank wechseln?" description="Die Werkbank zeigt dieselben Inhalte – dazu Design-Tokens, eigenes CSS, Code-Ansicht pro Block, Inhaltstypen und API. Zurück ins Studio geht jederzeit.">
+      <Dialog
+        open={offer}
+        onOpenChange={setOffer}
+        title="Zur Werkbank wechseln?"
+        description="Die Werkbank zeigt dieselben Inhalte – dazu Design-Tokens, eigenes CSS, Code-Ansicht pro Block, Inhaltstypen und API. Zurück ins Studio geht jederzeit."
+      >
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setOffer(false)}>
             Lieber nicht
@@ -349,10 +397,28 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
         <span className="grip" onPointerDown={(e) => controls.start(e)} aria-hidden="true">
           <Icon name="grip" size="s" />
         </span>
-        <input className="input" style={{ maxWidth: '12rem' }} value={item.label} placeholder="Beschriftung" onChange={(e) => onChange({ ...item, label: e.target.value })} aria-label="Beschriftung" />
-        <SuggestInput className="input grow mono" value={item.href} placeholder="/seite" onChange={(v) => onChange({ ...item, href: v })} aria-label="Ziel" suggestions={pageLinks} />
+        <input
+          className="input"
+          style={{ maxWidth: '12rem' }}
+          value={item.label}
+          placeholder="Beschriftung"
+          onChange={(e) => onChange({ ...item, label: e.target.value })}
+          aria-label="Beschriftung"
+        />
+        <SuggestInput
+          className="input grow mono"
+          value={item.href}
+          placeholder="/seite"
+          onChange={(v) => onChange({ ...item, href: v })}
+          aria-label="Ziel"
+          suggestions={pageLinks}
+        />
         {depth === 0 && (
-          <button className="btn ghost s" onClick={() => onChange({ ...item, children: [...(item.children ?? []), { id: shortId(), label: '', href: '' }] })} title="Untermenü-Punkt">
+          <button
+            className="btn ghost s"
+            onClick={() => onChange({ ...item, children: [...(item.children ?? []), { id: shortId(), label: '', href: '' }] })}
+            title="Untermenü-Punkt"
+          >
             + Unterpunkt
           </button>
         )}
@@ -363,7 +429,13 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
       {depth === 0 && item.children && item.children.length > 0 && (
         <Reorder.Group axis="y" values={item.children} onReorder={(c) => onChange({ ...item, children: c })} style={{ padding: 0, margin: 0 }}>
           {item.children.map((c) => (
-            <NavRow key={c.id} item={c} depth={1} onChange={(nc) => onChange({ ...item, children: item.children!.map((x) => (x.id === c.id ? nc : x)) })} onRemove={() => onChange({ ...item, children: item.children!.filter((x) => x.id !== c.id) })} />
+            <NavRow
+              key={c.id}
+              item={c}
+              depth={1}
+              onChange={(nc) => onChange({ ...item, children: item.children!.map((x) => (x.id === c.id ? nc : x)) })}
+              onRemove={() => onChange({ ...item, children: item.children!.filter((x) => x.id !== c.id) })}
+            />
           ))}
         </Reorder.Group>
       )}
@@ -384,7 +456,23 @@ function NavigationSettings() {
           <Section title="Hauptmenü" sub="Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.">
             <Reorder.Group axis="y" values={draft.nav} onReorder={(n) => set('nav', n)} style={{ padding: 0, margin: 0 }}>
               {draft.nav.map((n) => (
-                <NavRow key={n.id} item={n} depth={0} onChange={(nn) => set('nav', draft.nav.map((x) => (x.id === n.id ? nn : x)))} onRemove={() => set('nav', draft.nav.filter((x) => x.id !== n.id))} />
+                <NavRow
+                  key={n.id}
+                  item={n}
+                  depth={0}
+                  onChange={(nn) =>
+                    set(
+                      'nav',
+                      draft.nav.map((x) => (x.id === n.id ? nn : x)),
+                    )
+                  }
+                  onRemove={() =>
+                    set(
+                      'nav',
+                      draft.nav.filter((x) => x.id !== n.id),
+                    )
+                  }
+                />
               ))}
             </Reorder.Group>
             <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('nav', [...draft.nav, { id: shortId(), label: '', href: '' }])}>
@@ -394,10 +482,21 @@ function NavigationSettings() {
           <Section title="Kopfzeile">
             <div className="grid-2">
               <Field label="Knopf rechts im Menü" help="z. B. «Tisch reservieren»">
-                <input className="input" value={draft.header.cta?.label ?? ''} onChange={(e) => set('header', { ...draft.header, cta: e.target.value || draft.header.cta?.href ? { label: e.target.value, href: draft.header.cta?.href ?? '' } : null })} />
+                <input
+                  className="input"
+                  value={draft.header.cta?.label ?? ''}
+                  onChange={(e) =>
+                    set('header', { ...draft.header, cta: e.target.value || draft.header.cta?.href ? { label: e.target.value, href: draft.header.cta?.href ?? '' } : null })
+                  }
+                />
               </Field>
               <Field label="Ziel des Knopfs">
-                <SuggestInput className="input mono" suggestions={pageLinks} value={draft.header.cta?.href ?? ''} onChange={(v) => set('header', { ...draft.header, cta: { label: draft.header.cta?.label ?? '', href: v } })} />
+                <SuggestInput
+                  className="input mono"
+                  suggestions={pageLinks}
+                  value={draft.header.cta?.href ?? ''}
+                  onChange={(v) => set('header', { ...draft.header, cta: { label: draft.header.cta?.label ?? '', href: v } })}
+                />
               </Field>
             </div>
             <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label="Kopfzeile beim Scrollen oben behalten" />
@@ -409,8 +508,17 @@ function NavigationSettings() {
             {draft.footer.columns.map((col, i) => (
               <div key={i} className="repeat-item" style={{ padding: '0.75rem' }}>
                 <div className="row">
-                  <input className="input" value={col.title} placeholder="Spaltentitel" onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })} />
-                  <button className="btn ghost s icon-only" aria-label="Spalte entfernen" onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}>
+                  <input
+                    className="input"
+                    value={col.title}
+                    placeholder="Spaltentitel"
+                    onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })}
+                  />
+                  <button
+                    className="btn ghost s icon-only"
+                    aria-label="Spalte entfernen"
+                    onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}
+                  >
                     <Icon name="trash" size="s" />
                   </button>
                 </div>
@@ -420,7 +528,12 @@ function NavigationSettings() {
                       className="input"
                       value={l.label}
                       placeholder="Beschriftung"
-                      onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, label: e.target.value } : x)) } : c)) })}
+                      onChange={(e) =>
+                        set('footer', {
+                          ...draft.footer,
+                          columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, label: e.target.value } : x)) } : c)),
+                        })
+                      }
                     />
                     <SuggestInput
                       className="input mono"
@@ -428,16 +541,31 @@ function NavigationSettings() {
                       value={l.href}
                       placeholder="/seite"
                       aria-label="Ziel"
-                      onChange={(v) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, href: v } : x)) } : c)) })}
+                      onChange={(v) =>
+                        set('footer', {
+                          ...draft.footer,
+                          columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, href: v } : x)) } : c)),
+                        })
+                      }
                     />
                   </div>
                 ))}
-                <button className="btn ghost s" style={{ marginTop: '0.4rem' }} onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })}>
+                <button
+                  className="btn ghost s"
+                  style={{ marginTop: '0.4rem' }}
+                  onClick={() =>
+                    set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })
+                  }
+                >
                   + Link
                 </button>
               </div>
             ))}
-            <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}>
+            <button
+              className="btn s"
+              style={{ justifySelf: 'start' }}
+              onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}
+            >
               <Icon name="plus" size="s" /> Spalte
             </button>
             <p className="xsmall muted">Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.</p>
@@ -517,15 +645,31 @@ function SeoSettings() {
             </Field>
           </Section>
           <Section title="Indexierung">
-            <Toggle checked={!s.noindex} onChange={(v) => set('seo', { ...s, noindex: !v })} label="Suchmaschinen dürfen die Website aufnehmen" help="Ausschalten, solange die Website noch im Aufbau ist." />
+            <Toggle
+              checked={!s.noindex}
+              onChange={(v) => set('seo', { ...s, noindex: !v })}
+              label="Suchmaschinen dürfen die Website aufnehmen"
+              help="Ausschalten, solange die Website noch im Aufbau ist."
+            />
             <Toggle checked={s.indexNow} onChange={(v) => set('seo', { ...s, indexNow: v })} label="Bing & Co. bei Änderungen sofort benachrichtigen (IndexNow)" />
-            <Toggle checked={s.adult} onChange={(v) => set('seo', { ...s, adult: v })} label="Inhalte für Erwachsene kennzeichnen" help="Für SafeSearch: Google zeigt die Website dann nicht bei eingeschaltetem Jugendschutz." />
+            <Toggle
+              checked={s.adult}
+              onChange={(v) => set('seo', { ...s, adult: v })}
+              label="Inhalte für Erwachsene kennzeichnen"
+              help="Für SafeSearch: Google zeigt die Website dann nicht bei eingeschaltetem Jugendschutz."
+            />
             <p className="xsmall muted">
-              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>. Die Google Search Console verbindest du, indem du dort die Sitemap einreichst.
+              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>. Die Google Search Console verbindest du, indem du dort die Sitemap
+              einreichst.
             </p>
           </Section>
           <Section title="Statistik">
-            <Toggle checked={draft.analytics.enabled} onChange={(v) => set('analytics', { ...draft.analytics, enabled: v })} label="Besuche zählen (ohne Cookies)" help="Ohne Einwilligungsbanner zulässig: keine Cookies, keine IP-Speicherung, keine Wiedererkennung über Tage." />
+            <Toggle
+              checked={draft.analytics.enabled}
+              onChange={(v) => set('analytics', { ...draft.analytics, enabled: v })}
+              label="Besuche zählen (ohne Cookies)"
+              help="Ohne Einwilligungsbanner zulässig: keine Cookies, keine IP-Speicherung, keine Wiedererkennung über Tage."
+            />
           </Section>
         </div>
       </div>
@@ -542,7 +686,11 @@ function LegalSettings() {
   const { data, reload } = useApi<{ entries: { id: string; slug: string; status: string; title: string; changed: boolean }[] }>('/api/entries?collection=pages&limit=500');
   const legal = (data?.entries ?? []).filter((p) => ['impressum', 'datenschutz', 'agb'].includes(p.slug));
   const generate = async () => {
-    if (legal.length && !(await confirm({ title: 'Texte neu erzeugen?', message: 'Bestehende Entwürfe werden überschrieben. Ältere Fassungen bleiben im Verlauf.', confirm: 'Neu erzeugen' }))) return;
+    if (
+      legal.length &&
+      !(await confirm({ title: 'Texte neu erzeugen?', message: 'Bestehende Entwürfe werden überschrieben. Ältere Fassungen bleiben im Verlauf.', confirm: 'Neu erzeugen' }))
+    )
+      return;
     try {
       await api.post('/api/legal/generate');
       toast('Texte erzeugt – bitte lesen, anpassen und veröffentlichen.');
@@ -554,7 +702,10 @@ function LegalSettings() {
   if (!draft) return <Skeleton />;
   return (
     <>
-      <PageHead title="Rechtliches" sub="Nova erzeugt Impressum, Datenschutzerklärung und AGB aus dem, was deine Website tatsächlich tut – Formulare, Shop, Statistik, Einbettungen." />
+      <PageHead
+        title="Rechtliches"
+        sub="Nova erzeugt Impressum, Datenschutzerklärung und AGB aus dem, was deine Website tatsächlich tut – Formulare, Shop, Statistik, Einbettungen."
+      />
       <div className="stack loose">
         <section className="card">
           <div className="card-head">
@@ -593,14 +744,25 @@ function LegalSettings() {
             {draft.ageGate.enabled && (
               <div className="grid-2">
                 <Field label="Mindestalter">
-                  <input className="input num" type="number" min={16} max={21} value={draft.ageGate.minAge} onChange={(e) => set('ageGate', { ...draft.ageGate, minAge: Number(e.target.value) })} />
+                  <input
+                    className="input num"
+                    type="number"
+                    min={16}
+                    max={21}
+                    value={draft.ageGate.minAge}
+                    onChange={(e) => set('ageGate', { ...draft.ageGate, minAge: Number(e.target.value) })}
+                  />
                 </Field>
                 <Field label="Hinweistext">
                   <input className="input" value={draft.ageGate.text} onChange={(e) => set('ageGate', { ...draft.ageGate, text: e.target.value })} />
                 </Field>
               </div>
             )}
-            {draft.ageGate.enabled && <p className="xsmall muted">Wo das Gesetz eine echte Altersverifikation verlangt (z. B. in Deutschland), reicht eine Selbstauskunft nicht. Dafür braucht es einen Verifikationsanbieter.</p>}
+            {draft.ageGate.enabled && (
+              <p className="xsmall muted">
+                Wo das Gesetz eine echte Altersverifikation verlangt (z. B. in Deutschland), reicht eine Selbstauskunft nicht. Dafür braucht es einen Verifikationsanbieter.
+              </p>
+            )}
           </Section>
         </div>
       </div>
@@ -635,10 +797,12 @@ function DomainSettings() {
           </Field>
           <ol className="small stack tight" style={{ paddingLeft: '1.2rem', margin: 0 }}>
             <li>
-              Öffne in Railway deinen Nova-Dienst → <strong>Settings → Networking → Custom Domain</strong> und trag <span className="mono">{custom || 'www.meine-domain.ch'}</span> ein.
+              Öffne in Railway deinen Nova-Dienst → <strong>Settings → Networking → Custom Domain</strong> und trag <span className="mono">{custom || 'www.meine-domain.ch'}</span>{' '}
+              ein.
             </li>
             <li>
-              Railway zeigt dir einen <strong>CNAME-Eintrag</strong> (Ziel endet auf <span className="mono">.up.railway.app</span>). Leg ihn bei deinem Domain-Anbieter (z. B. Hostpoint, Infomaniak, Cyon) an:
+              Railway zeigt dir einen <strong>CNAME-Eintrag</strong> (Ziel endet auf <span className="mono">.up.railway.app</span>). Leg ihn bei deinem Domain-Anbieter (z. B.
+              Hostpoint, Infomaniak, Cyon) an:
               <pre className="code-out" style={{ marginTop: '0.5rem' }}>{`Typ:   CNAME
 Name:  ${apex ? '@' : custom.split('.')[0] || 'www'}
 Ziel:  (aus Railway kopieren)`}</pre>
@@ -677,14 +841,18 @@ function ShopSettings() {
           </div>
           {!bundle.system.stripeWebhook && (
             <p className="xsmall muted">
-              In Railway die Variablen <span className="mono">STRIPE_SECRET_KEY</span> und <span className="mono">STRIPE_WEBHOOK_SECRET</span> setzen. Webhook-Ziel in Stripe: <span className="mono">{(draft.baseUrl || bundle.system.publicUrl) + '/_nova/stripe/webhook'}</span> mit den Ereignissen
-              «checkout.session.completed», «…async_payment_succeeded», «…async_payment_failed», «…expired». Welche Zahlarten (TWINT usw.) angeboten werden, stellst du im Stripe-Dashboard ein.
+              In Railway die Variablen <span className="mono">STRIPE_SECRET_KEY</span> und <span className="mono">STRIPE_WEBHOOK_SECRET</span> setzen. Webhook-Ziel in Stripe:{' '}
+              <span className="mono">{(draft.baseUrl || bundle.system.publicUrl) + '/_nova/stripe/webhook'}</span> mit den Ereignissen «checkout.session.completed»,
+              «…async_payment_succeeded», «…async_payment_failed», «…expired». Welche Zahlarten (TWINT usw.) angeboten werden, stellst du im Stripe-Dashboard ein.
             </p>
           )}
           <Toggle checked={sh.invoiceEnabled} onChange={(v) => setS({ invoiceEnabled: v })} label="Kauf auf Rechnung anbieten" />
           {sh.invoiceEnabled && (
             <>
-              <Field label="IBAN für die QR-Rechnung" help="Mit IBAN bekommt jede Rechnung den Schweizer QR-Zahlteil – die Kundschaft scannt ihn mit der Banking-App. QR-IBAN geht auch.">
+              <Field
+                label="IBAN für die QR-Rechnung"
+                help="Mit IBAN bekommt jede Rechnung den Schweizer QR-Zahlteil – die Kundschaft scannt ihn mit der Banking-App. QR-IBAN geht auch."
+              >
                 <input className="input mono" value={sh.iban} maxLength={40} placeholder="CH93 0076 2011 6238 5295 7" onChange={(e) => setS({ iban: e.target.value })} />
               </Field>
               <Field label="Weitere Zahlungsangaben" help="Erscheint auf der Rechnung, z. B. Bank oder Zahlungsfrist.">
@@ -696,25 +864,61 @@ function ShopSettings() {
         <Section title="Mehrwertsteuer" sub="Preise werden inklusive MwSt. erfasst und angezeigt.">
           <div className="grid-2">
             <Field label="Normalsatz %">
-              <input className="input num" type="number" step="0.1" value={sh.vatRates.standard} onChange={(e) => setS({ vatRates: { ...sh.vatRates, standard: Number(e.target.value) } })} />
+              <input
+                className="input num"
+                type="number"
+                step="0.1"
+                value={sh.vatRates.standard}
+                onChange={(e) => setS({ vatRates: { ...sh.vatRates, standard: Number(e.target.value) } })}
+              />
             </Field>
             <Field label="Reduzierter Satz %">
-              <input className="input num" type="number" step="0.1" value={sh.vatRates.reduced} onChange={(e) => setS({ vatRates: { ...sh.vatRates, reduced: Number(e.target.value) } })} />
+              <input
+                className="input num"
+                type="number"
+                step="0.1"
+                value={sh.vatRates.reduced}
+                onChange={(e) => setS({ vatRates: { ...sh.vatRates, reduced: Number(e.target.value) } })}
+              />
             </Field>
           </div>
         </Section>
         <Section title="Versand">
           <div className="grid-2">
             <Field label="Versandkosten (CHF)">
-              <input className="input num" inputMode="decimal" defaultValue={money(sh.shipping.flat)} onBlur={(e) => setS({ shipping: { ...sh.shipping, flat: parse(e.target.value) ?? 0 } })} />
+              <input
+                className="input num"
+                inputMode="decimal"
+                defaultValue={money(sh.shipping.flat)}
+                onBlur={(e) => setS({ shipping: { ...sh.shipping, flat: parse(e.target.value) ?? 0 } })}
+              />
             </Field>
             <Field label="Gratis ab (CHF)" help="Leer = nie gratis">
-              <input className="input num" inputMode="decimal" defaultValue={money(sh.shipping.freeFrom)} onBlur={(e) => setS({ shipping: { ...sh.shipping, freeFrom: parse(e.target.value) } })} />
+              <input
+                className="input num"
+                inputMode="decimal"
+                defaultValue={money(sh.shipping.freeFrom)}
+                onBlur={(e) => setS({ shipping: { ...sh.shipping, freeFrom: parse(e.target.value) } })}
+              />
             </Field>
           </div>
           <Toggle checked={sh.shipping.pickup} onChange={(v) => setS({ shipping: { ...sh.shipping, pickup: v } })} label="Abholung anbieten" />
           <Field label="Lieferländer" help="Ländercodes, z. B. CH, LI, DE, AT">
-            <input className="input mono" value={sh.shipping.countries.join(', ')} onChange={(e) => setS({ shipping: { ...sh.shipping, countries: e.target.value.split(/[,\s]+/).map((x) => x.toUpperCase()).filter((x) => /^[A-Z]{2}$/.test(x)) } })} />
+            <input
+              className="input mono"
+              value={sh.shipping.countries.join(', ')}
+              onChange={(e) =>
+                setS({
+                  shipping: {
+                    ...sh.shipping,
+                    countries: e.target.value
+                      .split(/[,\s]+/)
+                      .map((x) => x.toUpperCase())
+                      .filter((x) => /^[A-Z]{2}$/.test(x)),
+                  },
+                })
+              }
+            />
           </Field>
         </Section>
         <Section title="Bestellungen">
@@ -740,7 +944,10 @@ function ModuleSettings() {
   if (!draft) return <Skeleton />;
   return (
     <>
-      <PageHead title="Module" sub="Was 80 % aller Websites brauchen, ist eingebaut. Schalt ein, was du nutzt – ausgeschaltete Module verschwinden aus der Verwaltung, ihre Daten bleiben erhalten." />
+      <PageHead
+        title="Module"
+        sub="Was 80 % aller Websites brauchen, ist eingebaut. Schalt ein, was du nutzt – ausgeschaltete Module verschwinden aus der Verwaltung, ihre Daten bleiben erhalten."
+      />
       <div className="card">
         {MODULES.map((m) => (
           <div key={m.id} className="form-section">
@@ -839,7 +1046,14 @@ function TeamSettings() {
                           label: 'Passwort zurücksetzen',
                           icon: 'key',
                           onSelect: async () => {
-                            if (!(await confirm({ title: `Passwort von ${u.name} zurücksetzen?`, message: 'Alle Sitzungen werden beendet und 2FA wird ausgeschaltet.', confirm: 'Zurücksetzen' }))) return;
+                            if (
+                              !(await confirm({
+                                title: `Passwort von ${u.name} zurücksetzen?`,
+                                message: 'Alle Sitzungen werden beendet und 2FA wird ausgeschaltet.',
+                                confirm: 'Zurücksetzen',
+                              }))
+                            )
+                              return;
                             const r = await api.post<{ temporaryPassword: string }>(`/api/users/${u.id}/reset`);
                             setSecret({ email: u.email, password: r.temporaryPassword, mailed: false });
                           },
@@ -923,7 +1137,12 @@ function TeamSettings() {
           </button>
         </div>
       </Dialog>
-      <Dialog open={Boolean(secret)} onOpenChange={(o) => !o && setSecret(null)} title="Vorläufiges Passwort" description={secret?.mailed ? 'Wir haben die Zugangsdaten auch per E-Mail geschickt.' : 'Gib es persönlich weiter – es wird nur jetzt angezeigt.'}>
+      <Dialog
+        open={Boolean(secret)}
+        onOpenChange={(o) => !o && setSecret(null)}
+        title="Vorläufiges Passwort"
+        description={secret?.mailed ? 'Wir haben die Zugangsdaten auch per E-Mail geschickt.' : 'Gib es persönlich weiter – es wird nur jetzt angezeigt.'}
+      >
         {secret && (
           <div className="stack tight">
             <span className="small muted">{secret.email}</span>
@@ -962,17 +1181,41 @@ function DataSettings() {
     }
   };
   const erase = async () => {
-    if (!(await confirm({ title: `Alle Daten von ${email} löschen?`, message: 'Formulareinträge, Kontakt, Kommentare und Newsletter-Anmeldung werden gelöscht. Bestellungen werden anonymisiert (Aufbewahrungspflicht), Reservationen bleiben als belegte Zeit ohne Namen.', confirm: 'Löschen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: `Alle Daten von ${email} löschen?`,
+        message:
+          'Formulareinträge, Kontakt, Kommentare und Newsletter-Anmeldung werden gelöscht. Bestellungen werden anonymisiert (Aufbewahrungspflicht), Reservationen bleiben als belegte Zeit ohne Namen.',
+        confirm: 'Löschen',
+        danger: true,
+      }))
+    )
+      return;
     try {
       const r = await api.post<{ deleted: Record<string, number>; anonymizedOrders: number; anonymizedBookings: number }>('/api/privacy/delete', { email });
       const kept = [r.anonymizedOrders && `${r.anonymizedOrders} Bestellungen`, r.anonymizedBookings && `${r.anonymizedBookings} Reservationen`].filter(Boolean).join(' und ');
-      toast(`Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}${r.deleted.members ? ', Mitgliederkonto' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`);
+      toast(
+        `Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}${r.deleted.members ? ', Mitgliederkonto' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`,
+      );
       setPerson(null);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen', members: 'Mitgliederkonten', ticketOrders: 'Ticketbestellungen', waitlist: 'Wartelisten-Einträge', donations: 'Spenden', foodOrders: 'Essensbestellungen' };
+  const LABEL: Record<string, string> = {
+    contacts: 'Kontakte',
+    submissions: 'Formulareinträge',
+    orders: 'Bestellungen',
+    comments: 'Kommentare',
+    users: 'Benutzerkonten',
+    bookings: 'Reservationen',
+    subscribers: 'Newsletter-Anmeldungen',
+    members: 'Mitgliederkonten',
+    ticketOrders: 'Ticketbestellungen',
+    waitlist: 'Wartelisten-Einträge',
+    donations: 'Spenden',
+    foodOrders: 'Essensbestellungen',
+  };
   return (
     <>
       <PageHead title="Daten & Datenschutz" sub="Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support." />
@@ -1059,7 +1302,16 @@ function DataSettings() {
                     <button
                       className="btn ghost s"
                       onClick={async () => {
-                        if (!(await confirm({ title: 'Diese Sicherung wiederherstellen?', message: 'Alle Inhalte, Formulare, Kontakte und Bestellungen werden auf diesen Stand gesetzt. Vorher legt Nova automatisch eine Sicherung des aktuellen Stands an.', confirm: 'Wiederherstellen', danger: true }))) return;
+                        if (
+                          !(await confirm({
+                            title: 'Diese Sicherung wiederherstellen?',
+                            message:
+                              'Alle Inhalte, Formulare, Kontakte und Bestellungen werden auf diesen Stand gesetzt. Vorher legt Nova automatisch eine Sicherung des aktuellen Stands an.',
+                            confirm: 'Wiederherstellen',
+                            danger: true,
+                          }))
+                        )
+                          return;
                         try {
                           await api.post(`/api/backups/${b.id}/restore`);
                           toast('Wiederhergestellt.');
@@ -1081,12 +1333,17 @@ function DataSettings() {
           <section className="card card-pad stack tight">
             <h2 className="section-title">System</h2>
             <p className="small row">
-              <span className={`dot ${bundle.system.storage === 'bucket' ? 'ok' : 'edited'}`} /> Dateispeicher: {bundle.system.storage === 'bucket' ? 'Railway Bucket' : 'lokal – für Railway Bucket-Variablen setzen, sonst gehen Uploads beim Neustart verloren'}
+              <span className={`dot ${bundle.system.storage === 'bucket' ? 'ok' : 'edited'}`} /> Dateispeicher:{' '}
+              {bundle.system.storage === 'bucket' ? 'Railway Bucket' : 'lokal – für Railway Bucket-Variablen setzen, sonst gehen Uploads beim Neustart verloren'}
             </p>
             <p className="small row">
-              <span className={`dot ${bundle.system.mail ? 'ok' : 'edited'}`} /> E-Mail-Versand: {bundle.system.mail ? 'eingerichtet' : 'nicht eingerichtet (RESEND_API_KEY oder SMTP_URL)'}
+              <span className={`dot ${bundle.system.mail ? 'ok' : 'edited'}`} /> E-Mail-Versand:{' '}
+              {bundle.system.mail ? 'eingerichtet' : 'nicht eingerichtet (RESEND_API_KEY oder SMTP_URL)'}
               {bundle.system.mail && (
-                <button className="linkish xsmall" onClick={() => api.post<{ ok: boolean }>('/api/mail/test').then((r) => toast(r.ok ? 'Test-Mail ist unterwegs.' : 'Versand fehlgeschlagen – siehe Logs.'))}>
+                <button
+                  className="linkish xsmall"
+                  onClick={() => api.post<{ ok: boolean }>('/api/mail/test').then((r) => toast(r.ok ? 'Test-Mail ist unterwegs.' : 'Versand fehlgeschlagen – siehe Logs.'))}
+                >
                   Test senden
                 </button>
               )}
@@ -1097,4 +1354,3 @@ function DataSettings() {
     </>
   );
 }
-

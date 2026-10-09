@@ -19,6 +19,7 @@ import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv } fro
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { generateSdk } from '../src/server/sdk';
+import { runHook, checkHookCode } from '../src/server/hooks';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -508,5 +509,38 @@ describe('typescript sdk', () => {
     expect(check(`const d = await nova.dishes.get('x'); d?.data.titel;`).join()).toMatch(/Property 'titel' does not exist/);
     expect(check(`await nova.collection('unknown');`).join()).toMatch(/error TS2345/);
     expect(check(`await nova.properties.create({ title: 'Wohnung', offer: 'lease' } as never); await nova.dishes.update('id', { title: 1 });`).join()).toMatch(/error TS2322/);
+  });
+});
+
+describe('sandboxed hooks', () => {
+  it("changes the event or rejects with the hook's own message", async () => {
+    const r = await runHook('function hook(e) { e.data.title = e.data.title.trim().toUpperCase(); console.log("ok", e.data.title); }', { data: { title: '  rösti ' } });
+    expect(r).toMatchObject({ ok: true, result: { data: { title: 'RÖSTI' } }, logs: ['ok RÖSTI'] });
+    const no = await runHook('function hook(e) { if (!e.data.excerpt) throw new Error("Bitte eine Kurzfassung."); }', { data: {} });
+    expect(no).toMatchObject({ ok: false, error: 'Bitte eine Kurzfassung.' });
+    expect((await runHook('function hook() { return { replaced: true } }', { a: 1 })).result).toEqual({ replaced: true });
+  });
+
+  it('has no way out of the sandbox', async () => {
+    for (const probe of ['require("fs")', 'process.env', 'fetch("https://example.ch")', 'globalThis.Deno', 'import("fs")', 'setTimeout(() => 1)']) {
+      const r = await runHook(`function hook(e) { e.leak = String(${probe}); }`, {});
+      if (r.ok) expect(r.result!.leak).toMatch(/^(undefined|\[object Promise\])$/);
+      else expect(r.error).toMatch(/not defined|undefined|not a function|cannot|import/i);
+    }
+    // Nothing survives between runs.
+    await runHook('globalThis.x = 1; function hook(e) {}', {});
+    expect((await runHook('function hook(e) { e.x = typeof globalThis.x }', {})).result).toEqual({ x: 'undefined' });
+  });
+
+  it('stops endless loops, memory bombs and async hooks', async () => {
+    const loop = await runHook('function hook() { while (true) {} }', {});
+    expect(loop.error).toMatch(/Abgebrochen nach 50 ms/);
+    expect(loop.ms).toBeLessThan(1000);
+    const mem = await runHook('function hook() { const a = []; while (true) a.push("x".repeat(1e5)); }', {});
+    expect(mem.ok).toBe(false);
+    expect((await runHook('async function hook() {}', {})).error).toMatch(/nicht async/);
+    expect(await checkHookCode('function hook(e) {}')).toBeNull();
+    expect(await checkHookCode('const x = 1;')).toMatch(/hook\(event\)/);
+    expect(await checkHookCode('function hook( {')).toMatch(/SyntaxError/);
   });
 });

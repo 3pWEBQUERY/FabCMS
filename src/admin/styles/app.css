@@ -1539,6 +1539,9 @@ button.list-item {
   color: var(--ink);
   font-size: var(--t-s);
 }
+.hint.bad {
+  background: color-mix(in oklab, var(--bad) 12%, transparent);
+}
 .hint .hint-anim {
   width: 2.25rem;
   height: 2.25rem;

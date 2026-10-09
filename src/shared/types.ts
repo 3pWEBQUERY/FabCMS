@@ -1,3 +1,4 @@
+import type { ServerHook } from './hooks';
 import type { FieldDef, LinkValue } from './fields';
 
 export type Mode = 'studio' | 'werkbank';
@@ -242,6 +243,7 @@ export interface SiteSettings {
   menu: { showAllergens: boolean; dailyTitle: string };
   roleModes: Record<Role, Mode[]>;
   webhooks: Webhook[];
+  hooks: ServerHook[];
   security: { allowCustomScripts: boolean };
   firstPublishedAt: string | null;
   setupDone: boolean;

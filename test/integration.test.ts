@@ -276,6 +276,60 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(made.data.data.createDish).toMatchObject({ title: 'Zitronentarte', status: 'published' });
   });
 
+  it('runs sandboxed hooks on save, publish and form submissions', async () => {
+    const hook = (name: string, event: string, code: string, collection = '') => ({ id: '', name, event, collection, code, active: true });
+    const broken = await req('PATCH', '/api/settings', { hooks: [hook('Kaputt', 'entry.beforeSave', 'function hook( {')] });
+    expect(broken.status).toBe(400);
+    expect(broken.data.error).toMatch(/Kaputt.*SyntaxError/);
+    const saved = await req('PATCH', '/api/settings', {
+      hooks: [
+        hook(
+          'Titel bereinigen',
+          'entry.beforeSave',
+          'function hook(e) { e.data.title = String(e.data.title).replace(/\\s+/g, " ").trim(); e.data.series = "Hook"; return e; }',
+          'posts',
+        ),
+        hook('Kurzfassung nötig', 'entry.beforePublish', 'function hook(e) { if (!e.data.excerpt) throw new Error("Bitte zuerst eine Kurzfassung schreiben."); }', 'posts'),
+        hook(
+          'Spamregeln',
+          'form.beforeSubmit',
+          'function hook(e) { if (/casino/i.test(e.fields.nachricht)) e.spam = true; if (e.fields.name === "Nein") throw new Error("Bitte mit echtem Namen."); e.fields.name = e.fields.name.toUpperCase(); return e; }',
+        ),
+      ],
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.data.settings.hooks.every((h: { id: string }) => h.id)).toBe(true);
+
+    const post = await req('POST', '/api/entries', { collection: 'posts', data: { title: '  Hallo   Welt ' } });
+    expect(post.data.entry.data).toMatchObject({ title: 'Hallo Welt', series: 'Hook' });
+    // Only for the chosen content type.
+    const dish = await req('POST', '/api/entries', { collection: 'dishes', data: { title: '  Rösti ', category: 'Hauptgänge', prices: [{ label: '', price: 1800 }] } });
+    expect(dish.data.entry.data.series).toBeUndefined();
+    const blocked = await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    expect(blocked.status).toBe(400);
+    expect(blocked.data.error).toBe('Bitte zuerst eine Kurzfassung schreiben.');
+    await req('PUT', `/api/entries/${post.data.entry.id}`, { data: { ...post.data.entry.data, excerpt: 'Kurz.' } });
+    expect((await req('POST', `/api/entries/${post.data.entry.id}/publish`, {})).status).toBe(200);
+
+    const [form] = await sql`select id from forms where name = 'Kontakt'`;
+    const send = (fields: Record<string, string>) =>
+      req('POST', `/_nova/forms/${form.id}`, undefined, {
+        cookies: new Map(),
+        headers: { Accept: 'application/json' },
+        form: { _t: (Date.now() - 5000).toString(36), e_mail: 'x@example.ch', ...fields },
+      });
+    const before = (await sql`select count(*)::int as n from submissions`)[0].n;
+    expect((await send({ name: 'Bot', nachricht: 'Online CASINO' })).data.ok).toBe(true);
+    const rejected = await send({ name: 'Nein', nachricht: 'Hallo' });
+    expect(rejected.data).toEqual({ ok: false, message: 'Bitte mit echtem Namen.' });
+    expect((await send({ name: 'Vreni', nachricht: 'Tisch für zwei?' })).data.ok).toBe(true);
+    const subs = await sql`select data from submissions order by created_at desc`;
+    expect(subs.length - before).toBe(1);
+    expect(subs[0].data.name).toBe('VRENI');
+
+    await req('PATCH', '/api/settings', { hooks: [] });
+  });
+
   it('syncs content as files with the CLI, without overwriting newer changes', async () => {
     const token = (await req('POST', '/api/tokens', { name: 'CLI', scopes: ['read', 'write'] })).data.secret;
     const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });

@@ -1,3 +1,4 @@
+import { entryHooks } from './hooks';
 import { sql, json, type Tx } from './db';
 import { BUILTIN_COLLECTIONS } from '../shared/collections';
 import { BLOCK_MAP } from '../shared/blocks';
@@ -270,6 +271,7 @@ export async function getEntry(id: string): Promise<Entry> {
 
 export async function createEntry(collectionId: string, data: Record<string, unknown>, ctx: SaveContext, slug?: string): Promise<Entry> {
   const c = await getCollection(collectionId);
+  data = await entryHooks('entry.beforeSave', { collection: c.id, slug: slug ?? '', isNew: true, data });
   const clean = sanitizeEntryData(c, { ...data, title: data.title ?? data[c.title_field] ?? '' }, null, { ...ctx, studioOnly: false });
   const finalSlug = await uniqueSlug(c.id, slug ?? clean.title ?? '');
   const [{ max }] = await sql`select coalesce(max(sort_index), 0) as max from entries where collection = ${c.id}`;
@@ -295,7 +297,8 @@ export async function updateEntry(
       });
     }
     const c = await getCollection(cur.collection);
-    const clean = sanitizeEntryData(c, input.data, cur.data as EntryData, ctx);
+    const data = await entryHooks('entry.beforeSave', { collection: c.id, slug: input.slug ?? (cur.slug as string), isNew: false, data: input.data });
+    const clean = sanitizeEntryData(c, data, cur.data as EntryData, ctx);
     if (c.id === 'products' && !input.stockTouched) keepStock(clean, cur.data as EntryData);
     let slug = cur.slug as string;
     if (input.slug !== undefined && input.slug !== cur.slug) {
@@ -344,6 +347,7 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
   const c = await getCollection(entry.collection);
   const problems = publishBlockers(c, entry.data);
   if (problems.length) throw badRequest(problems.join(' '), { problems });
+  await entryHooks('entry.beforePublish', { collection: c.id, slug: entry.slug, data: entry.data as unknown as Record<string, unknown> });
 
   if (at && at.getTime() > Date.now() + 30_000) {
     const [e] = await sql`update entries set status = 'scheduled', publish_at = ${at}, updated_at = now() where id = ${id} returning *`;

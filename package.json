@@ -46,6 +46,7 @@
     "nodemailer": "^10.0.16",
     "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
+    "quickjs-emscripten": "^0.31.0",
     "sharp": "^0.35.5",
     "yaml": "^2.9.0",
     "zod": "^4.6.5"

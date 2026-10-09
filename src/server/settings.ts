@@ -88,6 +88,7 @@ export function defaultSettings(): SiteSettings {
     menu: { showAllergens: true, dailyTitle: 'Heute' },
     roleModes: DEFAULT_ROLE_MODES,
     webhooks: [],
+    hooks: [],
     security: { allowCustomScripts: false },
     firstPublishedAt: null,
     setupDone: false,
