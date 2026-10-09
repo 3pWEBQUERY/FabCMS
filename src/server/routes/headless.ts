@@ -12,6 +12,7 @@ import type { EntryData } from '../../shared/types';
 import { graphql, printSchema, specifiedRules, validate, parse, GraphQLError } from 'graphql';
 import { currentSchema, depthLimit } from '../graphql';
 import { generateSdk } from '../sdk';
+import { cliScript } from '../../site/assets';
 import { getSettings } from '../settings';
 import { env } from '../env';
 import { mediaLoader } from '../../site/context';
@@ -38,6 +39,7 @@ function shape(c: { id: string; route: string | null }, e: Record<string, any>, 
     slug: e.slug,
     path: entryPath(c as never, e.slug),
     status: e.status,
+    version: e.version,
     published_at: e.published_at,
     updated_at: e.updated_at,
     data: open ? data : { ...data, blocks: [], body: undefined, description: undefined },
@@ -65,6 +67,7 @@ export function headlessRoutes(app: Hono<AppEnv>) {
         graphql: '/api/v1/graphql',
         graphql_schema: '/api/v1/graphql/schema.graphql',
         typescript_sdk: '/api/v1/sdk.ts',
+        cli: '/api/v1/cli.mjs',
       },
     }),
   );
@@ -73,6 +76,10 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     const sdk = generateSdk(await activeCollections(), { name: (await getSettings()).name, url: env.publicUrl });
     return c.body(sdk, 200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': 'inline; filename="nova.ts"' });
   });
+
+  app.get('/api/v1/cli.mjs', async (c) =>
+    c.body(await cliScript(), 200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Content-Disposition': 'inline; filename="nova.mjs"' }),
+  );
 
   /* GraphQL: same tokens and rules as REST. */
 
@@ -177,10 +184,14 @@ export function headlessRoutes(app: Hono<AppEnv>) {
 
   app.put('/api/v1/:collection/:id', async (c) => {
     const ctx = await writer(c);
-    const body = (await c.req.json()) as { data: EntryData; slug?: string; publish?: boolean };
+    const body = (await c.req.json()) as { data: EntryData; slug?: string; publish?: boolean; version?: number };
     const [cur] = await sql`select id from entries where id = ${c.req.param('id')} and collection = ${c.req.param('collection')}`;
     if (!cur) throw notFound();
-    const e = await updateEntry(cur.id as string, { data: body.data as unknown as Record<string, unknown>, slug: body.slug }, ctx);
+    const e = await updateEntry(
+      cur.id as string,
+      { data: body.data as unknown as Record<string, unknown>, slug: body.slug, baseVersion: typeof body.version === 'number' ? body.version : undefined },
+      ctx,
+    );
     const result = body.publish ? (await publishEntry(e.id, ctx.userId)).entry : e;
     return c.json({ data: shape(await getCollection(result.collection), result, true) });
   });

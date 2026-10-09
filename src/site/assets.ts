@@ -35,6 +35,25 @@ export async function runtimeScript(name: RuntimeName): Promise<{ code: string; 
   return entry;
 }
 
+/** The CLI as one dependency-free file (dist/public/nova.mjs, built from src/cli/nova.ts by scripts/build.mjs). */
+let cli: string | null = null;
+export async function cliScript(): Promise<string> {
+  if (cli && !dev) return cli;
+  const file = join(DIST, 'nova.mjs');
+  if (!dev && existsSync(file)) return (cli = readFileSync(file, 'utf8'));
+  const esbuild = await import('esbuild');
+  const r = await esbuild.build({
+    entryPoints: ['src/cli/nova.ts'],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node22',
+    banner: { js: '#!/usr/bin/env node' },
+    write: false,
+  });
+  return (cli = r.outputFiles[0].text);
+}
+
 export function runtimeVersion(name: RuntimeName): string {
   return cache.get(name)?.hash ?? 'dev';
 }

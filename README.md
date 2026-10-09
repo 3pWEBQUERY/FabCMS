@@ -165,6 +165,32 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 
 **Werkbank**
 - Inhaltstypen-Editor (Formular oder JSON), Code-Ansicht pro Block (Props, CSS-Klassen, gescoptes CSS, Schutzzone), Design-Tokens, globales CSS, REST-API `/api/v1` mit Tokens (lesen/schreiben), GraphQL unter `/api/v1/graphql` (Schema aus den Inhaltstypen erzeugt: eigene Typen pro Inhaltstyp, Bilder als `Media` mit fertigen Varianten-URLs, Verknüpfungen aufgelöst, Filter/Sortierung/Seiten, Mutationen mit Schreib-Token, Tiefenlimit, SDL unter `/api/v1/graphql/schema.graphql`), typisiertes TypeScript-SDK unter `/api/v1/sdk.ts` (aus den Inhaltstypen erzeugt: ein Interface pro Typ, Auswahlfelder als Literal-Typen, `list`/`all`/`get`/`create`/`update`/`graphql`, ohne Abhängigkeiten, läuft in Browser, Node, Deno, Bun und Edge), Explorer für REST und GraphQL, signierte Webhooks mit Test, Weiterleitungen, SQL-Konsole (nur lesend, 5 s, protokolliert), Protokoll.
+- CLI `nova` (eine Datei ohne Abhängigkeiten, Node 22+, unter `/api/v1/cli.mjs` oder im Repo als `npx nova` nach dem Build): `init`, `pull` (alle Inhalte inkl. Entwürfe als JSON-Dateien), `status`, `push` (nur Geändertes, neue Dateien werden angelegt, `--publish`, `--dry-run`), `types` (SDK), `graphql`. Geschützt gegen Überschreiben: was in der Zwischenzeit im Studio geändert wurde, lehnt `push` ab (409), und `pull` überschreibt keine lokalen Änderungen. Damit lässt sich ein Git-Repository als zweite Quelle führen (Git-Sync, Beispiel unten).
+
+**Git-Sync mit GitHub Actions** – `content/` im Repository, Token als Secret `NOVA_TOKEN`:
+
+```yaml
+# .github/workflows/nova.yml
+on:
+  push: { branches: [main], paths: ['content/**'] }   # Git → Website
+  schedule: [{ cron: '17 * * * *' }]                    # Website → Git, stündlich
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    env: { NOVA_TOKEN: '${{ secrets.NOVA_TOKEN }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: curl -fsSO https://deine-website.ch/api/v1/cli.mjs
+      - if: github.event_name == 'push'
+        run: node cli.mjs push --publish
+      - run: node cli.mjs pull
+      - run: |
+          git config user.name nova && git config user.email nova@users.noreply.github.com
+          git add content && git commit -m "Inhalte von der Website" && git push || true
+```
 
 ## Was (noch) nicht umgesetzt ist
 
@@ -173,7 +199,7 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 - **Echtzeit-Kollaboration** (Yjs), **Offline-Bearbeitung**, Kommentare am Element.
 - **KI-Assistent.**
 - **Mehrsprachigkeit** der Website und der Admin-UI (Admin nur Deutsch; Lesbarkeitsformeln für FR/IT/EN sind vorbereitet).
-- **Serverseitige Hooks in einer Sandbox** (V8-Isolates), Marktplatz, Git-Sync, CLI, Preview-Deployments pro Branch.
+- **Serverseitige Hooks in einer Sandbox** (V8-Isolates), Marktplatz, Preview-Deployments pro Branch.
 - **Video-Transcoding** (Videos werden so ausgeliefert, wie sie hochgeladen werden), **Malware-Scan** von Uploads, echte **Altersverifikation** über einen Anbieter.
 - Google-Search-Console-Verbindung per OAuth, GA4/Matomo/Plausible mit Consent-Manager, Meilisearch.
 - Die PRD nennt «ca. 40 Blöcke», «ca. 400 Icons» und «3 Vorlagen pro Sparte in 2 Stilen» – umgesetzt sind 34 Blöcke, rund 90 Icons und 4 Stile × 3 Paletten, die jede Sparte nutzen kann.
@@ -187,4 +213,4 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 npm test
 ```
 
-70 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren, Reservationen ohne Doppelbuchung, Newsletter (Double Opt-in, automatischer Versand genau einmal, One-Click-Abmeldung), Mitgliederbereich (nichts sickert durch Suche/Feed/API, Bestätigung, Passwort zurücksetzen, Sperren, bezahlter Zugang), Tickets (Kontingent, QR-Einlass genau einmal, Storno füllt aus der Warteliste, Kurse mit mehreren Terminen), Spenden (Mindestbetrag, monatlich mit Folgezahlungen, doppelter Webhook ignoriert, Kampagnenstand, Bestätigung), Immobilien (Filter, Vergebenes ausgeblendet, Strasse geschützt, Anfrage ins CRM), Bestellung & Lieferung (Zeitfenster über Zeitzone und Ruhetage, MwSt.-Aufteilung, Liefergebiet, Mindestbestellwert, Küchen-Ablauf ohne Sprünge, Pause), QR-Rechnung (IBAN-Prüfung, Prüfziffern und Nutzdaten gegen die Beispiele des Standards, Zahlteil auf offenen Rechnungen), Passkeys (Optionen pro Domain, gefälschte Antworten und wiederverwendete Challenges abgelehnt), Import (WordPress-XML, Feeds, Shopify-CSV, Markdown mit Frontmatter, HTML-Bereinigung, Import mit Weiterleitungen), GraphQL (Abfragen per GET/POST, Variablen, Tiefenlimit, Mutationen nur mit Token und nur per POST, Mitgliederinhalte bleiben geschützt), TypeScript-SDK (wird im Test mit `tsc --strict` geprüft, falsche Felder und Werte schlagen fehl).
+71 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren, Reservationen ohne Doppelbuchung, Newsletter (Double Opt-in, automatischer Versand genau einmal, One-Click-Abmeldung), Mitgliederbereich (nichts sickert durch Suche/Feed/API, Bestätigung, Passwort zurücksetzen, Sperren, bezahlter Zugang), Tickets (Kontingent, QR-Einlass genau einmal, Storno füllt aus der Warteliste, Kurse mit mehreren Terminen), Spenden (Mindestbetrag, monatlich mit Folgezahlungen, doppelter Webhook ignoriert, Kampagnenstand, Bestätigung), Immobilien (Filter, Vergebenes ausgeblendet, Strasse geschützt, Anfrage ins CRM), Bestellung & Lieferung (Zeitfenster über Zeitzone und Ruhetage, MwSt.-Aufteilung, Liefergebiet, Mindestbestellwert, Küchen-Ablauf ohne Sprünge, Pause), QR-Rechnung (IBAN-Prüfung, Prüfziffern und Nutzdaten gegen die Beispiele des Standards, Zahlteil auf offenen Rechnungen), Passkeys (Optionen pro Domain, gefälschte Antworten und wiederverwendete Challenges abgelehnt), Import (WordPress-XML, Feeds, Shopify-CSV, Markdown mit Frontmatter, HTML-Bereinigung, Import mit Weiterleitungen), GraphQL (Abfragen per GET/POST, Variablen, Tiefenlimit, Mutationen nur mit Token und nur per POST, Mitgliederinhalte bleiben geschützt), TypeScript-SDK (wird im Test mit `tsc --strict` geprüft, falsche Felder und Werte schlagen fehl), CLI (echter Server, pull → bearbeiten → push, neue Dateien, Konflikt bei zwischenzeitlicher Änderung).

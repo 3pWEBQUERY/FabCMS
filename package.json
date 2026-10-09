@@ -4,6 +4,9 @@
   "private": true,
   "description": "Nova – ein CMS, zwei Modi. Studio für Laien, Werkbank für Profis.",
   "type": "module",
+  "bin": {
+    "nova": "dist/public/nova.mjs"
+  },
   "engines": {
     "node": ">=22"
   },

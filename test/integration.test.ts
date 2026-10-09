@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import type { AddressInfo } from 'node:net';
+import { serve } from '@hono/node-server';
 import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
@@ -270,6 +274,49 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', `/api/v1/graphql?query=${encodeURIComponent(create)}`, undefined, auth)).status).toBe(405);
     const made = await req('POST', '/api/v1/graphql', { query: create }, auth);
     expect(made.data.data.createDish).toMatchObject({ title: 'Zitronentarte', status: 'published' });
+  });
+
+  it('syncs content as files with the CLI, without overwriting newer changes', async () => {
+    const token = (await req('POST', '/api/tokens', { name: 'CLI', scopes: ['read', 'write'] })).data.secret;
+    const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
+    await new Promise((r) => server.once('listening', r));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const dir = mkdtempSync(join(tmpdir(), 'nova-cli-'));
+    const cli = (...args: string[]) =>
+      new Promise<{ code: number; out: string }>((resolve) =>
+        execFile(process.execPath, [join(process.cwd(), 'src/cli/nova.ts'), ...args], { cwd: dir, env: { ...process.env, NOVA_TOKEN: token } }, (err, stdout, stderr) =>
+          resolve({ code: err ? ((err as { code?: number }).code ?? 1) : 0, out: stdout + stderr }),
+        ),
+      );
+    try {
+      expect((await cli('init', url)).code).toBe(0);
+      expect((await cli('pull')).out).toMatch(/Einträge aus \d+ Inhaltstypen/);
+      const file = join(dir, 'content/dishes', readdirSync(join(dir, 'content/dishes'))[0]);
+      const entry = JSON.parse(readFileSync(file, 'utf8'));
+      writeFileSync(file, JSON.stringify({ ...entry, data: { ...entry.data, title: 'Aus Git' } }));
+      writeFileSync(join(dir, 'content/dishes/neu-aus-git.json'), JSON.stringify({ data: { title: 'Neu aus Git', category: 'Desserts', prices: [{ label: '', price: 900 }] } }));
+      const status = (await cli('status')).out;
+      expect(status).toContain('+ dishes/neu-aus-git.json (neu)');
+      expect(status).toContain(`~ dishes/${entry.slug}.json (geändert)`);
+      const pushed = await cli('push', '--publish');
+      expect(pushed.out).toContain('✓ 2 hochgeladen');
+      const [live] = await sql`select published_data ->> 'title' as title from entries where id = ${entry.id}`;
+      expect(live.title).toBe('Aus Git');
+      expect(JSON.parse(readFileSync(join(dir, 'content/dishes/neu-aus-git.json'), 'utf8')).id).toMatch(/^[0-9a-f-]{36}$/);
+
+      // Someone edits the same dish in the Studio meanwhile: push refuses, pull keeps the local edit.
+      await sql`update entries set version = version + 1 where id = ${entry.id}`;
+      const again = JSON.parse(readFileSync(file, 'utf8'));
+      writeFileSync(file, JSON.stringify({ ...again, data: { ...again.data, title: 'Veraltet' } }));
+      const stale = await cli('push');
+      expect(stale.code).toBe(1);
+      expect(stale.out).toContain('inzwischen geändert');
+      expect((await cli('pull')).out).toContain('lokal geändert');
+      expect((await cli('graphql', '{ site { name } }')).out).toContain('Gasthaus Linde');
+    } finally {
+      server.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('answers privacy requests and anonymises orders', async () => {

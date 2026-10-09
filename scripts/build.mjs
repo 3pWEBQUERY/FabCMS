@@ -33,4 +33,16 @@ for (const name of ['site', 'bridge', 'fields']) {
   });
 }
 
+// CLI: one file without dependencies, served at /api/v1/cli.mjs.
+await build({
+  entryPoints: ['src/cli/nova.ts'],
+  outfile: 'dist/public/nova.mjs',
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  banner: { js: '#!/usr/bin/env node' },
+  logLevel: 'warning',
+});
+
 console.log(`Build fertig in ${((Date.now() - t0) / 1000).toFixed(1)} s`);

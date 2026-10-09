@@ -559,6 +559,9 @@ export function ApiSettings() {
                   <a className="small" href="/api/v1/sdk.ts" download="nova.ts">
                     TypeScript-SDK laden
                   </a>
+                  <a className="small" href="/api/v1/cli.mjs" download="nova.mjs">
+                    CLI laden
+                  </a>
                 </div>
               </form>
             )}
