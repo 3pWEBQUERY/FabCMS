@@ -578,6 +578,54 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(notes.data.items.some((n: { title: string }) => n.title === 'Anfrage: Dachwohnung')).toBe(true);
   });
 
+  it('takes take-away and delivery orders into the kitchen', async () => {
+    const settings = await req('GET', '/api/settings');
+    const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: false, slots: [{ from: '00:00', to: '23:45' }] }));
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'menu', 'ordering'])], hours });
+    await req('PUT', '/api/kitchen/settings', { pickup: true, delivery: true, deliveryZips: ['8400'], deliveryFee: 500, deliveryMin: 4000, prepMinutes: 20, slotMinutes: 15, payOnSite: true, note: '' });
+    const dish = await req('POST', '/api/entries', { collection: 'dishes', data: { title: 'Pizza Margherita', category: 'Pizza', prices: [{ label: '', price: 1900 }] } });
+    await req('POST', `/api/entries/${dish.data.entry.id}/publish`, {});
+    const guest = new Map<string, string>();
+    const menu = await req('GET', '/bestellen', undefined, { cookies: guest });
+    expect(menu.data).toContain('Pizza Margherita');
+    await req('POST', '/bestellen/dazu', undefined, { cookies: guest, form: { d: dish.data.entry.id, s: '0' } });
+    const added = await req('POST', '/bestellen/dazu', undefined, { cookies: guest, form: { d: dish.data.entry.id, s: '0' } });
+    expect(decodeURIComponent(added.headers.get('location')!)).toContain('hinzu=Pizza Margherita');
+    const checkout = await req('GET', '/bestellen/kasse', undefined, { cookies: guest });
+    const slot = checkout.data.match(/<option value="([^"]+Z)"/)![1];
+    const form = { mode: 'delivery', slot, name: 'Nina Roth', phone: '079 555 66 77', email: 'nina@example.ch', street: 'Bahnhofplatz 1', zip: '8001', city: 'Zürich', payment: 'onsite', _t: (Date.now() - 5000).toString(36) };
+    // Outside the delivery area, then below the minimum (2 × 19 = 38 < 40).
+    expect((await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form })).data).toContain('Nach 8001 liefern wir leider nicht');
+    expect((await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form: { ...form, zip: '8400', city: 'Winterthur' } })).data).toContain('Liefern ab');
+    outbox.length = 0;
+    const done = await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form: { ...form, mode: 'pickup', zip: '', street: '' } });
+    expect(done.headers.get('location')).toMatch(/^\/essen\/[\w-]+$/);
+    expect(outbox[0].subject).toMatch(/^Bestellung Nr\. 1 bei /);
+    const status = await req('GET', done.headers.get('location')!, undefined, { cookies: guest });
+    expect(status.data).toContain('Deine Bestellung ist angekommen.');
+    expect(status.headers.get('refresh')).toBe('30');
+    expect((await req('GET', '/bestellen', undefined, { cookies: guest })).data).toContain('Noch leer');
+
+    const board = await req('GET', '/api/kitchen');
+    const order = board.data.orders.find((o: { name: string }) => o.name === 'Nina Roth');
+    expect(order).toMatchObject({ number: 1, status: 'new', total: 3800, payment: 'onsite' });
+    expect(order.vat[0].rate).toBe(2.6);
+    expect((await req('POST', `/api/kitchen/${order.id}/status`, { status: 'done' })).status).toBe(400); // no skipping
+    await req('POST', `/api/kitchen/${order.id}/status`, { status: 'preparing' });
+    outbox.length = 0;
+    await req('POST', `/api/kitchen/${order.id}/status`, { status: 'ready' });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(outbox[0].subject).toBe('Bereit zum Abholen: Nr. 1');
+    const bon = await req('GET', `/api/kitchen/${order.id}/bon`);
+    expect(bon.data).toContain('ABHOLEN');
+
+    // «Küche voll» stops new orders.
+    await req('POST', '/api/kitchen/pause', { paused: true });
+    await req('POST', '/bestellen/dazu', undefined, { cookies: guest, form: { d: dish.data.entry.id, s: '0' } });
+    expect((await req('POST', '/bestellen/kasse', undefined, { cookies: guest, form: { ...form, mode: 'pickup' } })).data).toContain('keine Bestellungen');
+    await req('POST', '/api/kitchen/pause', { paused: false });
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

@@ -36,6 +36,7 @@ export function ContentHub() {
     { to: '/medien', icon: 'image', name: 'Mediathek', sub: 'Bilder, Videos, Dokumente', show: can('media.upload') },
     { to: '/formulare', icon: 'form', name: 'Formulare', sub: 'Felder und Einträge', show: can('forms.manage'), n: counts?.counts.unread },
     { to: '/kontakte', icon: 'people', name: 'Kontakte', sub: 'Anfragen als Pipeline', show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },
+    { to: '/kueche', icon: 'dish', name: 'Küche', sub: 'Take-away und Lieferung, live', show: can('orders.manage') && mods.includes('ordering') },
     { to: '/reservationen', icon: 'calendar', name: 'Reservationen', sub: 'Tagesplan, Anfragen, Telefonbuchungen', show: can('bookings.manage') && mods.includes('booking'), n: counts?.counts.pending_bookings },
     { to: '/newsletter', icon: 'mail', name: 'Newsletter', sub: 'Ausgaben, Abonnent:innen, Wochenrückblick', show: can('newsletter.manage') && mods.includes('newsletter') },
     { to: '/mitglieder', icon: 'key', name: 'Mitglieder', sub: 'Konten, Mitgliedschaft, geschützte Inhalte', show: can('members.manage') && mods.includes('members') },

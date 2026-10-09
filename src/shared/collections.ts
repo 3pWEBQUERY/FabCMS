@@ -206,6 +206,18 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
       { key: 'tags', type: 'multiselect', label: 'Kennzeichnung', options: DISH_TAGS },
       { key: 'daily', type: 'boolean', label: 'Auf der Tageskarte' },
       { key: 'soldOut', type: 'boolean', label: 'Heute ausverkauft' },
+      { key: 'online', type: 'boolean', label: 'Online bestellbar', help: 'Für «Bestellung & Lieferung». Aus z. B. für Gerichte, die nicht reisen.', default: true },
+      {
+        key: 'vat',
+        type: 'select',
+        label: 'Mehrwertsteuer zum Mitnehmen',
+        options: [
+          { value: 'reduced', label: 'Reduziert – Speisen und alkoholfreie Getränke' },
+          { value: 'standard', label: 'Normal – alkoholische Getränke' },
+        ],
+        default: 'reduced',
+        pro: true,
+      },
     ],
     route: null,
     list_route: '/karte',
@@ -439,6 +451,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
   { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
   { id: 'members', name: 'Mitglieder', description: 'Konten für Besucher:innen, Seiten und Beiträge nur für Mitglieder, bezahlte Mitgliedschaft im Abo über Stripe.', collections: [], status: 'ready' },
+  { id: 'ordering', name: 'Bestellung & Lieferung', description: 'Take-away und Lieferung aus der Speisekarte: Zeitfenster aus den Öffnungszeiten, Liefergebiet nach PLZ, online oder vor Ort bezahlen, Küchen-Ansicht.', collections: [], status: 'ready' },
   { id: 'realestate', name: 'Immobilien', description: 'Objekte zur Miete oder zum Kauf mit Fotos, Eckdaten und Ausstattung, Suche mit Filtern, Anfragen direkt ins CRM.', collections: ['properties'], status: 'ready' },
   { id: 'donations', name: 'Spenden', description: 'Spendenformular mit Beträgen, einmalig oder monatlich über Stripe, Kampagnenziel mit Fortschritt, Spendenbestätigungen fürs Steueramt.', collections: [], status: 'ready' },
   { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien mit Kontingent, gratis oder über Stripe, Tickets mit QR-Code und Einlass-Scanner, Warteliste.', collections: ['events'], status: 'ready' },
@@ -456,7 +469,7 @@ export interface SectorDef {
 
 /** Sparten. Each is a combination of modules and a theme recommendation – no own code path. */
 export const SECTORS: SectorDef[] = [
-  { id: 'restaurant', name: 'Restaurant, Café, Bar', hint: 'Karte, Reservation, Öffnungszeiten', modules: ['menu', 'booking', 'leads'], themes: ['bistro', 'salon', 'kante'], businessType: 'Restaurant' },
+  { id: 'restaurant', name: 'Restaurant, Café, Bar', hint: 'Karte, Reservation, Öffnungszeiten', modules: ['menu', 'booking', 'ordering', 'leads'], themes: ['bistro', 'salon', 'kante'], businessType: 'Restaurant' },
   { id: 'shop', name: 'Online-Shop', hint: 'Produkte verkaufen, mit TWINT & Karte', modules: ['shop'], themes: ['kante', 'bistro', 'salon'], businessType: 'Store' },
   { id: 'blog', name: 'Blog oder Magazin', hint: 'Schreiben, gefunden werden', modules: ['blog', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'Organization' },
   { id: 'landing', name: 'Angebot mit Anfragen', hint: 'Eine Seite, die Anfragen sammelt', modules: ['leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },

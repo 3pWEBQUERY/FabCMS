@@ -32,12 +32,13 @@ const Members = lazy(() => import('../views/Members').then((m) => ({ default: m.
 const Tickets = lazy(() => import('../views/Tickets').then((m) => ({ default: m.Tickets })));
 const CheckIn = lazy(() => import('../views/CheckIn').then((m) => ({ default: m.CheckIn })));
 const Donations = lazy(() => import('../views/Donations').then((m) => ({ default: m.Donations })));
+const Kitchen = lazy(() => import('../views/Kitchen').then((m) => ({ default: m.Kitchen })));
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
 
 const LEVELS = [
   { to: '/seiten', label: 'Seiten', icon: 'page', match: ['/seiten'] },
-  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder', '/tickets', '/einlass', '/spenden'] },
+  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder', '/tickets', '/einlass', '/spenden', '/kueche'] },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings', match: ['/einstellungen', '/konto'] },
 ];
 
@@ -160,6 +161,7 @@ export function Shell() {
                 { path: '/tickets', render: () => <Tickets /> },
                 { path: '/einlass', render: () => <CheckIn /> },
                 { path: '/spenden', render: () => <Donations /> },
+                { path: '/kueche', render: () => <Kitchen /> },
                 { path: '/kommentare', render: () => <Comments /> },
                 { path: '/einstellungen', render: () => <Settings section="website" /> },
                 { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },

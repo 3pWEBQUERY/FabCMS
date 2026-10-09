@@ -98,6 +98,7 @@ function restaurant(name: string): Seed {
     nav: [
       { id: shortId(), label: 'Karte', href: '/karte' },
       { id: shortId(), label: 'Reservation', href: '/reservation' },
+      { id: shortId(), label: 'Take-away', href: '/bestellen' },
       { id: shortId(), label: 'Über uns', href: '/ueber-uns' },
       { id: shortId(), label: 'Kontakt', href: '/kontakt' },
     ],

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { handleMemberStripeEvent } from './members';
 import { ticketsPaid } from './tickets';
+import { foodPaid } from './ordering';
 import { donationPaid, donationRenewed, donationSubscriptionEnded } from './donations';
 import { sql, json } from './db';
 import { env } from './env';
@@ -418,6 +419,12 @@ export async function handleStripeEvent(event: { type: string; data: { object: R
   // Memberships (subscriptions), tickets and reservation deposits travel through the same webhook.
   if (event.type.startsWith('customer.subscription.') || (event.type === 'checkout.session.completed' && obj.mode === 'subscription')) {
     await handleMemberStripeEvent(event);
+    return;
+  }
+  const foodOrderId = obj.metadata?.food_order_id as string | undefined;
+  if (foodOrderId) {
+    if ((event.type === 'checkout.session.completed' && obj.payment_status === 'paid') || event.type === 'checkout.session.async_payment_succeeded')
+      await foodPaid(foodOrderId, String(obj.payment_intent ?? obj.id));
     return;
   }
   const ticketOrderId = obj.metadata?.ticket_order_id as string | undefined;

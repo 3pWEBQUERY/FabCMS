@@ -79,6 +79,7 @@ export function defaultSettings(): SiteSettings {
       notifyEmail: '',
       feedToken: '',
     },
+    ordering: { pickup: true, delivery: false, deliveryZips: [], deliveryFee: 500, deliveryMin: 3000, prepMinutes: 30, slotMinutes: 15, payOnSite: true, paused: false, note: '' },
     donations: { recipient: '', iban: '', taxDeductible: false, receiptNote: '' },
     members: { registration: 'open', planName: 'Mitgliedschaft', price: 0, interval: 'month', perks: '' },
     newsletter: { auto: 'off', weekday: 1 },

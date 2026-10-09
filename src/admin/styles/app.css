@@ -3559,3 +3559,75 @@ button.list-item {
     animation: none;
   }
 }
+
+/* kitchen board */
+.kanban.kitchen {
+  grid-auto-columns: minmax(17rem, 1fr);
+}
+.ko {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--r-m);
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+}
+.ko.fresh {
+  box-shadow:
+    0 0 0 2px var(--sel),
+    var(--shadow-1);
+  animation: ko-in 0.5s var(--ease);
+}
+@keyframes ko-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+}
+.ko-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ko-no {
+  font-size: var(--t-xl);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.ko-time {
+  margin-left: auto;
+  font-weight: 650;
+  font-size: var(--t-l);
+}
+.ko-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  font-size: var(--t-m);
+}
+.ko-note {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, #c27c0e 14%, var(--panel));
+  font-size: var(--t-s);
+  font-weight: 600;
+}
+.ko-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+.ok-text {
+  color: var(--ok);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ko.fresh {
+    animation: none;
+  }
+}

@@ -193,6 +193,23 @@ export interface SiteSettings {
     /** Secret part of the calendar subscription URL. */
     feedToken: string;
   };
+  ordering: {
+    pickup: boolean;
+    delivery: boolean;
+    /** Postcodes delivered to, e.g. ["8400", "8404"]. Empty = no delivery. */
+    deliveryZips: string[];
+    deliveryFee: number;
+    /** Minimum order value for delivery (cents). */
+    deliveryMin: number;
+    /** Kitchen needs this long from order to ready. */
+    prepMinutes: number;
+    slotMinutes: number;
+    /** Cash/TWINT on pickup or delivery. */
+    payOnSite: boolean;
+    /** Kitchen full: no new orders for now. */
+    paused: boolean;
+    note: string;
+  };
   donations: {
     /** Organisation that issues receipts (defaults to the business name). */
     recipient: string;

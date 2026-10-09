@@ -457,7 +457,8 @@ export function systemApi(app: Hono<AppEnv>) {
     const ticketOrders = await sql`select id, entry_title, name, email, phone, items, total, status, created_at from ticket_orders where lower(email) = ${e}`;
     const waitlist = await sql`select id, entry_id, name, email, created_at from ticket_waitlist where lower(email) = ${e}`;
     const donations = await sql`select id, amount, currency, interval, campaign, name, email, street, zip, city, status, created_at, paid_at from donations where lower(email) = ${e}`;
-    return { contacts, submissions, orders, comments, users, bookings, subscribers, members, ticketOrders, waitlist, donations };
+    const foodOrders = await sql`select id, number, mode, slot_at, name, phone, email, street, zip, city, items, total, status, created_at from food_orders where lower(email) = ${e}`;
+    return { contacts, submissions, orders, comments, users, bookings, subscribers, members, ticketOrders, waitlist, donations, foodOrders };
   }
 
   app.get('/api/privacy', async (c) => {
@@ -483,6 +484,9 @@ export function systemApi(app: Hono<AppEnv>) {
       await tx`delete from contacts where id = any(${d.contacts.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from comments where id = any(${d.comments.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from subscribers where id = any(${d.subscribers.map((s) => s.id as string)}::uuid[])`;
+      await tx`
+        update food_orders set name = 'Gelöscht', email = ${'geloescht-' + shortId(6) + '@invalid'}, phone = '', street = '', note = ''
+        where id = any(${d.foodOrders.map((s) => s.id as string)}::uuid[])`;
       // Donations are accounting records too: keep amount and date, drop the person.
       await tx`delete from donations where status <> 'paid' and id = any(${d.donations.map((s) => s.id as string)}::uuid[])`;
       await tx`

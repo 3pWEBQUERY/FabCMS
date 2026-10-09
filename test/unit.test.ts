@@ -14,6 +14,7 @@ import { html, raw } from '../src/site/html';
 import { scopeCss } from '../src/site/blocks';
 import { woffToSfnt } from '../src/server/og';
 import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
+import { orderSlots, foodTotals } from '../src/shared/ordering';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -243,5 +244,43 @@ describe('member access', () => {
     expect(memberLevel({ paid_until: null, subscription_status: 'active' }, now)).toBe('paid');
     expect(memberLevel({ paid_until: '2026-10-31T00:00:00Z', subscription_status: 'canceling' }, now)).toBe('paid');
     expect(memberLevel({ paid_until: '2026-10-01T00:00:00Z', subscription_status: 'canceled' }, now)).toBe('member');
+  });
+});
+
+describe('take-away and delivery', () => {
+  const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: day === 1, slots: [{ from: '11:30', to: '14:00' }] }));
+
+  it('offers times inside the opening hours, after the preparation time', () => {
+    // Tuesday 2026-10-13, 11:50 in Zurich (summer time, UTC+2).
+    const now = new Date('2026-10-13T09:50:00Z');
+    const days = orderSlots({ hours, timeZone: 'Europe/Zurich', now, prepMinutes: 30, slotMinutes: 15 });
+    expect(days[0].label).toBe('Heute');
+    expect(days[0].slots[0].time).toBe('12:30'); // 11:50 + 30 min → next quarter
+    expect(days[0].slots.at(-1)!.time).toBe('14:00');
+    expect(days[1].label).toBe('Morgen');
+    expect(days[1].slots[0].time).toBe('11:45');
+  });
+
+  it('skips closed days and days that are over', () => {
+    // Sunday 2026-10-11, 15:00: today is over, Monday is closed → Tuesday.
+    const days = orderSlots({ hours, timeZone: 'Europe/Zurich', now: new Date('2026-10-11T13:00:00Z'), prepMinutes: 30, slotMinutes: 15 });
+    expect(days[0].day).toBe('2026-10-13');
+  });
+
+  it('splits Swiss VAT between food (reduced) and alcohol (standard)', () => {
+    const t = foodTotals(
+      [
+        { id: 'a', title: 'Pizza', size: '', price: 2000, q: 2, vat: 'reduced' },
+        { id: 'b', title: 'Bier', size: '', price: 600, q: 1, vat: 'standard' },
+      ],
+      500,
+      { standard: 8.1, reduced: 2.6, none: 0 } as never,
+    );
+    expect(t.subtotal).toBe(4600);
+    expect(t.total).toBe(5100);
+    expect(t.vat).toEqual([
+      { rate: 8.1, amount: 45 },
+      { rate: 2.6, amount: 114 },
+    ]);
   });
 });

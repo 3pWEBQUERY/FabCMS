@@ -1,0 +1,319 @@
+import type { Context } from 'hono';
+import { getCookie, setCookie } from 'hono/cookie';
+import { sql, json } from './db';
+import { env } from './env';
+import { appSecret, getSettings } from './settings';
+import { sign, token, unsign } from './lib/crypto';
+import { badRequest, notFound } from './lib/http';
+import { sendMail } from './mail';
+import { notify } from './notify';
+import { formatMoney } from '../shared/text';
+import { localDay } from '../shared/booking';
+import { FOOD_STATUS, foodTotals, orderSlots, type FoodLine } from '../shared/ordering';
+import type { EntryData, SiteSettings } from '../shared/types';
+
+/** Bestellung & Lieferung: a small cart of dishes, a time slot, pickup or delivery, pay online or on site. */
+
+export const FOOD_COOKIE = 'nova_food';
+const HOLD_MINUTES = 30;
+const base = (s: SiteSettings) => (s.baseUrl || env.publicUrl).replace(/\/$/, '');
+
+export interface FoodCartItem {
+  d: string; // dish entry id
+  s: number; // index of the price (size)
+  q: number;
+}
+
+export interface FoodOrder {
+  id: string;
+  number: number;
+  mode: 'pickup' | 'delivery';
+  slot_at: string;
+  name: string;
+  phone: string;
+  email: string;
+  street: string;
+  zip: string;
+  city: string;
+  note: string;
+  items: FoodLine[];
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  vat: { rate: number; amount: number }[];
+  currency: string;
+  payment: 'online' | 'onsite';
+  status: keyof typeof FOOD_STATUS;
+  token: string;
+  created_at: string;
+  paid_at: string | null;
+}
+
+/* ---------- cart (signed cookie, works without JavaScript) ---------- */
+
+export async function readFoodCart(c: Context): Promise<FoodCartItem[]> {
+  const v = unsign(getCookie(c, FOOD_COOKIE), await appSecret());
+  if (!v) return [];
+  try {
+    const items = JSON.parse(Buffer.from(v, 'base64url').toString('utf8')) as FoodCartItem[];
+    return Array.isArray(items) ? items.filter((i) => /^[0-9a-f-]{36}$/.test(i.d) && Number.isInteger(i.s) && Number.isInteger(i.q) && i.q > 0).slice(0, 40) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function writeFoodCart(c: Context, items: FoodCartItem[]): Promise<void> {
+  setCookie(c, FOOD_COOKIE, sign(Buffer.from(JSON.stringify(items.slice(0, 40))).toString('base64url'), await appSecret()), {
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: env.production,
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  });
+}
+
+export interface Dish {
+  id: string;
+  data: EntryData;
+}
+
+export async function orderableDishes(): Promise<Dish[]> {
+  const rows = await sql`
+    select id, published_data as data from entries
+    where collection = 'dishes' and status = 'published' and coalesce(published_data ->> 'online', 'true') <> 'false'
+    order by sort_index, published_data ->> 'title'`;
+  return rows as unknown as Dish[];
+}
+
+function pricesOf(d: EntryData): { label: string; price: number }[] {
+  return ((d.prices as { label?: string; price?: number }[] | undefined) ?? [])
+    .map((p) => ({ label: String(p.label ?? ''), price: Math.round(Number(p.price) || 0) }))
+    .filter((p) => p.price > 0);
+}
+
+/** Current lines of the cart; dishes that went offline or sold out drop out. */
+export async function cartLines(items: FoodCartItem[]): Promise<FoodLine[]> {
+  if (!items.length) return [];
+  const rows = await sql`
+    select id, published_data as data from entries
+    where id = any(${items.map((i) => i.d)}::uuid[]) and collection = 'dishes' and status = 'published'`;
+  const lines: FoodLine[] = [];
+  for (const i of items) {
+    const r = rows.find((x) => x.id === i.d);
+    if (!r || r.data.soldOut || r.data.online === false) continue;
+    const p = pricesOf(r.data)[i.s];
+    if (!p) continue;
+    lines.push({ id: i.d, title: String(r.data.title), size: p.label, price: p.price, q: Math.min(50, i.q), vat: r.data.vat === 'standard' ? 'standard' : 'reduced', s: i.s });
+  }
+  return lines;
+}
+
+export function addToFoodCart(items: FoodCartItem[], add: FoodCartItem): FoodCartItem[] {
+  const hit = items.find((i) => i.d === add.d && i.s === add.s);
+  if (hit) hit.q = Math.min(50, hit.q + add.q);
+  else items.push({ ...add, q: Math.min(50, add.q) });
+  return items.filter((i) => i.q > 0);
+}
+
+export function slotsNow(s: SiteSettings, now = new Date()) {
+  return orderSlots({ hours: s.hours, timeZone: s.timezone, now, prepMinutes: s.ordering.prepMinutes, slotMinutes: s.ordering.slotMinutes, days: 2 });
+}
+
+export function deliversTo(s: SiteSettings, zip: string): boolean {
+  return s.ordering.delivery && s.ordering.deliveryZips.includes(zip.trim());
+}
+
+/* ---------- placing an order ---------- */
+
+export async function placeFoodOrder(input: {
+  cart: FoodCartItem[];
+  mode: string;
+  slot: string;
+  name: string;
+  phone: string;
+  email: string;
+  street?: string;
+  zip?: string;
+  city?: string;
+  note?: string;
+  payment: string;
+}): Promise<FoodOrder> {
+  const s = await getSettings();
+  const o = s.ordering;
+  if (o.paused) throw badRequest('Die Küche nimmt gerade keine Bestellungen an. Bitte versuch es etwas später.');
+  const mode = input.mode === 'delivery' ? 'delivery' : 'pickup';
+  if (mode === 'pickup' && !o.pickup) throw badRequest('Abholen ist gerade nicht möglich.');
+  if (mode === 'delivery' && !o.delivery) throw badRequest('Liefern ist gerade nicht möglich.');
+  const lines = await cartLines(input.cart);
+  if (!lines.length) throw badRequest('Der Warenkorb ist leer – oder ein Gericht ist inzwischen ausverkauft.');
+  const slot = slotsNow(s)
+    .flatMap((d) => d.slots)
+    .find((x) => x.at === input.slot);
+  if (!slot) throw badRequest('Diese Zeit ist nicht mehr möglich. Bitte wähle eine andere.');
+  const name = input.name.trim().slice(0, 120);
+  const phone = input.phone.trim().slice(0, 40);
+  const email = input.email.trim().toLowerCase().slice(0, 200);
+  if (!name) throw badRequest('Bitte gib deinen Namen an.');
+  if (phone.replace(/\D/g, '').length < 9) throw badRequest('Bitte gib eine Telefonnummer an – falls etwas ist, rufen wir an.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw badRequest('Bitte gib eine gültige E-Mail-Adresse an.');
+  const zip = (input.zip ?? '').trim();
+  if (mode === 'delivery') {
+    if (!(input.street ?? '').trim() || !zip) throw badRequest('Bitte gib die Lieferadresse an.');
+    if (!deliversTo(s, zip)) throw badRequest(`Nach ${zip} liefern wir leider nicht. Möglich: ${o.deliveryZips.join(', ')}. Oder hol die Bestellung ab.`);
+  }
+  const fee = mode === 'delivery' ? o.deliveryFee : 0;
+  const totals = foodTotals(lines, fee, s.shop.vatRates);
+  if (mode === 'delivery' && totals.subtotal < o.deliveryMin)
+    throw badRequest(`Liefern ab ${formatMoney(o.deliveryMin, s.shop.currency)} Bestellwert. Es fehlen noch ${formatMoney(o.deliveryMin - totals.subtotal, s.shop.currency)}.`);
+  const payment = input.payment === 'onsite' ? 'onsite' : 'online';
+  if (payment === 'online' && !env.stripe.secretKey) throw badRequest('Online bezahlen geht gerade nicht. Bitte wähle «vor Ort bezahlen».');
+  if (payment === 'onsite' && !o.payOnSite) throw badRequest('Bitte bezahle online.');
+
+  const order = await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext('nova-food-orders'))`;
+    // Numbers start at 1 every day (local time): easy to call out at the counter.
+    const today = localDay(new Date(), s.timezone).day;
+    const [n] = await tx`
+      select coalesce(max(number), 0) + 1 as next from food_orders
+      where (created_at at time zone ${s.timezone})::date = ${today}::date`;
+    const [row] = await tx`
+      insert into food_orders (number, mode, slot_at, name, phone, email, street, zip, city, note, items, subtotal, delivery_fee, total, vat, currency, payment, status, token)
+      values (${n.next}, ${mode}, ${slot.at}, ${name}, ${phone}, ${email}, ${(input.street ?? '').trim().slice(0, 120)}, ${zip.slice(0, 12)}, ${(input.city ?? '').trim().slice(0, 80)},
+        ${(input.note ?? '').trim().slice(0, 500)}, ${json(lines.map(({ s: _s, ...l }) => l))}, ${totals.subtotal}, ${fee}, ${totals.total}, ${json(totals.vat)}, ${s.shop.currency}, ${payment},
+        ${payment === 'online' ? 'pending_payment' : 'new'}, ${token(18)})
+      returning *`;
+    return row as unknown as FoodOrder;
+  });
+  if (order.status === 'new') await announce(order);
+  return order;
+}
+
+async function announce(o: FoodOrder): Promise<void> {
+  const s = await getSettings();
+  const when = new Date(o.slot_at).toLocaleTimeString('de-CH', { timeZone: s.timezone, hour: '2-digit', minute: '2-digit' });
+  void notify({
+    kind: 'order',
+    cap: 'orders.manage',
+    title: `Bestellung ${o.number}: ${o.mode === 'delivery' ? 'Lieferung' : 'Abholung'} ${when}`,
+    body: `${o.name} · ${formatMoney(o.total, o.currency)}${o.payment === 'onsite' ? ' (vor Ort)' : ''}`,
+    href: '/kueche',
+  });
+  await foodMail(o, 'received');
+}
+
+export async function foodMail(o: FoodOrder, kind: 'received' | 'ready' | 'out' | 'cancelled'): Promise<void> {
+  const s = await getSettings();
+  const when = new Date(o.slot_at).toLocaleString('de-CH', { timeZone: s.timezone, weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const lead = {
+    received: `danke für deine Bestellung Nr. ${o.number}! ${o.mode === 'delivery' ? `Wir liefern ${when}` : `Abholbereit ${when}`}.`,
+    ready: `deine Bestellung Nr. ${o.number} ist bereit. Bis gleich!`,
+    out: `deine Bestellung Nr. ${o.number} ist unterwegs zu dir.`,
+    cancelled: `deine Bestellung Nr. ${o.number} wurde storniert.${o.paid_at ? ' Den Betrag erstatten wir auf dem gleichen Weg zurück.' : ''}`,
+  }[kind];
+  const lines = o.items.map((l) => `${l.q} × ${l.title}${l.size ? ` (${l.size})` : ''}  ${formatMoney(l.price * l.q, o.currency)}`);
+  await sendMail({
+    to: o.email,
+    subject: {
+      received: `Bestellung Nr. ${o.number} bei ${s.name}`,
+      ready: `Bereit zum Abholen: Nr. ${o.number}`,
+      out: `Unterwegs: Nr. ${o.number}`,
+      cancelled: `Storniert: Nr. ${o.number}`,
+    }[kind],
+    replyTo: s.business.email || undefined,
+    text: [
+      `Hallo ${o.name.split(' ')[0]},`,
+      '',
+      lead,
+      ...(kind === 'received'
+        ? [
+            '',
+            ...lines,
+            o.delivery_fee ? `Lieferung  ${formatMoney(o.delivery_fee, o.currency)}` : '',
+            `Total  ${formatMoney(o.total, o.currency)}${o.payment === 'onsite' ? ' – bezahlen bei ' + (o.mode === 'delivery' ? 'Lieferung' : 'Abholung') : ' – bezahlt'}`,
+            '',
+            o.mode === 'pickup' && s.business.street ? `Abholen: ${s.name}, ${s.business.street}, ${s.business.zip} ${s.business.city}` : '',
+            `Status ansehen: ${base(s)}/essen/${o.token}`,
+          ]
+        : []),
+      '',
+      `${s.name}${s.business.phone ? ` · ${s.business.phone}` : ''}`,
+    ]
+      .filter((l) => l !== '')
+      .join('\n'),
+  });
+}
+
+export async function foodCheckoutUrl(o: FoodOrder): Promise<string> {
+  const s = await getSettings();
+  const fields: Record<string, string | number> = {
+    mode: 'payment',
+    success_url: `${base(s)}/essen/${o.token}?bezahlt=1`,
+    cancel_url: `${base(s)}/essen/${o.token}?abgebrochen=1`,
+    customer_email: o.email,
+    client_reference_id: o.id,
+    'metadata[food_order_id]': o.id,
+    expires_at: Math.floor(Date.now() / 1000) + HOLD_MINUTES * 60 + 60,
+    locale: 'de',
+  };
+  const lines = [
+    ...o.items.map((l) => ({ name: `${l.title}${l.size ? ` (${l.size})` : ''}`, amount: l.price, q: l.q })),
+    ...(o.delivery_fee ? [{ name: 'Lieferung', amount: o.delivery_fee, q: 1 }] : []),
+  ];
+  lines.forEach((l, k) => {
+    fields[`line_items[${k}][price_data][currency]`] = o.currency.toLowerCase();
+    fields[`line_items[${k}][price_data][unit_amount]`] = l.amount;
+    fields[`line_items[${k}][price_data][product_data][name]`] = l.name;
+    fields[`line_items[${k}][quantity]`] = l.q;
+  });
+  const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.stripe.secretKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Idempotency-Key': `food-${o.id}` },
+    body: Object.entries(fields)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&'),
+  });
+  const body = (await r.json()) as { url?: string; id?: string; error?: { message: string } };
+  if (!r.ok || !body.url) throw badRequest(`Die Zahlung konnte nicht gestartet werden: ${body.error?.message ?? r.status}`);
+  await sql`update food_orders set payment_ref = ${body.id ?? null} where id = ${o.id}`;
+  return body.url;
+}
+
+export async function foodPaid(id: string, ref: string): Promise<void> {
+  const [o] = await sql`
+    update food_orders set status = 'new', paid_at = now(), payment_ref = ${ref}, updated_at = now()
+    where id = ${id} and status = 'pending_payment' returning *`;
+  if (o) await announce(o as unknown as FoodOrder);
+}
+
+export async function foodOrderByToken(t: string): Promise<FoodOrder | null> {
+  const [o] = await sql`select * from food_orders where token = ${t}`;
+  return (o as unknown as FoodOrder) ?? null;
+}
+
+const NEXT: Record<string, string[]> = {
+  new: ['preparing', 'cancelled'],
+  preparing: ['ready', 'out', 'cancelled'],
+  ready: ['done', 'cancelled'],
+  out: ['done'],
+  done: [],
+  pending_payment: ['cancelled'],
+  cancelled: [],
+};
+
+export async function setFoodStatus(id: string, status: string): Promise<FoodOrder> {
+  const [cur] = await sql`select * from food_orders where id = ${id}`;
+  if (!cur) throw notFound();
+  if (!NEXT[cur.status as string]?.includes(status))
+    throw badRequest(`Von «${FOOD_STATUS[cur.status as string].label}» geht es nicht zu «${FOOD_STATUS[status]?.label ?? status}».`);
+  const [o] = await sql`update food_orders set status = ${status}, updated_at = now() where id = ${id} returning *`;
+  const order = o as unknown as FoodOrder;
+  if (status === 'ready' && order.mode === 'pickup') void foodMail(order, 'ready');
+  if (status === 'out') void foodMail(order, 'out');
+  if (status === 'cancelled' && cur.status !== 'pending_payment') void foodMail(order, 'cancelled');
+  return order;
+}
+
+/** Scheduler: online orders never paid give up their slot. */
+export async function releaseUnpaidFood(): Promise<void> {
+  await sql`update food_orders set status = 'cancelled', updated_at = now() where status = 'pending_payment' and created_at < now() - make_interval(mins => ${HOLD_MINUTES + 5})`;
+}
