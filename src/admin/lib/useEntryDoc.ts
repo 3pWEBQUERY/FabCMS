@@ -174,13 +174,35 @@ export function useEntryDoc(id: string): EntryDoc {
   };
 
   useEffect(() => {
+    // Leaving the page (tab closed, reload, typed URL): the last change goes out with keepalive,
+    // so the browser doesn't have to ask «Leave site?». It only asks when saving can't work:
+    // the last save failed, someone else changed the entry, or the change is too big for keepalive.
+    const flush = (): boolean => {
+      if (saveState !== 'dirty' && saveState !== 'saving') return true;
+      if (!dataRef.current) return true;
+      const body = JSON.stringify({
+        data: dataRef.current,
+        slug: slugRef.current,
+        // While a save is in flight it will bump the version; this newer copy must not bounce off it.
+        baseVersion: saving.current ? undefined : versionRef.current,
+        stockTouched: stockTouched.current || undefined,
+      });
+      if (body.length > 60_000) return false;
+      void fetch(`/api/entries/${id}`, { method: 'PUT', keepalive: true, credentials: 'same-origin', headers: { 'X-Nova': '1', 'Content-Type': 'application/json' }, body }).catch(() => {});
+      return true;
+    };
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (saveState === 'dirty' || saveState === 'saving' || saveState === 'error') {
+      if (saveState === 'error' || saveState === 'conflict' || !flush()) e.preventDefault();
+    };
+    // Switching to another tab or app saves right away instead of waiting for the timer.
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden' && saveState === 'dirty') {
+        if (timer.current) clearTimeout(timer.current);
         void doSave();
-        e.preventDefault();
       }
     };
     window.addEventListener('beforeunload', onUnload);
+    document.addEventListener('visibilitychange', onHidden);
     const off = addNavigationGuard(() => {
       if (saveState === 'dirty') {
         if (timer.current) clearTimeout(timer.current);
@@ -190,9 +212,10 @@ export function useEntryDoc(id: string): EntryDoc {
     });
     return () => {
       window.removeEventListener('beforeunload', onUnload);
+      document.removeEventListener('visibilitychange', onHidden);
       off();
     };
-  }, [saveState, doSave]);
+  }, [saveState, doSave, id]);
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);

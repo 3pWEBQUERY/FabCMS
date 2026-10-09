@@ -66,6 +66,42 @@ export function Dialog({
   );
 }
 
+/** Promise-based choice between several buttons; resolves with the chosen value, or null when closed. */
+export function choose<T extends string>(opts: {
+  title: string;
+  message?: ReactNode;
+  options: { label: string; value: T; kind?: 'primary' | 'danger' | 'ghost' }[];
+}): Promise<T | null> {
+  return new Promise((resolve) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    function C() {
+      const [open, setOpen] = useState(true);
+      const close = (v: T | null) => {
+        setOpen(false);
+        resolve(v);
+        setTimeout(() => {
+          root.unmount();
+          host.remove();
+        }, 200);
+      };
+      return (
+        <Dialog open={open} onOpenChange={(o) => !o && close(null)} title={opts.title} description={opts.message}>
+          <div className="dialog-actions">
+            {opts.options.map((o, i) => (
+              <button key={o.value} className={`btn ${o.kind ?? ''}`} autoFocus={i === opts.options.length - 1} onClick={() => close(o.value)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      );
+    }
+    root.render(<C />);
+  });
+}
+
 /** Promise-based confirmation. */
 export function confirm(opts: { title: string; message?: ReactNode; confirm?: string; danger?: boolean }): Promise<boolean> {
   return new Promise((resolve) => {

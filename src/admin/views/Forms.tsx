@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Toggle, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
+import { useLeaveGuard } from './settingsDraft';
 import { shortId, slugify } from '../../shared/text';
 import type { FormDef, FormFieldDef } from '../../shared/types';
 
@@ -223,17 +224,24 @@ export function FormDetail({ id }: { id: string }) {
     setForm((f) => (f ? { ...f, ...patch } : f));
     setDirty(true);
   };
-  const save = async () => {
-    if (!form) return;
+  const save = async (): Promise<boolean> => {
+    if (!form) return true;
     try {
       const r = await api.put<{ form: FormDef }>(`/api/forms/${id}`, { name: form.name, fields: form.fields, settings: form.settings });
       setForm(r.form);
       setDirty(false);
       toast('Formular gespeichert.');
+      return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
+      return false;
     }
   };
+  const discard = () => {
+    if (subs.data) setForm(subs.data.form);
+    setDirty(false);
+  };
+  useLeaveGuard(dirty, save, discard);
   const remove = async () => {
     const n = subs.data?.submissions.length ?? 0;
     if (!(await confirm({ title: 'Formular löschen?', message: n ? `Mit ${n} Einträgen. Exportiere sie vorher, wenn du sie brauchst.` : undefined, confirm: 'Löschen', danger: true }))) return;
@@ -377,7 +385,7 @@ export function FormDetail({ id }: { id: string }) {
         <div className="save-bar">
           <span>Ungespeicherte Änderungen am Formular</span>
           <div className="row">
-            <button className="btn ghost" onClick={() => (setForm(subs.data!.form), setDirty(false))}>
+            <button className="btn ghost" onClick={discard}>
               Verwerfen
             </button>
             <button className="btn primary" onClick={save}>

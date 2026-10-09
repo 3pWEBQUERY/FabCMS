@@ -6,22 +6,55 @@ import { createContext, useContext, useEffect, useMemo, useState, type AnchorHTM
  * with unsaved changes.
  */
 const BASE = '/admin';
-type Guard = () => boolean;
+/** A guard returns true to let the navigation happen; a promise lets it ask first (own dialog). */
+type Guard = () => boolean | Promise<boolean>;
 const guards = new Set<Guard>();
 
 export function addNavigationGuard(g: Guard) {
   guards.add(g);
-  return () => guards.delete(g);
+  return () => void guards.delete(g);
+}
+
+/** Asks every guard; calls `go` right away when all agree synchronously, else after the answers. */
+function whenAllowed(go: () => void, stay?: () => void) {
+  const answers = [...guards].map((g) => g());
+  if (answers.every((a) => a === true)) return go();
+  void Promise.all(answers).then((ok) => (ok.every(Boolean) ? go() : stay?.()));
+}
+
+let lastUrl = location.pathname + location.search;
+
+function go(url: string, replace: boolean) {
+  if (replace) history.replaceState(null, '', url);
+  else history.pushState(null, '', url);
+  lastUrl = url;
+  window.dispatchEvent(new Event('nova:navigate'));
+  if (!replace) window.scrollTo(0, 0);
 }
 
 export function navigate(to: string, opts: { replace?: boolean } = {}) {
-  for (const g of guards) if (!g()) return;
   const url = to.startsWith('/admin') ? to : BASE + (to.startsWith('/') ? to : `/${to}`);
-  if (opts.replace) history.replaceState(null, '', url);
-  else history.pushState(null, '', url);
-  window.dispatchEvent(new Event('nova:navigate'));
-  if (!opts.replace) window.scrollTo(0, 0);
+  whenAllowed(() => go(url, Boolean(opts.replace)));
 }
+
+// The browser's back/forward button: the URL has already changed, so put it back,
+// ask, and only then go where the person wanted. Registered first, so views see
+// the popstate only when it is allowed.
+window.addEventListener('popstate', (e) => {
+  const target = location.pathname + location.search;
+  if ([...guards].length === 0) {
+    lastUrl = target;
+    return;
+  }
+  const answers = [...guards].map((g) => g());
+  if (answers.every((a) => a === true)) {
+    lastUrl = target;
+    return;
+  }
+  e.stopImmediatePropagation();
+  history.pushState(null, '', lastUrl);
+  void Promise.all(answers).then((ok) => ok.every(Boolean) && go(target, false));
+});
 
 function currentPath() {
   const p = location.pathname.replace(/^\/admin/, '') || '/';
