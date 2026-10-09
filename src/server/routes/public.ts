@@ -277,11 +277,30 @@ export function publicRoutes(app: Hono<AppEnv>) {
       c.header('Cache-Control', 'private, max-age=3000');
       return c.redirect(url, 302);
     }
-    const obj = await storage.get(m.storage_key);
+    // Without a bucket the file comes from here; byte ranges let video and audio seek.
+    const size = Number(m.size);
+    const want = /^bytes=(\d*)-(\d*)$/.exec(c.req.header('range') ?? '');
+    let range: { start: number; end: number } | undefined;
+    if (want && (want[1] || want[2])) {
+      const start = want[1] ? Number(want[1]) : Math.max(0, size - Number(want[2]));
+      const end = want[1] && want[2] ? Math.min(Number(want[2]), size - 1) : size - 1;
+      if (start > end || start >= size) {
+        c.header('Content-Range', `bytes */${size}`);
+        return c.body(null, 416);
+      }
+      range = { start, end };
+    }
+    const obj = await storage.get(m.storage_key, range);
     if (!obj) return c.notFound();
     c.header('Content-Type', m.mime);
-    c.header('Content-Length', String(obj.size));
+    c.header('Accept-Ranges', 'bytes');
     c.header('Cache-Control', 'public, max-age=86400');
+    if (range) {
+      c.header('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+      c.header('Content-Length', String(range.end - range.start + 1));
+      return c.body(Readable.toWeb(obj.body) as ReadableStream, 206);
+    }
+    c.header('Content-Length', String(obj.size));
     return c.body(Readable.toWeb(obj.body) as ReadableStream);
   });
 

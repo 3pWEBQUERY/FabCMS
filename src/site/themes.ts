@@ -254,6 +254,27 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 video.vid{width:100%;aspect-ratio:16/9;background:#000}
+.nvid{position:relative;overflow:hidden;background:#000;border-radius:var(--img-radius,0);outline-offset:3px}
+.nvid video{display:block;cursor:pointer}
+.nvid button{display:grid;place-items:center;border:0;background:none;color:#fff;cursor:pointer;padding:0}
+.nvid svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.nvid svg .f{fill:currentColor;stroke:none}
+.nvid-big{position:absolute;inset:0;margin:auto;width:4.5rem!important;height:4.5rem;border-radius:50%;background:var(--accent)!important;color:var(--accent-ink)!important;box-shadow:0 12px 36px -10px rgb(0 0 0/.55);transition:transform .2s cubic-bezier(.2,.7,.2,1),opacity .2s}
+.nvid-big svg{width:1.9rem;height:1.9rem;margin-left:.2rem}
+.nvid-big:hover{transform:scale(1.06)}
+.nvid:not(.paused) .nvid-big{opacity:0;pointer-events:none;transform:scale(.9)}
+.nvid-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:.75rem;padding:2.5rem .9rem .7rem;color:#fff;font-size:var(--step-n1);font-variant-numeric:tabular-nums;background:linear-gradient(transparent,rgb(0 0 0/.65));transition:opacity .25s,transform .25s}
+.nvid:not(.paused):not(.awake) .nvid-bar{opacity:0;transform:translateY(.5rem)}
+.nvid:not(.paused):not(.awake){cursor:none}
+.nvid-bar button{width:2.25rem;height:2.25rem;flex:none;border-radius:50%}
+.nvid-bar button:hover{background:rgb(255 255 255/.16)}
+.nvid-track{position:relative;flex:1;height:1.5rem;cursor:pointer;touch-action:none}
+.nvid-track::before{content:"";position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;border-radius:3px;background:rgb(255 255 255/.3)}
+.nvid-fill{position:absolute;left:0;top:50%;height:3px;margin-top:-1.5px;border-radius:3px;background:var(--accent);width:0}
+.nvid-fill::after{content:"";position:absolute;right:-6px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:#fff;transform:scale(0);transition:transform .15s}
+.nvid-track:hover .nvid-fill::after,.nvid-track:focus-visible .nvid-fill::after{transform:none}
+.nvid-time{white-space:nowrap;opacity:.9}
+@media (max-width:30rem){.nvid-time{display:none}}
 
 /* list */
 .lst{list-style:none;margin:0;padding:0;counter-reset:n}

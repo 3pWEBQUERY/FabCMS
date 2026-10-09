@@ -55,6 +55,107 @@ d.querySelectorAll<HTMLElement>('[data-consent]').forEach((box) => {
   });
 });
 
+/* ---------- video: own controls (without JS the native ones stay) ---------- */
+// [filled shape, outline] per icon, drawn on a 20×20 grid.
+const ICON: Record<string, [string, string]> = {
+  play: ['M7 4.5v11l9-5.5z', ''],
+  pause: ['M6 4.5h3v11H6zm5 0h3v11h-3z', ''],
+  vol: ['M3 7.5h3l4-3.5v12l-4-3.5H3z', 'M13 7a4 4 0 0 1 0 6M15 4.5a7.5 7.5 0 0 1 0 11'],
+  mute: ['M3 7.5h3l4-3.5v12l-4-3.5H3z', 'M13.5 8l4 4m0-4-4 4'],
+  full: ['', 'M3.5 7.5v-4h4m5 0h4v4m0 5v4h-4m-5 0h-4v-4'],
+  exit: ['', 'M7.5 3.5v4h-4m13 0h-4v-4m0 13v-4h4m-13 0h4v4'],
+};
+const icon = (n: string) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path class="f" d="${ICON[n][0]}"/><path d="${ICON[n][1]}"/></svg>`;
+const clock = (t: number) => (Number.isFinite(t) ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}` : '–:––');
+
+d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
+  v.controls = false;
+  const box = d.createElement('div');
+  box.className = 'nvid paused';
+  box.tabIndex = 0;
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', 'Videoplayer');
+  v.before(box);
+  box.append(v);
+  box.insertAdjacentHTML(
+    'beforeend',
+    `<button type="button" class="nvid-big" aria-label="Abspielen">${icon('play')}</button><div class="nvid-bar"><button type="button" class="nvid-pp" aria-label="Abspielen">${icon('play')}</button><div class="nvid-track" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="nvid-fill"></div></div><span class="nvid-time">0:00 / –:––</span><button type="button" class="nvid-vol" aria-label="Ton aus">${icon('vol')}</button><button type="button" class="nvid-fs" aria-label="Vollbild">${icon('full')}</button></div>`,
+  );
+  const $ = <T extends HTMLElement>(c: string) => box.querySelector<T>(c)!;
+  const [big, pp, track, fill, time, vol, fs] = ['.nvid-big', '.nvid-pp', '.nvid-track', '.nvid-fill', '.nvid-time', '.nvid-vol', '.nvid-fs'].map((c) => $(c));
+  const toggle = () => (v.paused ? v.play() : v.pause());
+  const seek = (t: number) => {
+    if (Number.isFinite(v.duration)) v.currentTime = Math.max(0, Math.min(v.duration, t));
+  };
+  const paint = () => {
+    const p = v.duration ? (v.currentTime / v.duration) * 100 : 0;
+    fill.style.width = `${p}%`;
+    track.setAttribute('aria-valuenow', String(Math.round(p)));
+    track.setAttribute('aria-valuetext', `${clock(v.currentTime)} von ${clock(v.duration)}`);
+    time.textContent = `${clock(v.currentTime)} / ${clock(v.duration)}`;
+  };
+  const state = () => {
+    box.classList.toggle('paused', v.paused);
+    const label = v.paused ? 'Abspielen' : 'Pause';
+    pp.innerHTML = icon(v.paused ? 'play' : 'pause');
+    pp.setAttribute('aria-label', label);
+    big.setAttribute('aria-label', label);
+  };
+  let idle = 0;
+  const wake = () => {
+    box.classList.add('awake');
+    clearTimeout(idle);
+    idle = window.setTimeout(() => !v.paused && box.classList.remove('awake'), 2200);
+  };
+  v.addEventListener('play', state);
+  v.addEventListener('pause', state);
+  v.addEventListener('ended', state);
+  v.addEventListener('timeupdate', paint);
+  v.addEventListener('loadedmetadata', paint);
+  v.addEventListener('volumechange', () => {
+    vol.innerHTML = icon(v.muted ? 'mute' : 'vol');
+    vol.setAttribute('aria-label', v.muted ? 'Ton an' : 'Ton aus');
+  });
+  v.addEventListener('click', toggle);
+  big.addEventListener('click', toggle);
+  pp.addEventListener('click', toggle);
+  vol.addEventListener('click', () => (v.muted = !v.muted));
+  fs.addEventListener('click', () => {
+    if (d.fullscreenElement) d.exitFullscreen();
+    else if (box.requestFullscreen) box.requestFullscreen();
+    else (v as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.(); // iPhone
+  });
+  d.addEventListener('fullscreenchange', () => {
+    const on = d.fullscreenElement === box;
+    fs.innerHTML = icon(on ? 'exit' : 'full');
+    fs.setAttribute('aria-label', on ? 'Vollbild beenden' : 'Vollbild');
+  });
+  const scrub = (e: PointerEvent) => {
+    const r = track.getBoundingClientRect();
+    seek(((e.clientX - r.left) / r.width) * v.duration);
+  };
+  track.addEventListener('pointerdown', (e) => {
+    track.setPointerCapture(e.pointerId);
+    scrub(e);
+    const move = (ev: PointerEvent) => scrub(ev);
+    track.addEventListener('pointermove', move);
+    track.addEventListener('pointerup', () => track.removeEventListener('pointermove', move), { once: true });
+  });
+  box.addEventListener('pointermove', wake);
+  box.addEventListener('focusin', wake);
+  box.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if ((e.target as HTMLElement).matches('button') && (k === ' ' || k === 'Enter')) return;
+    if (k === ' ' || k === 'k') toggle();
+    else if (k === 'ArrowRight' || k === 'ArrowLeft') seek(v.currentTime + (k === 'ArrowRight' ? 5 : -5));
+    else if (k === 'm') v.muted = !v.muted;
+    else if (k === 'f') fs.click();
+    else return;
+    e.preventDefault();
+    wake();
+  });
+});
+
 /* ---------- lightbox ---------- */
 d.querySelectorAll<HTMLElement>('[data-lightbox]').forEach((gal) => {
   const links = [...gal.querySelectorAll<HTMLAnchorElement>('a[href]')];

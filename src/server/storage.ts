@@ -22,7 +22,8 @@ export interface StoredObject {
 export interface Storage {
   kind: 's3' | 'local';
   put(key: string, body: Buffer, contentType: string): Promise<void>;
-  get(key: string): Promise<StoredObject | null>;
+  /** With `range` (inclusive byte offsets) only that part is read; `size` stays the full size. */
+  get(key: string, range?: { start: number; end: number }): Promise<StoredObject | null>;
   getBuffer(key: string): Promise<Buffer | null>;
   exists(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
@@ -47,10 +48,11 @@ function s3Storage(): Storage {
     async put(key, body, contentType) {
       await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }));
     },
-    async get(key) {
+    async get(key, range) {
       try {
-        const r = await client.send(new GetObjectCommand({ Bucket, Key: key }));
-        return { body: r.Body as Readable, size: Number(r.ContentLength ?? 0), contentType: r.ContentType ?? 'application/octet-stream' };
+        const r = await client.send(new GetObjectCommand({ Bucket, Key: key, Range: range ? `bytes=${range.start}-${range.end}` : undefined }));
+        const total = r.ContentRange ? Number(r.ContentRange.split('/')[1]) : Number(r.ContentLength ?? 0);
+        return { body: r.Body as Readable, size: total, contentType: r.ContentType ?? 'application/octet-stream' };
       } catch (e) {
         if (isMissing(e)) return null;
         throw e;
@@ -119,12 +121,12 @@ function localStorage(root: string): Storage {
       await writeFile(p + '.type', contentType);
       types.set(key, contentType);
     },
-    async get(key) {
+    async get(key, range) {
       try {
         const p = path(key);
         const s = await stat(p);
         const contentType = types.get(key) ?? (await readFile(p + '.type', 'utf8').catch(() => 'application/octet-stream'));
-        return { body: createReadStream(p), size: s.size, contentType };
+        return { body: createReadStream(p, range), size: s.size, contentType };
       } catch {
         return null;
       }
