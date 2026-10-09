@@ -6,7 +6,11 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML version; `text` stays the plain-text alternative. */
+  html?: string;
   replyTo?: string;
+  /** Extra headers, e.g. List-Unsubscribe for newsletters. */
+  headers?: Record<string, string>;
   /** Small text attachments, e.g. a calendar entry (.ics). */
   attachments?: { filename: string; content: string; contentType: string }[];
 }
@@ -17,13 +21,21 @@ export interface Mail {
  */
 let transport: Transporter | null = null;
 
+/** Under test, mails are collected here instead of being sent. */
+const testing = process.env.NODE_ENV === 'test';
+export const outbox: Mail[] = [];
+
 export function mailConfigured() {
-  return Boolean(env.mail.resendKey || env.mail.smtpUrl);
+  return testing || Boolean(env.mail.resendKey || env.mail.smtpUrl);
 }
 
 export async function sendMail(mail: Mail): Promise<boolean> {
   const settings = await getSettings();
   const from = env.mail.from || `${settings.name} <noreply@${new URL(env.publicUrl).hostname}>`;
+  if (testing) {
+    outbox.push(mail);
+    return true;
+  }
   try {
     if (env.mail.resendKey) {
       const r = await fetch('https://api.resend.com/emails', {
@@ -34,6 +46,8 @@ export async function sendMail(mail: Mail): Promise<boolean> {
           to: [mail.to],
           subject: mail.subject,
           text: mail.text,
+          html: mail.html,
+          headers: mail.headers,
           reply_to: mail.replyTo,
           attachments: mail.attachments?.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64'), content_type: a.contentType })),
         }),
@@ -43,7 +57,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     }
     if (env.mail.smtpUrl) {
       transport ??= nodemailer.createTransport(env.mail.smtpUrl);
-      await transport.sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text, replyTo: mail.replyTo, attachments: mail.attachments });
+      await transport.sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, headers: mail.headers, replyTo: mail.replyTo, attachments: mail.attachments });
       return true;
     }
     console.info(`[mail] Kein Versand konfiguriert. Hätte an ${mail.to} gesendet: «${mail.subject}»`);

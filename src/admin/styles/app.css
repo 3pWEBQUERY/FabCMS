@@ -3443,3 +3443,18 @@ button.list-item {
   gap: 0.35rem;
   align-items: center;
 }
+
+/* determinate progress (newsletter send) */
+.meter {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sel);
+  transition: width 0.4s var(--ease);
+}

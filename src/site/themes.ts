@@ -472,6 +472,19 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.4;cursor:not-a
 .steps-nav{display:flex;gap:1rem;align-items:center}
 .js .nform[data-steps] fieldset:not(.on){display:none}
 .form-grid{display:grid;gap:var(--s-7)}
+/* system messages (newsletter confirmation, member area) */
+.sys-msg{display:grid;gap:1rem;max-width:40rem;padding-block:var(--sp-s)}
+.sys-msg h1{font-size:var(--step-5);margin:0}
+.sys-msg p{margin:0}
+.sys-msg form{margin-top:.5rem}
+/* newsletter */
+.nl{display:grid;gap:var(--s-5);max-width:40rem}
+.nl-form{display:grid;grid-template-columns:1fr auto;gap:.75rem 1rem;align-items:end}
+.nl-form.with-name{grid-template-columns:minmax(0,.7fr) 1fr auto}
+.nl-form>.form-err,.nl-form>.hp{grid-column:1/-1}
+.nl-form .nerr{grid-column:1/-1}
+.nl-note{margin:0;color:var(--ink-2);font-size:var(--step-n1)}
+@media (max-width:560px){.nl-form,.nl-form.with-name{grid-template-columns:1fr}.nl-form .btn{justify-self:start}}
 /* booking */
 .bk{display:grid;gap:var(--s-6);max-width:46rem}
 .bk-step{display:grid;gap:.85rem}

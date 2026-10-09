@@ -193,6 +193,12 @@ export interface SiteSettings {
     /** Secret part of the calendar subscription URL. */
     feedToken: string;
   };
+  newsletter: {
+    /** «each»: every new post goes out on its own; «weekly»: one digest per week. */
+    auto: 'off' | 'each' | 'weekly';
+    /** Weekday of the digest, 1 = Monday. */
+    weekday: number;
+  };
   blog: { comments: boolean; perPage: number };
   menu: { showAllergens: boolean; dailyTitle: string };
   roleModes: Record<Role, Mode[]>;

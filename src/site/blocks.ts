@@ -484,6 +484,28 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap bk" id="buchen">${head}${await bookingSteps(ctx, services, String(p.service ?? ''))}</div>`;
   },
 
+  newsletter(b, ctx) {
+    const p = b.props as P;
+    const head = heading(ctx, p, 'heading', 'intro');
+    if (!ctx.settings.modules.includes('newsletter')) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Newsletter» unter Einstellungen → Module.')}</div>`;
+    const done = ctx.query.get('nl') === b.id;
+    const error = ctx.query.get('nl_err') === b.id ? ctx.query.get('meldung') : null;
+    const id = (n: string) => `nl-${b.id}-${n}`;
+    return html`<div class="wrap nl" id="${id('box')}">${head}${
+      done
+        ? html`<p class="form-ok" role="status">Fast geschafft: Wir haben dir eine E-Mail geschickt. Ein Klick auf den Link darin, und du bist dabei.</p>`
+        : html`<form class="nl-form${p.askName ? ' with-name' : ''}" method="post" action="/_nova/newsletter">
+      ${error ? html`<p class="form-err" role="alert">${error}</p>` : ''}
+      <input type="hidden" name="_page" value="${ctx.path}"><input type="hidden" name="_block" value="${b.id}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
+      <div class="hp" aria-hidden="true"><label>Bitte leer lassen <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      ${p.askName ? html`<div class="fld"><label for="${id('name')}">Vorname</label><input id="${id('name')}" name="name" autocomplete="given-name" maxlength="80"></div>` : ''}
+      <div class="fld"><label for="${id('email')}">E-Mail</label><input id="${id('email')}" type="email" name="email" required autocomplete="email" maxlength="200" placeholder="du@beispiel.ch"></div>
+      <button class="btn" type="submit">${p.button || 'Anmelden'}</button>
+    </form>
+    <p class="nl-note">Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit. <a href="/datenschutz">Datenschutz</a></p>`
+    }</div>`;
+  },
+
   contact(b, ctx) {
     const p = b.props as P;
     const s = ctx.settings;

@@ -260,6 +260,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'portfolio', name: 'Portfolio', description: 'Projekte mit Bildern, Filter und Vergrösserung.', collections: ['projects'], status: 'ready' },
   { id: 'profiles', name: 'Profile & Verfügbarkeit', description: 'Personenprofile mit Anwesenheit – inklusive Einwilligungsnachweis.', collections: ['profiles'], status: 'ready' },
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
+  { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
   { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien, Check-in.', collections: [], status: 'later' },
 ];
 
@@ -276,15 +277,15 @@ export interface SectorDef {
 export const SECTORS: SectorDef[] = [
   { id: 'restaurant', name: 'Restaurant, Café, Bar', hint: 'Karte, Reservation, Öffnungszeiten', modules: ['menu', 'booking', 'leads'], themes: ['bistro', 'salon', 'kante'], businessType: 'Restaurant' },
   { id: 'shop', name: 'Online-Shop', hint: 'Produkte verkaufen, mit TWINT & Karte', modules: ['shop'], themes: ['kante', 'bistro', 'salon'], businessType: 'Store' },
-  { id: 'blog', name: 'Blog oder Magazin', hint: 'Schreiben, gefunden werden', modules: ['blog'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'Organization' },
+  { id: 'blog', name: 'Blog oder Magazin', hint: 'Schreiben, gefunden werden', modules: ['blog', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'Organization' },
   { id: 'landing', name: 'Angebot mit Anfragen', hint: 'Eine Seite, die Anfragen sammelt', modules: ['leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'trade', name: 'Handwerk & KMU', hint: 'Leistungen, Referenzen, Offerten', modules: ['leads', 'portfolio'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'HomeAndConstructionBusiness' },
   { id: 'studio', name: 'Coiffeur, Kosmetik, Studio', hint: 'Preisliste, Team, Termine online', modules: ['booking', 'leads'], themes: ['salon', 'bistro', 'kante'], businessType: 'BeautySalon' },
   { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Termine online, Anfahrt', modules: ['booking', 'leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
   { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
-  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
-  { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
+  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
+  { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
   { id: 'adult', name: 'Erotikbetrieb', hint: 'Bordell, Studio, Agentur – mit Altersschranke', modules: ['profiles', 'leads'], themes: ['salon', 'kante', 'feuilleton'], businessType: 'LocalBusiness' },
 ];
 

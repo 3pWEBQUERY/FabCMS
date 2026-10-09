@@ -36,6 +36,7 @@ import {
 import { runtimeScript, type RuntimeName } from '../../site/assets';
 import { notify as notifyTeam } from '../notify';
 import { bookingPublicRoutes } from './public-booking';
+import { newsletterPublicRoutes } from './public-newsletter';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
@@ -205,6 +206,7 @@ export function looksLikeSpam(body: Record<string, unknown>): boolean {
 
 export function publicRoutes(app: Hono<AppEnv>) {
   bookingPublicRoutes(app);
+  newsletterPublicRoutes(app);
   app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
     const name = c.req.param('name').replace('.js', '') as RuntimeName;
     const { code } = await runtimeScript(name);

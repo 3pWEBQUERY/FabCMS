@@ -37,6 +37,13 @@ export const env = {
     secretKey: e.STRIPE_SECRET_KEY ?? '',
     webhookSecret: e.STRIPE_WEBHOOK_SECRET ?? '',
   },
+  /** Optional: mirror the newsletter list to Brevo or Mailchimp. Sending stays with Nova. */
+  newsletter: {
+    brevoKey: e.BREVO_API_KEY ?? '',
+    brevoList: e.BREVO_LIST_ID ?? '',
+    mailchimpKey: e.MAILCHIMP_API_KEY ?? '',
+    mailchimpList: e.MAILCHIMP_LIST_ID ?? '',
+  },
   turnstile: {
     siteKey: e.TURNSTILE_SITE_KEY ?? '',
     secret: e.TURNSTILE_SECRET ?? '',

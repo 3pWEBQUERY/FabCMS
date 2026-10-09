@@ -450,7 +450,9 @@ export function systemApi(app: Hono<AppEnv>) {
     const orders = await sql`select * from orders where lower(email) = ${e}`;
     const comments = await sql`select * from comments where lower(email) = ${e}`;
     const users = await sql`select id, email, name, role, created_at from users where lower(email) = ${e}`;
-    return { contacts, submissions, orders, comments, users };
+    const bookings = await sql`select id, starts_at, party_size, name, email, phone, note, status, created_at from bookings where lower(email) = ${e}`;
+    const subscribers = await sql`select id, email, name, status, source, ip, created_at, confirmed_at, unsubscribed_at from subscribers where lower(email) = ${e}`;
+    return { contacts, submissions, orders, comments, users, bookings, subscribers };
   }
 
   app.get('/api/privacy', async (c) => {
@@ -475,6 +477,11 @@ export function systemApi(app: Hono<AppEnv>) {
       await tx`delete from submissions where id = any(${d.submissions.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from contacts where id = any(${d.contacts.map((s) => s.id as string)}::uuid[])`;
       await tx`delete from comments where id = any(${d.comments.map((s) => s.id as string)}::uuid[])`;
+      await tx`delete from subscribers where id = any(${d.subscribers.map((s) => s.id as string)}::uuid[])`;
+      // Bookings stay as occupied time in the plan, without the person.
+      await tx`
+        update bookings set name = 'Gelöscht', email = '', phone = '', note = '', internal_note = ''
+        where id = any(${d.bookings.map((s) => s.id as string)}::uuid[])`;
       // Orders are accounting records (10 years in CH): anonymise instead of deleting.
       await tx`
         update orders set email = ${'geloescht-' + shortId(6) + '@invalid'},
@@ -483,7 +490,11 @@ export function systemApi(app: Hono<AppEnv>) {
     });
     await audit(c, 'privacy.delete', 'person', sha256(email.toLowerCase()).slice(0, 12), { submissions: d.submissions.length, orders: d.orders.length });
     bumpGeneration();
-    return c.json({ deleted: { submissions: d.submissions.length, contacts: d.contacts.length, comments: d.comments.length }, anonymizedOrders: d.orders.length });
+    return c.json({
+      deleted: { submissions: d.submissions.length, contacts: d.contacts.length, comments: d.comments.length, subscribers: d.subscribers.length },
+      anonymizedOrders: d.orders.length,
+      anonymizedBookings: d.bookings.length,
+    });
   });
 
   /** Read-only SQL for the owner (Werkbank): one statement, read-only transaction, 5 s timeout. */

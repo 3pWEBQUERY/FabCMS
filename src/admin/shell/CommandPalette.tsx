@@ -116,6 +116,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: 'orders', label: 'Bestellungen', group: 'Gehe zu', icon: 'receipt', keywords: 'shop verkäufe rechnungen versand', cap: 'orders.view', module: 'shop', run: go('/bestellungen') },
       { id: 'bookings', label: 'Reservationen heute', group: 'Gehe zu', icon: 'calendar', keywords: 'tisch termin buchung kalender tagesplan', cap: 'bookings.manage', module: 'booking', run: go('/reservationen') },
       { id: 'booking-new', label: 'Reservation eintragen', group: 'Aktionen', icon: 'plus', keywords: 'telefon anruf tisch termin buchen', cap: 'bookings.manage', module: 'booking', run: go('/reservationen?neu=1') },
+      { id: 'newsletter', label: 'Newsletter', group: 'Gehe zu', icon: 'mail', keywords: 'abonnenten e-mail mailing ausgabe verschicken', cap: 'newsletter.manage', module: 'newsletter', run: go('/newsletter') },
+      { id: 'newsletter-new', label: 'Newsletter schreiben', group: 'Aktionen', icon: 'plus', keywords: 'ausgabe e-mail mailing verschicken', cap: 'newsletter.manage', module: 'newsletter', run: go('/newsletter?id=neu') },
       { id: 's-booking', label: 'Reservation einrichten', group: 'Einstellungen', icon: 'calendar', keywords: 'tische zeiten leistungen sperrzeit ferien kalender', cap: 'settings.manage', module: 'booking', run: go('/einstellungen/reservation') },
       { id: 'coupons', label: 'Gutscheine', group: 'Gehe zu', icon: 'ticket', keywords: 'rabatt code aktion', cap: 'orders.manage', module: 'shop', run: go('/gutscheine') },
       { id: 'comments', label: 'Kommentare', group: 'Gehe zu', icon: 'chat', keywords: 'moderieren freigeben spam', cap: 'comments.moderate', module: 'blog', run: go('/kommentare') },

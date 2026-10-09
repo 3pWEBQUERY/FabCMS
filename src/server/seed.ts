@@ -196,11 +196,12 @@ function shop(): Seed {
 function blog(): Seed {
   return {
     tagline: 'Notizen, Gedanken, Fundstücke',
-    footer: 'Neue Beiträge auch per RSS.',
+    footer: 'Neue Beiträge per E-Mail oder RSS.',
     home: [
       b('hero', { variant: 'statement', eyebrow: 'Journal', title: 'Notizen über Dinge, die mich gerade beschäftigen.', text: 'Ein- bis zweimal im Monat, ohne Algorithmus dazwischen.', primary: { label: 'Neueste Beiträge', href: '/journal' } }),
       b('posts', { heading: 'Neu im Journal', count: 5, layout: 'list' }),
       b('split', { eyebrow: 'Über mich', heading: 'Hallo, schön bist du da.', body: '<p>Erzähl hier in zwei, drei Sätzen, wer du bist und worüber du schreibst. Die Leute wollen wissen, mit wem sie es zu tun haben.</p>', side: 'right' }),
+      b('newsletter', { heading: 'Neue Beiträge per E-Mail', intro: 'Ein- bis zweimal im Monat, wenn es etwas Neues gibt. Abmelden mit einem Klick.', button: 'Abonnieren', askName: true }),
     ],
     pages: [{ slug: 'ueber-mich', title: 'Über mich', blocks: [b('text', { heading: 'Über mich', body: '<p>Schreib hier deine Geschichte. Woher kommst du, was treibt dich an, worüber schreibst du – und worüber nicht?</p>' })] }, contactPage()],
     nav: [
@@ -545,6 +546,7 @@ function nonprofit(): Seed {
       b('stats', { heading: 'Seit 2019', items: [{ value: '1 240', label: 'Velos repariert' }, { value: '38', label: 'Freiwillige' }, { value: '12', label: 'Partnerorganisationen' }] }),
       b('split', { eyebrow: 'Wie es funktioniert', heading: 'Jeden Samstag in der Werkstatt.', body: '<p>Freiwillige reparieren gespendete Velos. Sozialdienste vermitteln sie weiter. Wer mag, schraubt mit und lernt dabei.</p>', side: 'right' }),
       b('posts', { heading: 'Neuigkeiten', count: 3 }),
+      b('newsletter', { heading: 'Auf dem Laufenden bleiben', intro: 'Ein paar Mal im Jahr: was in der Werkstatt läuft und wo wir Hilfe brauchen.', button: 'Anmelden', askName: false }),
       b('cta', { heading: 'Ein Velo im Keller?', text: 'Wir holen es ab – in der ganzen Stadt.', primary: { label: 'Velo spenden', href: '/kontakt' } }, { tone: 'accent' }),
     ],
     pages: [contactPage()],

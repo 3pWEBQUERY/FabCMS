@@ -586,6 +586,23 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'newsletter',
+    label: 'Newsletter-Anmeldung',
+    description: 'E-Mail-Feld zum Abonnieren – mit Bestätigung per E-Mail.',
+    icon: 'mail',
+    category: 'contact',
+    module: 'newsletter',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+      { key: 'button', type: 'text', label: 'Beschriftung des Knopfs' },
+      { key: 'askName', type: 'boolean', label: 'Auch nach dem Vornamen fragen', help: 'Dann beginnt jede Ausgabe mit «Hallo …».' },
+    ],
+    defaults: { heading: 'Nichts verpassen', intro: 'Neue Beiträge direkt ins Postfach. Kein Spam, abmelden mit einem Klick.', button: 'Anmelden', askName: false },
+    text: (p) => sentences(p.heading, p.intro),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'contact',
     label: 'Kontaktangaben',
     description: 'Adresse, Telefon und E-Mail – kommt aus den Einstellungen.',

@@ -954,16 +954,17 @@ function DataSettings() {
     }
   };
   const erase = async () => {
-    if (!(await confirm({ title: `Alle Daten von ${email} löschen?`, message: 'Formulareinträge, Kontakt und Kommentare werden gelöscht. Bestellungen werden anonymisiert (Aufbewahrungspflicht).', confirm: 'Löschen', danger: true }))) return;
+    if (!(await confirm({ title: `Alle Daten von ${email} löschen?`, message: 'Formulareinträge, Kontakt, Kommentare und Newsletter-Anmeldung werden gelöscht. Bestellungen werden anonymisiert (Aufbewahrungspflicht), Reservationen bleiben als belegte Zeit ohne Namen.', confirm: 'Löschen', danger: true }))) return;
     try {
-      const r = await api.post<{ deleted: Record<string, number>; anonymizedOrders: number }>('/api/privacy/delete', { email });
-      toast(`Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare. ${r.anonymizedOrders} Bestellungen anonymisiert.`);
+      const r = await api.post<{ deleted: Record<string, number>; anonymizedOrders: number; anonymizedBookings: number }>('/api/privacy/delete', { email });
+      const kept = [r.anonymizedOrders && `${r.anonymizedOrders} Bestellungen`, r.anonymizedBookings && `${r.anonymizedBookings} Reservationen`].filter(Boolean).join(' und ');
+      toast(`Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`);
       setPerson(null);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten' };
+  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen' };
   return (
     <>
       <PageHead title="Daten & Datenschutz" sub="Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support." />

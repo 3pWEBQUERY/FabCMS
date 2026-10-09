@@ -15,7 +15,7 @@ interface Stats {
 }
 
 const DEVICES: Record<string, string> = { mobile: 'Handy', tablet: 'Tablet', desktop: 'Computer' };
-const GOALS: Record<string, string> = { form: 'Formular gesendet', order: 'Bestellung bezahlt' };
+const GOALS: Record<string, string> = { form: 'Formular gesendet', order: 'Bestellung bezahlt', booking: 'Reservation', newsletter: 'Newsletter-Anmeldung' };
 
 function Kpi({ label, value, prev, suffix = '' }: { label: string; value: number; prev?: number; suffix?: string }) {
   const diff = prev !== undefined && prev > 0 ? Math.round(((value - prev) / prev) * 100) : null;

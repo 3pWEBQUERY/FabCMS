@@ -79,6 +79,7 @@ export function defaultSettings(): SiteSettings {
       notifyEmail: '',
       feedToken: '',
     },
+    newsletter: { auto: 'off', weekday: 1 },
     blog: { comments: true, perPage: 10 },
     menu: { showAllergens: true, dailyTitle: 'Heute' },
     roleModes: DEFAULT_ROLE_MODES,

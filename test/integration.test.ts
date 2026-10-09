@@ -7,6 +7,7 @@ import { syncBuiltinCollections, invalidateCollections } from '../src/server/con
 import { invalidateSettings } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
+import { outbox } from '../src/server/mail';
 
 /**
  * Runs against a real Postgres (TEST_DATABASE_URL, default: local nova_test).
@@ -270,6 +271,66 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await new Promise((r) => setTimeout(r, 50));
     const notes = await req('GET', '/api/notifications');
     expect(notes.data.items.some((n: { title: string }) => n.title === 'Neue Reservation: Anna')).toBe(true);
+  });
+
+  it('runs the newsletter with double opt-in, automatic sending and one-click unsubscribe', async () => {
+    const settings = await req('GET', '/api/settings');
+    const modules = [...new Set([...settings.data.settings.modules, 'newsletter', 'blog'])];
+    await req('PATCH', '/api/settings', { modules });
+    expect((await req('PUT', '/api/newsletter/settings', { auto: 'each', weekday: 1 })).status).toBe(200);
+
+    const visitor = new Map<string, string>();
+    const form = { email: 'Lea@Example.ch', name: 'Lea Muster', _page: '/journal', _block: 'nl1', _t: (Date.now() - 5000).toString(36) };
+    const sent = await req('POST', '/_nova/newsletter', undefined, { cookies: visitor, form });
+    expect(sent.status).toBe(303);
+    expect(sent.headers.get('location')).toBe('/journal?nl=nl1#nl-nl1-box');
+    // Same address again: no second row, same answer.
+    await req('POST', '/_nova/newsletter', undefined, { cookies: visitor, form });
+    const subs = await sql`select * from subscribers`;
+    expect(subs).toHaveLength(1);
+    const invite = outbox.filter((m) => m.to === 'lea@example.ch');
+    expect(invite).toHaveLength(1);
+    expect(invite[0].text).toContain(`/newsletter/bestaetigen/${subs[0].token}`);
+    expect(subs[0]).toMatchObject({ email: 'lea@example.ch', status: 'pending', source: '/journal' });
+    // Bots get the same redirect but nothing is stored.
+    await req('POST', '/_nova/newsletter', undefined, { cookies: visitor, form: { ...form, email: 'bot@example.ch', website: 'spam' } });
+    expect(await sql`select 1 from subscribers where email = 'bot@example.ch'`).toHaveLength(0);
+
+    const confirmed = await req('GET', `/newsletter/bestaetigen/${subs[0].token}`, undefined, { cookies: new Map() });
+    expect(confirmed.data).toContain('Danke, du bist dabei!');
+    const [active] = await sql`select status, confirmed_at from subscribers`;
+    expect(active.status).toBe('active');
+    expect(active.confirmed_at).not.toBeNull();
+
+    // A new post goes out on its own, once.
+    const post = await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Herbstmenü ist da', excerpt: 'Kürbis, Pilze und Wild.' } });
+    await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    await new Promise((r) => setTimeout(r, 300));
+    const issues = await sql`select * from newsletters where auto`;
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ subject: 'Herbstmenü ist da', status: 'sent' });
+    expect(issues[0].recipients).toBe(1);
+    const mail = outbox.find((m) => m.subject === 'Herbstmenü ist da')!;
+    expect(mail.html).toContain('Hallo Lea,');
+    expect(mail.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await sql`select 1 from newsletters where auto`).toHaveLength(1);
+
+    const preview = await req('POST', '/api/newsletter/preview', { subject: 'Test', intro: 'Hallo zusammen.\n\nZweiter Absatz.', entry_ids: [post.data.entry.id] });
+    expect(preview.data.html).toContain('Herbstmenü ist da');
+    expect(preview.data.html).toContain('/journal/');
+    expect(preview.data.html).toContain('<p style="margin:0 0 16px">Zweiter Absatz.</p>');
+    expect(preview.data.text).toContain('Abmelden: ');
+
+    // Mail clients' one-click unsubscribe (RFC 8058).
+    const out = await req('POST', `/newsletter/abmelden/${subs[0].token}`, undefined, { cookies: new Map(), form: { 'List-Unsubscribe': 'One-Click' } });
+    expect(out.status).toBe(200);
+    const [gone] = await sql`select status from subscribers`;
+    expect(gone.status).toBe('unsubscribed');
+
+    const info = await req('GET', '/api/privacy?email=lea@example.ch');
+    expect(info.data.counts.subscribers).toBe(1);
   });
 
   it('keeps authors out of other people’s work', async () => {

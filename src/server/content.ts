@@ -345,9 +345,11 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
     return { entry: e as unknown as Entry, firstPublish: false };
   }
 
+  let firstOfEntry = false;
   const result = await sql.begin(async (tx) => {
-    const [prev] = await tx`select published_slug from entries where id = ${id}`;
+    const [prev] = await tx`select published_slug, published_at from entries where id = ${id}`;
     const oldSlug = (prev.published_slug as string | null) ?? null;
+    const isNew = !prev.published_at;
     const [e] = await tx`
       update entries set published_data = data, published_slug = slug, status = 'published', publish_at = null,
         published_at = coalesce(published_at, now()), updated_at = now()
@@ -365,7 +367,10 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
         await tx`update redirects set to_path = ${to} where to_path = ${from}`;
       }
     }
-    return e as unknown as Entry;
+    return { entry: e as unknown as Entry, isNew };
+  }).then((r) => {
+    firstOfEntry = r.isNew;
+    return r.entry;
   });
 
   bumpGeneration();
@@ -375,6 +380,9 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
   const path = entryPath(c, result.slug);
   emit('entry.published', { id, collection: c.id, slug: result.slug, path, title: result.data.title });
   if (path) pingIndexNow([path]);
+  // New posts can go out as a newsletter (imported lazily: newsletter.ts depends on this module).
+  if (firstOfEntry && c.id === 'posts')
+    void import('./newsletter').then((m) => m.onPostPublished(id, String(result.data.title ?? ''))).catch((e) => console.error('[newsletter]', (e as Error).message));
   return { entry: result, firstPublish };
 }
 
