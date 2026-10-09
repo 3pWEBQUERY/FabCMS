@@ -1,0 +1,506 @@
+/**
+ * Editor bridge – runs inside the canvas iframe (the real page rendered in
+ * edit mode). It makes text editable in place, draws selection/hover, offers
+ * insert points between blocks and lets blocks be dragged, while the parent
+ * window (admin) owns the data and does all saving.
+ */
+import { sanitizeRichText } from '../../shared/richtext';
+
+type Msg = Record<string, any>;
+const d = document;
+const parentWin = window.parent;
+const post = (m: Msg) => parentWin.postMessage({ nova: 1, ...m }, location.origin);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const spring = 'cubic-bezier(.34,1.56,.64,1)';
+
+let studio = true;
+let selected: string | null = null;
+const main: HTMLElement = d.querySelector('main') as HTMLElement;
+
+/* ---------- styles for outlines and editable fields (light DOM) ---------- */
+
+const style = d.createElement('style');
+style.textContent = `
+[data-nova-block]{position:relative;transition:outline-color .12s}
+[data-nova-block]:hover{outline:1px dashed rgba(43,89,195,.45);outline-offset:-1px}
+[data-nova-block][data-nova-selected]{outline:2px solid #2b59c3;outline-offset:-2px}
+[data-nova-block][data-nova-lock="all"]:hover{outline-color:rgba(138,134,126,.6)}
+[data-nova-field]{cursor:text;border-radius:2px;outline:1px dashed transparent;outline-offset:3px;transition:outline-color .12s}
+[data-nova-field]:hover{outline-color:color-mix(in srgb,currentColor 35%,transparent)}
+[data-nova-field]:focus{outline:1.5px solid #2b59c3;outline-offset:3px}
+[data-nova-field]:empty::before{content:attr(data-placeholder);opacity:.4;pointer-events:none}
+[data-nova-global]{cursor:pointer}
+[data-nova-global]:hover{outline:1px dashed rgba(43,89,195,.45);outline-offset:-1px}
+.nova-section-ref{position:relative}
+.nova-section-ref::after{content:"Wiederverwendbare Sektion – Doppelklick zum Bearbeiten";position:absolute;top:8px;right:8px;font:600 11px/1 system-ui,sans-serif;background:#1b1a17;color:#fff;padding:5px 8px;border-radius:5px;opacity:0;transition:opacity .15s;pointer-events:none}
+[data-nova-block]:hover .nova-section-ref::after{opacity:1}
+.nova-dragging{z-index:50;box-shadow:0 24px 64px -16px rgba(0,0,0,.35);transition:none!important;cursor:grabbing}
+.nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
+a[href]{cursor:default}
+`;
+d.head.append(style);
+
+/* ---------- chrome in a shadow root, isolated from theme CSS ---------- */
+
+const host = d.createElement('nova-chrome');
+host.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;z-index:2147483000';
+d.body.append(host);
+const shadow = host.attachShadow({ mode: 'open' });
+shadow.innerHTML = `<style>
+:host{all:initial}
+*{box-sizing:border-box;font-family:'Schibsted Grotesk Variable',ui-sans-serif,system-ui,sans-serif}
+.ins{position:absolute;left:0;height:0;display:none;align-items:center;justify-content:center;pointer-events:none}
+.ins.on{display:flex}
+.ins::before{content:"";position:absolute;left:24px;right:24px;top:-1px;height:2px;background:#2b59c3;border-radius:2px;opacity:.9}
+.ins button{pointer-events:auto;position:relative;width:28px;height:28px;margin-top:-14px;border-radius:50%;border:0;background:#2b59c3;color:#fff;font-size:18px;line-height:28px;cursor:pointer;box-shadow:0 4px 12px rgba(43,89,195,.35);transform:translateY(14px)}
+.ins button:hover{transform:translateY(14px) scale(1.08)}
+.grip{position:absolute;display:none;width:28px;height:28px;border-radius:7px;background:#1b1a17;color:#fff;cursor:grab;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);touch-action:none}
+.grip.on{display:flex}
+.grip svg{width:16px;height:16px}
+.rich{position:absolute;display:none;gap:1px;padding:3px;background:#1b1a17;border-radius:8px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
+.rich.on{display:flex}
+.rich button{min-width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:#fff;font:600 12px/1 inherit;cursor:pointer;padding:0 6px}
+.rich button:hover{background:rgba(255,255,255,.14)}
+</style>
+<div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
+<div class="grip" title="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="rich" role="toolbar" aria-label="Formatierung">
+<button data-c="bold" title="Fett"><b>F</b></button><button data-c="italic" title="Kursiv"><i>K</i></button><button data-c="h2" title="Zwischentitel">H2</button><button data-c="h3" title="Kleiner Zwischentitel">H3</button><button data-c="p" title="Absatz">¶</button><button data-c="ul" title="Aufzählung">•</button><button data-c="quote" title="Zitat">“</button><button data-c="link" title="Link">Link</button>
+</div>`;
+const ins = shadow.querySelector('.ins') as HTMLElement;
+const grip = shadow.querySelector('.grip') as HTMLElement;
+const rich = shadow.querySelector('.rich') as HTMLElement;
+
+const blocks = () => [...main.querySelectorAll<HTMLElement>(':scope > [data-nova-block]')];
+const blockEl = (id: string) => main.querySelector<HTMLElement>(`:scope > [data-nova-block="${CSS.escape(id)}"]`);
+const rectOf = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
+};
+const lockOf = (el: HTMLElement) => (studio ? el.dataset.novaLock ?? 'none' : 'none');
+
+/* ---------- editable fields ---------- */
+
+function setupFields(root: ParentNode) {
+  root.querySelectorAll<HTMLElement>('[data-nova-field]').forEach((el) => {
+    const block = el.closest<HTMLElement>('[data-nova-block]');
+    if (!block || el.closest('.nova-section-ref')) return;
+    if (lockOf(block) === 'all') return;
+    const kind = el.dataset.novaKind;
+    el.contentEditable = kind === 'rich' ? 'true' : 'plaintext-only';
+    if (el.contentEditable !== 'plaintext-only' && kind !== 'rich') el.contentEditable = 'true';
+    el.spellcheck = true;
+    el.dataset.placeholder = kind === 'rich' ? 'Text schreiben …' : 'Hier tippen …';
+    el.setAttribute('role', 'textbox');
+    if (kind !== 'plain') el.setAttribute('aria-multiline', 'true');
+  });
+}
+
+let editTimer = 0;
+d.addEventListener('input', (e) => {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-field]');
+  if (!el) return;
+  const block = el.closest<HTMLElement>('[data-nova-block]');
+  if (!block) return;
+  clearTimeout(editTimer);
+  editTimer = window.setTimeout(() => {
+    const kind = el.dataset.novaKind;
+    const value = kind === 'rich' ? sanitizeRichText(el.innerHTML) : kind === 'multi' ? el.innerText.replace(/\n{3,}/g, '\n\n').trim() : el.innerText.replace(/\s+/g, ' ').trim();
+    post({ t: 'edit', id: block.dataset.novaBlock, path: el.dataset.novaField, value });
+  }, 120);
+});
+
+// Single-line fields: Enter leaves the field instead of inserting a line break.
+d.addEventListener('keydown', (e) => {
+  const t = e.target as HTMLElement;
+  const field = t.closest?.<HTMLElement>('[data-nova-field]');
+  if (field && e.key === 'Enter' && field.dataset.novaKind === 'plain') {
+    e.preventDefault();
+    field.blur();
+  }
+  const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    post({ t: 'key', key: e.shiftKey ? 'redo' : 'undo' });
+  } else if (mod && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    post({ t: 'key', key: 'palette' });
+  } else if (mod && e.key === '.') {
+    e.preventDefault();
+    post({ t: 'key', key: 'mode' });
+  } else if (mod && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    post({ t: 'key', key: 'save' });
+  } else if (e.key === 'Escape') {
+    if (field) field.blur();
+    else select(null, true);
+  } else if ((e.key === 'Delete' || e.key === 'Backspace') && !field && selected && !(t instanceof HTMLInputElement)) {
+    post({ t: 'key', key: 'delete' });
+  }
+});
+
+// Paste plain text into fields – keeps Word/Docs formatting out.
+d.addEventListener('paste', (e) => {
+  const field = (e.target as HTMLElement).closest?.<HTMLElement>('[data-nova-field]');
+  if (!field) return;
+  e.preventDefault();
+  const text = e.clipboardData?.getData('text/plain') ?? '';
+  d.execCommand('insertText', false, field.dataset.novaKind === 'plain' ? text.replace(/\s+/g, ' ') : text);
+});
+
+/* ---------- selection & hover ---------- */
+
+function select(id: string | null, notify: boolean) {
+  if (selected) blockEl(selected)?.removeAttribute('data-nova-selected');
+  selected = id;
+  const el = id ? blockEl(id) : null;
+  if (el) el.setAttribute('data-nova-selected', '');
+  if (notify) post(el ? { t: 'select', id, rect: rectOf(el), lock: el.dataset.novaLock ?? 'none', type: el.dataset.novaType } : { t: 'deselect' });
+}
+
+d.addEventListener(
+  'click',
+  (e) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('a[href]') || t.closest('button') || t.closest('form')) {
+      // Nothing navigates or submits in the editor.
+      if (!t.closest('[data-nova-field]')) e.preventDefault();
+    }
+    const global = t.closest<HTMLElement>('[data-nova-global]');
+    if (global) {
+      e.preventDefault();
+      select(null, true);
+      return post({ t: 'global', which: global.dataset.novaGlobal });
+    }
+    const block = t.closest<HTMLElement>('[data-nova-block]');
+    if (block) {
+      if (t.closest('summary')) e.preventDefault();
+      select(block.dataset.novaBlock!, true);
+    } else select(null, true);
+  },
+  true,
+);
+
+d.addEventListener('dblclick', (e) => {
+  const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-section]');
+  if (ref) post({ t: 'section', id: ref.dataset.novaSection });
+});
+
+d.addEventListener('submit', (e) => e.preventDefault(), true);
+
+/* ---------- insert points & grip ---------- */
+
+let hoverBlock: HTMLElement | null = null;
+let insertIndex = -1;
+
+function positionChrome(clientX: number, clientY: number) {
+  if (dragging) return;
+  const list = blocks();
+  // Insert line: nearest block boundary within 22px.
+  let best: { y: number; index: number } | null = null;
+  list.forEach((b, i) => {
+    const r = b.getBoundingClientRect();
+    for (const [y, index] of [
+      [r.top, i],
+      [r.bottom, i + 1],
+    ] as [number, number][]) {
+      const dist = Math.abs(clientY - y);
+      if (dist < 22 && (!best || dist < Math.abs(clientY - best.y))) best = { y, index };
+    }
+  });
+  if (!list.length) {
+    const r = main.getBoundingClientRect();
+    best = { y: r.top + 40, index: 0 };
+  }
+  if (best) {
+    const b = best as { y: number; index: number };
+    insertIndex = b.index;
+    ins.style.top = `${b.y + scrollY}px`;
+    ins.style.width = `${d.documentElement.clientWidth}px`;
+    ins.classList.add('on');
+  } else ins.classList.remove('on');
+
+  const block = (d.elementFromPoint(clientX, clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-nova-block]') ?? null;
+  hoverBlock = block;
+  if (block && lockOf(block) === 'none') {
+    const r = block.getBoundingClientRect();
+    grip.style.top = `${r.top + scrollY + 10}px`;
+    grip.style.left = `${r.left + 10}px`;
+    grip.classList.add('on');
+  } else grip.classList.remove('on');
+}
+
+d.addEventListener('pointermove', (e) => positionChrome(e.clientX, e.clientY), { passive: true });
+d.addEventListener('pointerleave', () => {
+  if (!dragging) {
+    ins.classList.remove('on');
+    grip.classList.remove('on');
+  }
+});
+
+ins.querySelector('button')!.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const r = (ins.querySelector('button') as HTMLElement).getBoundingClientRect();
+  post({ t: 'insert-at', index: insertIndex, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
+});
+
+/* ---------- drag to reorder: neighbours move out of the way ---------- */
+
+let dragging: { el: HTMLElement; startY: number; from: number; to: number; height: number; list: HTMLElement[]; mids: number[] } | null = null;
+
+grip.addEventListener('pointerdown', (e) => {
+  if (!hoverBlock) return;
+  e.preventDefault();
+  grip.setPointerCapture(e.pointerId);
+  const list = blocks();
+  const from = list.indexOf(hoverBlock);
+  const height = hoverBlock.getBoundingClientRect().height;
+  dragging = { el: hoverBlock, startY: e.clientY, from, to: from, height, list, mids: list.map((b) => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; }) };
+  hoverBlock.classList.add('nova-dragging');
+  list.forEach((b) => b !== hoverBlock && b.classList.add('nova-shift'));
+  select(hoverBlock.dataset.novaBlock!, true);
+  ins.classList.remove('on');
+});
+
+grip.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const dy = e.clientY - dragging.startY;
+  const { el, list, mids, from, height } = dragging;
+  el.style.transform = `translateY(${dy}px)`;
+  const center = mids[from] + dy;
+  let to = from;
+  for (let i = 0; i < list.length; i++) {
+    if (i < from && center < mids[i]) {
+      to = i;
+      break;
+    }
+    if (i > from && center > mids[i]) to = i;
+  }
+  dragging.to = to;
+  list.forEach((b, i) => {
+    if (b === el) return;
+    let shift = 0;
+    if (from < to && i > from && i <= to) shift = -height;
+    if (from > to && i >= to && i < from) shift = height;
+    b.style.transform = shift ? `translateY(${shift}px)` : '';
+  });
+  // Auto-scroll near the edges.
+  if (e.clientY < 60) scrollBy(0, -12);
+  else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+});
+
+function endDrag() {
+  if (!dragging) return;
+  const { el, list, from, to } = dragging;
+  list.forEach((b) => {
+    b.style.transform = '';
+    b.classList.remove('nova-shift');
+  });
+  el.classList.remove('nova-dragging');
+  el.style.transform = '';
+  if (to !== from) {
+    const target = list[to];
+    if (to > from) target.after(el);
+    else target.before(el);
+    post({ t: 'moved', id: el.dataset.novaBlock, to });
+  }
+  dragging = null;
+  sendRect();
+}
+grip.addEventListener('pointerup', endDrag);
+grip.addEventListener('pointercancel', endDrag);
+
+/* ---------- rich text toolbar ---------- */
+
+d.addEventListener('selectionchange', () => {
+  const sel = d.getSelection();
+  const node = sel?.anchorNode ? (sel.anchorNode.nodeType === 1 ? (sel.anchorNode as HTMLElement) : sel.anchorNode.parentElement) : null;
+  const field = node?.closest<HTMLElement>('[data-nova-kind="rich"]');
+  if (!field || !sel || sel.isCollapsed) return rich.classList.remove('on');
+  const r = sel.getRangeAt(0).getBoundingClientRect();
+  rich.style.top = `${Math.max(scrollY + 4, r.top + scrollY - 44)}px`;
+  rich.style.left = `${Math.max(8, r.left + r.width / 2 - 150)}px`;
+  rich.classList.add('on');
+});
+
+rich.addEventListener('mousedown', (e) => e.preventDefault());
+rich.addEventListener('click', (e) => {
+  const c = (e.target as HTMLElement).closest('button')?.dataset.c;
+  if (!c) return;
+  const map: Record<string, [string, string?]> = {
+    bold: ['bold'],
+    italic: ['italic'],
+    h2: ['formatBlock', 'h2'],
+    h3: ['formatBlock', 'h3'],
+    p: ['formatBlock', 'p'],
+    ul: ['insertUnorderedList'],
+    quote: ['formatBlock', 'blockquote'],
+  };
+  if (c === 'link') {
+    const url = prompt('Link-Adresse, z. B. /kontakt oder https://…');
+    if (url) d.execCommand('createLink', false, url);
+  } else d.execCommand(map[c][0], false, map[c][1]);
+  d.getSelection()?.anchorNode?.parentElement?.closest('[data-nova-field]')?.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+/* ---------- geometry to the parent ---------- */
+
+let raf = 0;
+function sendRect() {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(() => {
+    const el = selected ? blockEl(selected) : null;
+    if (el) post({ t: 'rect', id: selected, rect: rectOf(el) });
+  });
+}
+addEventListener('scroll', sendRect, { passive: true });
+addEventListener('resize', sendRect);
+new ResizeObserver(sendRect).observe(d.body);
+
+/* ---------- commands from the parent ---------- */
+
+function animateIn(el: HTMLElement) {
+  if (reduced) return el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 100 });
+  const h = el.getBoundingClientRect().height;
+  el.animate(
+    [
+      { opacity: 0, transform: 'translateY(12px) scale(.985)', clipPath: 'inset(0 0 100% 0)', marginBottom: `${-h}px` },
+      { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0)', marginBottom: '0px' },
+    ],
+    { duration: 260, easing: spring },
+  );
+}
+
+function flash(el: HTMLElement) {
+  el.animate([{ backgroundColor: 'rgba(43,89,195,.10)' }, { backgroundColor: 'transparent' }], { duration: reduced ? 100 : 500, easing: 'ease-out' });
+}
+
+function htmlToElement(html: string): HTMLElement {
+  const t = d.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild as HTMLElement;
+}
+
+addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data?.nova) return;
+  const m = e.data as Msg;
+  switch (m.t) {
+    case 'init':
+      studio = m.studio;
+      blocks().forEach((b) => b.querySelectorAll<HTMLElement>('[contenteditable]').forEach((x) => x.removeAttribute('contenteditable')));
+      setupFields(main);
+      break;
+    case 'select': {
+      select(m.id, false);
+      const el = m.id ? blockEl(m.id) : null;
+      if (el && m.scroll) el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+      sendRect();
+      break;
+    }
+    case 'replace': {
+      const old = blockEl(m.id);
+      const next = htmlToElement(m.html);
+      if (!old || !next) break;
+      old.replaceWith(next);
+      setupFields(next);
+      if (selected === m.id) next.setAttribute('data-nova-selected', '');
+      sendRect();
+      break;
+    }
+    case 'insert': {
+      const next = htmlToElement(m.html);
+      const list = blocks();
+      if (m.index >= list.length) {
+        const last = list[list.length - 1];
+        if (last) last.after(next);
+        else main.append(next);
+      } else list[m.index].before(next);
+      main.querySelector(':scope > .wrap > .nova-empty')?.parentElement?.remove();
+      setupFields(next);
+      select(m.id, true);
+      next.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+      animateIn(next);
+      break;
+    }
+    case 'remove': {
+      const el = blockEl(m.id);
+      if (!el) break;
+      if (selected === m.id) select(null, false);
+      if (reduced) el.remove();
+      else {
+        const h = el.getBoundingClientRect().height;
+        el.animate([{ opacity: 1, height: `${h}px` }, { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px' }], { duration: 200, easing: 'ease-in' }).onfinish = () => el.remove();
+      }
+      break;
+    }
+    case 'move': {
+      const el = blockEl(m.id);
+      const list = blocks();
+      if (!el) break;
+      const others = new Map(list.map((b) => [b, b.getBoundingClientRect().top]));
+      const without = list.filter((b) => b !== el);
+      if (m.to >= without.length) without[without.length - 1].after(el);
+      else without[m.to].before(el);
+      if (!reduced) {
+        // FLIP: everything glides to its new place.
+        for (const [b, top] of others) {
+          const delta = top - b.getBoundingClientRect().top;
+          if (delta) b.animate([{ transform: `translateY(${delta}px)` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        }
+      }
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+      sendRect();
+      break;
+    }
+    case 'main': {
+      const doc = new DOMParser().parseFromString(m.html, 'text/html');
+      const nextMain = doc.querySelector('main');
+      if (!nextMain) break;
+      const y = scrollY;
+      main.innerHTML = nextMain.innerHTML;
+      // Header and footer may have changed too (navigation, name).
+      const hdr = doc.querySelector('[data-nova-global="header"]');
+      const ftr = doc.querySelector('[data-nova-global="footer"]');
+      if (hdr) d.querySelector('[data-nova-global="header"]')?.replaceWith(hdr);
+      if (ftr) d.querySelector('[data-nova-global="footer"]')?.replaceWith(ftr);
+      setupFields(main);
+      scrollTo(0, y);
+      for (const id of (m.changed as string[]) ?? []) {
+        const el = blockEl(id);
+        if (el) {
+          // «Rückgängig spult sichtbar zurück»: changed blocks rewind briefly.
+          if (!reduced) el.animate([{ transform: 'translateX(-6px)', opacity: 0.6 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
+          flash(el);
+        }
+      }
+      if (selected && blockEl(selected)) blockEl(selected)!.setAttribute('data-nova-selected', '');
+      else select(null, true);
+      sendRect();
+      break;
+    }
+    case 'focus-field': {
+      const el = blockEl(m.id);
+      const field = el?.querySelector<HTMLElement>(m.field ? `[data-nova-field="${CSS.escape(m.field)}"]` : '[data-nova-field]');
+      el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+      if (field) {
+        setTimeout(() => {
+          field.focus();
+          const r = d.createRange();
+          r.selectNodeContents(field);
+          r.collapse(false);
+          d.getSelection()?.removeAllRanges();
+          d.getSelection()?.addRange(r);
+        }, reduced ? 0 : 300);
+      }
+      if (el) flash(el);
+      break;
+    }
+    case 'flash': {
+      const el = blockEl(m.id);
+      if (el) flash(el);
+      break;
+    }
+  }
+});
+
+post({ t: 'ready', blocks: blocks().map((b) => b.dataset.novaBlock) });

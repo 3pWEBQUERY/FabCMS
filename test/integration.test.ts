@@ -1,0 +1,231 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
+import { sql } from '../src/server/db';
+import { migrate } from '../src/server/migrate';
+import { syncBuiltinCollections, invalidateCollections } from '../src/server/content';
+import { invalidateSettings } from '../src/server/settings';
+import { createApp } from '../src/server/app';
+import type { Entry } from '../src/shared/types';
+
+/**
+ * Runs against a real Postgres (TEST_DATABASE_URL, default: local nova_test).
+ * The schema is dropped and rebuilt for every run.
+ */
+let reachable = true;
+try {
+  await sql`select 1`;
+} catch {
+  reachable = false;
+}
+
+const app = createApp();
+const jar = new Map<string, string>();
+
+async function req(method: string, path: string, body?: unknown, opts: { cookies?: Map<string, string>; headers?: Record<string, string>; form?: Record<string, string> } = {}) {
+  const cookies = opts.cookies ?? jar;
+  const headers: Record<string, string> = { 'X-Nova': '1', ...opts.headers };
+  if (cookies.size) headers.cookie = [...cookies].map(([k, v]) => `${k}=${v}`).join('; ');
+  let payload: BodyInit | undefined;
+  if (opts.form) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    payload = new URLSearchParams(opts.form).toString();
+  } else if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await app.request(path, { method, headers, body: payload, redirect: 'manual' });
+  for (const c of res.headers.getSetCookie()) {
+    const [pair] = c.split(';');
+    const [k, ...v] = pair.split('=');
+    cookies.set(k, v.join('='));
+  }
+  const type = res.headers.get('content-type') ?? '';
+  const data = type.includes('json') ? await res.json() : await res.text();
+  return { status: res.status, data: data as any, headers: res.headers };
+}
+
+describe.skipIf(!reachable)('Nova against Postgres', () => {
+  beforeAll(async () => {
+    await sql.unsafe('drop schema public cascade; create schema public;');
+    await rm('.data/test-uploads', { recursive: true, force: true });
+    await migrate(join(process.cwd(), 'migrations'));
+    invalidateCollections();
+    invalidateSettings();
+    await syncBuiltinCollections();
+  });
+  afterAll(async () => {
+    await sql.end();
+  });
+
+  it('protects the first-run setup with the setup code', async () => {
+    const bad = await req('POST', '/api/setup', { code: '000-000', name: 'X', email: 'x@example.ch', password: 'langes-passwort-1' });
+    expect(bad.status).toBe(400);
+    const ok = await req('POST', '/api/setup', { code: '111-222', name: 'Sandra', email: 'sandra@example.ch', password: 'langes-passwort-1' });
+    expect(ok.status).toBe(200);
+    const again = await req('POST', '/api/setup', { code: '111-222', name: 'Y', email: 'y@example.ch', password: 'langes-passwort-1' }, { cookies: new Map() });
+    expect(again.status).toBe(403);
+  });
+
+  it('rejects state changes without the CSRF header', async () => {
+    const r = await app.request('/api/logout', { method: 'POST', headers: { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; ') } });
+    expect(r.status).toBe(403);
+  });
+
+  it('seeds a restaurant with shop and renders it', async () => {
+    const seed = await req('POST', '/api/onboarding/seed', { sectors: ['restaurant', 'shop'], name: 'Gasthaus Linde' });
+    expect(seed.status).toBe(200);
+    expect(seed.data.themes[0]).toBe('bistro');
+    const fin = await req('POST', '/api/onboarding/finish', { theme: 'bistro', palette: 'default', mode: 'studio' });
+    expect(fin.status).toBe(200);
+    // Before the first publish visitors only see the holding page …
+    const anon = await req('GET', '/', undefined, { cookies: new Map() });
+    expect(anon.data).toContain('Hier entsteht etwas');
+    // … staff see the real site.
+    const staff = await req('GET', '/');
+    expect(staff.data).toContain('Saisonale Küche');
+    await req('POST', '/api/site/launch');
+    const home = await req('GET', '/', undefined, { cookies: new Map() });
+    expect(home.status).toBe(200);
+    expect(home.data).toContain('<h1 class="h"');
+    expect(home.data).toContain('"@type":"Restaurant"');
+    const karte = await req('GET', '/karte', undefined, { cookies: new Map() });
+    expect(karte.data).toContain('"@type":"Menu"');
+    expect(karte.data).toContain('Allergene');
+  });
+
+  it('serves sitemap, robots and feed-free 404', async () => {
+    const sm = await req('GET', '/sitemap.xml');
+    expect(sm.data).toContain('<loc>');
+    expect(sm.data).toContain('/karte');
+    const robots = await req('GET', '/robots.txt');
+    expect(robots.data).toContain('Sitemap:');
+    const nf = await req('GET', '/gibt-es-nicht', undefined, { cookies: new Map() });
+    expect(nf.status).toBe(404);
+  });
+
+  it('creates a 301 when the address of a live page changes', async () => {
+    const { data } = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Team', blocks: [] } });
+    const id = data.entry.id as string;
+    expect((await req('POST', `/api/entries/${id}/publish`, {})).status).toBe(200);
+    const cur = await req('GET', `/api/entries/${id}`);
+    await req('PUT', `/api/entries/${id}`, { data: cur.data.entry.data, slug: 'unser-team', baseVersion: cur.data.entry.version });
+    await req('POST', `/api/entries/${id}/publish`, {});
+    const old = await req('GET', '/team', undefined, { cookies: new Map() });
+    expect(old.status).toBe(301);
+    expect(old.headers.get('location')).toBe('/unser-team');
+  });
+
+  it('detects concurrent edits via the version number', async () => {
+    const { data } = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Konflikt' } });
+    const e = data.entry as Entry;
+    expect((await req('PUT', `/api/entries/${e.id}`, { data: e.data, baseVersion: e.version })).status).toBe(200);
+    expect((await req('PUT', `/api/entries/${e.id}`, { data: e.data, baseVersion: e.version })).status).toBe(409);
+  });
+
+  it('enforces protected zones for Studio users', async () => {
+    // Owner in Werkbank locks a block.
+    await req('PATCH', '/api/me', { mode: 'werkbank' });
+    const { data } = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: { title: 'Gesperrt', blocks: [{ id: 'aaa', type: 'text', props: { heading: 'Alt', body: '<p>x</p>', width: 'narrow' }, style: { tone: 'muted' }, lock: 'layout' }] },
+    });
+    const id = data.entry.id;
+    await req('PATCH', '/api/me', { mode: 'studio' });
+    const cur = (await req('GET', `/api/entries/${id}`)).data.entry as Entry;
+    // Studio tries to restyle, change the width and delete the block.
+    const attempt = { ...cur.data, blocks: [{ ...cur.data.blocks![0], props: { heading: 'Neu', body: '<p>y</p>', width: 'wide' }, style: { tone: 'inverse' }, lock: 'none' }] };
+    const r = await req('PUT', `/api/entries/${id}`, { data: attempt, baseVersion: cur.version });
+    const b = r.data.entry.data.blocks[0];
+    expect(b.props.heading).toBe('Neu');
+    expect(b.props.width).toBe('narrow');
+    expect(b.style.tone).toBe('muted');
+    expect(b.lock).toBe('layout');
+    const del = await req('PUT', `/api/entries/${id}`, { data: { ...cur.data, blocks: [] }, baseVersion: r.data.entry.version });
+    expect(del.data.entry.data.blocks).toHaveLength(1);
+  });
+
+  it('sanitizes rich text and strips code for non-developers', async () => {
+    const { data } = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: { title: 'XSS', blocks: [{ id: 'b1', type: 'text', props: { body: '<p>ok<img src=x onerror=alert(1)></p>' } }] },
+    });
+    expect(data.entry.data.blocks[0].props.body).toBe('<p>ok</p>');
+  });
+
+  it('calculates the cart with Swiss VAT, shipping and coupons', async () => {
+    const shop = new Map<string, string>();
+    const products = await sql`select id, slug, published_data from entries where collection = 'products' and published_data ->> 'title' like 'Kaffee%'`;
+    const kaffee = products[0];
+    await req('POST', '/api/coupons', { code: 'LINDE10', kind: 'percent', value: 10 });
+    const add = await req('POST', '/warenkorb/add', undefined, { cookies: shop, headers: { Accept: 'application/json' }, form: { product: kaffee.id, qty: '2' } });
+    expect(add.data).toMatchObject({ ok: true, count: 2 });
+    const cart = await req('GET', '/warenkorb?gutschein=LINDE10', undefined, { cookies: shop });
+    // 2 × 14.90 = 29.80, −10 % = 26.82, + 9.– shipping = 35.82
+    expect(cart.data).toContain('29.80');
+    expect(cart.data).toContain('35.82');
+    // reduced VAT 2.6 % on goods, standard 8.1 % on shipping
+    expect(cart.data).toContain('inkl. 2.6% MwSt.');
+    expect(cart.data).toContain('inkl. 8.1% MwSt.');
+    const order = await req('POST', '/kasse', undefined, {
+      cookies: shop,
+      form: { name: 'Erika', email: 'erika@example.ch', street: 'Weg 1', zip: '8000', city: 'Zürich', country: 'CH', shippingMethod: 'ship', payment: 'invoice', coupon: 'LINDE10', acceptTerms: '1' },
+    });
+    expect(order.status).toBe(303);
+    expect(order.headers.get('location')).toMatch(/^\/bestellung\//);
+    const [o] = await sql`select total, discount, status from orders`;
+    expect(o).toMatchObject({ total: 3582, discount: 298, status: 'pending' });
+    const [stock] = await sql`select (published_data ->> 'stock')::int as s, (data ->> 'stock')::int as d from entries where id = ${kaffee.id}`;
+    expect(stock).toEqual({ s: 38, d: 38 });
+  });
+
+  it('accepts form submissions, rejects bots silently, creates a lead', async () => {
+    const [form] = await sql`select id, fields from forms where name = 'Kontakt'`;
+    const anon = new Map<string, string>();
+    const bot = await req('POST', `/_nova/forms/${form.id}`, undefined, { cookies: anon, headers: { Accept: 'application/json' }, form: { website: 'spam', _t: Date.now().toString(36), name: 'Bot' } });
+    expect(bot.data.ok).toBe(true);
+    const human = await req('POST', `/_nova/forms/${form.id}`, undefined, {
+      cookies: anon,
+      headers: { Accept: 'application/json' },
+      form: { _t: (Date.now() - 5000).toString(36), name: 'Hans', e_mail: 'hans@example.ch', nachricht: 'Habt ihr offen?' },
+    });
+    expect(human.data.ok).toBe(true);
+    const subs = await sql`select data from submissions`;
+    expect(subs).toHaveLength(1);
+    const [lead] = await sql`select email, status from contacts`;
+    expect(lead).toMatchObject({ email: 'hans@example.ch', status: 'new' });
+  });
+
+  it('exposes published content through the headless API', async () => {
+    const list = await req('GET', '/api/v1/dishes?limit=3&filter[category]=Desserts', undefined, { cookies: new Map() });
+    expect(list.status).toBe(200);
+    expect(list.data.data.length).toBeGreaterThan(0);
+    expect(list.data.data.every((d: any) => d.data.category === 'Desserts')).toBe(true);
+    const write = await req('POST', '/api/v1/dishes', { data: { title: 'X' } }, { cookies: new Map() });
+    expect(write.status).toBe(401);
+  });
+
+  it('answers privacy requests and anonymises orders', async () => {
+    const info = await req('GET', '/api/privacy?email=erika@example.ch');
+    expect(info.data.counts.orders).toBe(1);
+    await req('POST', '/api/privacy/delete', { email: 'erika@example.ch' });
+    const [o] = await sql`select email, customer ->> 'name' as name, total from orders`;
+    expect(o.email).toMatch(/@invalid$/);
+    expect(o.name).toBe('Gelöscht');
+    expect(o.total).toBe(3582);
+  });
+
+  it('keeps authors out of other people’s work', async () => {
+    const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
+    const author = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'luca@example.ch', password: created.data.temporaryPassword }, { cookies: author });
+    const pages = await req('GET', '/api/entries?collection=pages', undefined, { cookies: author });
+    expect(pages.data.entries).toHaveLength(0);
+    const post = await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Mein Beitrag' } }, { cookies: author });
+    expect(post.status).toBe(200);
+    const pub = await req('POST', `/api/entries/${post.data.entry.id}/publish`, {}, { cookies: author });
+    expect(pub.data.review).toBe(true);
+    const settings = await req('PATCH', '/api/settings', { name: 'Gehackt' }, { cookies: author });
+    expect(settings.status).toBe(403);
+  });
+});

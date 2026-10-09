@@ -1,0 +1,292 @@
+import type { CollectionDef } from './types';
+
+export const ALLERGENS: { value: string; label: string; short: string }[] = [
+  { value: 'gluten', label: 'Glutenhaltiges Getreide', short: 'Gluten' },
+  { value: 'crustaceans', label: 'Krebstiere', short: 'Krebstiere' },
+  { value: 'eggs', label: 'Eier', short: 'Ei' },
+  { value: 'fish', label: 'Fisch', short: 'Fisch' },
+  { value: 'peanuts', label: 'Erdnüsse', short: 'Erdnuss' },
+  { value: 'soy', label: 'Soja', short: 'Soja' },
+  { value: 'milk', label: 'Milch (inkl. Laktose)', short: 'Milch' },
+  { value: 'nuts', label: 'Schalenfrüchte (Nüsse)', short: 'Nüsse' },
+  { value: 'celery', label: 'Sellerie', short: 'Sellerie' },
+  { value: 'mustard', label: 'Senf', short: 'Senf' },
+  { value: 'sesame', label: 'Sesam', short: 'Sesam' },
+  { value: 'sulphites', label: 'Schwefeldioxid & Sulfite', short: 'Sulfite' },
+  { value: 'lupin', label: 'Lupinen', short: 'Lupinen' },
+  { value: 'molluscs', label: 'Weichtiere', short: 'Weichtiere' },
+];
+
+export const DISH_TAGS = [
+  { value: 'vegetarian', label: 'Vegetarisch' },
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'spicy', label: 'Scharf' },
+  { value: 'house', label: 'Hausspezialität' },
+];
+
+const seoNote = 'Wird automatisch aus dem Inhalt erzeugt, wenn leer.';
+
+export const BUILTIN_COLLECTIONS: CollectionDef[] = [
+  {
+    id: 'pages',
+    name: 'Seiten',
+    singular: 'Seite',
+    icon: 'page',
+    fields: [{ key: 'title', type: 'text', label: 'Titel der Seite', required: true, maxLength: 120 }],
+    route: '/:slug',
+    list_route: null,
+    has_blocks: true,
+    builtin: true,
+    module: null,
+    title_field: 'title',
+    empty_hint: 'Leg deine erste Seite an – zum Beispiel «Über uns».',
+  },
+  {
+    id: 'posts',
+    name: 'Beiträge',
+    singular: 'Beitrag',
+    icon: 'posts',
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel', required: true, maxLength: 120 },
+      { key: 'excerpt', type: 'textarea', label: 'Kurzfassung', help: 'Erscheint in Übersichten und bei Google. ' + seoNote, maxLength: 300 },
+      { key: 'cover', type: 'image', label: 'Titelbild' },
+      { key: 'date', type: 'date', label: 'Datum' },
+      { key: 'category', type: 'text', label: 'Kategorie', width: 'half' },
+      { key: 'tags', type: 'tags', label: 'Schlagwörter', width: 'half' },
+      { key: 'series', type: 'text', label: 'Serie', help: 'Beiträge mit gleichem Seriennamen werden miteinander verlinkt.', pro: false },
+      { key: 'allowComments', type: 'boolean', label: 'Kommentare erlauben', default: true },
+    ],
+    route: '/journal/:slug',
+    list_route: '/journal',
+    has_blocks: true,
+    builtin: true,
+    module: 'blog',
+    title_field: 'title',
+    empty_hint: 'Schreib deinen ersten Beitrag. Ein Absatz reicht für den Anfang.',
+    sort: { field: 'date', dir: 'desc' },
+    per_page: 10,
+  },
+  {
+    id: 'products',
+    name: 'Produkte',
+    singular: 'Produkt',
+    icon: 'bag',
+    fields: [
+      { key: 'title', type: 'text', label: 'Name', required: true, maxLength: 120 },
+      { key: 'price', type: 'money', label: 'Preis (inkl. MwSt.)', required: true, min: 0, width: 'half' },
+      { key: 'comparePrice', type: 'money', label: 'Statt-Preis', help: 'Wird durchgestrichen angezeigt.', min: 0, width: 'half' },
+      { key: 'images', type: 'images', label: 'Fotos' },
+      { key: 'description', type: 'richtext', label: 'Beschreibung' },
+      { key: 'category', type: 'text', label: 'Kategorie', width: 'half' },
+      { key: 'sku', type: 'text', label: 'Artikelnummer', width: 'half', proLabel: 'sku' },
+      { key: 'stock', type: 'number', label: 'An Lager', help: 'Leer lassen, wenn unbegrenzt.', min: 0, width: 'half' },
+      {
+        key: 'vat',
+        type: 'select',
+        label: 'Mehrwertsteuer',
+        options: [
+          { value: 'standard', label: 'Normalsatz' },
+          { value: 'reduced', label: 'Reduzierter Satz (Lebensmittel, Bücher)' },
+          { value: 'none', label: 'Keine' },
+        ],
+        default: 'standard',
+        width: 'half',
+      },
+      {
+        key: 'variants',
+        type: 'group',
+        label: 'Varianten',
+        itemLabel: 'Variante',
+        help: 'Zum Beispiel Grössen oder Farben. Jede Variante hat eigenen Preis und Lagerbestand.',
+        fields: [
+          { key: 'name', type: 'text', label: 'Name', required: true },
+          { key: 'price', type: 'money', label: 'Preis', help: 'Leer = Produktpreis' },
+          { key: 'stock', type: 'number', label: 'An Lager', min: 0 },
+          { key: 'sku', type: 'text', label: 'Artikelnummer' },
+        ],
+      },
+      { key: 'digital', type: 'boolean', label: 'Digitales Produkt', help: 'Kein Versand. Die Datei wird nach der Zahlung zum Download angeboten.' },
+      { key: 'file', type: 'file', label: 'Datei zum Download', private: true, showIf: { field: 'digital', equals: [true] } },
+      { key: 'weight', type: 'number', label: 'Gewicht in Gramm', min: 0, pro: true },
+    ],
+    route: '/laden/:slug',
+    list_route: '/laden',
+    has_blocks: false,
+    builtin: true,
+    module: 'shop',
+    title_field: 'title',
+    empty_hint: 'Leg dein erstes Produkt an: Name, Preis, ein Foto – fertig.',
+    sort: { field: 'sort', dir: 'asc' },
+    per_page: 24,
+  },
+  {
+    id: 'dishes',
+    name: 'Gerichte',
+    singular: 'Gericht',
+    icon: 'menu',
+    fields: [
+      { key: 'title', type: 'text', label: 'Name des Gerichts', required: true, maxLength: 120 },
+      { key: 'description', type: 'textarea', label: 'Beschreibung', maxLength: 300 },
+      { key: 'category', type: 'text', label: 'Kategorie', required: true, help: 'z. B. Vorspeisen, Hauptgang, Dessert, Getränke' },
+      {
+        key: 'prices',
+        type: 'group',
+        label: 'Preise',
+        itemLabel: 'Preis',
+        help: 'Ein Preis genügt. Mehrere für Grössen: «klein / gross», «1 dl / 5 dl».',
+        min: 1,
+        fields: [
+          { key: 'label', type: 'text', label: 'Grösse', help: 'Leer, wenn es nur einen Preis gibt.' },
+          { key: 'price', type: 'money', label: 'Preis', required: true },
+        ],
+      },
+      { key: 'allergens', type: 'multiselect', label: 'Allergene', options: ALLERGENS.map(({ value, label }) => ({ value, label })) },
+      { key: 'origin', type: 'text', label: 'Herkunft Fleisch/Fisch', help: 'In der Schweiz Pflicht: z. B. «Rind: Schweiz»' },
+      { key: 'tags', type: 'multiselect', label: 'Kennzeichnung', options: DISH_TAGS },
+      { key: 'daily', type: 'boolean', label: 'Auf der Tageskarte' },
+      { key: 'soldOut', type: 'boolean', label: 'Heute ausverkauft' },
+    ],
+    route: null,
+    list_route: '/karte',
+    has_blocks: false,
+    builtin: true,
+    module: 'menu',
+    title_field: 'title',
+    empty_hint: 'Füg dein erstes Gericht hinzu. Wir haben ein Beispiel vorbereitet, das du übernehmen kannst.',
+    sort: { field: 'sort', dir: 'asc' },
+  },
+  {
+    id: 'projects',
+    name: 'Projekte',
+    singular: 'Projekt',
+    icon: 'grid',
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel', required: true, maxLength: 120 },
+      { key: 'client', type: 'text', label: 'Kunde', width: 'half' },
+      { key: 'year', type: 'number', label: 'Jahr', width: 'half', min: 1900, max: 2100 },
+      { key: 'category', type: 'text', label: 'Kategorie' },
+      { key: 'summary', type: 'textarea', label: 'In einem Satz', maxLength: 240 },
+      { key: 'cover', type: 'image', label: 'Titelbild', required: true },
+      { key: 'images', type: 'images', label: 'Weitere Bilder' },
+    ],
+    route: '/arbeiten/:slug',
+    list_route: '/arbeiten',
+    has_blocks: true,
+    builtin: true,
+    module: 'portfolio',
+    title_field: 'title',
+    empty_hint: 'Zeig dein erstes Projekt. Ein Titelbild und ein Satz genügen.',
+    sort: { field: 'year', dir: 'desc' },
+  },
+  {
+    id: 'profiles',
+    name: 'Profile',
+    singular: 'Profil',
+    icon: 'people',
+    fields: [
+      { key: 'title', type: 'text', label: 'Name', required: true },
+      { key: 'intro', type: 'textarea', label: 'Kurzvorstellung', maxLength: 400 },
+      { key: 'images', type: 'images', label: 'Fotos' },
+      { key: 'languages', type: 'tags', label: 'Sprachen' },
+      { key: 'services', type: 'tags', label: 'Leistungen' },
+      {
+        key: 'availability',
+        type: 'multiselect',
+        label: 'Anwesend an',
+        options: [
+          { value: '1', label: 'Montag' },
+          { value: '2', label: 'Dienstag' },
+          { value: '3', label: 'Mittwoch' },
+          { value: '4', label: 'Donnerstag' },
+          { value: '5', label: 'Freitag' },
+          { value: '6', label: 'Samstag' },
+          { value: '7', label: 'Sonntag' },
+        ],
+      },
+      { key: 'availableNow', type: 'boolean', label: 'Gerade verfügbar' },
+      {
+        key: 'consentAdult',
+        type: 'boolean',
+        label: 'Volljährigkeit geprüft',
+        help: 'Ausweis wurde gesehen. Ohne diese Bestätigung kann das Profil nicht veröffentlicht werden.',
+      },
+      {
+        key: 'consentPublish',
+        type: 'boolean',
+        label: 'Einwilligung zur Veröffentlichung liegt vor',
+        help: 'Schriftliche Einwilligung der Person zu Text und Bildern.',
+      },
+      { key: 'consentDate', type: 'date', label: 'Datum der Einwilligung' },
+      { key: 'consentDocument', type: 'file', label: 'Einwilligung (Dokument)', private: true, help: 'Wird nie öffentlich angezeigt.' },
+    ],
+    route: '/profile/:slug',
+    list_route: '/profile',
+    has_blocks: false,
+    builtin: true,
+    module: 'profiles',
+    title_field: 'title',
+    empty_hint: 'Leg das erste Profil an. Es geht erst online, wenn Volljährigkeit und Einwilligung bestätigt sind.',
+    sort: { field: 'sort', dir: 'asc' },
+  },
+  {
+    id: 'sections',
+    name: 'Sektionen',
+    singular: 'Sektion',
+    icon: 'link',
+    fields: [{ key: 'title', type: 'text', label: 'Name der Sektion', required: true, help: 'Nur intern sichtbar.' }],
+    route: null,
+    list_route: null,
+    has_blocks: true,
+    builtin: true,
+    module: null,
+    title_field: 'title',
+    empty_hint: 'Sektionen sind Abschnitte, die du auf mehreren Seiten einsetzt. Ändern an einer Stelle, aktuell überall.',
+  },
+];
+
+export interface ModuleDef {
+  id: string;
+  name: string;
+  description: string;
+  collections: string[];
+  status: 'ready' | 'later';
+}
+
+export const MODULES: ModuleDef[] = [
+  { id: 'blog', name: 'Blog & Magazin', description: 'Beiträge mit Kategorien, Lesezeit, RSS und moderierten Kommentaren.', collections: ['posts'], status: 'ready' },
+  { id: 'leads', name: 'Anfragen & Kontakte', description: 'Jede Formular-Anfrage landet als Kontakt mit Status und Notizen.', collections: [], status: 'ready' },
+  { id: 'shop', name: 'Shop', description: 'Produkte, Varianten, Lager, Warenkorb, Gutscheine, MwSt. – Bezahlung via Stripe oder Rechnung.', collections: ['products'], status: 'ready' },
+  { id: 'menu', name: 'Speisekarte', description: 'Gerichte mit Allergenen, Herkunft, Preisen pro Grösse, Tageskarte, Druckversion und QR-Code.', collections: ['dishes'], status: 'ready' },
+  { id: 'portfolio', name: 'Portfolio', description: 'Projekte mit Bildern, Filter und Vergrösserung.', collections: ['projects'], status: 'ready' },
+  { id: 'profiles', name: 'Profile & Verfügbarkeit', description: 'Personenprofile mit Anwesenheit – inklusive Einwilligungsnachweis.', collections: ['profiles'], status: 'ready' },
+  { id: 'booking', name: 'Reservation & Termine', description: 'Tische, Zeitslots, Mitarbeitende, Kalender-Sync.', collections: [], status: 'later' },
+  { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien, Check-in.', collections: [], status: 'later' },
+];
+
+export interface SectorDef {
+  id: string;
+  name: string;
+  hint: string;
+  modules: string[];
+  themes: [string, string, string];
+  businessType: string;
+}
+
+/** Sparten. Each is a combination of modules and a theme recommendation – no own code path. */
+export const SECTORS: SectorDef[] = [
+  { id: 'restaurant', name: 'Restaurant, Café, Bar', hint: 'Karte, Öffnungszeiten, Anfahrt', modules: ['menu', 'leads'], themes: ['bistro', 'salon', 'kante'], businessType: 'Restaurant' },
+  { id: 'shop', name: 'Online-Shop', hint: 'Produkte verkaufen, mit TWINT & Karte', modules: ['shop'], themes: ['kante', 'bistro', 'salon'], businessType: 'Store' },
+  { id: 'blog', name: 'Blog oder Magazin', hint: 'Schreiben, gefunden werden', modules: ['blog'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'Organization' },
+  { id: 'landing', name: 'Angebot mit Anfragen', hint: 'Eine Seite, die Anfragen sammelt', modules: ['leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
+  { id: 'trade', name: 'Handwerk & KMU', hint: 'Leistungen, Referenzen, Offerten', modules: ['leads', 'portfolio'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'HomeAndConstructionBusiness' },
+  { id: 'studio', name: 'Coiffeur, Kosmetik, Studio', hint: 'Preisliste, Team, Termine anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'kante'], businessType: 'BeautySalon' },
+  { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Team, Anfahrt', modules: ['leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
+  { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
+  { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
+  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
+  { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
+  { id: 'adult', name: 'Erotikbetrieb', hint: 'Bordell, Studio, Agentur – mit Altersschranke', modules: ['profiles', 'leads'], themes: ['salon', 'kante', 'feuilleton'], businessType: 'LocalBusiness' },
+];
+
+export const SECTOR_MAP = Object.fromEntries(SECTORS.map((s) => [s.id, s]));
+
