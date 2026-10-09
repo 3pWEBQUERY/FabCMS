@@ -139,9 +139,10 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   const crumbHtml = breadcrumbs(ctx, crumbs);
   if (ctx.path === '/') ctx.jsonLd.unshift(organizationLd(ctx, logo), websiteLd(ctx));
   const favicon = await ctx.media(s.favicon ?? s.logo);
-  const runtime = s.analytics.enabled || ctx.needs.size > 0 || s.modules.includes('shop');
   // Own selects, calendars, steppers and file pickers only where such fields exist.
   const fields = /<select[\s>]|type="(?:date|number|file)"/.test(main.value);
+  // site.js also carries the text-field helpers (growing textareas, search clear button, messages).
+  const runtime = s.analytics.enabled || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"/.test(main.value);
   const gate = ageGate(ctx);
   const blog = ctx.collections.find((c) => c.id === 'posts');
   const head = html`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${meta.title}</title>${

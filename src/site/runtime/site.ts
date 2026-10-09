@@ -108,6 +108,61 @@ d.querySelectorAll<HTMLElement>('[data-lightbox]').forEach((gal) => {
   }
 });
 
+/* ---------- text fields: growing textareas, length counter, own clear button for search ---------- */
+const grows = CSS.supports('field-sizing', 'content');
+d.querySelectorAll<HTMLTextAreaElement>('.fld textarea').forEach((t) => {
+  if (!grows) {
+    // Fallback for browsers without field-sizing: grow with the content up to the CSS max-height.
+    const fit = () => {
+      t.style.height = 'auto';
+      t.style.height = `${t.scrollHeight + 2}px`;
+    };
+    t.addEventListener('input', fit);
+    fit();
+  }
+  if (t.maxLength > 0) {
+    const max = t.maxLength;
+    const n = d.createElement('span');
+    n.className = 'ncount';
+    n.setAttribute('aria-hidden', 'true');
+    // Screen readers hear it once, when the limit is close.
+    const live = d.createElement('span');
+    live.className = 'sr';
+    live.setAttribute('aria-live', 'polite');
+    let warned = false;
+    const count = () => {
+      const left = max - t.value.length;
+      n.textContent = `${t.value.length.toLocaleString('de-CH')} / ${max.toLocaleString('de-CH')}`;
+      n.classList.toggle('near', left <= max * 0.1);
+      if (left <= max * 0.1 && !warned) live.textContent = `Noch ${left} Zeichen möglich.`;
+      warned = left <= max * 0.1;
+    };
+    t.after(n, live);
+    t.addEventListener('input', count);
+    count();
+  }
+});
+d.querySelectorAll<HTMLInputElement>('input[type=search]').forEach((q) => {
+  const box = d.createElement('span');
+  box.className = 'nsearch';
+  q.before(box);
+  box.append(q);
+  const x = d.createElement('button');
+  x.type = 'button';
+  x.className = 'nclear';
+  x.setAttribute('aria-label', 'Suchbegriff löschen');
+  x.textContent = '×';
+  box.append(x);
+  const sync = () => (x.hidden = !q.value);
+  x.addEventListener('click', () => {
+    q.value = '';
+    sync();
+    q.focus();
+  });
+  q.addEventListener('input', sync);
+  sync();
+});
+
 /* ---------- form validation: own German messages under the field, no browser bubbles ---------- */
 type Ctrl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 function message(c: Ctrl): string {
