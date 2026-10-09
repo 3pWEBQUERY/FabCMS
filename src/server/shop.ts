@@ -5,6 +5,7 @@ import { getSettings, bumpGeneration } from './settings';
 import { sign, unsign, token } from './lib/crypto';
 import { badRequest } from './lib/http';
 import { emit } from './events';
+import { notify } from './notify';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
 import type { EntryData, SiteSettings } from '../shared/types';
@@ -221,7 +222,7 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
   if (!input.name.trim()) throw badRequest('Bitte gib deinen Namen an.');
   if (!input.acceptTerms) throw badRequest('Bitte bestätige die AGB.');
 
-  return sql.begin(async (tx) => {
+  const result = await sql.begin(async (tx) => {
     const ids = [...new Set(items.map((i) => i.p))];
     if (ids.length) await tx`select id from entries where id = any(${ids}::uuid[]) for update`;
     const q = await quote(items, { couponCode: input.coupon, shippingMethod: input.shippingMethod }, tx as unknown as typeof sql);
@@ -256,8 +257,19 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
       returning id`;
     bumpGeneration();
     emit('order.created', { id: o.id, number, total: q.total, email: input.email });
-    return { id: o.id as string, token: orderToken, number, total: q.total };
+    return { id: o.id as string, token: orderToken, number, total: q.total, lines: q.lines };
   });
+  // Told after the commit, so nobody is notified about an order that was rolled back.
+  const pay = input.payment === 'invoice' ? 'auf Rechnung' : 'online, Zahlung offen';
+  void notify({ kind: 'order', cap: 'orders.view', title: `Neue Bestellung ${result.number}`, body: `${input.name.trim()} · ${formatMoney(result.total, s.shop.currency)} · ${pay}`, href: `/bestellungen/${result.id}` });
+  for (const l of result.lines) {
+    if (l.available === null) continue;
+    const left = Math.max(0, l.available - l.qty);
+    if (left > 3) continue;
+    const what = `${l.title}${l.variantName ? ` (${l.variantName})` : ''}`;
+    void notify({ kind: 'stock', cap: 'orders.view', title: left === 0 ? `Ausverkauft: ${what}` : `Nur noch ${left} an Lager: ${what}`, body: 'Bestand im Produkt anpassen, sobald Nachschub da ist.', href: `/inhalte/products/${l.productId}` });
+  }
+  return { id: result.id, token: result.token, number: result.number, total: result.total };
 }
 
 export async function cancelOrder(orderId: string, reason: string): Promise<void> {
@@ -277,6 +289,7 @@ export async function markPaid(orderId: string, ref: string): Promise<void> {
     where id = ${orderId} and status = 'pending' returning *`;
   if (!o) return;
   emit('order.paid', { id: o.id, number: o.number, total: o.total, email: o.email });
+  void notify({ kind: 'paid', cap: 'orders.view', title: `Bestellung ${o.number} bezahlt`, body: `${(o.customer as { name?: string }).name || o.email} · ${formatMoney(o.total as number, o.currency as string)} – bereit zum Versand.`, href: `/bestellungen/${o.id}` });
   await sql`insert into analytics_events (kind, path, visitor, goal, value_cents) values ('goal', '/kasse', 'server', 'order', ${o.total})`;
   await sendOrderMails(o.id as string);
 }

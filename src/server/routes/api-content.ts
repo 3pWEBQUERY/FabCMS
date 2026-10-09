@@ -1,5 +1,6 @@
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
+import { notify } from '../notify';
 import { sql, json } from '../db';
 import { audit, requireAnyCap, requireCap, requireUser, type AppEnv, type AuthUser } from '../auth';
 import {
@@ -198,6 +199,8 @@ export function contentApi(app: Hono<AppEnv>) {
     if (!can(user.role, 'content.publish')) {
       const [e] = await sql`update entries set status = 'review', updated_at = now() where id = ${id} returning *`;
       await audit(c, 'entry.review', cur.collection, id);
+      const where = cur.collection === 'pages' ? `/seiten/${id}` : `/inhalte/${cur.collection}/${id}`;
+      void notify({ kind: 'review', cap: 'content.publish', title: `Freigabe erbeten: ${(cur.data.title as string) || 'Ohne Titel'}`, body: `${user.name} möchte das veröffentlichen.`, href: where });
       return c.json({ entry: e, review: true });
     }
     const { entry, firstPublish } = await publishEntry(id, user.id, body.at ? new Date(body.at) : null);

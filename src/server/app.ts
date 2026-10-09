@@ -51,7 +51,9 @@ export function createApp() {
     }
   });
 
-  app.use('*', compress());
+  // Server-sent events must not be buffered by compression.
+  const gzip = compress();
+  app.use('*', (c, next) => (c.req.path === '/api/notifications/stream' ? next() : gzip(c, next)));
   app.use('*', loadUser);
 
   app.onError((err, c) => {

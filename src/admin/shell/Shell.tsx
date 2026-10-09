@@ -6,6 +6,7 @@ import { Icon, NovaMark } from '../ui/icons';
 import { Menu, Tip, motion } from '../ui/kit';
 import { CommandPalette } from './CommandPalette';
 import { ModeSwitch } from './ModeSwitch';
+import { NotificationBell, NotificationsProvider } from './Notifications';
 import { Dashboard } from '../views/Dashboard';
 import { PagesList } from '../views/Pages';
 import { ContentHub, CollectionList } from '../views/Content';
@@ -64,7 +65,7 @@ export function Shell() {
   const site = session.bundle?.system.publicUrl ?? location.origin;
 
   return (
-    <>
+    <NotificationsProvider>
       {editorMatch && path.startsWith('/seiten/') ? (
         <Suspense fallback={null}>
           <Editor id={editorMatch[2]} onOpenPalette={() => setCmdk(true)} />
@@ -92,6 +93,7 @@ export function Shell() {
               <span className="cmdk-label">Suchen oder tun …</span>
               <kbd>{modKey} K</kbd>
             </button>
+            <NotificationBell />
             <ModeSwitch />
             <Tip label="Website ansehen">
               <a className="btn ghost icon-only hide-m" href={site} target="_blank" rel="noreferrer" aria-label="Website ansehen">
@@ -164,6 +166,6 @@ export function Shell() {
         </div>
       )}
       <CommandPalette open={cmdk} onClose={() => setCmdk(false)} />
-    </>
+    </NotificationsProvider>
   );
 }

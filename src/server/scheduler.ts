@@ -2,6 +2,7 @@ import { publishDue } from './content';
 import { dailyBackup } from './backup';
 import { sql } from './db';
 import { bumpGeneration } from './settings';
+import { notify } from './notify';
 
 /**
  * In-process jobs. Nova runs as one service, so a timer is all we need.
@@ -26,12 +27,22 @@ function every(ms: number, name: string, job: () => Promise<unknown>) {
 
 export function startScheduler() {
   every(30_000, 'scheduled publishing', publishDue);
-  every(60 * 60_000, 'backup', dailyBackup);
+  every(60 * 60_000, 'backup', async () => {
+    try {
+      await dailyBackup();
+    } catch (e) {
+      // Tell the people who can fix it, at most once a day.
+      const [recent] = await sql`select 1 from notifications where kind = 'system' and title like 'Backup%' and created_at > now() - interval '1 day'`;
+      if (!recent) await notify({ kind: 'system', cap: 'settings.manage', title: 'Backup fehlgeschlagen', body: (e as Error).message, href: '/einstellungen/daten' });
+      throw e;
+    }
+  });
   every(60 * 60_000, 'cleanup', async () => {
     await sql`delete from sessions where expires_at < now()`;
     // Raw statistics are kept for 25 months, enough for year-over-year comparisons.
     await sql`delete from analytics_events where ts < now() - interval '25 months'`;
     await sql`delete from audit_log where created_at < now() - interval '2 years'`;
+    await sql`delete from notifications where created_at < now() - interval '90 days'`;
   });
   // Opening hours ("jetzt geöffnet") change with the clock.
   every(5 * 60_000, 'clock', async () => bumpGeneration());

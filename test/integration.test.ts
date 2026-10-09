@@ -196,6 +196,16 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(lead).toMatchObject({ email: 'hans@example.ch', status: 'new' });
   });
 
+  it('notifies the team in the admin and tracks what was read', async () => {
+    await new Promise((r) => setTimeout(r, 50)); // notifications are written after the response
+    const list = await req('GET', '/api/notifications');
+    const n = list.data.items.find((x: { title: string }) => x.title === 'Neue Anfrage: Kontakt');
+    expect(n).toMatchObject({ kind: 'form', read: false, body: 'Hans · hans@example.ch' });
+    expect(list.data.unread).toBeGreaterThan(0);
+    const read = await req('POST', '/api/notifications/read', {});
+    expect(read.data.unread).toBe(0);
+  });
+
   it('exposes published content through the headless API', async () => {
     const list = await req('GET', '/api/v1/dishes?limit=3&filter[category]=Desserts', undefined, { cookies: new Map() });
     expect(list.status).toBe(200);
@@ -225,6 +235,12 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(post.status).toBe(200);
     const pub = await req('POST', `/api/entries/${post.data.entry.id}/publish`, {}, { cookies: author });
     expect(pub.data.review).toBe(true);
+    await new Promise((r) => setTimeout(r, 50));
+    const ownerNotes = await req('GET', '/api/notifications');
+    expect(ownerNotes.data.items[0]).toMatchObject({ kind: 'review', title: 'Freigabe erbeten: Mein Beitrag', read: false });
+    // Authors don't get what their role can't act on (form entries, reviews).
+    const authorNotes = await req('GET', '/api/notifications', undefined, { cookies: author });
+    expect(authorNotes.data.items).toHaveLength(0);
     const settings = await req('PATCH', '/api/settings', { name: 'Gehackt' }, { cookies: author });
     expect(settings.status).toBe(403);
   });

@@ -34,6 +34,7 @@ import {
   type QuoteLine,
 } from '../shop';
 import { runtimeScript, type RuntimeName } from '../../site/assets';
+import { notify as notifyTeam } from '../notify';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
@@ -380,6 +381,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
       insert into submissions (form_id, contact_id, data, files, page) values (${form.id}, ${contactId}, ${json(data)}, ${json(files)}, ${page})
       returning id`;
     emit('form.submitted', { form: form.name, formId: form.id, submission: sub.id, data, page });
+    const who = [data.name || [data.vorname, data.nachname].filter(Boolean).join(' '), email].filter(Boolean).join(' · ');
+    void notifyTeam({ kind: 'form', cap: 'forms.manage', title: `Neue Anfrage: ${form.name}`, body: who || `Gesendet von ${page}`, href: `/formulare/${form.id}` });
     await recordGoal('form', ip, c.req.header('user-agent') ?? '', page);
     const notify = form.settings.notifyEmail || s.business.email;
     if (notify) {
@@ -412,6 +415,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     if (!name || !text) return c.redirect(`${path}#kommentare`, 303);
     await sql`insert into comments (entry_id, name, email, body) values (${id}, ${name}, ${String(body.email ?? '').slice(0, 200)}, ${text})`;
     emit('comment.created', { entry: id, name });
+    void notifyTeam({ kind: 'comment', cap: 'comments.moderate', title: `Neuer Kommentar von ${name}`, body: `«${text.slice(0, 140)}${text.length > 140 ? '…' : ''}» – wartet auf Freigabe.`, href: '/kommentare' });
     return c.redirect(`${path}?kommentar=danke#kommentare`, 303);
   });
 
