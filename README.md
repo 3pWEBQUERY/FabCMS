@@ -122,6 +122,7 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 - Formular-Builder: 9 Feldtypen, Bedingungen, Mehrschritt, Datei-Upload; Spam-Schutz ohne Rätsel (Honeypot, Zeitprüfung, Rate-Limit, optional Turnstile); Einträge, CSV-Export, E-Mail-Benachrichtigung; funktioniert ohne JavaScript.
 - CRM-light: Kontakte aus Formularen, Pipeline (Kanban), Notizen, Auftragswert, CSV, Webhooks für Zapier/Make.
 - Rollen Inhaber, Admin, Redaktion, Autor, Mitglied; pro Rolle festlegbar, ob die Werkbank erlaubt ist.
+- Passkeys (WebAuthn): Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN, auch direkt als Vorschlag im E-Mail-Feld; Verwaltung unter «Konto». Ein Passkey mit Benutzerprüfung gilt als zwei Faktoren, sonst greift zusätzlich die 2FA.
 - 2FA mit TOTP, Sitzungsverwaltung, Login-Rate-Limits, Audit-Log.
 
 **Module**
@@ -172,7 +173,7 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 - **KI-Assistent.**
 - **Mehrsprachigkeit** der Website und der Admin-UI (Admin nur Deutsch; Lesbarkeitsformeln für FR/IT/EN sind vorbereitet).
 - **Import** aus WordPress, Wix, Squarespace, Shopify.
-- **Passkeys** (2FA ist TOTP), **GraphQL** (nur REST), typisierte SDKs.
+- **GraphQL** (nur REST), typisierte SDKs.
 - **Serverseitige Hooks in einer Sandbox** (V8-Isolates), Marktplatz, Git-Sync, CLI, Preview-Deployments pro Branch.
 - **Video-Transcoding** (Videos werden so ausgeliefert, wie sie hochgeladen werden), **Malware-Scan** von Uploads, echte **Altersverifikation** über einen Anbieter.
 - Google-Search-Console-Verbindung per OAuth, GA4/Matomo/Plausible mit Consent-Manager, Meilisearch.
@@ -187,4 +188,4 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 npm test
 ```
 
-59 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren, Reservationen ohne Doppelbuchung, Newsletter (Double Opt-in, automatischer Versand genau einmal, One-Click-Abmeldung), Mitgliederbereich (nichts sickert durch Suche/Feed/API, Bestätigung, Passwort zurücksetzen, Sperren, bezahlter Zugang), Tickets (Kontingent, QR-Einlass genau einmal, Storno füllt aus der Warteliste, Kurse mit mehreren Terminen), Spenden (Mindestbetrag, monatlich mit Folgezahlungen, doppelter Webhook ignoriert, Kampagnenstand, Bestätigung), Immobilien (Filter, Vergebenes ausgeblendet, Strasse geschützt, Anfrage ins CRM), Bestellung & Lieferung (Zeitfenster über Zeitzone und Ruhetage, MwSt.-Aufteilung, Liefergebiet, Mindestbestellwert, Küchen-Ablauf ohne Sprünge, Pause), QR-Rechnung (IBAN-Prüfung, Prüfziffern und Nutzdaten gegen die Beispiele des Standards, Zahlteil auf offenen Rechnungen).
+60 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren, Reservationen ohne Doppelbuchung, Newsletter (Double Opt-in, automatischer Versand genau einmal, One-Click-Abmeldung), Mitgliederbereich (nichts sickert durch Suche/Feed/API, Bestätigung, Passwort zurücksetzen, Sperren, bezahlter Zugang), Tickets (Kontingent, QR-Einlass genau einmal, Storno füllt aus der Warteliste, Kurse mit mehreren Terminen), Spenden (Mindestbetrag, monatlich mit Folgezahlungen, doppelter Webhook ignoriert, Kampagnenstand, Bestätigung), Immobilien (Filter, Vergebenes ausgeblendet, Strasse geschützt, Anfrage ins CRM), Bestellung & Lieferung (Zeitfenster über Zeitzone und Ruhetage, MwSt.-Aufteilung, Liefergebiet, Mindestbestellwert, Küchen-Ablauf ohne Sprünge, Pause), QR-Rechnung (IBAN-Prüfung, Prüfziffern und Nutzdaten gegen die Beispiele des Standards, Zahlteil auf offenen Rechnungen), Passkeys (Optionen pro Domain, gefälschte Antworten und wiederverwendete Challenges abgelehnt).

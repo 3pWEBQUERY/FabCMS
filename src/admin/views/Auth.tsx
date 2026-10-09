@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthentication, WebAuthnAbortService } from '@simplewebauthn/browser';
 import { api } from '../lib/api';
 import { Field } from '../ui/kit';
-import { NovaMark } from '../ui/icons';
+import { Icon, NovaMark } from '../ui/icons';
 
 function useSubmit(fn: () => Promise<void>) {
   const [busy, setBusy] = useState(false);
@@ -21,13 +22,56 @@ function useSubmit(fn: () => Promise<void>) {
   return { busy, error, submit };
 }
 
-export function Login({ siteName, onDone }: { siteName: string; onDone: () => void }) {
+type PasskeyOptions = { key: string; options: Parameters<typeof startAuthentication>[0]['optionsJSON'] };
+
+export function Login({ siteName, onDone, onTwoFactor }: { siteName: string; onDone: () => void; onTwoFactor?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [pkError, setPkError] = useState<string | null>(null);
+  const [pkBusy, setPkBusy] = useState(false);
+  const canPasskey = browserSupportsWebAuthn();
   const { busy, error, submit } = useSubmit(async () => {
+    WebAuthnAbortService.cancelCeremony();
     await api.post('/api/login', { email, password });
     onDone();
   });
+  const finish = async (key: string, response: unknown) => {
+    const r = await api.post<{ ok?: boolean; twoFactor?: boolean }>('/api/login/passkey', { key, response });
+    if (r.twoFactor && onTwoFactor) onTwoFactor();
+    else onDone();
+  };
+  // Autofill: the browser offers saved passkeys right in the e-mail field.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      if (!(await browserSupportsWebAuthnAutofill())) return;
+      try {
+        const { key, options } = await api.post<PasskeyOptions>('/api/login/passkey/options');
+        const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: true });
+        if (alive) await finish(key, response);
+      } catch {
+        /* cancelled or replaced by the button */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const withPasskey = async () => {
+    setPkBusy(true);
+    setPkError(null);
+    try {
+      const { key, options } = await api.post<PasskeyOptions>('/api/login/passkey/options');
+      await finish(key, await startAuthentication({ optionsJSON: options }));
+    } catch (e) {
+      const err = e as Error;
+      // Closing the browser's dialog is not an error worth shouting about.
+      if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') setPkError(err.message);
+    } finally {
+      setPkBusy(false);
+    }
+  };
   return (
     <main className="auth">
       <form className="auth-card" onSubmit={submit}>
@@ -37,7 +81,7 @@ export function Login({ siteName, onDone }: { siteName: string; onDone: () => vo
           <p className="muted">bei {siteName}</p>
         </div>
         <Field label="E-Mail" htmlFor="email">
-          <input id="email" className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <input id="email" className="input" type="email" autoComplete="username webauthn" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </Field>
         <Field label="Passwort" htmlFor="pw">
           <input id="pw" className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -50,6 +94,21 @@ export function Login({ siteName, onDone }: { siteName: string; onDone: () => vo
         <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
           Anmelden
         </button>
+        {canPasskey && (
+          <>
+            <div className="auth-or" aria-hidden="true">
+              <span>oder</span>
+            </div>
+            <button type="button" className="btn l" onClick={withPasskey} disabled={pkBusy} data-busy={pkBusy || undefined}>
+              <Icon name="key" size="s" /> Mit Passkey anmelden
+            </button>
+            {pkError && (
+              <p className="field-error" role="alert">
+                {pkError}
+              </p>
+            )}
+          </>
+        )}
         <p className="xsmall faint">Passwort vergessen? Eine Person mit Admin-Rechten kann es unter «Team» zurücksetzen.</p>
       </form>
     </main>

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
-import { Dialog, Field, PageHead } from '../ui/kit';
+import { Dialog, Field, PageHead, confirm } from '../ui/kit';
+import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
+import { relativeTime } from '../../shared/text';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { ROLE_LABELS } from '../../shared/roles';
@@ -129,6 +131,7 @@ export function Account() {
             </button>
           )}
         </section>
+        <Passkeys />
         <section className="card">
           <div className="card-head">
             <h2>Angemeldete Geräte</h2>
@@ -178,5 +181,84 @@ export function Account() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+interface Passkey {
+  id: string;
+  name: string;
+  backed_up: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+/** A sensible default name from the device the passkey is created on. */
+function deviceName(): string {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Mac OS X/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua)) return 'Windows';
+  return 'Passkey';
+}
+
+function Passkeys() {
+  const toast = useToast();
+  const list = useApi<{ passkeys: Passkey[] }>('/api/me/passkeys');
+  const [busy, setBusy] = useState(false);
+  const supported = browserSupportsWebAuthn();
+  const add = async () => {
+    setBusy(true);
+    try {
+      const options = await api.post<Parameters<typeof startRegistration>[0]['optionsJSON']>('/api/me/passkeys/options');
+      const response = await startRegistration({ optionsJSON: options });
+      await api.post('/api/me/passkeys', { response, name: deviceName() });
+      toast('Passkey gespeichert. Ab jetzt reicht Fingerabdruck, Gesicht oder PIN.');
+      void list.reload();
+    } catch (e) {
+      const err = e as Error;
+      if (err.name === 'InvalidStateError') toast('Dieses Gerät hat schon einen Passkey für dein Konto.');
+      else if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') toast(err.message, { kind: 'bad' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (p: Passkey) => {
+    if (!(await confirm({ title: `Passkey «${p.name}» entfernen?`, message: 'Danach meldest du dich auf diesem Gerät wieder mit dem Passwort an. Entferne ihn auch im Passwort-Manager des Geräts.', confirm: 'Entfernen', danger: true }))) return;
+    await api.del(`/api/me/passkeys/${encodeURIComponent(p.id)}`);
+    void list.reload();
+  };
+  return (
+    <section className="card form-section">
+      <header>
+        <h2>Passkeys</h2>
+        <p>Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN statt Passwort. Sicher gegen Phishing – der Passkey funktioniert nur auf dieser Website.</p>
+      </header>
+      {list.data?.passkeys.length ? (
+        <div className="list bordered">
+          {list.data.passkeys.map((p) => (
+            <div key={p.id} className="list-item">
+              <Icon name="key" size="s" />
+              <span className="grow">
+                {p.name}
+                {p.backed_up && <span className="xsmall muted"> · synchronisiert</span>}
+              </span>
+              <span className="xsmall muted">{p.last_used_at ? `zuletzt ${relativeTime(p.last_used_at)}` : `seit ${relativeTime(p.created_at)}`}</span>
+              <button className="btn ghost small" aria-label={`Passkey ${p.name} entfernen`} onClick={() => void remove(p)}>
+                <Icon name="trash" size="s" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {supported ? (
+        <button className="btn" style={{ justifySelf: 'start' }} onClick={add} disabled={busy} data-busy={busy || undefined}>
+          <Icon name="plus" size="s" /> Passkey hinzufügen
+        </button>
+      ) : (
+        <p className="small muted">Dieser Browser unterstützt keine Passkeys.</p>
+      )}
+    </section>
   );
 }

@@ -1,4 +1,6 @@
 import type { Hono } from 'hono';
+import { authenticationOptions, registerPasskey, registrationOptions, verifyPasskeyLogin } from '../passkeys';
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { z } from 'zod';
 import QRCode from 'qrcode';
 import { sql } from '../db';
@@ -86,6 +88,54 @@ export function authApi(app: Hono<AppEnv>) {
     if (u.totp_enabled) return c.json({ twoFactor: true });
     await sql`update users set sessions_count = sessions_count + 1, last_login_at = now() where id = ${u.id}`;
     await sql`insert into audit_log (user_id, action, ip) values (${u.id}, 'login', ${ip})`;
+    return c.json({ ok: true });
+  });
+
+  /* passkeys */
+  app.post('/api/login/passkey/options', async (c) => {
+    if (!rateLimit(`passkey:${clientIp(c)}`, 20, 15 * 60_000).ok) throw new HttpError(429, 'Zu viele Versuche. Bitte warte eine Viertelstunde.');
+    return c.json(await authenticationOptions(c));
+  });
+
+  app.post('/api/login/passkey', async (c) => {
+    const body = z.object({ key: z.string().max(64), response: z.any() }).parse(await c.req.json());
+    if (!rateLimit(`passkey:${clientIp(c)}`, 20, 15 * 60_000).ok) throw new HttpError(429, 'Zu viele Versuche. Bitte warte eine Viertelstunde.');
+    const { userId, userVerified } = await verifyPasskeyLogin(c, body.key, body.response as AuthenticationResponseJSON);
+    const [u] = await sql`select id, role, totp_enabled from users where id = ${userId}`;
+    if (!u) throw new HttpError(401, 'Dieses Konto gibt es nicht mehr.');
+    if (u.role === 'member') throw forbidden('Dieses Konto hat keinen Zugang zur Verwaltung.');
+    // A passkey with fingerprint/face/PIN is two factors in one. Without that check, 2FA still applies.
+    const needs2fa = Boolean(u.totp_enabled) && !userVerified;
+    await createSession(c, u.id as string, needs2fa);
+    if (needs2fa) return c.json({ twoFactor: true });
+    await sql`update users set sessions_count = sessions_count + 1, last_login_at = now() where id = ${u.id}`;
+    await sql`insert into audit_log (user_id, action, ip) values (${u.id}, 'login.passkey', ${clientIp(c)})`;
+    return c.json({ ok: true });
+  });
+
+  app.get('/api/me/passkeys', async (c) => {
+    const u = requireUser(c);
+    const rows = await sql`select id, name, backed_up, created_at, last_used_at from passkeys where user_id = ${u.id} order by created_at`;
+    return c.json({ passkeys: rows });
+  });
+
+  app.post('/api/me/passkeys/options', async (c) => {
+    const u = requireUser(c);
+    return c.json(await registrationOptions(c, u));
+  });
+
+  app.post('/api/me/passkeys', async (c) => {
+    const u = requireUser(c);
+    const body = z.object({ response: z.any(), name: z.string().max(60).default('') }).parse(await c.req.json());
+    await registerPasskey(c, u, body.response as RegistrationResponseJSON, body.name);
+    await audit(c, 'passkey.add');
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/me/passkeys/:id', async (c) => {
+    const u = requireUser(c);
+    await sql`delete from passkeys where id = ${c.req.param('id')} and user_id = ${u.id}`;
+    await audit(c, 'passkey.remove');
     return c.json({ ok: true });
   });
 

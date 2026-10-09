@@ -645,6 +645,22 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(page.data).toMatch(/RF\d{2}/);
   });
 
+  it('offers passkeys and rejects forged answers', async () => {
+    const reg = await req('POST', '/api/me/passkeys/options', {}, { headers: { host: 'nova.example.ch', 'x-forwarded-proto': 'https' } });
+    expect(reg.data.rp.id).toBe('nova.example.ch');
+    expect(reg.data.authenticatorSelection.residentKey).toBe('required');
+    const forged = await req('POST', '/api/me/passkeys', { response: { id: 'x', rawId: 'x', type: 'public-key', response: { clientDataJSON: 'e30', attestationObject: 'oA' } } });
+    expect(forged.status).toBe(400);
+    const login = await req('POST', '/api/login/passkey/options', {}, { cookies: new Map() });
+    expect(login.data.key).toMatch(/^[\w-]{20,}$/);
+    expect(login.data.options.allowCredentials).toEqual([]);
+    const unknown = await req('POST', '/api/login/passkey', { key: login.data.key, response: { id: 'unbekannt', rawId: 'unbekannt', type: 'public-key', response: {} } }, { cookies: new Map() });
+    expect(unknown.status).toBe(401);
+    // A challenge is good for one try only.
+    const again = await req('POST', '/api/login/passkey', { key: login.data.key, response: { id: 'unbekannt' } }, { cookies: new Map() });
+    expect(again.status).toBe(400);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

@@ -3631,3 +3631,16 @@ button.list-item {
     animation: none;
   }
 }
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+}
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
