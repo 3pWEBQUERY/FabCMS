@@ -18,6 +18,12 @@ import { orderSlots, foodTotals } from '../src/shared/ordering';
 import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv } from '../src/server/importer/parse';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
+import { generateSdk } from '../src/server/sdk';
+import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -72,10 +78,12 @@ describe('text helpers', () => {
 });
 
 describe('opening hours', () => {
-  const hours = [1, 2, 3, 4, 5].map((day) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] })).concat([
-    { day: 6, closed: false, slots: [{ from: '09:00', to: '16:00' }] },
-    { day: 7, closed: true, slots: [] },
-  ]);
+  const hours = [1, 2, 3, 4, 5]
+    .map((day) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] }))
+    .concat([
+      { day: 6, closed: false, slots: [{ from: '09:00', to: '16:00' }] },
+      { day: 7, closed: true, slots: [] },
+    ]);
   it('knows when it is open (Zurich time)', () => {
     // Wednesday 2026-10-07 10:00 in Zurich = 08:00 UTC (CEST)
     expect(openStatus(hours, 'Europe/Zurich', new Date('2026-10-07T08:00:00Z'))).toEqual({ open: true, label: 'Jetzt geöffnet – bis 18:00' });
@@ -91,7 +99,17 @@ describe('opening hours', () => {
     ]);
   });
   it('reads typed times', () => {
-    for (const [typed, want] of [['9', '09:00'], ['930', '09:30'], ['0930', '09:30'], ['9.30', '09:30'], ['9h30', '09:30'], ['18:15', '18:15'], ['1815', '18:15'], ['18 Uhr', '18:00'], ['24', '00:00']] as const)
+    for (const [typed, want] of [
+      ['9', '09:00'],
+      ['930', '09:30'],
+      ['0930', '09:30'],
+      ['9.30', '09:30'],
+      ['9h30', '09:30'],
+      ['18:15', '18:15'],
+      ['1815', '18:15'],
+      ['18 Uhr', '18:00'],
+      ['24', '00:00'],
+    ] as const)
       expect(parseTime(typed), typed).toBe(want);
     for (const bad of ['', 'abc', '25', '9:75', '24:30', '9:5', '12345']) expect(parseTime(bad), bad).toBeNull();
   });
@@ -100,7 +118,17 @@ describe('opening hours', () => {
 describe('dates', () => {
   const today = new Date(2026, 9, 9); // Fr, 9. Oktober 2026
   it('reads typed dates the Swiss way', () => {
-    for (const [typed, want] of [['9.10.2026', '2026-10-09'], ['09.10.26', '2026-10-09'], ['9.10.', '2026-10-09'], ['9.10', '2026-10-09'], ['9/10/2026', '2026-10-09'], ['2026-10-09', '2026-10-09'], ['heute', '2026-10-09'], ['morgen', '2026-10-10'], ['29.2.2028', '2028-02-29']] as const)
+    for (const [typed, want] of [
+      ['9.10.2026', '2026-10-09'],
+      ['09.10.26', '2026-10-09'],
+      ['9.10.', '2026-10-09'],
+      ['9.10', '2026-10-09'],
+      ['9/10/2026', '2026-10-09'],
+      ['2026-10-09', '2026-10-09'],
+      ['heute', '2026-10-09'],
+      ['morgen', '2026-10-10'],
+      ['29.2.2028', '2028-02-29'],
+    ] as const)
       expect(parseDay(typed, today), typed).toBe(want);
     for (const bad of ['', 'bald', '31.2.2026', '29.2.2026', '13.13.2026', '0.1.2026']) expect(parseDay(bad, today), bad).toBeNull();
   });
@@ -119,7 +147,18 @@ describe('booking availability', () => {
   const tz = 'Europe/Zurich';
   const hours = [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, closed: day === 1, slots: [{ from: '18:00', to: '22:00' }] }));
   const table = (id: string, capacity: number): BookingResource => ({ id, name: id, kind: 'table', capacity, hours: null, ical_url: '', active: true, sort_index: 0 });
-  const service: BookingService = { id: 's', name: 'Tisch', description: '', duration_min: 120, buffer_min: 0, price: null, deposit: 0, resource_ids: [], active: true, sort_index: 0 };
+  const service: BookingService = {
+    id: 's',
+    name: 'Tisch',
+    description: '',
+    duration_min: 120,
+    buffer_min: 0,
+    price: null,
+    deposit: 0,
+    resource_ids: [],
+    active: true,
+    sort_index: 0,
+  };
   const rules = { slotStep: 30, leadMinutes: 60, horizonDays: 60, maxParty: 8 };
   const now = new Date('2026-10-20T08:00:00Z');
   const base = { day: '2026-10-24', timeZone: tz, businessHours: hours, service, party: 2, busy: [], rules, now };
@@ -192,7 +231,13 @@ describe('html & css safety', () => {
 
 describe('fields & routes', () => {
   it('validates with human messages', () => {
-    const errs = validateFields([{ key: 'title', type: 'text', label: 'Titel', required: true }, { key: 'price', type: 'money', label: 'Preis', min: 0 }], { title: '', price: -5 });
+    const errs = validateFields(
+      [
+        { key: 'title', type: 'text', label: 'Titel', required: true },
+        { key: 'price', type: 'money', label: 'Preis', min: 0 },
+      ],
+      { title: '', price: -5 },
+    );
     expect(errs.map((e) => e.message)).toEqual(['«Titel» fehlt noch.', '«Preis» muss mindestens 0 sein.']);
     expect(validateFields([{ key: 'price', type: 'money', label: 'Preis', min: 0 }], { price: 5 })).toEqual([]);
   });
@@ -206,7 +251,17 @@ describe('fields & routes', () => {
 describe('SEO coach', () => {
   it('gives concrete actions with a target', () => {
     const hero = createBlock('hero', { title: 'Willkommen', text: 'Schön, dass du da bist.' });
-    const r = analyzeSeo({ title: 'Start', slug: 'start', isHome: false, ownH1: false, seo: { keyword: 'Restaurant Uster' }, blocks: [hero], siteName: 'Linde', titleTemplate: '%s · %site', alts: {} });
+    const r = analyzeSeo({
+      title: 'Start',
+      slug: 'start',
+      isHome: false,
+      ownH1: false,
+      seo: { keyword: 'Restaurant Uster' },
+      blocks: [hero],
+      siteName: 'Linde',
+      titleTemplate: '%s · %site',
+      alts: {},
+    });
     const h1 = r.checks.find((c) => c.id === 'kw-h1')!;
     expect(h1.status).toBe('bad');
     expect(h1.message).toBe('Füge «Restaurant Uster» in die erste Überschrift ein.');
@@ -335,7 +390,13 @@ describe('import', () => {
       ['post', 'entwurf', false],
     ]);
     const post = b.items[0];
-    expect(post).toMatchObject({ date: '2024-03-01', category: 'Touren', tags: ['See', 'Frühling'], oldPath: '/2024/03/fruehlingstour', seoDescription: 'Velotour an den Bodensee im März.' });
+    expect(post).toMatchObject({
+      date: '2024-03-01',
+      category: 'Touren',
+      tags: ['See', 'Frühling'],
+      oldPath: '/2024/03/fruehlingstour',
+      seoDescription: 'Velotour an den Bodensee im März.',
+    });
     expect(post.cover).toBe('https://alt.example.ch/wp-content/uploads/2024/03/velo.jpg');
     expect(post.html).toContain('<figure>');
     expect(post.html).not.toContain('[gallery');
@@ -370,7 +431,10 @@ describe('import', () => {
   });
 
   it('parses CSV with quotes and line breaks', () => {
-    expect(parseCsv('a,b\n"x, y","zeile 1\nzeile 2"\n')).toEqual([['a', 'b'], ['x, y', 'zeile 1\nzeile 2']]);
+    expect(parseCsv('a,b\n"x, y","zeile 1\nzeile 2"\n')).toEqual([
+      ['a', 'b'],
+      ['x, y', 'zeile 1\nzeile 2'],
+    ]);
   });
 
   it('reads Markdown with frontmatter and Jekyll file names', () => {
@@ -381,7 +445,68 @@ describe('import', () => {
   });
 
   it('reads RSS feeds as from Wix', () => {
-    const b = parseFeed('<rss version="2.0"><channel><title>Mein Blog</title><item><title>Hallo Welt</title><link>https://x.wixsite.com/blog/post/hallo-welt</link><pubDate>Mon, 06 May 2024 10:00:00 GMT</pubDate><description><![CDATA[<p>Erster Beitrag</p>]]></description></item></channel></rss>');
+    const b = parseFeed(
+      '<rss version="2.0"><channel><title>Mein Blog</title><item><title>Hallo Welt</title><link>https://x.wixsite.com/blog/post/hallo-welt</link><pubDate>Mon, 06 May 2024 10:00:00 GMT</pubDate><description><![CDATA[<p>Erster Beitrag</p>]]></description></item></channel></rss>',
+    );
     expect(b.items[0]).toMatchObject({ title: 'Hallo Welt', slug: 'hallo-welt', date: '2024-05-06', oldPath: '/blog/post/hallo-welt' });
+  });
+});
+
+describe('typescript sdk', () => {
+  // TypeScript 7 has no compiler API: write the files and run tsc on them.
+  const check = (usage: string): string[] => {
+    const dir = mkdtempSync(join(tmpdir(), 'nova-sdk-'));
+    writeFileSync(join(dir, 'nova.ts'), generateSdk(BUILTIN_COLLECTIONS, { name: 'Test */ Site', url: 'https://example.ch' }));
+    writeFileSync(join(dir, 'use.ts'), `import { createClient } from './nova';\nconst nova = createClient({ token: 't' });\nexport async function run() {\n${usage}\n}\n`);
+    const tsc = join(process.cwd(), 'node_modules/.bin/tsc');
+    const args = [
+      '--ignoreConfig',
+      '--noEmit',
+      '--strict',
+      '--target',
+      'es2022',
+      '--module',
+      'esnext',
+      '--moduleResolution',
+      'bundler',
+      '--lib',
+      'es2022,dom,dom.iterable',
+      '--types',
+      '',
+      join(dir, 'nova.ts'),
+      join(dir, 'use.ts'),
+    ];
+    try {
+      execFileSync(tsc, args, { encoding: 'utf8', cwd: dir });
+      return [];
+    } catch (e) {
+      return String((e as { stdout?: string }).stdout ?? e)
+        .split('\n')
+        .filter((l) => l.includes('error'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it('compiles under strict mode and types every content type', () => {
+    expect(
+      check(`
+  const posts = await nova.posts.list({ limit: 5, sort: '-published_at', filter: { category: 'news' } });
+  const title: string = posts.data[0].data.title;
+  const dish = await nova.dishes.get('rösti');
+  const price: number | undefined = dish?.data.prices?.[0]?.price;
+  const vat = dish?.data.vat;
+  for await (const p of nova.properties.all()) p.data.offer satisfies 'rent' | 'buy' | undefined;
+  await nova.pages.create({ title: 'Neu', blocks: [] }, { publish: true });
+  const g = await nova.graphql<{ site: { name: string } }>('{ site { name } }');
+  return [title, price, vat, g.site.name];`),
+    ).toEqual([]);
+  });
+
+  it('rejects wrong field names and values', () => {
+    expect(check(`await nova.posts.list({ sort: 'nope' });`).join()).toMatch(/error TS2322/);
+    expect(check(`const d = await nova.dishes.get('x'); d?.data.titel;`).join()).toMatch(/Property 'titel' does not exist/);
+    expect(check(`await nova.collection('unknown');`).join()).toMatch(/error TS2345/);
+    expect(check(`await nova.properties.create({ title: 'Wohnung', offer: 'lease' } as never); await nova.dishes.update('id', { title: 1 });`).join()).toMatch(/error TS2322/);
   });
 });

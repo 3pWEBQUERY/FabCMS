@@ -11,6 +11,9 @@ import { entryAccess } from '../../shared/members';
 import type { EntryData } from '../../shared/types';
 import { graphql, printSchema, specifiedRules, validate, parse, GraphQLError } from 'graphql';
 import { currentSchema, depthLimit } from '../graphql';
+import { generateSdk } from '../sdk';
+import { getSettings } from '../settings';
+import { env } from '../env';
 import { mediaLoader } from '../../site/context';
 
 /**
@@ -61,9 +64,15 @@ export function headlessRoutes(app: Hono<AppEnv>) {
         entry: '/api/v1/{collection}/{slug}',
         graphql: '/api/v1/graphql',
         graphql_schema: '/api/v1/graphql/schema.graphql',
+        typescript_sdk: '/api/v1/sdk.ts',
       },
     }),
   );
+
+  app.get('/api/v1/sdk.ts', async (c) => {
+    const sdk = generateSdk(await activeCollections(), { name: (await getSettings()).name, url: env.publicUrl });
+    return c.body(sdk, 200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': 'inline; filename="nova.ts"' });
+  });
 
   /* GraphQL: same tokens and rules as REST. */
 

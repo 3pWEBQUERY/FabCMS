@@ -556,6 +556,9 @@ export function ApiSettings() {
                   <a className="small" href="/api/v1/graphql/schema.graphql" target="_blank" rel="noreferrer">
                     Schema ansehen
                   </a>
+                  <a className="small" href="/api/v1/sdk.ts" download="nova.ts">
+                    TypeScript-SDK laden
+                  </a>
                 </div>
               </form>
             )}
