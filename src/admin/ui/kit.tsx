@@ -2,8 +2,9 @@ import * as RDialog from '@radix-ui/react-dialog';
 import * as RPopover from '@radix-ui/react-popover';
 import * as RMenu from '@radix-ui/react-dropdown-menu';
 import * as RTooltip from '@radix-ui/react-tooltip';
+import * as RSelect from '@radix-ui/react-select';
 import { AnimatePresence, motion, LayoutGroup } from 'motion/react';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon } from './icons';
 import type { EntryStatus } from '../../shared/types';
@@ -176,6 +177,175 @@ export function Tip({ label, keys, children, side = 'bottom' }: { label: string;
 }
 
 export const TooltipProvider = RTooltip.Provider;
+
+/* ---------- select: own list instead of the browser/OS picker ---------- */
+
+export interface SelectOption {
+  value: string;
+  label: ReactNode;
+  disabled?: boolean;
+}
+
+// Radix reserves "" for "nothing selected"; options may still use it (e.g. «Alle»).
+const EMPTY = '\u0000empty';
+const enc = (v: string) => (v === '' ? EMPTY : v);
+const dec = (v: string) => (v === EMPTY ? '' : v);
+
+export function Select({
+  value,
+  onChange,
+  options,
+  placeholder = 'Auswählen …',
+  id,
+  label,
+  disabled,
+  inline,
+  className,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  id?: string;
+  /** Accessible name when there is no visible <label htmlFor>. */
+  label?: string;
+  disabled?: boolean;
+  /** Size to the content instead of filling the row (toolbars, table cells). */
+  inline?: boolean;
+  className?: string;
+}) {
+  const known = options.some((o) => o.value === (value ?? ''));
+  return (
+    <RSelect.Root value={known ? enc(value ?? '') : ''} onValueChange={(v) => onChange(dec(v))} disabled={disabled}>
+      <RSelect.Trigger id={id} aria-label={label} className={`select sel-trigger ${inline ? 'inline' : ''} ${className ?? ''}`}>
+        <span className="sel-value">
+          <RSelect.Value placeholder={placeholder} />
+        </span>
+        <RSelect.Icon className="sel-chevron">
+          <Icon name="chevronDown" size="s" />
+        </RSelect.Icon>
+      </RSelect.Trigger>
+      <RSelect.Portal>
+        <RSelect.Content position="popper" sideOffset={6} collisionPadding={12} className="popover sel-content pop-anim">
+          <RSelect.Viewport className="sel-viewport">
+            {options.map((o) => (
+              <RSelect.Item key={o.value} value={enc(o.value)} disabled={o.disabled} className="menu-item sel-item">
+                <RSelect.ItemText>{o.label}</RSelect.ItemText>
+                <RSelect.ItemIndicator className="sel-check">
+                  <Icon name="check" size="s" />
+                </RSelect.ItemIndicator>
+              </RSelect.Item>
+            ))}
+          </RSelect.Viewport>
+        </RSelect.Content>
+      </RSelect.Portal>
+    </RSelect.Root>
+  );
+}
+
+/** Free text input with our own suggestion list (replaces <datalist>, whose popup is browser UI). */
+export function SuggestInput({
+  value,
+  onChange,
+  suggestions,
+  ...rest
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  suggestions: { value: string; label?: string }[];
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'>) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const input = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  const q = value.trim().toLowerCase();
+  const shown = suggestions
+    .filter((s) => s.value !== value && (!q || s.value.toLowerCase().includes(q) || s.label?.toLowerCase().includes(q)))
+    .slice(0, 50);
+  const visible = open && shown.length > 0;
+  const pick = (v: string) => {
+    onChange(v);
+    setOpen(false);
+    setActive(-1);
+  };
+  return (
+    <RPopover.Root open={visible} onOpenChange={setOpen}>
+      <RPopover.Anchor asChild>
+        <input
+          {...rest}
+          ref={input}
+          role="combobox"
+          aria-expanded={visible}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={visible && active >= 0 ? `${listId}-${active}` : undefined}
+          autoComplete="off"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+            setActive(-1);
+          }}
+          onFocus={(e) => {
+            setOpen(true);
+            rest.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setOpen(false);
+            rest.onBlur?.(e);
+          }}
+          onKeyDown={(e) => {
+            rest.onKeyDown?.(e);
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              if (!open) return setOpen(true);
+              const n = shown.length;
+              if (n) setActive((a) => (e.key === 'ArrowDown' ? (a + 1) % n : (a - 1 + n) % n));
+            } else if (e.key === 'Enter' && visible && active >= 0) {
+              e.preventDefault();
+              pick(shown[active].value);
+            } else if (e.key === 'Escape' && visible) {
+              e.stopPropagation();
+              setOpen(false);
+            }
+          }}
+        />
+      </RPopover.Anchor>
+      <RPopover.Portal>
+        <RPopover.Content
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="popover sel-content pop-anim"
+          style={{ minWidth: 'max(var(--radix-popover-trigger-width), 12rem)', maxHeight: 'min(22rem, var(--radix-popover-content-available-height, 70vh))', overflow: 'auto' }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.target === input.current && e.preventDefault()}
+        >
+          <div role="listbox" id={listId}>
+            {shown.map((s, i) => (
+              <div
+                key={s.value}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === active}
+                data-highlighted={i === active ? '' : undefined}
+                className="menu-item sel-item"
+                // mousedown would blur the input before the click lands
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseMove={() => setActive(i)}
+                onClick={() => pick(s.value)}
+              >
+                <span className="mono">{s.value}</span>
+                {s.label && <span className="xsmall muted ellipsis">{s.label}</span>}
+              </div>
+            ))}
+          </div>
+        </RPopover.Content>
+      </RPopover.Portal>
+    </RPopover.Root>
+  );
+}
 
 /* ---------- small controls ---------- */
 

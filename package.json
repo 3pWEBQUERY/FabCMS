@@ -32,6 +32,7 @@
     "@fontsource/instrument-serif": "^5.3.0",
     "@fontsource/newsreader": "^5.3.0",
     "@hono/node-server": "^2.1.4",
+    "@radix-ui/react-select": "^2.3.8",
     "fflate": "^0.8.3",
     "hono": "^4.13.13",
     "nodemailer": "^10.0.16",

@@ -4,7 +4,7 @@ import { useApi, formatDate } from '../lib/hooks';
 import { navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { PAGE_PRESETS } from '../lib/presets';
-import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { slugify } from '../../shared/text';
@@ -54,16 +54,12 @@ export function NewPageDialog({ open, onClose, pages }: { open: boolean; onClose
           <input id="np-title" className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Über uns" />
         </Field>
         <Field label="Liegt unter" htmlFor="np-parent">
-          <select id="np-parent" className="select" value={parent} onChange={(e) => setParent(e.target.value)}>
-            <option value="">– oberste Ebene –</option>
-            {pages
-              .filter((p) => p.slug)
-              .map((p) => (
-                <option key={p.id} value={p.slug}>
-                  {p.title} (/{p.slug})
-                </option>
-              ))}
-          </select>
+          <Select
+            id="np-parent"
+            value={parent}
+            onChange={setParent}
+            options={[{ value: '', label: '– oberste Ebene –' }, ...pages.filter((p) => p.slug).map((p) => ({ value: p.slug, label: `${p.title} (/${p.slug})` }))]}
+          />
         </Field>
         <div className="field">
           <span className="field-label">Vorlage</span>

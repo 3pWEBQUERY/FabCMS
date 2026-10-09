@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Switch, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Switch, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatMoney, formatPrice } from '../../shared/text';
@@ -346,10 +346,14 @@ export function Coupons() {
           </Field>
           <div className="grid-2">
             <Field label="Art">
-              <select className="select" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as Coupon['kind'] })}>
-                <option value="percent">Prozent</option>
-                <option value="fixed">Fester Betrag</option>
-              </select>
+              <Select
+                value={f.kind}
+                onChange={(v) => setF({ ...f, kind: v as Coupon['kind'] })}
+                options={[
+                  { value: 'percent', label: 'Prozent' },
+                  { value: 'fixed', label: 'Fester Betrag' },
+                ]}
+              />
             </Field>
             <Field label={f.kind === 'percent' ? 'Prozent' : 'Betrag (CHF)'}>
               <input className="input num" inputMode="decimal" value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} />

@@ -6,7 +6,7 @@ import { shortId } from '../../shared/text';
 import { useSession } from '../lib/session';
 import { useApi } from '../lib/hooks';
 import { Icon } from './icons';
-import { Field, Toggle } from './kit';
+import { Field, Select, SuggestInput, Toggle } from './kit';
 import { RichText } from './RichText';
 import { MediaPicker, useMedia } from './MediaPicker';
 
@@ -109,14 +109,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
       );
     case 'select':
       return wrap(
-        <select id={id} className="select" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)}>
-          {!f.required && <option value="">–</option>}
-          {f.options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>,
+        <Select id={id} value={(value as string) ?? ''} onChange={onChange} options={[...(f.required ? [] : [{ value: '', label: '–' }]), ...(f.options ?? [])]} />,
       );
     case 'multiselect': {
       const v = (value as string[]) ?? [];
@@ -325,7 +318,6 @@ export function MediaList({ value, onChange }: { value: string[]; onChange: (v: 
 
 function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v: LinkValue | null) => void }) {
   const { data } = useApi<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=200');
-  const listId = useId();
   const v = value ?? { label: '', href: '' };
   const set = (patch: Partial<LinkValue>) => {
     const next = { ...v, ...patch };
@@ -334,14 +326,14 @@ function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v:
   return (
     <div className="grid-2" style={{ gap: '0.5rem' }}>
       <input className="input" placeholder="Beschriftung" value={v.label} onChange={(e) => set({ label: e.target.value })} aria-label="Beschriftung" />
-      <input className="input" placeholder="/kontakt" value={v.href} onChange={(e) => set({ href: e.target.value })} list={listId} aria-label="Ziel" />
-      <datalist id={listId}>
-        {data?.entries.map((p) => (
-          <option key={p.id} value={p.slug ? `/${p.slug}` : '/'}>
-            {p.title}
-          </option>
-        ))}
-      </datalist>
+      <SuggestInput
+        className="input"
+        placeholder="/kontakt"
+        value={v.href}
+        onChange={(href) => set({ href })}
+        aria-label="Ziel"
+        suggestions={(data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title }))}
+      />
     </div>
   );
 }
@@ -349,28 +341,14 @@ function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v:
 function FormSelect({ id, value, onChange }: { id: string; value: string; onChange: (v: string | null) => void }) {
   const { data } = useApi<{ forms: { id: string; name: string }[] }>('/api/forms');
   return (
-    <select id={id} className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">Formular wählen …</option>
-      {data?.forms.map((f) => (
-        <option key={f.id} value={f.id}>
-          {f.name}
-        </option>
-      ))}
-    </select>
+    <Select id={id} value={value ?? ''} onChange={(v) => onChange(v || null)} placeholder="Formular wählen …" options={(data?.forms ?? []).map((f) => ({ value: f.id, label: f.name }))} />
   );
 }
 
 function RelationSelect({ id, collection, value, onChange }: { id: string; collection: string; value: string; onChange: (v: string | null) => void }) {
   const { data } = useApi<{ entries: { id: string; title: string }[] }>(`/api/entries?collection=${collection}&limit=500`);
   return (
-    <select id={id} className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">Auswählen …</option>
-      {data?.entries.map((e) => (
-        <option key={e.id} value={e.id}>
-          {e.title || '(ohne Titel)'}
-        </option>
-      ))}
-    </select>
+    <Select id={id} value={value ?? ''} onChange={(v) => onChange(v || null)} options={(data?.entries ?? []).map((e) => ({ value: e.id, label: e.title || '(ohne Titel)' }))} />
   );
 }
 

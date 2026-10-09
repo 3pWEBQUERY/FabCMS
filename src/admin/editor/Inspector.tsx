@@ -3,7 +3,7 @@ import { BLOCK_MAP } from '../../shared/blocks';
 import type { Block, BlockLock, BlockStyle, Breakpoint } from '../../shared/types';
 import { useSession } from '../lib/session';
 import { FieldList } from '../ui/FieldInput';
-import { Field, Segmented } from '../ui/kit';
+import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 
 const TONES: { value: NonNullable<BlockStyle['tone']>; label: string }[] = [
@@ -163,11 +163,15 @@ function CodeTab({ block, onChange }: { block: Block; onChange: (b: Block) => vo
         <textarea className="textarea code" style={{ minHeight: '8rem' }} spellCheck={false} value={style.css ?? ''} onChange={(e) => onChange({ ...block, style: { ...style, css: e.target.value } })} />
       </Field>
       <Field label="Schutzzone im Studio" keyName="lock" help="Legt fest, was Personen im Studio-Modus an diesem Block ändern dürfen.">
-        <select className="select" value={block.lock ?? 'none'} onChange={(e) => onChange({ ...block, lock: e.target.value as BlockLock })}>
-          <option value="none">Alles frei</option>
-          <option value="layout">Layout fix, Text frei</option>
-          <option value="all">Komplett gesperrt</option>
-        </select>
+        <Select
+          value={block.lock ?? 'none'}
+          onChange={(v) => onChange({ ...block, lock: v as BlockLock })}
+          options={[
+            { value: 'none', label: 'Alles frei' },
+            { value: 'layout', label: 'Layout fix, Text frei' },
+            { value: 'all', label: 'Komplett gesperrt' },
+          ]}
+        />
       </Field>
       <p className="xsmall faint mono">
         id: {block.id} · type: {block.type}

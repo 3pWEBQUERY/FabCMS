@@ -1,11 +1,11 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Field, Menu, PageHead, Segmented, Skeleton, Toggle, confirm } from '../ui/kit';
+import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, Toggle, confirm } from '../ui/kit';
 import { MediaField } from '../ui/FieldInput';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
@@ -248,8 +248,10 @@ function WebsiteSettings() {
         <Section title="Geschäftsart für Google" sub="Bestimmt die strukturierten Daten (schema.org).">
           <div className="grid-2">
             <Field label="Art">
-              <select className="select" value={b.type} onChange={(e) => setB({ type: e.target.value })}>
-                {[
+              <Select
+                value={b.type}
+                onChange={(v) => setB({ type: v })}
+                options={[
                   ['LocalBusiness', 'Lokales Geschäft'],
                   ['Restaurant', 'Restaurant'],
                   ['CafeOrCoffeeShop', 'Café'],
@@ -263,12 +265,8 @@ function WebsiteSettings() {
                   ['SportsOrganization', 'Verein'],
                   ['NGO', 'Non-Profit'],
                   ['Organization', 'Organisation'],
-                ].map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+                ].map(([value, label]) => ({ value, label }))}
+              />
             </Field>
             <Field label="Preisniveau" help="z. B. «CHF 20–50»">
               <input className="input" value={b.priceRange} onChange={(e) => setB({ priceRange: e.target.value })} />
@@ -323,14 +321,12 @@ function DesignSettings() {
             </div>
           </Section>
           <Section title="Schriften">
-            <select className="select" value={t.fontPair} onChange={(e) => setT({ fontPair: e.target.value })}>
-              {bundle.fontPairs.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                  {f.id === theme.pair ? ' (passend zum Stil)' : ''}
-                </option>
-              ))}
-            </select>
+            <Select
+              label="Schriftpaar"
+              value={t.fontPair}
+              onChange={(v) => setT({ fontPair: v })}
+              options={bundle.fontPairs.map((f) => ({ value: f.id, label: `${f.label}${f.id === theme.pair ? ' (passend zum Stil)' : ''}` }))}
+            />
           </Section>
           <Section title="Abstände & Ecken">
             <Field label={`Luft zwischen Abschnitten: ${Math.round(t.spacing * 100)} %`}>
@@ -380,8 +376,12 @@ function DesignSettings() {
 
 /* ---------- navigation ---------- */
 
+/** Page addresses offered as link targets in every menu and footer row. */
+const PageLinks = createContext<{ value: string; label: string }[]>([]);
+
 function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: (n: NavItem) => void; onRemove: () => void; depth: number }) {
   const controls = useDragControls();
+  const pageLinks = useContext(PageLinks);
   return (
     <Reorder.Item value={item} dragListener={false} dragControls={controls} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, zIndex: 4 }}>
       <div className="row" style={{ marginLeft: depth * 24, padding: '0.25rem 0' }}>
@@ -389,7 +389,7 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
           <Icon name="grip" size="s" />
         </span>
         <input className="input" style={{ maxWidth: '12rem' }} value={item.label} placeholder="Beschriftung" onChange={(e) => onChange({ ...item, label: e.target.value })} aria-label="Beschriftung" />
-        <input className="input grow mono" value={item.href} placeholder="/seite" onChange={(e) => onChange({ ...item, href: e.target.value })} aria-label="Ziel" list="nav-pages" />
+        <SuggestInput className="input grow mono" value={item.href} placeholder="/seite" onChange={(v) => onChange({ ...item, href: v })} aria-label="Ziel" suggestions={pageLinks} />
         {depth === 0 && (
           <button className="btn ghost s" onClick={() => onChange({ ...item, children: [...(item.children ?? []), { id: shortId(), label: '', href: '' }] })} title="Untermenü-Punkt">
             + Unterpunkt
@@ -413,79 +413,76 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
 function NavigationSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const { data } = useApi<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=300');
+  const pageLinks = useMemo(() => (data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title })), [data]);
   if (!draft) return <Skeleton />;
   return (
     <>
       <PageHead title="Menü & Fusszeile" sub="Einmal ändern, auf allen Seiten aktuell." />
-      <datalist id="nav-pages">
-        {data?.entries.map((p) => (
-          <option key={p.id} value={p.slug ? `/${p.slug}` : '/'}>
-            {p.title}
-          </option>
-        ))}
-      </datalist>
-      <div className="card">
-        <Section title="Hauptmenü" sub="Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.">
-          <Reorder.Group axis="y" values={draft.nav} onReorder={(n) => set('nav', n)} style={{ padding: 0, margin: 0 }}>
-            {draft.nav.map((n) => (
-              <NavRow key={n.id} item={n} depth={0} onChange={(nn) => set('nav', draft.nav.map((x) => (x.id === n.id ? nn : x)))} onRemove={() => set('nav', draft.nav.filter((x) => x.id !== n.id))} />
-            ))}
-          </Reorder.Group>
-          <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('nav', [...draft.nav, { id: shortId(), label: '', href: '' }])}>
-            <Icon name="plus" size="s" /> Menüpunkt
-          </button>
-        </Section>
-        <Section title="Kopfzeile">
-          <div className="grid-2">
-            <Field label="Knopf rechts im Menü" help="z. B. «Tisch reservieren»">
-              <input className="input" value={draft.header.cta?.label ?? ''} onChange={(e) => set('header', { ...draft.header, cta: e.target.value || draft.header.cta?.href ? { label: e.target.value, href: draft.header.cta?.href ?? '' } : null })} />
+      <PageLinks.Provider value={pageLinks}>
+        <div className="card">
+          <Section title="Hauptmenü" sub="Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.">
+            <Reorder.Group axis="y" values={draft.nav} onReorder={(n) => set('nav', n)} style={{ padding: 0, margin: 0 }}>
+              {draft.nav.map((n) => (
+                <NavRow key={n.id} item={n} depth={0} onChange={(nn) => set('nav', draft.nav.map((x) => (x.id === n.id ? nn : x)))} onRemove={() => set('nav', draft.nav.filter((x) => x.id !== n.id))} />
+              ))}
+            </Reorder.Group>
+            <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('nav', [...draft.nav, { id: shortId(), label: '', href: '' }])}>
+              <Icon name="plus" size="s" /> Menüpunkt
+            </button>
+          </Section>
+          <Section title="Kopfzeile">
+            <div className="grid-2">
+              <Field label="Knopf rechts im Menü" help="z. B. «Tisch reservieren»">
+                <input className="input" value={draft.header.cta?.label ?? ''} onChange={(e) => set('header', { ...draft.header, cta: e.target.value || draft.header.cta?.href ? { label: e.target.value, href: draft.header.cta?.href ?? '' } : null })} />
+              </Field>
+              <Field label="Ziel des Knopfs">
+                <SuggestInput className="input mono" suggestions={pageLinks} value={draft.header.cta?.href ?? ''} onChange={(v) => set('header', { ...draft.header, cta: { label: draft.header.cta?.label ?? '', href: v } })} />
+              </Field>
+            </div>
+            <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label="Kopfzeile beim Scrollen oben behalten" />
+          </Section>
+          <Section title="Fusszeile">
+            <Field label="Text">
+              <textarea className="textarea" style={{ minHeight: '4rem' }} value={draft.footer.text} onChange={(e) => set('footer', { ...draft.footer, text: e.target.value })} />
             </Field>
-            <Field label="Ziel des Knopfs">
-              <input className="input mono" list="nav-pages" value={draft.header.cta?.href ?? ''} onChange={(e) => set('header', { ...draft.header, cta: { label: draft.header.cta?.label ?? '', href: e.target.value } })} />
-            </Field>
-          </div>
-          <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label="Kopfzeile beim Scrollen oben behalten" />
-        </Section>
-        <Section title="Fusszeile">
-          <Field label="Text">
-            <textarea className="textarea" style={{ minHeight: '4rem' }} value={draft.footer.text} onChange={(e) => set('footer', { ...draft.footer, text: e.target.value })} />
-          </Field>
-          {draft.footer.columns.map((col, i) => (
-            <div key={i} className="repeat-item" style={{ padding: '0.75rem' }}>
-              <div className="row">
-                <input className="input" value={col.title} placeholder="Spaltentitel" onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })} />
-                <button className="btn ghost s icon-only" aria-label="Spalte entfernen" onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}>
-                  <Icon name="trash" size="s" />
+            {draft.footer.columns.map((col, i) => (
+              <div key={i} className="repeat-item" style={{ padding: '0.75rem' }}>
+                <div className="row">
+                  <input className="input" value={col.title} placeholder="Spaltentitel" onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })} />
+                  <button className="btn ghost s icon-only" aria-label="Spalte entfernen" onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}>
+                    <Icon name="trash" size="s" />
+                  </button>
+                </div>
+                {col.links.map((l, k) => (
+                  <div key={k} className="row" style={{ marginTop: '0.4rem' }}>
+                    <input
+                      className="input"
+                      value={l.label}
+                      placeholder="Beschriftung"
+                      onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, label: e.target.value } : x)) } : c)) })}
+                    />
+                    <SuggestInput
+                      className="input mono"
+                      suggestions={pageLinks}
+                      value={l.href}
+                      placeholder="/seite"
+                      aria-label="Ziel"
+                      onChange={(v) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, href: v } : x)) } : c)) })}
+                    />
+                  </div>
+                ))}
+                <button className="btn ghost s" style={{ marginTop: '0.4rem' }} onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })}>
+                  + Link
                 </button>
               </div>
-              {col.links.map((l, k) => (
-                <div key={k} className="row" style={{ marginTop: '0.4rem' }}>
-                  <input
-                    className="input"
-                    value={l.label}
-                    placeholder="Beschriftung"
-                    onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, label: e.target.value } : x)) } : c)) })}
-                  />
-                  <input
-                    className="input mono"
-                    list="nav-pages"
-                    value={l.href}
-                    placeholder="/seite"
-                    onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, href: e.target.value } : x)) } : c)) })}
-                  />
-                </div>
-              ))}
-              <button className="btn ghost s" style={{ marginTop: '0.4rem' }} onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })}>
-                + Link
-              </button>
-            </div>
-          ))}
-          <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}>
-            <Icon name="plus" size="s" /> Spalte
-          </button>
-          <p className="xsmall muted">Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.</p>
-        </Section>
-      </div>
+            ))}
+            <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}>
+              <Icon name="plus" size="s" /> Spalte
+            </button>
+            <p className="xsmall muted">Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.</p>
+          </Section>
+        </div>
+      </PageLinks.Provider>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
   );
@@ -856,13 +853,14 @@ function TeamSettings() {
                       {u.totp_enabled ? ' · 2FA' : ''}
                     </div>
                   </div>
-                  <select className="select" style={{ width: 'auto' }} value={u.role} disabled={u.id === me.id} onChange={(e) => void changeRole(u, e.target.value as Role)} aria-label={`Rolle von ${u.name}`}>
-                    {ROLE_ORDER.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r].name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    inline
+                    label={`Rolle von ${u.name}`}
+                    value={u.role}
+                    disabled={u.id === me.id}
+                    onChange={(v) => void changeRole(u, v as Role)}
+                    options={ROLE_ORDER.map((r) => ({ value: r, label: ROLE_LABELS[r].name }))}
+                  />
                   {u.id !== me.id && (
                     <Menu
                       trigger={

@@ -4,7 +4,7 @@ import { useDebounced, formatDate } from '../lib/hooks';
 import { usePath, navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { rememberMedia, uploadFiles, type MediaRow } from '../ui/MediaPicker';
@@ -100,14 +100,13 @@ export function MediaLibrary() {
           <Icon name="search" />
           <input className="input" placeholder="Dateiname, Beschreibung oder Schlagwort" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <select className="select" style={{ width: 'auto' }} value={folder} onChange={(e) => setFolder(e.target.value)} aria-label="Ordner">
-          <option value="*">Alle Ordner</option>
-          {folders.map((f) => (
-            <option key={f.folder} value={f.folder}>
-              {f.folder || 'Ohne Ordner'} ({f.n})
-            </option>
-          ))}
-        </select>
+        <Select
+          inline
+          label="Ordner"
+          value={folder}
+          onChange={setFolder}
+          options={[{ value: '*', label: 'Alle Ordner' }, ...folders.map((f) => ({ value: f.folder, label: `${f.folder || 'Ohne Ordner'} (${f.n})` }))]}
+        />
         <Segmented
           label="Typ"
           value={type}

@@ -5,7 +5,7 @@ import { useApi, useDebounced, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { createAndOpen, entryUrl } from '../lib/actions';
-import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confirm, Dialog } from '../ui/kit';
+import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confirm, Dialog, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatPrice } from '../../shared/text';
@@ -209,13 +209,19 @@ export function CollectionList({ collection }: { collection: string }) {
           <Icon name="search" />
           <input className="input" placeholder={`${col.name} durchsuchen`} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <select className="select" style={{ width: 'auto' }} value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
-          <option value="">Alle</option>
-          <option value="published">Online</option>
-          <option value="draft">Entwürfe</option>
-          <option value="review">Zur Freigabe</option>
-          <option value="scheduled">Geplant</option>
-        </select>
+        <Select
+          inline
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: '', label: 'Alle' },
+            { value: 'published', label: 'Online' },
+            { value: 'draft', label: 'Entwürfe' },
+            { value: 'review', label: 'Zur Freigabe' },
+            { value: 'scheduled', label: 'Geplant' },
+          ]}
+        />
         {sortable && (
           <Segmented
             label="Ansicht"

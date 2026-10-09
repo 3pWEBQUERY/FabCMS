@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { useApi, useMediaQuery, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Skeleton, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Skeleton, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatMoney, formatPrice, relativeTime } from '../../shared/text';
@@ -124,13 +124,10 @@ export function Contacts() {
                     {c.source || 'manuell'} · {relativeTime(c.last_contact ?? c.created_at)}
                   </span>
                   {mobile && (
-                    <select className="select" value={c.status} onClick={(e) => e.stopPropagation()} onChange={(e) => void move(c.id, e.target.value as Status)} aria-label="Status">
-                      {LANES.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.label}
-                        </option>
-                      ))}
-                    </select>
+                    // The card navigates on click/Enter; events from the list (portal) bubble here too.
+                    <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                      <Select label="Status" value={c.status} onChange={(v) => void move(c.id, v as Status)} options={LANES.map((x) => ({ value: x.id, label: x.label }))} />
+                    </span>
                   )}
                 </div>
               ))}
@@ -283,13 +280,7 @@ export function ContactDetail({ id }: { id: string }) {
         <div className="stack">
           <section className="card card-pad stack">
             <Field label="Status">
-              <select className="select" value={c.status} onChange={(e) => void patch({ status: e.target.value })}>
-                {LANES.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={c.status} onChange={(v) => void patch({ status: v })} options={LANES.map((l) => ({ value: l.id, label: l.label }))} />
             </Field>
             <Field label="Möglicher Auftragswert">
               <div className="input-affix">

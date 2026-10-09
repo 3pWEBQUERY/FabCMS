@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Skeleton, Toggle, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Skeleton, Select, SuggestInput, Toggle, confirm } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { FIELD_TYPE_LABELS, type FieldDef, type FieldType } from '../../shared/fields';
@@ -42,13 +42,11 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
               <input className="input mono" value={field.key} onChange={(e) => onChange({ ...field, key: e.target.value })} />
             </Field>
             <Field label="Typ">
-              <select className="select" value={field.type} onChange={(e) => onChange({ ...field, type: e.target.value as FieldType })}>
-                {FIELD_TYPES.filter((t) => !(nested && t === 'group')).map((t) => (
-                  <option key={t} value={t}>
-                    {FIELD_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={field.type}
+                onChange={(v) => onChange({ ...field, type: v as FieldType })}
+                options={FIELD_TYPES.filter((t) => !(nested && t === 'group')).map((t) => ({ value: t, label: FIELD_TYPE_LABELS[t] }))}
+              />
             </Field>
             <Field label="Hilfetext" help="Erklärt im Studio, was hier hingehört.">
               <input className="input" value={field.help ?? ''} onChange={(e) => onChange({ ...field, help: e.target.value })} />
@@ -77,14 +75,12 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
           )}
           {field.type === 'relation' && (
             <Field label="Verknüpft mit">
-              <select className="select" value={field.collection ?? ''} onChange={(e) => onChange({ ...field, collection: e.target.value })}>
-                <option value="">Wählen …</option>
-                {cols?.collections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={field.collection ?? ''}
+                onChange={(v) => onChange({ ...field, collection: v })}
+                placeholder="Wählen …"
+                options={(cols?.collections ?? []).map((c) => ({ value: c.id, label: c.name }))}
+              />
             </Field>
           )}
           {['number', 'money'].includes(field.type) && (
@@ -247,15 +243,11 @@ export function ContentTypes() {
                   <FieldsBuilder fields={edit.fields ?? []} onChange={(f) => setEdit({ ...edit, fields: f })} />
                 )}
                 <Field label="Titelfeld" help="Dieses Feld erscheint in Listen.">
-                  <select className="select" value={edit.title_field ?? 'title'} onChange={(e) => setEdit({ ...edit, title_field: e.target.value })}>
-                    {(edit.fields ?? [])
-                      .filter((f) => ['text', 'email'].includes(f.type))
-                      .map((f) => (
-                        <option key={f.key} value={f.key}>
-                          {f.label || f.key}
-                        </option>
-                      ))}
-                  </select>
+                  <Select
+                    value={edit.title_field ?? 'title'}
+                    onChange={(v) => setEdit({ ...edit, title_field: v })}
+                    options={(edit.fields ?? []).filter((f) => ['text', 'email'].includes(f.type)).map((f) => ({ value: f.key, label: f.label || f.key }))}
+                  />
                 </Field>
                 <Field label="Leerer Zustand" help="Was Laien sehen, bevor es Einträge gibt – erklär, was sie tun sollen.">
                   <input className="input" value={edit.empty_hint ?? ''} onChange={(e) => setEdit({ ...edit, empty_hint: e.target.value })} />
@@ -316,12 +308,7 @@ export function CodeSettings() {
             </div>
           ))}
           <div className="row">
-            <input className="input mono" style={{ width: '11rem' }} list="token-hints" value={newKey} onChange={(e) => setNewKey(e.target.value)} />
-            <datalist id="token-hints">
-              {TOKEN_HINTS.map((x) => (
-                <option key={x} value={x} />
-              ))}
-            </datalist>
+            <SuggestInput className="input mono" style={{ width: '11rem' }} aria-label="Token-Name" value={newKey} onChange={setNewKey} suggestions={TOKEN_HINTS.map((x) => ({ value: x }))} />
             <button className="btn s" onClick={() => /^--[a-z0-9-]+$/.test(newKey) && set('theme', { ...t, tokens: { ...t.tokens, [newKey]: '' } })}>
               <Icon name="plus" size="s" /> Token
             </button>
@@ -527,11 +514,17 @@ export function Redirects() {
           <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder="/alte-adresse" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
           <Icon name="arrowRight" className="faint" />
           <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder="/neue-adresse" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
-          <select className="select" style={{ width: 'auto' }} value={f.code} onChange={(e) => setF({ ...f, code: Number(e.target.value) })}>
-            <option value={301}>301 dauerhaft</option>
-            <option value={302}>302 vorübergehend</option>
-            <option value={410}>410 entfernt</option>
-          </select>
+          <Select
+            inline
+            label="Art der Weiterleitung"
+            value={String(f.code)}
+            onChange={(v) => setF({ ...f, code: Number(v) })}
+            options={[
+              { value: '301', label: '301 dauerhaft' },
+              { value: '302', label: '302 vorübergehend' },
+              { value: '410', label: '410 entfernt' },
+            ]}
+          />
           <button className="btn primary" onClick={add} disabled={!f.from || (!f.to && f.code !== 410)}>
             Hinzufügen
           </button>

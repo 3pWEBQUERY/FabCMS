@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
-import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Toggle, confirm } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Toggle, confirm, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { shortId, slugify } from '../../shared/text';
@@ -142,13 +142,7 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
               <input className="input" value={f.label} onChange={(e) => onChange({ ...f, label: e.target.value, name: pro ? f.name : slugify(e.target.value).replace(/-/g, '_') })} />
             </Field>
             <Field label="Art">
-              <select className="select" value={f.type} onChange={(e) => onChange({ ...f, type: e.target.value as FormFieldDef['type'] })}>
-                {TYPES.filter((t) => t.value !== 'step').map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={f.type} onChange={(v) => onChange({ ...f, type: v as FormFieldDef['type'] })} options={TYPES.filter((t) => t.value !== 'step')} />
             </Field>
           </div>
           {f.type === 'select' && (
@@ -170,22 +164,24 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
           {others.length > 0 && (
             <Field label="Nur zeigen, wenn …" help="Zum Beispiel: «Firma» nur, wenn bei «Kundenart» «Geschäftlich» gewählt ist.">
               <div className="grid-2" style={{ gap: '0.5rem' }}>
-                <select className="select" value={f.showIf?.field ?? ''} onChange={(e) => onChange({ ...f, showIf: e.target.value ? { field: e.target.value, equals: f.showIf?.equals ?? '' } : null })}>
-                  <option value="">– immer zeigen –</option>
-                  {others.map((o) => (
-                    <option key={o.id} value={o.name}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  label="Abhängig von Feld"
+                  value={f.showIf?.field ?? ''}
+                  onChange={(v) => onChange({ ...f, showIf: v ? { field: v, equals: f.showIf?.equals ?? '' } : null })}
+                  options={[{ value: '', label: '– immer zeigen –' }, ...others.map((o) => ({ value: o.name, label: o.label }))]}
+                />
                 {f.showIf?.field && (
-                  <select className="select" value={f.showIf.equals} onChange={(e) => onChange({ ...f, showIf: { field: f.showIf!.field, equals: e.target.value } })}>
-                    <option value="">Bitte wählen</option>
-                    {(() => {
+                  <Select
+                    label="Wert"
+                    placeholder="Bitte wählen"
+                    value={f.showIf.equals}
+                    onChange={(v) => onChange({ ...f, showIf: { field: f.showIf!.field, equals: v } })}
+                    options={(() => {
                       const src = others.find((o) => o.name === f.showIf!.field);
-                      return src?.type === 'checkbox' ? <option value="ja">angehakt</option> : (src?.options ?? []).map((o) => <option key={o}>{o}</option>);
+                      if (src?.type === 'checkbox') return [{ value: 'ja', label: 'angehakt' }];
+                      return [...new Set(src?.options ?? [])].filter(Boolean).map((o) => ({ value: o, label: o }));
                     })()}
-                  </select>
+                  />
                 )}
               </div>
             </Field>

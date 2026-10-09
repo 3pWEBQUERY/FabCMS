@@ -426,6 +426,81 @@ p {
   background-repeat: no-repeat;
   background-position: right 0.5rem center;
 }
+/* Own select (Radix): looks like the inputs, opens our own list instead of the OS picker. */
+.sel-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 0.5rem;
+  background-image: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.sel-trigger.inline {
+  width: auto;
+  max-width: 100%;
+}
+.sel-trigger[data-placeholder] .sel-value {
+  color: var(--ink-3);
+}
+.sel-trigger[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.sel-trigger[data-state='open'] {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 3px var(--sel-soft);
+}
+.sel-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sel-chevron {
+  display: flex;
+  color: var(--ink-3);
+  transition: transform 0.18s var(--ease);
+}
+.sel-trigger[data-state='open'] .sel-chevron {
+  transform: rotate(180deg);
+}
+.popover.sel-content {
+  display: flex;
+  flex-direction: column;
+  min-width: max(var(--radix-select-trigger-width), 10rem);
+  max-width: min(28rem, calc(100vw - 24px));
+  max-height: min(22rem, var(--radix-select-content-available-height, 70vh));
+  overflow: hidden;
+  transform-origin: var(--radix-select-content-transform-origin);
+}
+.sel-viewport {
+  scroll-padding-block: 0.35rem;
+}
+.sel-item {
+  justify-content: space-between;
+  font-size: var(--t-m);
+  font-weight: 450;
+  cursor: default;
+}
+.sel-item > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sel-item[data-state='checked'] {
+  font-weight: 600;
+}
+.sel-item[data-disabled] {
+  color: var(--ink-3);
+}
+.sel-check {
+  display: flex;
+  color: var(--sel);
+}
 .input-affix {
   display: flex;
   align-items: stretch;
