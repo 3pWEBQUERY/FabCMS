@@ -4,10 +4,11 @@ import * as RMenu from '@radix-ui/react-dropdown-menu';
 import * as RTooltip from '@radix-ui/react-tooltip';
 import * as RSelect from '@radix-ui/react-select';
 import { AnimatePresence, motion, LayoutGroup } from 'motion/react';
-import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon } from './icons';
 import type { EntryStatus } from '../../shared/types';
+import { parseTime } from '../../shared/hours';
 
 /* ---------- pointer origin: dialogs grow out of what was clicked ---------- */
 
@@ -338,6 +339,136 @@ export function SuggestInput({
               >
                 <span className="mono">{s.value}</span>
                 {s.label && <span className="xsmall muted ellipsis">{s.label}</span>}
+              </div>
+            ))}
+          </div>
+        </RPopover.Content>
+      </RPopover.Portal>
+    </RPopover.Root>
+  );
+}
+
+/* ---------- time: 24h text field with our own quarter-hour list ---------- */
+
+const QUARTERS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`);
+
+const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+
+export function TimeInput({ value, onChange, label, className, style }: { value: string; onChange: (v: string) => void; label: string; className?: string; style?: CSSProperties }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(value);
+  const [active, setActive] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  useEffect(() => setText(value), [value]);
+
+  // Highlight the quarter closest to what is typed (or the current value).
+  const nearest = (t: string) => {
+    const parsed = parseTime(t) ?? value;
+    if (!parsed) return 0;
+    const m = minutes(parsed);
+    return Math.min(95, Math.round(m / 15));
+  };
+  // On open the current time sits in the middle of the list; while arrowing it just stays visible.
+  const centred = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      centred.current = false;
+      return;
+    }
+    requestAnimationFrame(() => {
+      list.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({ block: centred.current ? 'nearest' : 'center' });
+      centred.current = true;
+    });
+  }, [open, active]);
+
+  const commit = (t: string) => {
+    const parsed = parseTime(t);
+    if (parsed) {
+      setText(parsed);
+      if (parsed !== value) onChange(parsed);
+    } else setText(value);
+  };
+  const pick = (t: string) => {
+    commit(t);
+    setOpen(false);
+  };
+
+  return (
+    <RPopover.Root open={open} onOpenChange={setOpen}>
+      <RPopover.Anchor asChild>
+        <input
+          ref={input}
+          className={`input num time-input ${className ?? ''}`}
+          style={style}
+          inputMode="numeric"
+          autoComplete="off"
+          role="combobox"
+          aria-label={label}
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-activedescendant={open ? `${listId}-${active}` : undefined}
+          aria-invalid={text !== value && text.trim() !== '' && !parseTime(text) ? true : undefined}
+          value={text}
+          onFocus={(e) => {
+            e.target.select();
+            setActive(nearest(value));
+            setOpen(true);
+          }}
+          onChange={(e) => {
+            setText(e.target.value);
+            setActive(nearest(e.target.value));
+            setOpen(true);
+          }}
+          onBlur={() => {
+            commit(text);
+            setOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              const next = (active + (e.key === 'ArrowDown' ? 1 : -1) + 96) % 96;
+              setActive(next);
+              setText(QUARTERS[next]);
+              setOpen(true);
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              pick(open && parseTime(text) === null ? QUARTERS[active] : text);
+            } else if (e.key === 'Escape' && open) {
+              e.stopPropagation();
+              setText(value);
+              setOpen(false);
+            }
+          }}
+        />
+      </RPopover.Anchor>
+      <RPopover.Portal>
+        <RPopover.Content
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="popover sel-content time-list pop-anim"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.target === input.current && e.preventDefault()}
+        >
+          <div role="listbox" id={listId} ref={list} aria-label={label}>
+            {QUARTERS.map((q, i) => (
+              <div
+                key={q}
+                id={`${listId}-${i}`}
+                data-i={i}
+                role="option"
+                aria-selected={q === value}
+                data-highlighted={i === active ? '' : undefined}
+                className="menu-item sel-item num"
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseMove={() => setActive(i)}
+                onClick={() => pick(q)}
+              >
+                <span>{q}</span>
+                {q === value && <Icon name="check" size="s" className="sel-check" />}
               </div>
             ))}
           </div>

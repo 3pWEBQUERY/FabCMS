@@ -5,7 +5,7 @@ import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, Toggle, confirm } from '../ui/kit';
+import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, TimeInput, Toggle, confirm } from '../ui/kit';
 import { MediaField } from '../ui/FieldInput';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
@@ -146,9 +146,9 @@ function HoursEditor({ hours, onChange }: { hours: OpeningHoursDay[]; onChange: 
             {!h.closed &&
               h.slots.map((s, i) => (
                 <span key={i} className="row" style={{ gap: '0.3rem' }}>
-                  <input className="input num" type="time" style={{ width: '7.25rem' }} value={s.from} aria-label={`${DAY_NAMES[h.day]} von`} onChange={(e) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)) })} />
+                  <TimeInput label={`${DAY_NAMES[h.day]} von`} value={s.from} onChange={(v) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, from: v } : x)) })} />
                   –
-                  <input className="input num" type="time" style={{ width: '7.25rem' }} value={s.to} aria-label={`${DAY_NAMES[h.day]} bis`} onChange={(e) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)) })} />
+                  <TimeInput label={`${DAY_NAMES[h.day]} bis`} value={s.to} onChange={(v) => set(h.day, { slots: h.slots.map((x, j) => (j === i ? { ...x, to: v } : x)) })} />
                   {h.slots.length > 1 && (
                     <button className="btn ghost s icon-only" aria-label="Zeitfenster entfernen" onClick={() => set(h.day, { slots: h.slots.filter((_, j) => j !== i) })}>
                       <Icon name="x" size="s" />

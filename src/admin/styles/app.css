@@ -2610,3 +2610,14 @@ button.list-item {
   display: grid;
   place-items: center;
 }
+
+/* Time fields (opening hours): narrow, 24h, with our own quarter-hour list. */
+.time-input {
+  width: 5.5rem;
+  text-align: center;
+}
+.popover.time-list {
+  min-width: 7rem;
+  max-height: min(16rem, var(--radix-popover-content-available-height, 60vh));
+  overflow: auto;
+}

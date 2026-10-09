@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sanitizeRichText, safeHref } from '../src/shared/richtext';
 import { slugify, readability, formatPrice, excerpt } from '../src/shared/text';
-import { openStatus, compactHours } from '../src/shared/hours';
+import { openStatus, compactHours, parseTime } from '../src/shared/hours';
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { createBlock, sentences } from '../src/shared/blocks';
 import { validateFields } from '../src/shared/fields';
@@ -82,6 +82,11 @@ describe('opening hours', () => {
       { days: 'Sa', time: '09:00–16:00' },
       { days: 'So', time: 'geschlossen' },
     ]);
+  });
+  it('reads typed times', () => {
+    for (const [typed, want] of [['9', '09:00'], ['930', '09:30'], ['0930', '09:30'], ['9.30', '09:30'], ['9h30', '09:30'], ['18:15', '18:15'], ['1815', '18:15'], ['18 Uhr', '18:00'], ['24', '00:00']] as const)
+      expect(parseTime(typed), typed).toBe(want);
+    for (const bad of ['', 'abc', '25', '9:75', '24:30', '9:5', '12345']) expect(parseTime(bad), bad).toBeNull();
   });
 });
 

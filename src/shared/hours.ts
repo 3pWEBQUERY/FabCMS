@@ -69,3 +69,14 @@ export function schemaOpeningHours(hours: OpeningHoursDay[]) {
     .filter((h) => !h.closed)
     .flatMap((h) => h.slots.map((s) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: SCHEMA_DAYS[h.day], opens: s.from, closes: s.to })));
 }
+
+/** Reads what people actually type: «9», «930», «9.30», «9h30», «18:15» → "HH:MM" (or null). */
+export function parseTime(raw: string): string | null {
+  const t = raw.trim().toLowerCase().replace(/\s*uhr$/, '');
+  const m = /^(\d{1,2})(?:[:.h,](\d{2}))?$/.exec(t) ?? /^(\d{1,2})(\d{2})$/.exec(t);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (h > 24 || min > 59 || (h === 24 && min > 0)) return null;
+  return `${String(h % 24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
