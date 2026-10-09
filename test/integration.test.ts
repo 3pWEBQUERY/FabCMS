@@ -537,6 +537,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     }
   });
 
+  it('lists properties with filters and turns inquiries into contacts', async () => {
+    const settings = await req('GET', '/api/settings');
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'realestate'])] });
+    const make = async (data: Record<string, unknown>) => {
+      const r = await req('POST', '/api/entries', { collection: 'properties', data });
+      expect(r.status).toBe(200);
+      await req('POST', `/api/entries/${r.data.entry.id}/publish`, {});
+      return r.data.entry;
+    };
+    const flat = await make({ title: 'Dachwohnung', offer: 'rent', kind: 'apartment', rooms: 3.5, area: 90, price: 260000, city: 'Winterthur', zip: '8400', street: 'Geheimweg 1', showStreet: false, features: ['balcony'] });
+    await make({ title: 'Villa', offer: 'buy', kind: 'house', rooms: 7, price: 250000000, city: 'Küsnacht', zip: '8700' });
+    await make({ title: 'Studio', offer: 'rent', kind: 'apartment', rooms: 1, price: 120000, city: 'Winterthur', zip: '8400', status: 'done' });
+
+    const all = await req('GET', '/immobilien', undefined, { cookies: new Map() });
+    expect(all.data).toContain('Dachwohnung');
+    expect(all.data).toContain('Villa');
+    expect(all.data).not.toContain('>Studio<'); // rented ones drop out of the search
+    const rent3 = await req('GET', '/immobilien?angebot=rent&zimmer=3&bis=3000&ort=winter', undefined, { cookies: new Map() });
+    expect(rent3.data).toContain('Dachwohnung');
+    expect(rent3.data).not.toContain('Villa');
+    expect(rent3.data).toContain('1 Objekt');
+
+    const page = await req('GET', `/immobilien/${flat.slug}`, undefined, { cookies: new Map() });
+    expect(page.data).toContain('"@type":"RealEstateListing"');
+    expect(page.data).toMatch(/CHF.2.600\.– \/ Mt\./);
+    expect(page.data).not.toContain('Geheimweg'); // street only when allowed
+    expect(page.data).toContain('Balkon / Terrasse');
+
+    const sent = await req('POST', `/_nova/immobilien/${flat.id}/anfrage`, undefined, {
+      cookies: new Map(),
+      form: { name: 'Tom Meier', email: 'tom@example.ch', phone: '079 123 45 67', message: 'Ist die Wohnung noch frei?', visit: '1', _t: (Date.now() - 5000).toString(36) },
+    });
+    expect(sent.headers.get('location')).toBe(`/immobilien/${flat.slug}?anfrage=1#anfrage`);
+    const [contact] = await sql`select * from contacts where email = 'tom@example.ch'`;
+    expect(contact.source).toBe('Immobilie: Dachwohnung');
+    expect(contact.notes[0].text).toContain('möchte besichtigen');
+    await new Promise((r) => setTimeout(r, 50));
+    const notes = await req('GET', '/api/notifications');
+    expect(notes.data.items.some((n: { title: string }) => n.title === 'Anfrage: Dachwohnung')).toBe(true);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

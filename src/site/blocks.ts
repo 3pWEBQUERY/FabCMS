@@ -17,6 +17,7 @@ import { entryAccess } from '../shared/members';
 import { membershipBox } from './members';
 import { eventCards, upcoming } from './events';
 import { donateBlock } from './donations';
+import { findProperties, propertyCards } from './realestate';
 import { env } from '../server/env';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
@@ -526,6 +527,16 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap">${head}${await eventCards(ctx, col, items)}${
       col.list_route ? html`<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle ${col.name}</a></p>` : ''
     }</div>`;
+  },
+
+  async properties(b, ctx) {
+    const p = b.props as P;
+    const head = heading(ctx, p, 'heading', 'intro');
+    const col = ctx.collections.find((c) => c.id === 'properties');
+    if (!col) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Immobilien» unter Einstellungen → Module.')}</div>`;
+    const items = await findProperties({ offer: p.offer === 'rent' || p.offer === 'buy' ? p.offer : '' }, { limit: Math.min(12, Number(p.count) || 3) });
+    if (!items.length) return html`<div class="wrap">${head}${empty(ctx, 'Noch keine Objekte. Leg sie unter «Inhalte → Immobilien» an.')}</div>`;
+    return html`<div class="wrap">${head}${await propertyCards(ctx, items)}<p class="ev-more"><a class="btn-2" href="${col.list_route}">Alle Objekte</a></p></div>`;
   },
 
   async donate(b, ctx) {

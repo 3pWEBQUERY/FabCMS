@@ -28,6 +28,38 @@ export const DISH_TAGS = [
 
 const seoNote = 'Wird automatisch aus dem Inhalt erzeugt, wenn leer.';
 
+export const PROPERTY_OFFERS = [
+  { value: 'rent', label: 'Miete' },
+  { value: 'buy', label: 'Kauf' },
+];
+export const PROPERTY_KINDS = [
+  { value: 'apartment', label: 'Wohnung' },
+  { value: 'house', label: 'Haus' },
+  { value: 'room', label: 'Zimmer / WG' },
+  { value: 'commercial', label: 'Büro & Gewerbe' },
+  { value: 'parking', label: 'Parkplatz / Garage' },
+  { value: 'land', label: 'Grundstück' },
+];
+export const PROPERTY_STATUS = [
+  { value: 'available', label: 'Verfügbar' },
+  { value: 'reserved', label: 'Reserviert' },
+  { value: 'done', label: 'Vermietet / verkauft' },
+];
+export const PROPERTY_FEATURES = [
+  { value: 'balcony', label: 'Balkon / Terrasse' },
+  { value: 'garden', label: 'Garten / Sitzplatz' },
+  { value: 'lift', label: 'Lift' },
+  { value: 'parking', label: 'Parkplatz / Garage' },
+  { value: 'washer', label: 'Eigene Waschmaschine' },
+  { value: 'pets', label: 'Haustiere erlaubt' },
+  { value: 'accessible', label: 'Rollstuhlgängig' },
+  { value: 'minergie', label: 'Minergie' },
+  { value: 'view', label: 'Aussicht' },
+  { value: 'furnished', label: 'Möbliert' },
+  { value: 'fireplace', label: 'Cheminée' },
+  { value: 'new', label: 'Neubau / Erstbezug' },
+];
+
 function ticketsField(label: string, itemLabel: string, help: string): FieldDef {
   return {
     key: 'tickets',
@@ -338,6 +370,42 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
     per_page: 24,
   },
   {
+    id: 'properties',
+    name: 'Immobilien',
+    singular: 'Objekt',
+    icon: 'home',
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel', required: true, maxLength: 120, placeholder: 'z. B. Helle 3½-Zimmer-Wohnung mit Seesicht' },
+      { key: 'excerpt', type: 'textarea', label: 'Kurzbeschreibung', help: 'Erscheint in der Liste und bei Google. ' + seoNote, maxLength: 300 },
+      { key: 'images', type: 'images', label: 'Fotos', help: 'Das erste Foto ist das Titelbild.' },
+      { key: 'offer', type: 'select', label: 'Angebot', options: PROPERTY_OFFERS, default: 'rent', width: 'half', required: true },
+      { key: 'kind', type: 'select', label: 'Art', options: PROPERTY_KINDS, default: 'apartment', width: 'half', required: true },
+      { key: 'status', type: 'select', label: 'Status', options: PROPERTY_STATUS, default: 'available', width: 'half' },
+      { key: 'availableFrom', type: 'text', label: 'Bezug', placeholder: 'ab 1. März oder nach Vereinbarung', width: 'half' },
+      { key: 'price', type: 'money', label: 'Preis', help: 'Miete: brutto pro Monat. Kauf: Verkaufspreis. Leer = auf Anfrage.', min: 0, width: 'half' },
+      { key: 'extraCosts', type: 'money', label: 'Nebenkosten pro Monat', help: 'Bei Miete: im Bruttopreis enthalten, hier nur zur Info.', min: 0, width: 'half', showIf: { field: 'offer', equals: ['rent'] } },
+      { key: 'rooms', type: 'number', label: 'Zimmer', min: 0, max: 50, width: 'half', help: 'z. B. 3.5' },
+      { key: 'area', type: 'number', label: 'Wohn-/Nutzfläche in m²', min: 0, width: 'half' },
+      { key: 'plot', type: 'number', label: 'Grundstück in m²', min: 0, width: 'half' },
+      { key: 'floor', type: 'text', label: 'Etage', placeholder: 'z. B. 2. OG', width: 'half' },
+      { key: 'yearBuilt', type: 'number', label: 'Baujahr', min: 1200, max: 2100, width: 'half' },
+      { key: 'street', type: 'text', label: 'Strasse', width: 'half' },
+      { key: 'zip', type: 'text', label: 'PLZ', width: 'half' },
+      { key: 'city', type: 'text', label: 'Ort', required: true, width: 'half' },
+      { key: 'showStreet', type: 'boolean', label: 'Strasse öffentlich zeigen', help: 'Aus: nur PLZ und Ort. Die Strasse gibt es auf Anfrage.' },
+      { key: 'features', type: 'multiselect', label: 'Ausstattung', options: PROPERTY_FEATURES },
+      { key: 'documents', type: 'file', label: 'Dokumentation (PDF)', help: 'Grundriss, Verkaufsdokumentation – zum Herunterladen.' },
+    ],
+    route: '/immobilien/:slug',
+    list_route: '/immobilien',
+    has_blocks: true,
+    builtin: true,
+    module: 'realestate',
+    title_field: 'title',
+    empty_hint: 'Erfasse dein erstes Objekt: Fotos, Preis, Zimmer, Fläche – fertig.',
+    per_page: 24,
+  },
+  {
     id: 'sections',
     name: 'Sektionen',
     singular: 'Sektion',
@@ -371,6 +439,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
   { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
   { id: 'members', name: 'Mitglieder', description: 'Konten für Besucher:innen, Seiten und Beiträge nur für Mitglieder, bezahlte Mitgliedschaft im Abo über Stripe.', collections: [], status: 'ready' },
+  { id: 'realestate', name: 'Immobilien', description: 'Objekte zur Miete oder zum Kauf mit Fotos, Eckdaten und Ausstattung, Suche mit Filtern, Anfragen direkt ins CRM.', collections: ['properties'], status: 'ready' },
   { id: 'donations', name: 'Spenden', description: 'Spendenformular mit Beträgen, einmalig oder monatlich über Stripe, Kampagnenziel mit Fortschritt, Spendenbestätigungen fürs Steueramt.', collections: [], status: 'ready' },
   { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien mit Kontingent, gratis oder über Stripe, Tickets mit QR-Code und Einlass-Scanner, Warteliste.', collections: ['events'], status: 'ready' },
   { id: 'courses', name: 'Kurse', description: 'Kurse mit mehreren Terminen, Plätzen und Preisen, Anmeldung online, Teilnehmerliste und Warteliste.', collections: ['courses'], status: 'ready' },
@@ -395,6 +464,7 @@ export const SECTORS: SectorDef[] = [
   { id: 'studio', name: 'Coiffeur, Kosmetik, Studio', hint: 'Preisliste, Team, Termine online', modules: ['booking', 'leads'], themes: ['salon', 'bistro', 'kante'], businessType: 'BeautySalon' },
   { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Termine online, Anfahrt', modules: ['booking', 'leads', 'courses'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
   { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
+  { id: 'realestate', name: 'Immobilien & Verwaltung', hint: 'Objekte, Suche mit Filtern, Anfragen', modules: ['realestate', 'leads', 'newsletter'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'RealEstateAgent' },
   { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
   { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter', 'members', 'events'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
   { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter', 'donations'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },

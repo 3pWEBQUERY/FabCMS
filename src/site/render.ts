@@ -28,6 +28,7 @@ import { sql } from '../server/db';
 import { runtimeVersion } from './assets';
 import { accountLink, gate } from './members';
 import { eventCards, eventTemplate, upcoming } from './events';
+import { propertyList, propertyTemplate } from './realestate';
 import { entryAccess, mayRead, type Access } from '../shared/members';
 
 export function createContext(input: {
@@ -245,6 +246,10 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     case 'projects':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
       main = await projectTemplate(ctx, c, e);
+      break;
+    case 'properties':
+      crumbs = [...listCrumb, { label: e.data.title, href: path }];
+      main = await propertyTemplate(ctx, c, e);
       break;
     case 'events':
     case 'courses':
@@ -487,6 +492,8 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
       .slice(0, 6)
       .map((i) => i.data.title)
       .join(', ')}.`;
+  } else if (c.id === 'properties') {
+    ({ main, description } = await propertyList(ctx, c));
   } else if (c.id === 'events' || c.id === 'courses') {
     const past = ctx.query.get('vergangen') === '1';
     const items = await upcoming(c.id, ctx.settings.timezone, { past, category: category || undefined, limit: 200 });

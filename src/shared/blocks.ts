@@ -650,6 +650,33 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'properties',
+    label: 'Immobilien',
+    description: 'Die neusten Objekte als Karten – mit Preis, Zimmern und Fläche.',
+    icon: 'home',
+    category: 'collections',
+    module: 'realestate',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+      {
+        key: 'offer',
+        type: 'select',
+        label: 'Welche?',
+        options: [
+          { value: '', label: 'Miete und Kauf' },
+          { value: 'rent', label: 'Nur Miete' },
+          { value: 'buy', label: 'Nur Kauf' },
+        ],
+        default: '',
+      },
+      { key: 'count', type: 'number', label: 'Wie viele?', min: 1, max: 12, default: 3 },
+    ],
+    defaults: { heading: 'Aktuelle Angebote', intro: '', offer: '', count: 3 },
+    text: (p) => sentences(p.heading, p.intro),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'membership',
     label: 'Mitgliedschaft',
     description: 'Was die Mitgliedschaft kostet und bringt – mit dem passenden nächsten Schritt.',

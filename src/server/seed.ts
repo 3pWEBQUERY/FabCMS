@@ -625,6 +625,82 @@ function nonprofit(): Seed {
   };
 }
 
+function realestate(): Seed {
+  return {
+    tagline: 'Vermietung, Verkauf und Bewirtschaftung',
+    footer: 'Wir vermieten und verkaufen Wohnungen und Häuser in der Region – persönlich und ohne Umwege.',
+    home: [
+      b('hero', { variant: 'statement', eyebrow: 'Immobilien', title: 'Ein Zuhause finden. Oder das eigene gut vermieten.', text: 'Wir kennen die Region, die Häuser und die Leute darin. Schauen Sie sich um – oder rufen Sie an.', primary: { label: 'Zu den Angeboten', href: '/immobilien' } }),
+      b('properties', { heading: 'Aktuelle Angebote', count: 3 }),
+      b('list', {
+        heading: 'Was wir für Sie tun',
+        style: 'columns',
+        items: [
+          { title: 'Vermietung', text: 'Inserat, Besichtigungen, Auswahl der Mieterschaft, Vertrag und Übergabe.', meta: '' },
+          { title: 'Verkauf', text: 'Bewertung, Dokumentation, Vermarktung und Begleitung bis zum Notar.', meta: '' },
+          { title: 'Bewirtschaftung', text: 'Nebenkosten, Unterhalt, Handwerker – wir kümmern uns.', meta: '' },
+        ],
+      }),
+      b('contact', { heading: 'So erreichen Sie uns', showHours: true }),
+    ],
+    pages: [contactPage('kontakt', 'Kontakt')],
+    nav: [
+      { id: shortId(), label: 'Angebote', href: '/immobilien' },
+      { id: shortId(), label: 'Kontakt', href: '/kontakt' },
+    ],
+    forms: [contactForm],
+    entries: [
+      {
+        collection: 'properties',
+        data: {
+          title: 'Helle 3½-Zimmer-Wohnung mit Balkon',
+          excerpt: 'Ruhig gelegen, 5 Minuten zum Bahnhof. Offene Küche, Parkett, eigener Waschturm.',
+          offer: 'rent',
+          kind: 'apartment',
+          status: 'available',
+          availableFrom: 'ab 1. Dezember oder nach Vereinbarung',
+          price: 245000,
+          extraCosts: 22000,
+          rooms: 3.5,
+          area: 86,
+          floor: '2. OG',
+          yearBuilt: 2014,
+          street: 'Lindenweg 12',
+          zip: '8400',
+          city: 'Winterthur',
+          showStreet: false,
+          features: ['balcony', 'lift', 'washer'],
+          blocks: [b('text', { heading: 'Die Wohnung', body: '<p>Beschreiben Sie hier Lage, Grundriss und das Quartier. Was würde Sie selbst überzeugen?</p>' })],
+        },
+      },
+      {
+        collection: 'properties',
+        data: {
+          title: 'Einfamilienhaus mit Garten',
+          excerpt: '5½ Zimmer, grosser Garten, Doppelgarage. Ideal für Familien.',
+          offer: 'buy',
+          kind: 'house',
+          status: 'available',
+          availableFrom: 'nach Vereinbarung',
+          price: 128000000,
+          rooms: 5.5,
+          area: 165,
+          plot: 620,
+          yearBuilt: 1998,
+          zip: '8472',
+          city: 'Seuzach',
+          features: ['garden', 'parking', 'fireplace', 'view'],
+          blocks: [],
+        },
+      },
+      {
+        collection: 'properties',
+        data: { title: 'Einstellhallenplatz', excerpt: 'Trocken, mit Steckdose für E-Auto.', offer: 'rent', kind: 'parking', status: 'reserved', price: 14000, zip: '8400', city: 'Winterthur', features: [], blocks: [] },
+      },
+    ],
+  };
+}
+
 function adult(): Seed {
   return {
     tagline: 'Diskret. Volljährig. Respektvoll.',
@@ -666,6 +742,7 @@ const SEEDS: Record<string, (name: string) => Seed> = {
   hotel,
   club,
   nonprofit,
+  realestate,
   adult,
 };
 
