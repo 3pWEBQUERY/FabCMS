@@ -4,6 +4,7 @@ import { api, qs } from '../lib/api';
 import { useApi, useDebounced, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
+import { t, tl } from '../lib/i18n';
 import { createAndOpen, entryUrl } from '../lib/actions';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confirm, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
@@ -35,35 +36,35 @@ export function ContentHub() {
   const mods = settings?.modules ?? [];
   const cols = (data?.collections ?? []).filter((c) => c.active && c.id !== 'pages');
   const extra = [
-    { to: '/medien', icon: 'image', name: 'Mediathek', sub: 'Bilder, Videos, Dokumente', show: can('media.upload') },
-    { to: '/formulare', icon: 'form', name: 'Formulare', sub: 'Felder und Einträge', show: can('forms.manage'), n: counts?.counts.unread },
-    { to: '/kontakte', icon: 'people', name: 'Kontakte', sub: 'Anfragen als Pipeline', show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },
-    { to: '/kueche', icon: 'dish', name: 'Küche', sub: 'Take-away und Lieferung, live', show: can('orders.manage') && mods.includes('ordering') },
+    { to: '/medien', icon: 'image', name: t('Mediathek'), sub: t('Bilder, Videos, Dokumente'), show: can('media.upload') },
+    { to: '/formulare', icon: 'form', name: t('Formulare'), sub: t('Felder und Einträge'), show: can('forms.manage'), n: counts?.counts.unread },
+    { to: '/kontakte', icon: 'people', name: t('Kontakte'), sub: t('Anfragen als Pipeline'), show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },
+    { to: '/kueche', icon: 'dish', name: t('Küche'), sub: t('Take-away und Lieferung, live'), show: can('orders.manage') && mods.includes('ordering') },
     {
       to: '/reservationen',
       icon: 'calendar',
-      name: 'Reservationen',
-      sub: 'Tagesplan, Anfragen, Telefonbuchungen',
+      name: t('Reservationen'),
+      sub: t('Tagesplan, Anfragen, Telefonbuchungen'),
       show: can('bookings.manage') && mods.includes('booking'),
       n: counts?.counts.pending_bookings,
     },
-    { to: '/newsletter', icon: 'mail', name: 'Newsletter', sub: 'Ausgaben, Abonnent:innen, Wochenrückblick', show: can('newsletter.manage') && mods.includes('newsletter') },
-    { to: '/mitglieder', icon: 'key', name: 'Mitglieder', sub: 'Konten, Mitgliedschaft, geschützte Inhalte', show: can('members.manage') && mods.includes('members') },
+    { to: '/newsletter', icon: 'mail', name: t('Newsletter'), sub: t('Ausgaben, Abonnent:innen, Wochenrückblick'), show: can('newsletter.manage') && mods.includes('newsletter') },
+    { to: '/mitglieder', icon: 'key', name: t('Mitglieder'), sub: t('Konten, Mitgliedschaft, geschützte Inhalte'), show: can('members.manage') && mods.includes('members') },
     {
       to: '/tickets',
       icon: 'ticket',
-      name: 'Tickets & Anmeldungen',
-      sub: 'Verkauf, Teilnehmerlisten, Einlass',
+      name: t('Tickets & Anmeldungen'),
+      sub: t('Verkauf, Teilnehmerlisten, Einlass'),
       show: can('events.manage') && (mods.includes('events') || mods.includes('courses')),
     },
-    { to: '/spenden', icon: 'star', name: 'Spenden', sub: 'Eingänge, Kampagnen, Bestätigungen', show: can('donations.manage') && mods.includes('donations') },
-    { to: '/bestellungen', icon: 'receipt', name: 'Bestellungen', sub: 'Shop-Bestellungen', show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
-    { to: '/gutscheine', icon: 'ticket', name: 'Gutscheine', sub: 'Rabattcodes', show: can('orders.manage') && mods.includes('shop') },
-    { to: '/kommentare', icon: 'chat', name: 'Kommentare', sub: 'Moderation', show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },
+    { to: '/spenden', icon: 'star', name: t('Spenden'), sub: t('Eingänge, Kampagnen, Bestätigungen'), show: can('donations.manage') && mods.includes('donations') },
+    { to: '/bestellungen', icon: 'receipt', name: t('Bestellungen'), sub: t('Shop-Bestellungen'), show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
+    { to: '/gutscheine', icon: 'ticket', name: t('Gutscheine'), sub: t('Rabattcodes'), show: can('orders.manage') && mods.includes('shop') },
+    { to: '/kommentare', icon: 'chat', name: t('Kommentare'), sub: t('Moderation'), show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },
   ].filter((x) => x.show);
   return (
     <div className="page">
-      <PageHead title="Inhalte" sub="Alles, was nicht eine einzelne Seite ist: Beiträge, Produkte, Gerichte, Formulare und mehr." />
+      <PageHead title={t('Inhalte')} sub={t('Alles, was nicht eine einzelne Seite ist: Beiträge, Produkte, Gerichte, Formulare und mehr.')} />
       {!data ? (
         <Skeleton lines={5} />
       ) : (
@@ -75,10 +76,10 @@ export function ContentHub() {
                   <Link to={`/inhalte/${c.id}`} className="list-item">
                     <Icon name={c.icon} className="faint" />
                     <div className="grow">
-                      <div className="title">{c.name}</div>
-                      <div className="xsmall muted">{c.count === 0 ? 'noch leer' : `${c.count} ${c.count === 1 ? c.singular : c.name}`}</div>
+                      <div className="title">{tl(c.name)}</div>
+                      <div className="xsmall muted">{c.count === 0 ? t('noch leer') : `${c.count} ${tl(c.count === 1 ? c.singular : c.name)}`}</div>
                     </div>
-                    {c.review > 0 && <span className="badge sel">{c.review} zur Freigabe</span>}
+                    {c.review > 0 && <span className="badge sel">{t('{n} zur Freigabe', { n: c.review })}</span>}
                     <Icon name="chevronRight" size="s" className="faint" />
                   </Link>
                 </li>
@@ -122,9 +123,9 @@ function cell(f: FieldDef, v: unknown) {
     case 'date':
       return formatDate(v as string);
     case 'boolean':
-      return v ? 'Ja' : 'Nein';
+      return v ? t('Ja') : t('Nein');
     case 'select':
-      return f.options?.find((o) => o.value === v)?.label ?? String(v);
+      return tl(f.options?.find((o) => o.value === v)?.label) || String(v);
     default:
       return String(v);
   }
@@ -141,16 +142,16 @@ function SortRow({ row, col, onOpen }: { row: Row; col: CollectionDef; onOpen: (
       style={{ listStyle: 'none' }}
       whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 5 }}
     >
-      <span className="grip" onPointerDown={(e) => controls.start(e)} aria-label="Ziehen zum Sortieren" role="button">
+      <span className="grip" onPointerDown={(e) => controls.start(e)} aria-label={t('Ziehen zum Sortieren')} role="button">
         <Icon name="grip" />
       </span>
       <button className="grow" style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, minWidth: 0 }} onClick={onOpen}>
-        <div className="title ellipsis">{row.title || '(ohne Titel)'}</div>
+        <div className="title ellipsis">{row.title || t('(ohne Titel)')}</div>
         <div className="xsmall muted ellipsis">
           {columnsFor(col)
             .map((f) =>
               row.fields[f.key] !== undefined && row.fields[f.key] !== null && row.fields[f.key] !== ''
-                ? `${f.label}: ${f.type === 'money' ? formatPrice(row.fields[f.key] as number) : String(row.fields[f.key])}`
+                ? `${tl(f.label)}: ${f.type === 'money' ? formatPrice(row.fields[f.key] as number) : String(row.fields[f.key])}`
                 : null,
             )
             .filter(Boolean)
@@ -189,7 +190,7 @@ export function CollectionList({ collection }: { collection: string }) {
     return list;
   }, [data, sort]);
 
-  if (!col) return <div className="page">{cols ? <Empty title="Diesen Inhaltstyp gibt es nicht." /> : <Skeleton />}</div>;
+  if (!col) return <div className="page">{cols ? <Empty title={t('Diesen Inhaltstyp gibt es nicht.')} /> : <Skeleton />}</div>;
   if (collection === 'dishes') return <MenuBoard col={col} />;
 
   const columns = columnsFor(col);
@@ -211,7 +212,7 @@ export function CollectionList({ collection }: { collection: string }) {
     }
   };
   const remove = async (r: Row) => {
-    if (!(await confirm({ title: `«${r.title}» löschen?`, confirm: 'Löschen', danger: true }))) return;
+    if (!(await confirm({ title: t('«{name}» löschen?', { name: r.title }), confirm: t('Löschen'), danger: true }))) return;
     await api.del(`/api/entries/${r.id}`);
     void reload();
   };
@@ -221,10 +222,10 @@ export function CollectionList({ collection }: { collection: string }) {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title={col.name}
+        title={tl(col.name)}
         actions={
           <>
             {pro && (
@@ -235,7 +236,7 @@ export function CollectionList({ collection }: { collection: string }) {
             {(can('content.edit') || (collection === 'posts' && can('content.edit.own'))) && (
               <button className="btn primary" onClick={() => void createAndOpen(collection).catch((e) => toast(e.message, { kind: 'bad' }))}>
                 <Icon name="plus" size="s" />
-                {col.singular} anlegen
+                {t('{name} anlegen', { name: tl(col.singular) })}
               </button>
             )}
           </>
@@ -244,29 +245,29 @@ export function CollectionList({ collection }: { collection: string }) {
       <div className="toolbar">
         <div className="search">
           <Icon name="search" />
-          <input className="input" placeholder={`${col.name} durchsuchen`} value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input" placeholder={t('{name} durchsuchen', { name: tl(col.name) })} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select
           inline
-          label="Status"
+          label={t('Status')}
           value={status}
           onChange={setStatus}
           options={[
-            { value: '', label: 'Alle' },
-            { value: 'published', label: 'Online' },
-            { value: 'draft', label: 'Entwürfe' },
-            { value: 'review', label: 'Zur Freigabe' },
-            { value: 'scheduled', label: 'Geplant' },
+            { value: '', label: t('Alle') },
+            { value: 'published', label: t('Online') },
+            { value: 'draft', label: t('Entwürfe') },
+            { value: 'review', label: t('Zur Freigabe') },
+            { value: 'scheduled', label: t('Geplant') },
           ]}
         />
         {sortable && (
           <Segmented
-            label="Ansicht"
+            label={t('Ansicht')}
             value={view}
             onChange={setView}
             options={[
-              { value: 'table', label: 'Tabelle', icon: 'nav' },
-              { value: 'order', label: 'Reihenfolge', icon: 'grip' },
+              { value: 'table', label: t('Tabelle'), icon: 'nav' },
+              { value: 'order', label: t('Reihenfolge'), icon: 'grip' },
             ]}
           />
         )}
@@ -276,17 +277,17 @@ export function CollectionList({ collection }: { collection: string }) {
           <Skeleton lines={5} />
         ) : rows.length === 0 ? (
           <Empty
-            title={q || status ? 'Nichts gefunden' : `Noch keine ${col.name}`}
+            title={q || status ? t('Nichts gefunden') : t('Noch keine {name}', { name: tl(col.name) })}
             action={
               !q &&
               !status && (
                 <button className="btn primary" onClick={() => void createAndOpen(collection)}>
-                  {col.singular} anlegen
+                  {t('{name} anlegen', { name: tl(col.singular) })}
                 </button>
               )
             }
           >
-            {!q && !status ? col.empty_hint : 'Versuch einen anderen Suchbegriff oder Filter.'}
+            {!q && !status ? tl(col.empty_hint) : t('Versuch einen anderen Suchbegriff oder Filter.')}
           </Empty>
         ) : view === 'order' && sortable ? (
           <Reorder.Group axis="y" values={ordered} onReorder={saveOrder} className="list">
@@ -299,11 +300,11 @@ export function CollectionList({ collection }: { collection: string }) {
             <table className="table">
               <thead>
                 <tr>
-                  {th('title', col.fields.find((f) => f.key === col.title_field)?.label ?? 'Titel')}
-                  {columns.map((f) => th(f.key, f.label))}
-                  <th>Status</th>
-                  {th('updated', 'Geändert')}
-                  <th aria-label="Aktionen" />
+                  {th('title', tl(col.fields.find((f) => f.key === col.title_field)?.label) || t('Titel'))}
+                  {columns.map((f) => th(f.key, tl(f.label)))}
+                  <th>{t('Status')}</th>
+                  {th('updated', t('Geändert'))}
+                  <th aria-label={t('Aktionen')} />
                 </tr>
               </thead>
               <tbody>
@@ -325,13 +326,13 @@ export function CollectionList({ collection }: { collection: string }) {
                     <td className="right" onClick={(e) => e.stopPropagation()}>
                       <Menu
                         trigger={
-                          <button className="btn ghost s icon-only" aria-label="Aktionen">
+                          <button className="btn ghost s icon-only" aria-label={t('Aktionen')}>
                             <Icon name="more" />
                           </button>
                         }
                         items={[
-                          { label: 'Duplizieren', icon: 'copy', onSelect: () => void api.post(`/api/entries/${r.id}/duplicate`).then(reload) },
-                          { label: 'Löschen', icon: 'trash', danger: true, onSelect: () => void remove(r), hidden: !can('content.delete') },
+                          { label: t('Duplizieren'), icon: 'copy', onSelect: () => void api.post(`/api/entries/${r.id}/duplicate`).then(reload) },
+                          { label: t('Löschen'), icon: 'trash', danger: true, onSelect: () => void remove(r), hidden: !can('content.delete') },
                         ]}
                       />
                     </td>
@@ -345,8 +346,8 @@ export function CollectionList({ collection }: { collection: string }) {
       <Dialog
         open={apiOpen}
         onOpenChange={setApiOpen}
-        title={`${col.name} über die API`}
-        description="Veröffentlichte Inhalte sind ohne Token lesbar. Für Entwürfe und Änderungen brauchst du ein Token (Einstellungen → API & Webhooks)."
+        title={t('{name} über die API', { name: tl(col.name) })}
+        description={t('Veröffentlichte Inhalte sind ohne Token lesbar. Für Entwürfe und Änderungen brauchst du ein Token (Einstellungen → API & Webhooks).')}
         wide
       >
         <div className="stack">
@@ -384,7 +385,7 @@ function MenuBoard({ col }: { col: Col }) {
   const groups = useMemo(() => {
     const m = new Map<string, Row[]>();
     for (const r of data?.entries ?? []) {
-      const c = String(r.fields.category || 'Ohne Kategorie');
+      const c = String(r.fields.category || '');
       if (!m.has(c)) m.set(c, []);
       m.get(c)!.push(r);
     }
@@ -399,11 +400,11 @@ function MenuBoard({ col }: { col: Col }) {
       toast(
         key === 'daily'
           ? value
-            ? `«${r.title}» ist auf der Tageskarte.`
-            : `«${r.title}» ist nicht mehr auf der Tageskarte.`
+            ? t('«{name}» ist auf der Tageskarte.', { name: r.title })
+            : t('«{name}» ist nicht mehr auf der Tageskarte.', { name: r.title })
           : value
-            ? `«${r.title}» als ausverkauft markiert.`
-            : `«${r.title}» ist wieder da.`,
+            ? t('«{name}» als ausverkauft markiert.', { name: r.title })
+            : t('«{name}» ist wieder da.', { name: r.title }),
       );
       void reload();
     } catch (e) {
@@ -417,21 +418,21 @@ function MenuBoard({ col }: { col: Col }) {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Speisekarte"
-        sub="Tageskarte und «ausverkauft» schaltest du hier mit einem Tipp – auch vom Handy. Änderungen sind sofort online."
+        title={t('Speisekarte')}
+        sub={t('Tageskarte und «ausverkauft» schaltest du hier mit einem Tipp – auch vom Handy. Änderungen sind sofort online.')}
         actions={
           <>
             <a className="btn" href="/karte/druck" target="_blank" rel="noreferrer">
-              <Icon name="download" size="s" /> Druckversion / PDF
+              <Icon name="download" size="s" /> {t('Druckversion / PDF')}
             </a>
             <button className="btn" onClick={() => setQr(true)}>
-              <Icon name="qr" size="s" /> QR-Code für Tische
+              <Icon name="qr" size="s" /> {t('QR-Code für Tische')}
             </button>
             <button className="btn primary" onClick={() => void createAndOpen('dishes')}>
-              <Icon name="plus" size="s" /> Gericht
+              <Icon name="plus" size="s" /> {t('Gericht')}
             </button>
           </>
         }
@@ -441,12 +442,12 @@ function MenuBoard({ col }: { col: Col }) {
       ) : !data.entries.length ? (
         <section className="card">
           <Empty
-            title="Füge dein erstes Gericht hinzu"
+            title={t('Füge dein erstes Gericht hinzu')}
             example={
               <>
-                <strong>Älplermagronen mit Apfelmus</strong> · Hauptgang · 26.–
+                <strong>Älplermagronen mit Apfelmus</strong> · {t('Hauptgang')} · 26.–
                 <br />
-                Allergene: Gluten, Milch, Ei · vegetarisch
+                {t('Allergene: Gluten, Milch, Ei · vegetarisch')}
               </>
             }
             action={
@@ -462,11 +463,11 @@ function MenuBoard({ col }: { col: Col }) {
                   })
                 }
               >
-                Beispiel übernehmen
+                {t('Beispiel übernehmen')}
               </button>
             }
           >
-            {col.empty_hint}
+            {tl(col.empty_hint)}
           </Empty>
         </section>
       ) : (
@@ -474,8 +475,8 @@ function MenuBoard({ col }: { col: Col }) {
           {groups.map(([cat, rows]) => (
             <section key={cat} className="card">
               <div className="card-head">
-                <h2>{cat}</h2>
-                <span className="xsmall muted">Tageskarte · Ausverkauft</span>
+                <h2>{cat || t('Ohne Kategorie')}</h2>
+                <span className="xsmall muted">{t('Tageskarte · Ausverkauft')}</span>
               </div>
               <ul className="list">
                 {rows.map((r) => (
@@ -486,11 +487,11 @@ function MenuBoard({ col }: { col: Col }) {
                       </div>
                       <div className="xsmall muted num">
                         {((r.fields.prices as { label?: string; price: number }[]) ?? []).map((p) => `${p.label ? `${p.label} ` : ''}${formatPrice(p.price)}`).join(' · ')}
-                        {r.status !== 'published' && ' · Entwurf'}
+                        {r.status !== 'published' && ` · ${t('Entwurf')}`}
                       </div>
                     </Link>
-                    <Switch label={`${r.title} auf der Tageskarte`} checked={Boolean(r.fields.daily)} onChange={(v) => void toggle(r, 'daily', v)} />
-                    <Switch label={`${r.title} ausverkauft`} checked={Boolean(r.fields.soldOut)} onChange={(v) => void toggle(r, 'soldOut', v)} />
+                    <Switch label={t('{name} auf der Tageskarte', { name: r.title })} checked={Boolean(r.fields.daily)} onChange={(v) => void toggle(r, 'daily', v)} />
+                    <Switch label={t('{name} ausverkauft', { name: r.title })} checked={Boolean(r.fields.soldOut)} onChange={(v) => void toggle(r, 'soldOut', v)} />
                   </li>
                 ))}
               </ul>
@@ -498,12 +499,12 @@ function MenuBoard({ col }: { col: Col }) {
           ))}
         </div>
       )}
-      <Dialog open={qr} onOpenChange={setQr} title="QR-Code für die Tische" description="Drucken und auf die Tische stellen. Er führt direkt zur Karte.">
+      <Dialog open={qr} onOpenChange={setQr} title={t('QR-Code für die Tische')} description={t('Drucken und auf die Tische stellen. Er führt direkt zur Karte.')}>
         <div className="stack" style={{ justifyItems: 'center' }}>
-          <img className="qr" src={`/api/qr?url=${encodeURIComponent(`${base}/karte`)}`} alt={`QR-Code zu ${base}/karte`} />
+          <img className="qr" src={`/api/qr?url=${encodeURIComponent(`${base}/karte`)}`} alt={t('QR-Code zu {url}', { url: `${base}/karte` })} />
           <span className="mono small">{base.replace(/^https?:\/\//, '')}/karte</span>
           <a className="btn" href={`/api/qr?url=${encodeURIComponent(`${base}/karte`)}&download=1`} download="karte-qr.svg">
-            <Icon name="download" size="s" /> Als SVG herunterladen
+            <Icon name="download" size="s" /> {t('Als SVG herunterladen')}
           </a>
         </div>
       </Dialog>

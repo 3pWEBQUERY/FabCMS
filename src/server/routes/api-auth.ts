@@ -23,7 +23,7 @@ import { env } from '../env';
 import { ROLE_CAPS, type Capability } from '../../shared/roles';
 import type { Role, User } from '../../shared/types';
 
-const PUBLIC_USER = sql`id, email, name, role, mode, totp_enabled, sessions_count, seen_hints, created_at, last_login_at`;
+const PUBLIC_USER = sql`id, email, name, role, mode, ui_lang, totp_enabled, sessions_count, seen_hints, created_at, last_login_at`;
 
 const password = z.string().min(10, 'Das Passwort braucht mindestens 10 Zeichen.').max(200);
 
@@ -167,12 +167,14 @@ export function authApi(app: Hono<AppEnv>) {
         name: z.string().trim().min(1).max(80).optional(),
         mode: z.enum(['studio', 'werkbank']).optional(),
         seenHint: z.string().max(60).optional(),
+        uiLang: z.enum(['', 'de', 'fr', 'it', 'en']).optional(),
         currentPassword: z.string().optional(),
         newPassword: password.optional(),
       })
       .parse(await c.req.json());
     if (body.mode && !user.allowed_modes.includes(body.mode)) throw forbidden('Deine Rolle hat keinen Zugang zur Werkbank.');
     if (body.name) await sql`update users set name = ${body.name} where id = ${user.id}`;
+    if (body.uiLang !== undefined) await sql`update users set ui_lang = ${body.uiLang} where id = ${user.id}`;
     if (body.mode) await sql`update users set mode = ${body.mode} where id = ${user.id}`;
     if (body.seenHint) await sql`update users set seen_hints = array_append(seen_hints, ${body.seenHint}) where id = ${user.id} and not (${body.seenHint} = any(seen_hints))`;
     if (body.newPassword) {

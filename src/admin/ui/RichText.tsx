@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons';
+import { t } from '../lib/i18n';
 import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 
 /**
@@ -60,8 +61,8 @@ export function RichText({ value, onChange, id, minHeight = 7 }: { value: string
           <input
             autoFocus
             value={href}
-            placeholder="/kontakt oder https://…"
-            aria-label="Link-Adresse"
+            placeholder={t('/kontakt oder https://…')}
+            aria-label={t('Link-Adresse')}
             onChange={(e) => setHref(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -78,36 +79,36 @@ export function RichText({ value, onChange, id, minHeight = 7 }: { value: string
             OK
           </button>
           <button type="button" className="rte-txt" onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink('remove')}>
-            Entfernen
+            {t('Entfernen')}
           </button>
-          <button type="button" aria-label="Abbrechen" onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink(null)}>
+          <button type="button" aria-label={t('Abbrechen')} onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink(null)}>
             <Icon name="x" size="s" />
           </button>
         </div>
       ) : (
-      <div className="rte-bar" role="toolbar" aria-label="Formatierung">
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('bold')} aria-label="Fett">
-          <strong>F</strong>
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('italic')} aria-label="Kursiv">
-          <em>K</em>
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h2')} aria-label="Zwischentitel">
-          H2
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h3')} aria-label="Kleiner Zwischentitel">
-          H3
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'p')} aria-label="Absatz">
-          ¶
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('insertUnorderedList')} aria-label="Liste">
-          <Icon name="nav" size="s" />
-        </button>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={link} aria-label="Link">
-          <Icon name="link" size="s" />
-        </button>
-      </div>
+        <div className="rte-bar" role="toolbar" aria-label={t('Formatierung')}>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('bold')} aria-label={t('Fett')}>
+            <strong>{t('F')}</strong>
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('italic')} aria-label={t('Kursiv')}>
+            <em>{t('K')}</em>
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h2')} aria-label={t('Zwischentitel')}>
+            H2
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h3')} aria-label={t('Kleiner Zwischentitel')}>
+            H3
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'p')} aria-label={t('Absatz')}>
+            ¶
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('insertUnorderedList')} aria-label={t('Liste')}>
+            <Icon name="nav" size="s" />
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={link} aria-label={t('Link')}>
+            <Icon name="link" size="s" />
+          </button>
+        </div>
       )}
       <div
         ref={ref}

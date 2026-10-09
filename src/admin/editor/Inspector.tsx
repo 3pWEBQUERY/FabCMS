@@ -2,28 +2,30 @@ import { useEffect, useState } from 'react';
 import { BLOCK_MAP } from '../../shared/blocks';
 import type { Block, BlockLock, BlockStyle, Breakpoint } from '../../shared/types';
 import { useSession } from '../lib/session';
+import { t, tl } from '../lib/i18n';
 import { FieldList } from '../ui/FieldInput';
 import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 
-const TONES: { value: NonNullable<BlockStyle['tone']>; label: string }[] = [
-  { value: 'default', label: 'Normal' },
-  { value: 'muted', label: 'Leicht abgesetzt' },
-  { value: 'accent', label: 'Akzentfarbe' },
-  { value: 'inverse', label: 'Dunkel' },
+const tones = (): { value: NonNullable<BlockStyle['tone']>; label: string }[] => [
+  { value: 'default', label: t('Normal') },
+  { value: 'muted', label: t('Leicht abgesetzt') },
+  { value: 'accent', label: t('Akzentfarbe') },
+  { value: 'inverse', label: t('Dunkel') },
 ];
-const SPACING = [
-  { value: 'none', label: 'Keiner' },
-  { value: 's', label: 'Klein' },
-  { value: 'm', label: 'Mittel' },
-  { value: 'l', label: 'Gross' },
-] as const;
+const spacing = () =>
+  [
+    { value: 'none', label: t('Keiner') },
+    { value: 's', label: t('Klein') },
+    { value: 'm', label: t('Mittel') },
+    { value: 'l', label: t('Gross') },
+  ] as const;
 
 export function Inspector({ block, onChange }: { block: Block; onChange: (b: Block) => void }) {
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
   const [tab, setTab] = useState<'content' | 'style' | 'code'>('content');
-  const lock = pro ? 'none' : block.lock ?? 'none';
+  const lock = pro ? 'none' : (block.lock ?? 'none');
   useEffect(() => {
     if (!pro && tab === 'code') setTab('content');
   }, [pro, tab]);
@@ -37,26 +39,26 @@ export function Inspector({ block, onChange }: { block: Block; onChange: (b: Blo
     return (
       <div className="hint" style={{ background: 'var(--sunken)' }}>
         <Icon name="lock" />
-        <span>Dieser Block ist gesperrt, damit das Layout stimmt. Frag die Person, die die Website eingerichtet hat.</span>
+        <span>{t('Dieser Block ist gesperrt, damit das Layout stimmt. Frag die Person, die die Website eingerichtet hat.')}</span>
       </div>
     );
 
   return (
     <div className="stack">
-      <p className="small muted">{def.description}</p>
+      <p className="small muted">{tl(def.description)}</p>
       <Segmented
-        label="Bereich"
+        label={t('Bereich')}
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'content', label: 'Inhalt' },
-          ...(lock === 'none' ? [{ value: 'style' as const, label: 'Darstellung' }] : []),
-          ...(pro ? [{ value: 'code' as const, label: 'Code' }] : []),
+          { value: 'content', label: t('Inhalt') },
+          ...(lock === 'none' ? [{ value: 'style' as const, label: t('Darstellung') }] : []),
+          ...(pro ? [{ value: 'code' as const, label: t('Code') }] : []),
         ]}
       />
       {lock === 'layout' && (
         <p className="xsmall muted row">
-          <Icon name="lock" size="s" /> Layout gesperrt – du kannst die Texte ändern.
+          <Icon name="lock" size="s" /> {t('Layout gesperrt – du kannst die Texte ändern.')}
         </p>
       )}
       {tab === 'content' && (
@@ -66,58 +68,64 @@ export function Inspector({ block, onChange }: { block: Block; onChange: (b: Blo
       )}
       {tab === 'style' && (
         <div className="stack">
-          <Field label="Hintergrund">
+          <Field label={t('Hintergrund')}>
             <div className="chips">
-              {TONES.map((t) => (
-                <button key={t.value} type="button" className="chip" aria-pressed={(style.tone ?? 'default') === t.value} onClick={() => setStyle({ tone: t.value })}>
-                  {t.label}
+              {tones().map((o) => (
+                <button key={o.value} type="button" className="chip" aria-pressed={(style.tone ?? 'default') === o.value} onClick={() => setStyle({ tone: o.value })}>
+                  {o.label}
                 </button>
               ))}
             </div>
           </Field>
-          <Field label="Abstand oben und unten">
+          <Field label={t('Abstand oben und unten')}>
             <div className="chips">
-              {SPACING.map((s) => (
+              {spacing().map((s) => (
                 <button key={s.value} type="button" className="chip" aria-pressed={(style.spacing ?? 'm') === s.value} onClick={() => setStyle({ spacing: s.value })}>
                   {s.label}
                 </button>
               ))}
             </div>
           </Field>
-          <Field label="Abstand auf dem Handy" help="Überschreibt den Abstand nur auf schmalen Bildschirmen.">
+          <Field label={t('Abstand auf dem Handy')} help={t('Überschreibt den Abstand nur auf schmalen Bildschirmen.')}>
             <div className="chips">
               <button type="button" className="chip" aria-pressed={!style.spacingMobile} onClick={() => setStyle({ spacingMobile: undefined })}>
-                Wie oben
+                {t('Wie oben')}
               </button>
-              {SPACING.map((s) => (
+              {spacing().map((s) => (
                 <button key={s.value} type="button" className="chip" aria-pressed={style.spacingMobile === s.value} onClick={() => setStyle({ spacingMobile: s.value })}>
                   {s.label}
                 </button>
               ))}
             </div>
           </Field>
-          <Field label="Ausblenden auf">
+          <Field label={t('Ausblenden auf')}>
             <div className="chips">
               {(
                 [
-                  ['mobile', 'Handy'],
-                  ['tablet', 'Tablet'],
-                  ['desktop', 'Computer'],
+                  ['mobile', t('Handy')],
+                  ['tablet', t('Tablet')],
+                  ['desktop', t('Computer')],
                 ] as [Breakpoint, string][]
               ).map(([bp, label]) => {
                 const on = (style.hideOn ?? []).includes(bp);
                 return (
-                  <button key={bp} type="button" className="chip" aria-pressed={on} onClick={() => setStyle({ hideOn: on ? (style.hideOn ?? []).filter((x) => x !== bp) : [...(style.hideOn ?? []), bp] })}>
+                  <button
+                    key={bp}
+                    type="button"
+                    className="chip"
+                    aria-pressed={on}
+                    onClick={() => setStyle({ hideOn: on ? (style.hideOn ?? []).filter((x) => x !== bp) : [...(style.hideOn ?? []), bp] })}
+                  >
                     {label}
                   </button>
                 );
               })}
             </div>
           </Field>
-          <Field label="Sprungmarke" help="Damit Links wie /#preise direkt hierher springen.">
+          <Field label={t('Sprungmarke')} help={t('Damit Links wie /#preise direkt hierher springen.')}>
             <div className="input-affix">
               <span>#</span>
-              <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder="preise" />
+              <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder={t('preise')} />
             </div>
           </Field>
         </div>
@@ -156,20 +164,30 @@ function CodeTab({ block, onChange }: { block: Block; onChange: (b: Block) => vo
           }}
         />
       </Field>
-      <Field label="CSS-Klassen" keyName="style.className">
+      <Field label={t('CSS-Klassen')} keyName="style.className">
         <input className="input mono" value={style.className ?? ''} onChange={(e) => onChange({ ...block, style: { ...style, className: e.target.value } })} />
       </Field>
-      <Field label="CSS für diesen Block" keyName="style.css" help="Regeln gelten nur innerhalb des Blocks. «&» steht für den Block selbst, z. B. «& h2 { letter-spacing: 0 }».">
-        <textarea className="textarea code" style={{ minHeight: '8rem' }} spellCheck={false} value={style.css ?? ''} onChange={(e) => onChange({ ...block, style: { ...style, css: e.target.value } })} />
+      <Field
+        label={t('CSS für diesen Block')}
+        keyName="style.css"
+        help={t('Regeln gelten nur innerhalb des Blocks. «&» steht für den Block selbst, z. B. {example}.', { example: '«& h2 { letter-spacing: 0 }»' })}
+      >
+        <textarea
+          className="textarea code"
+          style={{ minHeight: '8rem' }}
+          spellCheck={false}
+          value={style.css ?? ''}
+          onChange={(e) => onChange({ ...block, style: { ...style, css: e.target.value } })}
+        />
       </Field>
-      <Field label="Schutzzone im Studio" keyName="lock" help="Legt fest, was Personen im Studio-Modus an diesem Block ändern dürfen.">
+      <Field label={t('Schutzzone im Studio')} keyName="lock" help={t('Legt fest, was Personen im Studio-Modus an diesem Block ändern dürfen.')}>
         <Select
           value={block.lock ?? 'none'}
           onChange={(v) => onChange({ ...block, lock: v as BlockLock })}
           options={[
-            { value: 'none', label: 'Alles frei' },
-            { value: 'layout', label: 'Layout fix, Text frei' },
-            { value: 'all', label: 'Komplett gesperrt' },
+            { value: 'none', label: t('Alles frei') },
+            { value: 'layout', label: t('Layout fix, Text frei') },
+            { value: 'all', label: t('Komplett gesperrt') },
           ]}
         />
       </Field>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useEntryDoc } from '../lib/useEntryDoc';
 import { useSession } from '../lib/session';
+import { t, tl } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
@@ -27,15 +28,16 @@ type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
 const DEVICE_WIDTH: Record<Device, string> = { desktop: '100%', tablet: '834px', mobile: '390px' };
-const PANEL_TITLE: Record<Exclude<Panel, null>, string> = {
-  inspector: 'Block',
-  seo: 'Suchmaschinen',
-  history: 'Verlauf',
-  page: 'Seite',
-  structure: 'Aufbau',
-  header: 'Kopfzeile & Menü',
-  footer: 'Fusszeile',
-};
+const panelTitle = (p: Exclude<Panel, null>): string =>
+  ({
+    inspector: t('Block'),
+    seo: t('Suchmaschinen'),
+    history: t('Verlauf'),
+    page: t('Seite'),
+    structure: t('Aufbau'),
+    header: t('Kopfzeile & Menü'),
+    footer: t('Fusszeile'),
+  })[p];
 
 /** One editor per language: switching language mounts a fresh one (own history, own canvas). */
 export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () => void }) {
@@ -93,7 +95,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     pendingBlock.current = setTimeout(() => void renderBlock(blockId).catch(() => {}), 220);
   };
 
-  const numbered = session.bundle?.themes.find((t) => t.id === session.settings?.theme.id)?.numbered ?? false;
+  const numbered = session.bundle?.themes.find((th) => th.id === session.settings?.theme.id)?.numbered ?? false;
   const afterStructureChange = () => {
     // Themes with section numbers («01») need the whole page re-rendered.
     if (numbered) setTimeout(() => void renderAll().catch(() => {}), 350);
@@ -210,13 +212,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const removeBlock = async (blockId: string) => {
     const b = blocksRef.current.find((x) => x.id === blockId);
     if (!b) return;
-    if (studio && b.lock && b.lock !== 'none') return toast('Dieser Block ist geschützt und lässt sich im Studio nicht entfernen.');
+    if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht entfernen.'));
     doc.setData((d) => ({ ...d, blocks: (d.blocks ?? []).filter((x) => x.id !== blockId) }));
     postToCanvas(frame.current, { t: 'remove', id: blockId });
     setSelected(null);
     setRect(null);
     if (panel === 'inspector') setPanel(null);
-    toast(`«${BLOCK_MAP[b.type]?.label}» entfernt.`, { action: { label: 'Rückgängig', run: () => doc.undo() } });
+    toast(t('«{name}» entfernt.', { name: tl(BLOCK_MAP[b.type]?.label) }), { action: { label: t('Rückgängig'), run: () => doc.undo() } });
     afterStructureChange();
   };
 
@@ -302,8 +304,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   };
   useEffect(() => {
     if (!hint) return;
-    const t = setTimeout(dismissHint, 9000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(dismissHint, 9000);
+    return () => clearTimeout(timer);
   });
 
   /* ---------- toolbar position ---------- */
@@ -327,8 +329,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   return (
     <div className="editor">
       <header className="editor-bar">
-        <Tip label="Zurück">
-          <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label="Zurück">
+        <Tip label={t('Zurück')}>
+          <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label={t('Zurück')}>
             <Icon name="arrowLeft" />
           </button>
         </Tip>
@@ -342,36 +344,36 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
         />
         <div className="row hide-m" style={{ gap: 2 }}>
-          <Tip label="Rückgängig" keys={`${modKey} Z`}>
-            <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label="Rückgängig">
+          <Tip label={t('Rückgängig')} keys={`${modKey} Z`}>
+            <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('Rückgängig')}>
               <Icon name="undo" />
             </button>
           </Tip>
-          <Tip label="Wiederholen" keys={`${modKey} ⇧ Z`}>
-            <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label="Wiederholen">
+          <Tip label={t('Wiederholen')} keys={`${modKey} ⇧ Z`}>
+            <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('Wiederholen')}>
               <Icon name="redo" />
             </button>
           </Tip>
         </div>
         <div className="hide-m">
           <Segmented
-            label="Vorschau-Grösse"
+            label={t('Vorschau-Grösse')}
             value={device}
             onChange={setDevice}
             options={[
-              { value: 'desktop', label: '', icon: 'desktop', title: 'Computer' },
-              { value: 'tablet', label: '', icon: 'tablet', title: 'Tablet' },
-              { value: 'mobile', label: '', icon: 'phone', title: 'Handy' },
+              { value: 'desktop', label: '', icon: 'desktop', title: t('Computer') },
+              { value: 'tablet', label: '', icon: 'tablet', title: t('Tablet') },
+              { value: 'mobile', label: '', icon: 'phone', title: t('Handy') },
             ]}
           />
         </div>
         <div className="row" style={{ gap: 2 }}>
           {(
             [
-              ['page', 'page', 'Seite'],
-              ['structure', 'layers', 'Aufbau'],
-              ['seo', 'seo', 'Suchmaschinen'],
-              ['history', 'history', 'Verlauf'],
+              ['page', 'page', t('Seite')],
+              ['structure', 'layers', t('Aufbau')],
+              ['seo', 'seo', t('Suchmaschinen')],
+              ['history', 'history', t('Verlauf')],
             ] as [Panel, string, string][]
           )
             .filter(([p]) => !(lang && p === 'history'))
@@ -402,7 +404,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             animate={glide}
             style={{ width: DEVICE_WIDTH[device], position: 'relative', transition: 'width .32s cubic-bezier(.2,.7,.2,1)', maxWidth: '100%' }}
           >
-            <LoadingFrame key={canvasKey} frameRef={frame} title="Seite bearbeiten" src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label="Seite lädt …" />
+            <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
             <div className="canvas-overlay">
               <AnimatePresence>
                 {selectedBlock && toolbarPos && !picker && (
@@ -415,37 +417,42 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                     transition={{ type: 'spring', stiffness: 700, damping: 45 }}
                     style={{ top: toolbarPos.top, left: toolbarPos.left }}
                     role="toolbar"
-                    aria-label={`${BLOCK_MAP[selectedBlock.type]?.label} bearbeiten`}
+                    aria-label={t('{name} bearbeiten', { name: tl(BLOCK_MAP[selectedBlock.type]?.label) })}
                   >
                     <span className="name">
                       {lock !== 'none' && <Icon name="lock" size="s" style={{ marginRight: 4, verticalAlign: '-3px' }} />}
-                      {BLOCK_MAP[selectedBlock.type]?.label}
+                      {tl(BLOCK_MAP[selectedBlock.type]?.label)}
                     </span>
                     <span className="sep" />
                     {lock !== 'all' && (
                       <button className="btn" onClick={() => setPanel('inspector')}>
-                        <Icon name="settings" size="s" /> Bearbeiten
+                        <Icon name="settings" size="s" /> {t('Bearbeiten')}
                       </button>
                     )}
                     {lock === 'none' && (
                       <>
-                        <Tip label="Nach oben">
-                          <button className="btn icon-only" disabled={index <= 0} onClick={() => moveBlock(selectedBlock.id, -1)} aria-label="Nach oben">
+                        <Tip label={t('Nach oben')}>
+                          <button className="btn icon-only" disabled={index <= 0} onClick={() => moveBlock(selectedBlock.id, -1)} aria-label={t('Nach oben')}>
                             <Icon name="arrowUp" size="s" />
                           </button>
                         </Tip>
-                        <Tip label="Nach unten">
-                          <button className="btn icon-only" disabled={index >= blocksRef.current.length - 1} onClick={() => moveBlock(selectedBlock.id, 1)} aria-label="Nach unten">
+                        <Tip label={t('Nach unten')}>
+                          <button
+                            className="btn icon-only"
+                            disabled={index >= blocksRef.current.length - 1}
+                            onClick={() => moveBlock(selectedBlock.id, 1)}
+                            aria-label={t('Nach unten')}
+                          >
                             <Icon name="arrowDown" size="s" />
                           </button>
                         </Tip>
-                        <Tip label="Duplizieren">
-                          <button className="btn icon-only" onClick={() => void duplicateBlock(selectedBlock.id)} aria-label="Duplizieren">
+                        <Tip label={t('Duplizieren')}>
+                          <button className="btn icon-only" onClick={() => void duplicateBlock(selectedBlock.id)} aria-label={t('Duplizieren')}>
                             <Icon name="copy" size="s" />
                           </button>
                         </Tip>
-                        <Tip label="Entfernen">
-                          <button className="btn icon-only" onClick={() => void removeBlock(selectedBlock.id)} aria-label="Entfernen">
+                        <Tip label={t('Entfernen')}>
+                          <button className="btn icon-only" onClick={() => void removeBlock(selectedBlock.id)} aria-label={t('Entfernen')}>
                             <Icon name="trash" size="s" />
                           </button>
                         </Tip>
@@ -498,9 +505,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                         transition={{ duration: 2.4, repeat: Infinity }}
                       />
                     </svg>
-                    <span>Klick in einen Text und schreib los. Mit «+» zwischen zwei Abschnitten fügst du neue hinzu.</span>
+                    <span>{t('Klick in einen Text und schreib los. Mit «+» zwischen zwei Abschnitten fügst du neue hinzu.')}</span>
                     <button className="btn s ghost" onClick={dismissHint}>
-                      Verstanden
+                      {t('Verstanden')}
                     </button>
                   </motion.div>
                 )}
@@ -513,21 +520,21 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           {panel && doc.data && (
             <motion.aside
               className="side-panel"
-              aria-label={PANEL_TITLE[panel]}
+              aria-label={panelTitle(panel)}
               initial={narrow ? { y: '100%' } : { x: 24, opacity: 0 }}
               animate={narrow ? { y: 0 } : { x: 0, opacity: 1 }}
               exit={narrow ? { y: '100%' } : { x: 24, opacity: 0, transition: { duration: 0.12 } }}
               transition={{ type: 'spring', stiffness: 520, damping: 44 }}
             >
               <header>
-                <h2>{panel === 'inspector' && selectedBlock ? BLOCK_MAP[selectedBlock.type]?.label : PANEL_TITLE[panel]}</h2>
-                <button className="btn ghost icon-only s" onClick={() => setPanel(null)} aria-label="Schliessen">
+                <h2>{panel === 'inspector' && selectedBlock ? tl(BLOCK_MAP[selectedBlock.type]?.label) : panelTitle(panel)}</h2>
+                <button className="btn ghost icon-only s" onClick={() => setPanel(null)} aria-label={t('Schliessen')}>
                   <Icon name="x" />
                 </button>
               </header>
               <div className="side-body">
                 {panel === 'inspector' && selectedBlock && <Inspector key={selectedBlock.id} block={selectedBlock} onChange={changeBlock} />}
-                {panel === 'inspector' && !selectedBlock && <p className="small muted">Wähl auf der Seite einen Block aus.</p>}
+                {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                 {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
                 {panel === 'page' && <PagePanel doc={doc} />}
                 {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
@@ -539,7 +546,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       style={{ justifySelf: 'start' }}
                       onClick={() => setPicker({ index: blocksRef.current.length, rect: { top: 80, left: 80, width: 1, height: 1 } })}
                     >
-                      <Icon name="plus" size="s" /> Block am Ende hinzufügen
+                      <Icon name="plus" size="s" /> {t('Block am Ende hinzufügen')}
                     </button>
                   </div>
                 )}

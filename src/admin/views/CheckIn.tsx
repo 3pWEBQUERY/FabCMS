@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { adminLocale, t } from '../lib/i18n';
 import { Link, usePath } from '../lib/router';
 import { Icon } from '../ui/icons';
 import { PageHead } from '../ui/kit';
@@ -101,40 +102,40 @@ export function CheckIn() {
         };
         void tick();
       } catch {
-        setCamError('Die Kamera lässt sich nicht öffnen. Erlaube den Zugriff im Browser oder gib den Code von Hand ein.');
+        setCamError(t('Die Kamera lässt sich nicht öffnen. Erlaube den Zugriff im Browser oder gib den Code von Hand ein.'));
         setCamera(false);
       }
     })();
     return () => {
       stopped = true;
       clearTimeout(timer);
-      stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((track) => track.stop());
     };
   }, [camera, check]);
 
-  const t = result ? TEXT[result.status] : null;
+  const shown = result ? TEXT[result.status] : null;
   const eventId = query.get('event') ?? result?.ticket?.entry_id ?? null;
   return (
     <div className="page">
       <PageHead
         back={
           <Link to={eventId ? `/tickets?event=${eventId}` : '/tickets'} className="crumb">
-            <Icon name="chevronLeft" size="s" /> Tickets
+            <Icon name="chevronLeft" size="s" /> {t('Tickets')}
           </Link>
         }
-        title="Einlass"
-        sub="QR-Code scannen oder den Code vom Ticket eintippen."
+        title={t('Einlass')}
+        sub={t('QR-Code scannen oder den Code vom Ticket eintippen.')}
       />
       <div className="door">
-        <div className={`door-result ${t?.tone ?? ''} ${result ? 'pop' : ''}`} key={result ? `${result.code}-${Date.now()}` : 'empty'} role="status" aria-live="assertive">
+        <div className={`door-result ${shown?.tone ?? ''} ${result ? 'pop' : ''}`} key={result ? `${result.code}-${Date.now()}` : 'empty'} role="status" aria-live="assertive">
           {!result ? (
-            <p className="muted">Bereit.</p>
+            <p className="muted">{t('Bereit.')}</p>
           ) : (
             <>
               <span className="door-icon" aria-hidden="true">
-                <Icon name={t!.icon} />
+                <Icon name={shown!.icon} />
               </span>
-              <h2>{t!.title}</h2>
+              <h2>{t(shown!.title)}</h2>
               {result.ticket && (
                 <>
                   <p style={{ fontSize: 'var(--t-l)', fontWeight: 600 }}>{result.ticket.name}</p>
@@ -142,16 +143,14 @@ export function CheckIn() {
                     {result.ticket.category} · {result.ticket.entry_title}
                   </p>
                   {result.status === 'already' && result.ticket.checked_in_at && (
-                    <p className="small">Eingelöst um {new Date(result.ticket.checked_in_at).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="small">
+                      {t('Eingelöst um {time}', { time: new Date(result.ticket.checked_in_at).toLocaleTimeString(adminLocale(), { hour: '2-digit', minute: '2-digit' }) })}
+                    </p>
                   )}
                 </>
               )}
               <p className="mono small faint">{result.code}</p>
-              {result.progress && (
-                <p className="small">
-                  {result.progress.checked} von {result.progress.total} eingecheckt
-                </p>
-              )}
+              {result.progress && <p className="small">{t('{checked} von {total} eingecheckt', { checked: result.progress.checked, total: result.progress.total })}</p>}
             </>
           )}
         </div>
@@ -173,23 +172,23 @@ export function CheckIn() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="ABCD-EFGH"
-            aria-label="Ticket-Code"
+            aria-label={t('Ticket-Code')}
             autoFocus
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
           />
           <button className="btn primary" disabled={busy || !code.trim()} data-busy={busy || undefined}>
-            Prüfen
+            {t('Prüfen')}
           </button>
         </form>
         {canScan ? (
           <button className="btn" onClick={() => setCamera((v) => !v)}>
-            <Icon name="qr" size="s" /> {camera ? 'Kamera aus' : 'Mit der Kamera scannen'}
+            <Icon name="qr" size="s" /> {camera ? t('Kamera aus') : t('Mit der Kamera scannen')}
           </button>
         ) : (
           <p className="small muted">
-            Tipp: Mit der normalen Kamera-App des Handys den QR-Code scannen – der Link öffnet diese Seite und prüft das Ticket gleich. (Angemeldet bleiben.)
+            {t('Tipp: Mit der normalen Kamera-App des Handys den QR-Code scannen – der Link öffnet diese Seite und prüft das Ticket gleich. (Angemeldet bleiben.)')}
           </p>
         )}
         {camError && <p className="small danger-text">{camError}</p>}

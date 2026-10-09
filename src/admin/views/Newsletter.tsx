@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { formatDate, useApi } from '../lib/hooks';
+import { adminLocale, t } from '../lib/i18n';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { Icon } from '../ui/icons';
@@ -56,7 +57,9 @@ const SUB_STATUS = {
   unsubscribed: { label: 'Abgemeldet', cls: 'muted' },
 } as const;
 const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString('de-CH')} ${n === 1 ? one : many}`;
+const num = (n: number) => n.toLocaleString(adminLocale());
+/** Fills {placeholders} in a translated sentence with elements. */
+const rich = (text: string, parts: Record<string, ReactNode>) => text.split(/\{(\w+)\}/).map((s, i) => (i % 2 ? <Fragment key={i}>{parts[s]}</Fragment> : s));
 
 export function Newsletter() {
   const { settings } = useSession();
@@ -64,7 +67,7 @@ export function Newsletter() {
   const overview = useApi<Overview>('/api/newsletter');
   const tab = (query.get('tab') ?? 'ausgaben') as 'ausgaben' | 'abonnenten' | 'automatik';
   const openId = query.get('id');
-  const setTab = (t: string) => navigate(`/newsletter?tab=${t}`, { replace: true });
+  const setTab = (v: string) => navigate(`/newsletter?tab=${v}`, { replace: true });
 
   if (openId) return <Compose id={openId === 'neu' ? null : openId} overview={overview.data} onChanged={() => void overview.reload()} />;
 
@@ -74,45 +77,57 @@ export function Newsletter() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
         title="Newsletter"
-        sub={d ? `${plural(d.counts.active, 'Abonnent:in', 'Abonnent:innen')}${d.counts.new30 ? ` · ${d.counts.new30} neu in den letzten 30 Tagen` : ''}` : undefined}
+        sub={
+          d
+            ? [
+                d.counts.active === 1 ? t('1 Abonnent:in') : t('{n} Abonnent:innen', { n: num(d.counts.active) }),
+                d.counts.new30 ? t('{n} neu in den letzten 30 Tagen', { n: num(d.counts.new30) }) : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : undefined
+        }
         actions={
           <button className="btn primary" onClick={() => navigate('/newsletter?id=neu')}>
-            <Icon name="plus" size="s" /> Neue Ausgabe
+            <Icon name="plus" size="s" /> {t('Neue Ausgabe')}
           </button>
         }
       />
       {settings && !settings.modules.includes('newsletter') && (
         <p className="hint" role="note" style={{ marginBottom: '1rem' }}>
           <span>
-            Das Modul ist noch aus. Schalte es unter <Link to="/einstellungen/module">Einstellungen → Module</Link> ein, damit der Block «Newsletter-Anmeldung» auf der Website
-            erscheint.
+            {rich(t('Das Modul ist noch aus. Schalte es unter {link} ein, damit der Block «Newsletter-Anmeldung» auf der Website erscheint.'), {
+              link: <Link to="/einstellungen/module">{t('Einstellungen → Module')}</Link>,
+            })}
           </span>
         </p>
       )}
       {d && !d.mail && (
         <p className="hint" role="note" style={{ marginBottom: '1rem' }}>
           <span>
-            Für den Versand fehlt noch ein E-Mail-Dienst. Trag in Railway <span className="mono">RESEND_API_KEY</span> (empfohlen) oder <span className="mono">SMTP_URL</span> ein.
-            Bis dahin kannst du Ausgaben vorbereiten.
+            {rich(t('Für den Versand fehlt noch ein E-Mail-Dienst. Trag in Railway {resend} (empfohlen) oder {smtp} ein. Bis dahin kannst du Ausgaben vorbereiten.'), {
+              resend: <span className="mono">RESEND_API_KEY</span>,
+              smtp: <span className="mono">SMTP_URL</span>,
+            })}
           </span>
         </p>
       )}
       <div className="toolbar">
         <Segmented
-          label="Bereich"
+          label={t('Bereich')}
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'ausgaben', label: 'Ausgaben' },
+            { value: 'ausgaben', label: t('Ausgaben') },
             {
               value: 'abonnenten',
-              label: d ? `Abonnent:innen ${d.counts.active}` : 'Abonnent:innen',
+              label: d ? `${t('Abonnent:innen')} ${d.counts.active}` : t('Abonnent:innen'),
             },
-            { value: 'automatik', label: 'Automatik' },
+            { value: 'automatik', label: t('Automatik') },
           ]}
         />
       </div>
@@ -136,14 +151,16 @@ function Issues({ issues }: { issues: Issue[] }) {
     return (
       <section className="card">
         <Empty
-          title="Noch keine Ausgabe"
+          title={t('Noch keine Ausgabe')}
           action={
             <button className="btn primary" onClick={() => navigate('/newsletter?id=neu')}>
-              Erste Ausgabe schreiben
+              {t('Erste Ausgabe schreiben')}
             </button>
           }
         >
-          Eine Ausgabe ist ein paar Sätze von dir und die Beiträge, auf die du hinweisen möchtest. Nova macht daraus eine E-Mail, die auf dem Handy und in Outlook gut aussieht.
+          {t(
+            'Eine Ausgabe ist ein paar Sätze von dir und die Beiträge, auf die du hinweisen möchtest. Nova macht daraus eine E-Mail, die auf dem Handy und in Outlook gut aussieht.',
+          )}
         </Empty>
       </section>
     );
@@ -153,10 +170,10 @@ function Issues({ issues }: { issues: Issue[] }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Betreff</th>
-              <th>Status</th>
-              <th>Datum</th>
-              <th className="right">Empfänger</th>
+              <th>{t('Betreff')}</th>
+              <th>{t('Status')}</th>
+              <th>{t('Datum')}</th>
+              <th className="right">{t('Empfänger')}</th>
             </tr>
           </thead>
           <tbody>
@@ -164,10 +181,10 @@ function Issues({ issues }: { issues: Issue[] }) {
               <tr key={n.id} className="clickable" onClick={() => navigate(`/newsletter?id=${n.id}`)}>
                 <td>
                   <span className="ellipsis">{n.subject}</span>
-                  {n.auto && <span className="xsmall faint"> · automatisch</span>}
+                  {n.auto && <span className="xsmall faint"> · {t('automatisch')}</span>}
                 </td>
                 <td>
-                  <span className={`badge ${ISSUE_STATUS[n.status].cls}`}>{ISSUE_STATUS[n.status].label}</span>
+                  <span className={`badge ${ISSUE_STATUS[n.status].cls}`}>{t(ISSUE_STATUS[n.status].label)}</span>
                 </td>
                 <td>{formatDate(n.sent_at ?? n.created_at, true)}</td>
                 <td className="right num">{n.status === 'sent' ? n.recipients : n.status === 'sending' ? n.done : '–'}</td>
@@ -210,15 +227,15 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
   // Follow a running send.
   useEffect(() => {
     if (issue?.status !== 'sending') return;
-    const t = setInterval(() => void loaded.reload(), 2000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => void loaded.reload(), 2000);
+    return () => clearInterval(timer);
   }, [issue?.status, loaded]);
   const wasSending = useRef(false);
   useEffect(() => {
     if (issue?.status === 'sending') wasSending.current = true;
     else if (issue?.status === 'sent' && wasSending.current) {
       wasSending.current = false;
-      toast(`Verschickt an ${plural(issue.recipients, 'Person', 'Personen')}.`);
+      toast(issue.recipients === 1 ? t('Verschickt an 1 Person.') : t('Verschickt an {n} Personen.', { n: num(issue.recipients) }));
       onChanged();
     }
   }, [issue?.status, issue?.recipients, toast, onChanged]);
@@ -226,7 +243,7 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
   // Live preview, a moment after typing stops.
   useEffect(() => {
     if (!draft) return;
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const r = await api.post<{ html: string }>('/api/newsletter/preview', draft);
         setPreview(r.html);
@@ -234,7 +251,7 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
         /* the form shows what is wrong on save */
       }
     }, 350);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [draft]);
 
   const dirty = editable && draft !== null && JSON.stringify(draft) !== saved;
@@ -267,7 +284,7 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
     setBusy('test');
     try {
       const r = await api.post<{ to: string }>(`/api/newsletter/issues/${at}/test`);
-      toast(`Test-E-Mail an ${r.to} verschickt.`);
+      toast(t('Test-E-Mail an {email} verschickt.', { email: r.to }));
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     } finally {
@@ -280,9 +297,9 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
     if (!at) return;
     if (
       !(await confirm({
-        title: `An ${plural(audience, 'Person', 'Personen')} verschicken?`,
-        message: 'Verschickte E-Mails lassen sich nicht zurückholen. Am besten schickst du dir vorher eine Test-E-Mail.',
-        confirm: 'Jetzt verschicken',
+        title: audience === 1 ? t('An 1 Person verschicken?') : t('An {n} Personen verschicken?', { n: num(audience) }),
+        message: t('Verschickte E-Mails lassen sich nicht zurückholen. Am besten schickst du dir vorher eine Test-E-Mail.'),
+        confirm: t('Jetzt verschicken'),
       }))
     )
       return;
@@ -301,8 +318,8 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
     if (
       !id ||
       !(await confirm({
-        title: 'Entwurf löschen?',
-        confirm: 'Löschen',
+        title: t('Entwurf löschen?'),
+        confirm: t('Löschen'),
         danger: true,
       }))
     )
@@ -334,30 +351,32 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
             <Icon name="chevronLeft" size="s" /> Newsletter
           </Link>
         }
-        title={issue ? issue.subject : 'Neue Ausgabe'}
+        title={issue ? issue.subject : t('Neue Ausgabe')}
         sub={
           issue?.status === 'sent'
-            ? `Verschickt am ${formatDate(issue.sent_at, true)} an ${plural(issue.recipients, 'Person', 'Personen')}`
+            ? issue.recipients === 1
+              ? t('Verschickt am {date} an 1 Person', { date: formatDate(issue.sent_at, true) })
+              : t('Verschickt am {date} an {n} Personen', { date: formatDate(issue.sent_at, true), n: num(issue.recipients) })
             : issue?.status === 'sending'
-              ? 'Wird gerade verschickt …'
-              : 'Ein paar Sätze von dir, dazu die Beiträge, auf die du hinweisen möchtest.'
+              ? t('Wird gerade verschickt …')
+              : t('Ein paar Sätze von dir, dazu die Beiträge, auf die du hinweisen möchtest.')
         }
         actions={
           editable && (
             <>
               {id && (
-                <button className="btn ghost" onClick={remove} aria-label="Entwurf löschen">
+                <button className="btn ghost" onClick={remove} aria-label={t('Entwurf löschen')}>
                   <Icon name="trash" size="s" />
                 </button>
               )}
               <button className="btn" onClick={test} disabled={!!busy || !draft?.subject.trim()} data-busy={busy === 'test' || undefined}>
-                <Icon name="mail" size="s" /> Test an mich
+                <Icon name="mail" size="s" /> {t('Test an mich')}
               </button>
               <button className="btn" onClick={() => void save()} disabled={!!busy || !dirty} data-busy={busy === 'save' || undefined}>
-                Speichern
+                {t('Speichern')}
               </button>
               <button className="btn primary" onClick={send} disabled={!!busy || !draft?.subject.trim() || !overview?.counts.active} data-busy={busy === 'send' || undefined}>
-                <Icon name="publish" size="s" /> Verschicken
+                <Icon name="publish" size="s" /> {t('Verschicken')}
               </button>
             </>
           )
@@ -366,12 +385,12 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
       {issue?.status === 'sending' && (
         <div className="card card-pad stack tight" role="status">
           <div className="row between small">
-            <span>Wird verschickt – du kannst das Fenster schliessen, der Versand läuft weiter.</span>
+            <span>{t('Wird verschickt – du kannst das Fenster schliessen, der Versand läuft weiter.')}</span>
             <span className="num">
               {issue.done} / {issue.audience ?? '…'}
             </span>
           </div>
-          <div className="meter" role="progressbar" aria-label="Versand" aria-valuemin={0} aria-valuemax={issue.audience ?? 0} aria-valuenow={issue.done}>
+          <div className="meter" role="progressbar" aria-label={t('Versand|Newsletter')} aria-valuemin={0} aria-valuemax={issue.audience ?? 0} aria-valuenow={issue.done}>
             <span
               style={{
                 width: `${issue.audience ? Math.min(100, (issue.done / issue.audience) * 100) : 0}%`,
@@ -386,34 +405,34 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
         <div className="preview-split">
           <div className="stack" style={{ alignContent: 'start' }}>
             <section className="card card-pad stack">
-              <Field label="Betreff" help="Kurz und konkret. Er entscheidet, ob jemand die E-Mail öffnet.">
+              <Field label={t('Betreff')} help={t('Kurz und konkret. Er entscheidet, ob jemand die E-Mail öffnet.')}>
                 <input
                   className="input"
                   value={draft.subject}
                   maxLength={150}
                   disabled={!editable}
-                  placeholder={subjectHint ?? 'Was gibt es Neues?'}
+                  placeholder={subjectHint ?? t('Was gibt es Neues?')}
                   onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
                 />
               </Field>
               {editable && !draft.subject && subjectHint && (
                 <button className="linkish small" style={{ justifySelf: 'start' }} onClick={() => setDraft({ ...draft, subject: subjectHint })}>
-                  «{subjectHint}» als Betreff übernehmen
+                  {t('«{title}» als Betreff übernehmen', { title: subjectHint })}
                 </button>
               )}
-              <Field label="Einleitung" help="Optional. Leerzeilen trennen Absätze. Die Anrede «Hallo …» setzt Nova selbst, wenn der Vorname bekannt ist.">
+              <Field label={t('Einleitung')} help={t('Optional. Leerzeilen trennen Absätze. Die Anrede «Hallo …» setzt Nova selbst, wenn der Vorname bekannt ist.')}>
                 <textarea className="textarea" rows={6} value={draft.intro} disabled={!editable} maxLength={5000} onChange={(e) => setDraft({ ...draft, intro: e.target.value })} />
               </Field>
             </section>
             <section className="card">
               <div className="card-head">
-                <h2>Beiträge</h2>
+                <h2>{t('Beiträge')}</h2>
                 <span className="xsmall muted">
-                  {draft.entry_ids.length ? `${draft.entry_ids.length} ausgewählt – in dieser Reihenfolge` : 'Mit Titelbild, Kurzfassung und Link'}
+                  {draft.entry_ids.length ? t('{n} ausgewählt – in dieser Reihenfolge', { n: draft.entry_ids.length }) : t('Mit Titelbild, Kurzfassung und Link')}
                 </span>
               </div>
               {!posts.length ? (
-                <p className="form-section small muted">Noch keine veröffentlichten Beiträge. Eine Ausgabe geht auch nur mit Text.</p>
+                <p className="form-section small muted">{t('Noch keine veröffentlichten Beiträge. Eine Ausgabe geht auch nur mit Text.')}</p>
               ) : (
                 <div className="list">
                   {posts.map((p) => {
@@ -433,9 +452,9 @@ function Compose({ id, overview, onChanged }: { id: string | null; overview: Ove
           </div>
           <div className="live-preview">
             <header>
-              <Icon name="mail" size="s" /> So sieht die E-Mail aus
+              <Icon name="mail" size="s" /> {t('So sieht die E-Mail aus')}
             </header>
-            {preview ? <iframe title="Vorschau der E-Mail" srcDoc={preview} sandbox="" /> : <Skeleton lines={8} />}
+            {preview ? <iframe title={t('Vorschau der E-Mail')} srcDoc={preview} sandbox="" /> : <Skeleton lines={8} />}
           </div>
         </div>
       )}
@@ -451,8 +470,8 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   useEffect(() => {
-    const t = setTimeout(() => setTerm(q), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setTerm(q), 250);
+    return () => clearTimeout(timer);
   }, [q]);
   const list = useApi<{ subscribers: Subscriber[] }>(`/api/newsletter/subscribers?status=${status}&q=${encodeURIComponent(term)}`);
   const [dialog, setDialog] = useState<'' | 'invite' | 'import'>('');
@@ -460,9 +479,9 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
   const remove = async (s: Subscriber) => {
     if (
       !(await confirm({
-        title: `${s.email} entfernen?`,
-        message: 'Die Adresse wird ganz gelöscht, auch der Nachweis der Anmeldung. Wer sich nur abmelden möchte, macht das selbst über den Link in jeder E-Mail.',
-        confirm: 'Entfernen',
+        title: t('{email} entfernen?', { email: s.email }),
+        message: t('Die Adresse wird ganz gelöscht, auch der Nachweis der Anmeldung. Wer sich nur abmelden möchte, macht das selbst über den Link in jeder E-Mail.'),
+        confirm: t('Entfernen'),
         danger: true,
       }))
     )
@@ -480,24 +499,24 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
     <>
       <div className="toolbar">
         <Segmented
-          label="Status"
+          label={t('Status')}
           value={status}
           onChange={setStatus}
           options={[
-            { value: 'active', label: `Aktiv ${counts.active}` },
-            { value: 'pending', label: `Unbestätigt ${counts.pending}` },
+            { value: 'active', label: `${t('Aktiv')} ${counts.active}` },
+            { value: 'pending', label: `${t('Unbestätigt')} ${counts.pending}` },
             {
               value: 'unsubscribed',
-              label: `Abgemeldet ${counts.unsubscribed}`,
+              label: `${t('Abgemeldet')} ${counts.unsubscribed}`,
             },
-            { value: 'all', label: 'Alle' },
+            { value: 'all', label: t('Alle') },
           ]}
         />
         <input
           className="input"
           type="search"
-          placeholder="Suchen …"
-          aria-label="Abonnent:innen suchen"
+          placeholder={t('Suchen …')}
+          aria-label={t('Abonnent:innen suchen')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ maxWidth: '16rem' }}
@@ -507,19 +526,19 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
           <Icon name="download" size="s" /> CSV
         </a>
         <button className="btn" onClick={() => setDialog('import')}>
-          <Icon name="upload" size="s" /> Importieren
+          <Icon name="upload" size="s" /> {t('Importieren')}
         </button>
         <button className="btn" onClick={() => setDialog('invite')}>
-          <Icon name="plus" size="s" /> Einladen
+          <Icon name="plus" size="s" /> {t('Einladen')}
         </button>
       </div>
       <section className="card">
         {!list.data ? (
           <Skeleton />
         ) : !list.data.subscribers.length ? (
-          <Empty title={term ? 'Niemand gefunden' : status === 'active' ? 'Noch niemand dabei' : 'Hier ist niemand'}>
+          <Empty title={term ? t('Niemand gefunden') : status === 'active' ? t('Noch niemand dabei') : t('Hier ist niemand')}>
             {status === 'active' && !term
-              ? 'Füg den Block «Newsletter-Anmeldung» auf einer Seite ein – zum Beispiel unter deinen Beiträgen. Wer sich einträgt und die E-Mail bestätigt, erscheint hier.'
+              ? t('Füg den Block «Newsletter-Anmeldung» auf einer Seite ein – zum Beispiel unter deinen Beiträgen. Wer sich einträgt und die E-Mail bestätigt, erscheint hier.')
               : undefined}
           </Empty>
         ) : (
@@ -527,11 +546,11 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
             <table className="table">
               <thead>
                 <tr>
-                  <th>E-Mail</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Seit</th>
-                  <th>Quelle</th>
+                  <th>{t('E-Mail')}</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Status')}</th>
+                  <th>{t('Seit')}</th>
+                  <th>{t('Quelle')}</th>
                   <th />
                 </tr>
               </thead>
@@ -541,12 +560,12 @@ function Subscribers({ counts, onChanged }: { counts: Overview['counts']; onChan
                     <td className="ellipsis">{s.email}</td>
                     <td>{s.name || <span className="faint">–</span>}</td>
                     <td>
-                      <span className={`badge ${SUB_STATUS[s.status].cls}`}>{SUB_STATUS[s.status].label}</span>
+                      <span className={`badge ${SUB_STATUS[s.status].cls}`}>{t(SUB_STATUS[s.status].label)}</span>
                     </td>
                     <td>{formatDate(s.unsubscribed_at ?? s.confirmed_at ?? s.created_at)}</td>
-                    <td className="small muted ellipsis">{s.source === 'admin' ? 'eingeladen' : s.source === 'import' ? 'importiert' : s.source || '–'}</td>
+                    <td className="small muted ellipsis">{s.source === 'admin' ? t('eingeladen') : s.source === 'import' ? t('importiert') : s.source || '–'}</td>
                     <td className="right">
-                      <button className="btn ghost small" onClick={() => remove(s)} aria-label={`${s.email} entfernen`}>
+                      <button className="btn ghost small" onClick={() => remove(s)} aria-label={t('{email} entfernen', { email: s.email })}>
                         <Icon name="trash" size="s" />
                       </button>
                     </td>
@@ -588,7 +607,7 @@ function InviteDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     setBusy(true);
     try {
       await api.post('/api/newsletter/subscribers', { email, name });
-      toast(`Bestätigungs-E-Mail an ${email} verschickt.`);
+      toast(t('Bestätigungs-E-Mail an {email} verschickt.', { email }));
       setEmail('');
       setName('');
       onDone();
@@ -603,8 +622,8 @@ function InviteDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Person einladen"
-      description="Sie bekommt eine E-Mail mit einem Link zum Bestätigen. Erst dann ist sie dabei – so verlangt es das Gesetz."
+      title={t('Person einladen')}
+      description={t('Sie bekommt eine E-Mail mit einem Link zum Bestätigen. Erst dann ist sie dabei – so verlangt es das Gesetz.')}
     >
       <form
         className="stack"
@@ -613,18 +632,18 @@ function InviteDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
           void submit();
         }}
       >
-        <Field label="E-Mail">
+        <Field label={t('E-Mail')}>
           <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </Field>
-        <Field label="Vorname" help="Optional, für die Anrede.">
+        <Field label={t('Vorname')} help={t('Optional, für die Anrede.')}>
           <input className="input" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
         </Field>
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" disabled={busy} data-busy={busy || undefined}>
-            Einladung schicken
+            {t('Einladung schicken')}
           </button>
         </div>
       </form>
@@ -643,7 +662,15 @@ function ImportDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     setBusy(true);
     try {
       const r = await api.post<{ added: number; skipped: number }>('/api/newsletter/import', { text, consent });
-      toast(`${plural(r.added, 'Adresse', 'Adressen')} übernommen${r.skipped ? `, ${r.skipped} übersprungen (schon da oder ungültig)` : ''}.`);
+      toast(
+        r.skipped
+          ? r.added === 1
+            ? t('1 Adresse übernommen, {skipped} übersprungen (schon da oder ungültig).', { skipped: num(r.skipped) })
+            : t('{n} Adressen übernommen, {skipped} übersprungen (schon da oder ungültig).', { n: num(r.added), skipped: num(r.skipped) })
+          : r.added === 1
+            ? t('1 Adresse übernommen.')
+            : t('{n} Adressen übernommen.', { n: num(r.added) }),
+      );
       setText('');
       setConsent(false);
       onDone();
@@ -658,27 +685,27 @@ function ImportDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Liste importieren"
-      description="Zum Beispiel aus Mailchimp, Brevo oder einer Excel-Liste. Eine Adresse pro Zeile, optional mit Name dahinter."
+      title={t('Liste importieren')}
+      description={t('Zum Beispiel aus Mailchimp, Brevo oder einer Excel-Liste. Eine Adresse pro Zeile, optional mit Name dahinter.')}
     >
       <div className="stack">
-        <Field label="Adressen">
+        <Field label={t('Adressen')}>
           <textarea className="textarea mono" rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'anna@beispiel.ch; Anna\nbeat@beispiel.ch'} />
         </Field>
         <label className="btn" style={{ justifySelf: 'start' }}>
-          <Icon name="upload" size="s" /> CSV-Datei wählen
+          <Icon name="upload" size="s" /> {t('CSV-Datei wählen')}
           <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr" onChange={(e) => e.target.files?.[0] && void readFile(e.target.files[0])} />
         </label>
         <label className="check small">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>Alle diese Personen haben dem Newsletter zugestimmt, und ich kann das belegen. Sie bekommen keine Bestätigungs-E-Mail.</span>
+          <span>{t('Alle diese Personen haben dem Newsletter zugestimmt, und ich kann das belegen. Sie bekommen keine Bestätigungs-E-Mail.')}</span>
         </label>
         <div className="dialog-actions">
           <button className="btn" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" disabled={!lines || !consent || busy} data-busy={busy || undefined} onClick={submit}>
-            {lines ? `${plural(lines, 'Adresse', 'Adressen')} importieren` : 'Importieren'}
+            {!lines ? t('Importieren') : lines === 1 ? t('1 Adresse importieren') : t('{n} Adressen importieren', { n: num(lines) })}
           </button>
         </div>
       </div>
@@ -699,7 +726,7 @@ function Automation({ overview, onSaved }: { overview: Overview; onSaved: (s: Ov
     try {
       const r = await api.put<{ settings: Overview['settings'] }>('/api/newsletter/settings', { auto, weekday });
       onSaved(r.settings);
-      toast('Gespeichert.');
+      toast(t('Gespeichert.'));
       return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -716,27 +743,27 @@ function Automation({ overview, onSaved }: { overview: Overview; onSaved: (s: Ov
     <div className="stack">
       <section className="card card-pad stack">
         <div className="stack" style={{ maxWidth: '26rem' }}>
-          <Field label="Neue Beiträge automatisch verschicken">
+          <Field label={t('Neue Beiträge automatisch verschicken')}>
             <Select
-              label="Neue Beiträge automatisch verschicken"
+              label={t('Neue Beiträge automatisch verschicken')}
               value={auto}
               onChange={(v) => setAuto(v as typeof auto)}
               options={[
-                { value: 'off', label: 'Nein, ich verschicke von Hand' },
-                { value: 'each', label: 'Jeden neuen Beitrag sofort' },
-                { value: 'weekly', label: 'Einmal pro Woche als Rückblick' },
+                { value: 'off', label: t('Nein, ich verschicke von Hand') },
+                { value: 'each', label: t('Jeden neuen Beitrag sofort') },
+                { value: 'weekly', label: t('Einmal pro Woche als Rückblick') },
               ]}
             />
           </Field>
           {auto === 'weekly' && (
-            <Field label="Wochentag" help="Ab 8 Uhr, nur wenn es in der Woche etwas Neues gab.">
+            <Field label={t('Wochentag')} help={t('Ab 8 Uhr, nur wenn es in der Woche etwas Neues gab.')}>
               <Select
-                label="Wochentag"
+                label={t('Wochentag')}
                 value={String(weekday)}
                 onChange={(v) => setWeekday(Number(v))}
                 options={WEEKDAYS.map((w, i) => ({
                   value: String(i + 1),
-                  label: w,
+                  label: t(w),
                 }))}
               />
             </Field>
@@ -744,27 +771,35 @@ function Automation({ overview, onSaved }: { overview: Overview; onSaved: (s: Ov
         </div>
         <p className="small muted">
           {auto === 'each'
-            ? 'Sobald ein Beitrag zum ersten Mal online geht, bekommen alle Abonnent:innen eine E-Mail mit Titelbild, Kurzfassung und Link. Spätere Änderungen lösen nichts mehr aus.'
+            ? t(
+                'Sobald ein Beitrag zum ersten Mal online geht, bekommen alle Abonnent:innen eine E-Mail mit Titelbild, Kurzfassung und Link. Spätere Änderungen lösen nichts mehr aus.',
+              )
             : auto === 'weekly'
-              ? 'Alle Beiträge der letzten Woche in einer E-Mail. Gab es nichts Neues, geht nichts raus.'
-              : 'Du stellst jede Ausgabe selbst zusammen und entscheidest, wann sie rausgeht.'}
+              ? t('Alle Beiträge der letzten Woche in einer E-Mail. Gab es nichts Neues, geht nichts raus.')
+              : t('Du stellst jede Ausgabe selbst zusammen und entscheidest, wann sie rausgeht.')}
         </p>
         <div className="row">
           <button className="btn primary" disabled={!dirty || busy} data-busy={busy || undefined} onClick={() => void save()}>
-            Speichern
+            {t('Speichern')}
           </button>
         </div>
       </section>
       <section className="card card-pad stack tight">
-        <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>Anbindung an Brevo oder Mailchimp</h2>
+        <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>{t('Anbindung an Brevo oder Mailchimp')}</h2>
         {overview.provider ? (
           <p className="small">
-            Die Liste wird laufend mit <strong>{overview.provider}</strong> abgeglichen: Anmeldungen, Abmeldungen und Löschungen. Verschickt wird weiterhin von hier.
+            {rich(t('Die Liste wird laufend mit {provider} abgeglichen: Anmeldungen, Abmeldungen und Löschungen. Verschickt wird weiterhin von hier.'), {
+              provider: <strong>{overview.provider}</strong>,
+            })}
           </p>
         ) : (
           <p className="small muted">
-            Optional. Wenn du die Liste zusätzlich dort haben möchtest, trag in Railway <span className="mono">BREVO_API_KEY</span> und <span className="mono">BREVO_LIST_ID</span>{' '}
-            ein – oder <span className="mono">MAILCHIMP_API_KEY</span> und <span className="mono">MAILCHIMP_LIST_ID</span>.
+            {rich(t('Optional. Wenn du die Liste zusätzlich dort haben möchtest, trag in Railway {brevoKey} und {brevoList} ein – oder {mcKey} und {mcList}.'), {
+              brevoKey: <span className="mono">BREVO_API_KEY</span>,
+              brevoList: <span className="mono">BREVO_LIST_ID</span>,
+              mcKey: <span className="mono">MAILCHIMP_API_KEY</span>,
+              mcList: <span className="mono">MAILCHIMP_LIST_ID</span>,
+            })}
           </p>
         )}
       </section>

@@ -5,6 +5,7 @@ import { useToast } from '../ui/toast';
 import { choose } from '../ui/kit';
 import { addNavigationGuard } from '../lib/router';
 import type { SiteSettings } from '../../shared/types';
+import { t } from '../lib/i18n';
 
 /* ---------- draft helper: edit a copy, save only what changed ---------- */
 
@@ -18,12 +19,12 @@ export function useLeaveGuard(dirty: boolean, save: () => Promise<boolean>, disc
         const { dirty, save, discard } = latest.current;
         if (!dirty) return true;
         const answer = await choose({
-          title: 'Ungespeicherte Änderungen',
-          message: 'Du hast hier etwas geändert und noch nicht gespeichert.',
+          title: t('Ungespeicherte Änderungen'),
+          message: t('Du hast hier etwas geändert und noch nicht gespeichert.'),
           options: [
-            { label: 'Weiter bearbeiten', value: 'stay', kind: 'ghost' },
-            { label: 'Verwerfen', value: 'discard' },
-            { label: 'Speichern', value: 'save', kind: 'primary' },
+            { label: t('Weiter bearbeiten'), value: 'stay', kind: 'ghost' },
+            { label: t('Verwerfen'), value: 'discard' },
+            { label: t('Speichern'), value: 'save', kind: 'primary' },
           ],
         });
         if (answer === 'save') return save();
@@ -79,7 +80,7 @@ export function useSettingsDraft() {
     const apply = Object.entries(stored).filter(([k, v]) => JSON.stringify(settings[k as keyof SiteSettings]) === v.base);
     if (!apply.length) return writeStore(null);
     setDraft((d) => (d ? { ...d, ...Object.fromEntries(apply.map(([k, v]) => [k, v.value])) } : d));
-    toast('Ungespeicherte Änderungen von vorhin wiederhergestellt.', { kind: 'notice', icon: 'history', ms: 8000, action: { label: 'Verwerfen', run: reset } });
+    toast(t('Ungespeicherte Änderungen von vorhin wiederhergestellt.'), { kind: 'notice', icon: 'history', ms: 8000, action: { label: t('Verwerfen'), run: reset } });
   }, [settings, draft]);
   useEffect(() => {
     if (!settings || !draft || !restored.current) return;
@@ -94,7 +95,7 @@ export function useSettingsDraft() {
       setSettings(r.settings);
       setDraft(structuredClone(r.settings));
       writeStore(null);
-      toast('Gespeichert. Die Website ist aktualisiert.');
+      toast(t('Gespeichert. Die Website ist aktualisiert.'));
       return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -111,11 +112,11 @@ export function SaveBar({ dirty, onSave, onReset }: { dirty: boolean; onSave: ()
   const [busy, setBusy] = useState(false);
   if (!dirty) return null;
   return (
-    <div className="save-bar" role="region" aria-label="Ungespeicherte Änderungen">
-      <span>Ungespeicherte Änderungen</span>
+    <div className="save-bar" role="region" aria-label={t('Ungespeicherte Änderungen')}>
+      <span>{t('Ungespeicherte Änderungen')}</span>
       <div className="row">
         <button className="btn ghost" onClick={onReset} disabled={busy}>
-          Verwerfen
+          {t('Verwerfen')}
         </button>
         <button
           className="btn primary"
@@ -129,7 +130,7 @@ export function SaveBar({ dirty, onSave, onReset }: { dirty: boolean; onSave: ()
             }
           }}
         >
-          Speichern
+          {t('Speichern')}
         </button>
       </div>
     </div>

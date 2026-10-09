@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
@@ -11,6 +11,19 @@ import { shortId } from '../../shared/text';
 import type { CollectionDef, Webhook } from '../../shared/types';
 import { HOOK_EVENTS, type HookEvent, type ServerHook } from '../../shared/hooks';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
+import { t, tl } from '../lib/i18n';
+
+/** Puts an element where {code} stands in a translated sentence. */
+function withCode(text: string, el: ReactNode) {
+  const [before, after = ''] = text.split('{code}');
+  return (
+    <>
+      {before}
+      {el}
+      {after}
+    </>
+  );
+}
 
 /* ---------- content types ---------- */
 
@@ -56,16 +69,16 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
           <Icon name="grip" size="s" />
         </span>
         <button className="title ellipsis" style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: '0.3rem 0' }} onClick={() => setOpen(!open)}>
-          {field.label || 'Neues Feld'} <span className="field-key">{field.key}</span> <span className="xsmall faint">{FIELD_TYPE_LABELS[field.type]}</span>
+          {field.label || t('Neues Feld')} <span className="field-key">{field.key}</span> <span className="xsmall faint">{tl(FIELD_TYPE_LABELS[field.type])}</span>
         </button>
-        <button className="btn ghost s icon-only" aria-label="Feld entfernen" onClick={onRemove}>
+        <button className="btn ghost s icon-only" aria-label={t('Feld entfernen')} onClick={onRemove}>
           <Icon name="trash" size="s" />
         </button>
       </header>
       {open && (
         <div className="body">
           <div className="grid-2">
-            <Field label="Beschriftung im Studio" help="Alltagssprache, z. B. «Preis pro Person»">
+            <Field label={t('Beschriftung im Studio')} help={t('Alltagssprache, z. B. «Preis pro Person»')}>
               <input
                 className="input"
                 value={field.label}
@@ -86,22 +99,22 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
                 }
               />
             </Field>
-            <Field label="Schlüssel" keyName="key" help="Für API und Code. Kleinbuchstaben, Zahlen, _">
+            <Field label={t('Schlüssel')} keyName="key" help={t('Für API und Code. Kleinbuchstaben, Zahlen, _')}>
               <input className="input mono" value={field.key} onChange={(e) => onChange({ ...field, key: e.target.value })} />
             </Field>
-            <Field label="Typ">
+            <Field label={t('Typ')}>
               <Select
                 value={field.type}
                 onChange={(v) => onChange({ ...field, type: v as FieldType })}
-                options={FIELD_TYPES.filter((t) => !(nested && t === 'group')).map((t) => ({ value: t, label: FIELD_TYPE_LABELS[t] }))}
+                options={FIELD_TYPES.filter((ft) => !(nested && ft === 'group')).map((ft) => ({ value: ft, label: tl(FIELD_TYPE_LABELS[ft]) }))}
               />
             </Field>
-            <Field label="Hilfetext" help="Erklärt im Studio, was hier hingehört.">
+            <Field label={t('Hilfetext')} help={t('Erklärt im Studio, was hier hingehört.')}>
               <input className="input" value={field.help ?? ''} onChange={(e) => onChange({ ...field, help: e.target.value })} />
             </Field>
           </div>
           {['select', 'multiselect'].includes(field.type) && (
-            <Field label="Auswahl" help="Eine pro Zeile. Optional «wert: Beschriftung».">
+            <Field label={t('Auswahl')} help={t('Eine pro Zeile. Optional «wert: Beschriftung».')}>
               <textarea
                 className="textarea"
                 defaultValue={(field.options ?? []).map((o) => (o.value === o.label ? o.label : `${o.value}: ${o.label}`)).join('\n')}
@@ -122,18 +135,18 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
             </Field>
           )}
           {field.type === 'relation' && (
-            <Field label="Verknüpft mit">
+            <Field label={t('Verknüpft mit')}>
               <Select
                 value={field.collection ?? ''}
                 onChange={(v) => onChange({ ...field, collection: v })}
-                placeholder="Wählen …"
-                options={(cols?.collections ?? []).map((c) => ({ value: c.id, label: c.name }))}
+                placeholder={t('Wählen …')}
+                options={(cols?.collections ?? []).map((c) => ({ value: c.id, label: tl(c.name) }))}
               />
             </Field>
           )}
           {['number', 'money'].includes(field.type) && (
             <div className="grid-2">
-              <Field label="Minimum">
+              <Field label={t('Minimum')}>
                 <input
                   className="input num"
                   type="number"
@@ -141,7 +154,7 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
                   onChange={(e) => onChange({ ...field, min: e.target.value === '' ? undefined : Number(e.target.value) })}
                 />
               </Field>
-              <Field label="Maximum">
+              <Field label={t('Maximum')}>
                 <input
                   className="input num"
                   type="number"
@@ -152,18 +165,18 @@ function FieldEditor({ field, onChange, onRemove, nested = false }: { field: Fie
             </div>
           )}
           <div className="row wrap" style={{ gap: '1.5rem' }}>
-            <Toggle checked={Boolean(field.required)} onChange={(v) => onChange({ ...field, required: v })} label="Pflichtfeld" />
-            <Toggle checked={Boolean(field.pro)} onChange={(v) => onChange({ ...field, pro: v })} label="Nur in der Werkbank sichtbar" />
+            <Toggle checked={Boolean(field.required)} onChange={(v) => onChange({ ...field, required: v })} label={t('Pflichtfeld')} />
+            <Toggle checked={Boolean(field.pro)} onChange={(v) => onChange({ ...field, pro: v })} label={t('Nur in der Werkbank sichtbar')} />
             {['file', 'image'].includes(field.type) && (
-              <Toggle checked={Boolean(field.private)} onChange={(v) => onChange({ ...field, private: v })} label="Privat (nie öffentlich)" />
+              <Toggle checked={Boolean(field.private)} onChange={(v) => onChange({ ...field, private: v })} label={t('Privat (nie öffentlich)')} />
             )}
           </div>
           {field.type === 'group' && (
             <div className="stack tight">
-              <Field label="Bezeichnung eines Eintrags">
-                <input className="input" value={field.itemLabel ?? ''} onChange={(e) => onChange({ ...field, itemLabel: e.target.value })} placeholder="z. B. Zimmer" />
+              <Field label={t('Bezeichnung eines Eintrags')}>
+                <input className="input" value={field.itemLabel ?? ''} onChange={(e) => onChange({ ...field, itemLabel: e.target.value })} placeholder={t('z. B. Zimmer')} />
               </Field>
-              <span className="section-title">Felder pro Eintrag</span>
+              <span className="section-title">{t('Felder pro Eintrag')}</span>
               <FieldsBuilder fields={field.fields ?? []} onChange={(f) => onChange({ ...field, fields: f })} nested />
             </div>
           )}
@@ -188,7 +201,7 @@ function FieldsBuilder({ fields, onChange, nested }: { fields: FieldDef[]; onCha
         ))}
       </Reorder.Group>
       <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => onChange([...fields, { key: `feld_${shortId(4)}`, type: 'text', label: '' }])}>
-        <Icon name="plus" size="s" /> Feld
+        <Icon name="plus" size="s" /> {t('Feld')}
       </button>
     </div>
   );
@@ -206,7 +219,7 @@ export function ContentTypes() {
       const { isNew, ...body } = edit;
       if (isNew) await api.post('/api/collections', body);
       else await api.put(`/api/collections/${edit.id}`, body);
-      toast('Inhaltstyp gespeichert. Im Studio erscheint er als Formular.');
+      toast(t('Inhaltstyp gespeichert. Im Studio erscheint er als Formular.'));
       setEdit(null);
       void reload();
       void reloadSettings();
@@ -215,15 +228,23 @@ export function ContentTypes() {
     }
   };
   const remove = async (c: CollectionDef & { count: number }) => {
-    if (!(await confirm({ title: `«${c.name}» löschen?`, message: c.count ? `Mit allen ${c.count} Einträgen.` : undefined, confirm: 'Löschen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: t('«{name}» löschen?', { name: tl(c.name) }),
+        message: c.count === 1 ? t('Mit dem einen Eintrag.') : c.count ? t('Mit allen {n} Einträgen.', { n: c.count }) : undefined,
+        confirm: t('Löschen'),
+        danger: true,
+      }))
+    )
+      return;
     await api.del(`/api/collections/${c.id}?force=1`);
     void reload();
   };
   return (
     <>
       <PageHead
-        title="Inhaltstypen"
-        sub="Eigene Typen mit Feldern, Relationen und Validierung. Jedes Feld bekommt eine Studio-Beschriftung – so bleibt alles auch für Laien bedienbar."
+        title={t('Inhaltstypen')}
+        sub={t('Eigene Typen mit Feldern, Relationen und Validierung. Jedes Feld bekommt eine Studio-Beschriftung – so bleibt alles auch für Laien bedienbar.')}
         actions={
           <button
             className="btn primary"
@@ -234,7 +255,7 @@ export function ContentTypes() {
                 name: '',
                 singular: '',
                 icon: 'layers',
-                fields: [{ key: 'title', type: 'text', label: 'Titel', required: true }],
+                fields: [{ key: 'title', type: 'text', label: t('Titel'), required: true }],
                 route: null,
                 list_route: null,
                 has_blocks: false,
@@ -242,7 +263,7 @@ export function ContentTypes() {
               })
             }
           >
-            <Icon name="plus" size="s" /> Neuer Typ
+            <Icon name="plus" size="s" /> {t('Neuer Typ')}
           </button>
         }
       />
@@ -256,18 +277,19 @@ export function ContentTypes() {
                 <Icon name={c.icon} className="faint" />
                 <div className="grow">
                   <div className="title">
-                    {c.name} <span className="field-key">{c.id}</span>
+                    {tl(c.name)} <span className="field-key">{c.id}</span>
                   </div>
                   <div className="xsmall muted">
-                    {c.fields.length} Felder · {c.count} Einträge{c.route ? ` · ${c.route}` : ''}
-                    {c.builtin ? ' · eingebaut' : ''}
+                    {c.fields.length === 1 ? t('1 Feld') : t('{n} Felder', { n: c.fields.length })} · {c.count === 1 ? t('1 Eintrag') : t('{n} Einträge', { n: c.count })}
+                    {c.route ? ` · ${c.route}` : ''}
+                    {c.builtin ? ` · ${t('eingebaut')}` : ''}
                   </div>
                 </div>
                 <button className="btn s" onClick={() => setEdit({ ...c })}>
-                  {c.builtin ? 'Adressen' : 'Bearbeiten'}
+                  {c.builtin ? t('Adressen') : t('Bearbeiten')}
                 </button>
                 {!c.builtin && (
-                  <button className="btn ghost s icon-only" aria-label="Löschen" onClick={() => void remove(c)}>
+                  <button className="btn ghost s icon-only" aria-label={t('Löschen')} onClick={() => void remove(c)}>
                     <Icon name="trash" size="s" />
                   </button>
                 )}
@@ -276,25 +298,25 @@ export function ContentTypes() {
           </ul>
         )}
       </section>
-      <Dialog open={Boolean(edit)} onOpenChange={(o) => !o && setEdit(null)} title={edit?.isNew ? 'Neuer Inhaltstyp' : `${edit?.name}`} wide>
+      <Dialog open={Boolean(edit)} onOpenChange={(o) => !o && setEdit(null)} title={edit?.isNew ? t('Neuer Inhaltstyp') : tl(edit?.name)} wide>
         {edit && (
           <div className="stack">
             <div className="grid-2">
-              <Field label="Name (Mehrzahl)" help="z. B. «Rezepte»">
+              <Field label={t('Name (Mehrzahl)')} help={t('z. B. «Rezepte»')}>
                 <input className="input" value={edit.name ?? ''} onChange={(e) => setEdit({ ...edit, name: e.target.value })} disabled={edit.builtin} />
               </Field>
-              <Field label="Ein Eintrag heisst" help="z. B. «Rezept»">
+              <Field label={t('Ein Eintrag heisst')} help={t('z. B. «Rezept»')}>
                 <input className="input" value={edit.singular ?? ''} onChange={(e) => setEdit({ ...edit, singular: e.target.value })} disabled={edit.builtin} />
               </Field>
               {edit.isNew && (
-                <Field label="Technischer Name" keyName="id" help="Für API und Code, z. B. «rezepte»">
+                <Field label={t('Technischer Name')} keyName="id" help={t('Für API und Code, z. B. «rezepte»')}>
                   <input className="input mono" value={edit.id ?? ''} onChange={(e) => setEdit({ ...edit, id: e.target.value })} />
                 </Field>
               )}
-              <Field label="Detailseite" help="z. B. /rezepte/:slug – leer = keine eigenen Seiten">
+              <Field label={t('Detailseite')} help={t('z. B. /rezepte/:slug – leer = keine eigenen Seiten')}>
                 <input className="input mono" value={edit.route ?? ''} onChange={(e) => setEdit({ ...edit, route: e.target.value || null })} />
               </Field>
-              <Field label="Übersichtsseite" help="z. B. /rezepte">
+              <Field label={t('Übersichtsseite')} help={t('z. B. /rezepte')}>
                 <input className="input mono" value={edit.list_route ?? ''} onChange={(e) => setEdit({ ...edit, list_route: e.target.value || null })} />
               </Field>
             </div>
@@ -303,13 +325,13 @@ export function ContentTypes() {
                 <Toggle
                   checked={Boolean(edit.has_blocks)}
                   onChange={(v) => setEdit({ ...edit, has_blocks: v })}
-                  label="Mit Seiteninhalt (Blöcke)"
-                  help="Einträge bekommen zusätzlich den visuellen Editor."
+                  label={t('Mit Seiteninhalt (Blöcke)')}
+                  help={t('Einträge bekommen zusätzlich den visuellen Editor.')}
                 />
                 <div className="row between">
-                  <span className="section-title">Felder</span>
+                  <span className="section-title">{t('Felder')}</span>
                   <button className="btn ghost s" onClick={() => setCodeView((v) => !v)} aria-pressed={codeView}>
-                    <Icon name="code" size="s" /> {codeView ? 'Formular' : 'Als Code'}
+                    <Icon name="code" size="s" /> {codeView ? t('Formular') : t('Als Code')}
                   </button>
                 </div>
                 {codeView ? (
@@ -329,24 +351,24 @@ export function ContentTypes() {
                 ) : (
                   <FieldsBuilder fields={edit.fields ?? []} onChange={(f) => setEdit({ ...edit, fields: f })} />
                 )}
-                <Field label="Titelfeld" help="Dieses Feld erscheint in Listen.">
+                <Field label={t('Titelfeld')} help={t('Dieses Feld erscheint in Listen.')}>
                   <Select
                     value={edit.title_field ?? 'title'}
                     onChange={(v) => setEdit({ ...edit, title_field: v })}
                     options={(edit.fields ?? []).filter((f) => ['text', 'email'].includes(f.type)).map((f) => ({ value: f.key, label: f.label || f.key }))}
                   />
                 </Field>
-                <Field label="Leerer Zustand" help="Was Laien sehen, bevor es Einträge gibt – erklär, was sie tun sollen.">
+                <Field label={t('Leerer Zustand')} help={t('Was Laien sehen, bevor es Einträge gibt – erklär, was sie tun sollen.')}>
                   <input className="input" value={edit.empty_hint ?? ''} onChange={(e) => setEdit({ ...edit, empty_hint: e.target.value })} />
                 </Field>
               </>
             )}
             <div className="dialog-actions">
               <button className="btn ghost" onClick={() => setEdit(null)}>
-                Abbrechen
+                {t('Abbrechen')}
               </button>
               <button className="btn primary" onClick={save}>
-                Speichern
+                {t('Speichern')}
               </button>
             </div>
           </div>
@@ -378,15 +400,15 @@ export function CodeSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const [newKey, setNewKey] = useState('--accent');
   if (!draft) return <Skeleton />;
-  const t = draft.theme;
-  const tokens = Object.entries(t.tokens);
+  const th = draft.theme;
+  const tokens = Object.entries(th.tokens);
   return (
     <>
-      <PageHead title="CSS & Design-Tokens" sub="Tokens überschreiben die Variablen des Stils. Eigenes CSS kommt zuletzt und gewinnt." />
+      <PageHead title={t('CSS & Design-Tokens')} sub={t('Tokens überschreiben die Variablen des Stils. Eigenes CSS kommt zuletzt und gewinnt.')} />
       <div className="card">
         <div className="form-section">
           <header>
-            <h2>Design-Tokens</h2>
+            <h2>{t('Design-Tokens')}</h2>
           </header>
           {tokens.map(([k, v]) => (
             <div key={k} className="row">
@@ -397,18 +419,18 @@ export function CodeSettings() {
                 <input
                   type="color"
                   value={v.startsWith('#') ? v.slice(0, 7) : '#000000'}
-                  onChange={(e) => set('theme', { ...t, tokens: { ...t.tokens, [k]: e.target.value } })}
+                  onChange={(e) => set('theme', { ...th, tokens: { ...th.tokens, [k]: e.target.value } })}
                   style={{ width: '2.25rem', height: '2.25rem', border: 0, background: 'none' }}
                 />
               )}
-              <input className="input mono grow" value={v} onChange={(e) => set('theme', { ...t, tokens: { ...t.tokens, [k]: e.target.value } })} />
+              <input className="input mono grow" value={v} onChange={(e) => set('theme', { ...th, tokens: { ...th.tokens, [k]: e.target.value } })} />
               <button
                 className="btn ghost s icon-only"
-                aria-label="Entfernen"
+                aria-label={t('Entfernen')}
                 onClick={() => {
-                  const next = { ...t.tokens };
+                  const next = { ...th.tokens };
                   delete next[k];
-                  set('theme', { ...t, tokens: next });
+                  set('theme', { ...th, tokens: next });
                 }}
               >
                 <Icon name="x" size="s" />
@@ -419,27 +441,27 @@ export function CodeSettings() {
             <SuggestInput
               className="input mono"
               style={{ width: '11rem' }}
-              aria-label="Token-Name"
+              aria-label={t('Token-Name')}
               value={newKey}
               onChange={setNewKey}
               suggestions={TOKEN_HINTS.map((x) => ({ value: x }))}
             />
-            <button className="btn s" onClick={() => /^--[a-z0-9-]+$/.test(newKey) && set('theme', { ...t, tokens: { ...t.tokens, [newKey]: '' } })}>
+            <button className="btn s" onClick={() => /^--[a-z0-9-]+$/.test(newKey) && set('theme', { ...th, tokens: { ...th.tokens, [newKey]: '' } })}>
               <Icon name="plus" size="s" /> Token
             </button>
           </div>
         </div>
         <div className="form-section">
           <header>
-            <h2>Eigenes CSS</h2>
-            <p>Gilt für die ganze Website. Pro Block geht es auch im Editor unter «Code».</p>
+            <h2>{t('Eigenes CSS')}</h2>
+            <p>{t('Gilt für die ganze Website. Pro Block geht es auch im Editor unter «Code».')}</p>
           </header>
           <textarea
             className="textarea code"
             style={{ minHeight: '16rem' }}
             spellCheck={false}
-            value={t.css}
-            onChange={(e) => set('theme', { ...t, css: e.target.value })}
+            value={th.css}
+            onChange={(e) => set('theme', { ...th, css: e.target.value })}
             placeholder={'.b-hero h1 {\n  text-transform: uppercase;\n}'}
           />
         </div>
@@ -447,8 +469,8 @@ export function CodeSettings() {
           <Toggle
             checked={draft.security.allowCustomScripts}
             onChange={(v) => set('security', { allowCustomScripts: v })}
-            label="Eigene Scripts in «Eigener Code»-Blöcken erlauben"
-            help="Lockert die Content-Security-Policy. Nur einschalten, wenn du weisst, woher der Code kommt."
+            label={t('Eigene Scripts in «Eigener Code»-Blöcken erlauben')}
+            help={t('Lockert die Content-Security-Policy. Nur einschalten, wenn du weisst, woher der Code kommt.')}
           />
         </div>
       </div>
@@ -459,14 +481,14 @@ export function CodeSettings() {
 
 /* ---------- API & webhooks ---------- */
 
-const EVENTS: [string, string][] = [
-  ['entry.published', 'Inhalt veröffentlicht'],
-  ['entry.unpublished', 'Inhalt offline genommen'],
-  ['form.submitted', 'Formular gesendet'],
-  ['lead.created', 'Neuer Kontakt'],
-  ['order.created', 'Bestellung eingegangen'],
-  ['order.paid', 'Bestellung bezahlt'],
-  ['comment.created', 'Neuer Kommentar'],
+const events = (): [string, string][] => [
+  ['entry.published', t('Inhalt veröffentlicht')],
+  ['entry.unpublished', t('Inhalt offline genommen')],
+  ['form.submitted', t('Formular gesendet')],
+  ['lead.created', t('Neuer Kontakt')],
+  ['order.created', t('Bestellung eingegangen')],
+  ['order.paid', t('Bestellung bezahlt')],
+  ['comment.created', t('Neuer Kommentar')],
 ];
 
 export function ApiSettings() {
@@ -498,13 +520,13 @@ export function ApiSettings() {
     );
   return (
     <>
-      <PageHead title="API & Webhooks" sub="Nova ist headless-fähig: dieselben Inhalte für Apps, andere Websites oder Automationen (Zapier, Make, n8n)." />
+      <PageHead title={t('API & Webhooks')} sub={t('Nova ist headless-fähig: dieselben Inhalte für Apps, andere Websites oder Automationen (Zapier, Make, n8n).')} />
       <div className="stack loose">
         <section className="card">
           <div className="card-head">
-            <h2>Explorer</h2>
+            <h2>{t('Explorer')}</h2>
             <Segmented
-              label="Schnittstelle"
+              label={t('Schnittstelle')}
               value={mode}
               onChange={(v) => {
                 setMode(v);
@@ -527,8 +549,8 @@ export function ApiSettings() {
                 }}
               >
                 <span className="badge">GET</span>
-                <input className="input mono grow" value={explorer} onChange={(e) => setExplorer(e.target.value)} aria-label="Adresse" />
-                <button className="btn">Senden</button>
+                <input className="input mono grow" value={explorer} onChange={(e) => setExplorer(e.target.value)} aria-label={t('Adresse')} />
+                <button className="btn">{t('Senden')}</button>
               </form>
             ) : (
               <form
@@ -544,7 +566,7 @@ export function ApiSettings() {
                   rows={8}
                   value={gql}
                   spellCheck={false}
-                  aria-label="GraphQL-Abfrage"
+                  aria-label={t('GraphQL-Abfrage')}
                   onChange={(e) => setGql(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
@@ -552,16 +574,16 @@ export function ApiSettings() {
                 />
                 <div className="row">
                   <button className="btn">
-                    Abfrage senden <kbd>⌘↵</kbd>
+                    {t('Abfrage senden')} <kbd>⌘↵</kbd>
                   </button>
                   <a className="small" href="/api/v1/graphql/schema.graphql" target="_blank" rel="noreferrer">
-                    Schema ansehen
+                    {t('Schema ansehen')}
                   </a>
                   <a className="small" href="/api/v1/sdk.ts" download="nova.ts">
-                    TypeScript-SDK laden
+                    {t('TypeScript-SDK laden')}
                   </a>
                   <a className="small" href="/api/v1/cli.mjs" download="nova.mjs">
-                    CLI laden
+                    {t('CLI laden')}
                   </a>
                 </div>
               </form>
@@ -571,28 +593,28 @@ export function ApiSettings() {
         </section>
         <section className="card">
           <div className="card-head">
-            <h2>API-Tokens</h2>
+            <h2>{t('API-Tokens')}</h2>
           </div>
           <ul className="list">
-            {tokens.data?.tokens.map((t) => (
-              <li key={t.id} className="list-item">
+            {tokens.data?.tokens.map((tok) => (
+              <li key={tok.id} className="list-item">
                 <Icon name="key" className="faint" />
                 <div className="grow">
-                  <div className="title">{t.name}</div>
+                  <div className="title">{tok.name}</div>
                   <div className="xsmall muted">
-                    {t.scopes.join(' + ')} · {t.last_used_at ? `zuletzt ${formatDate(t.last_used_at, true)}` : 'nie benutzt'}
+                    {tok.scopes.join(' + ')} · {tok.last_used_at ? t('zuletzt {date}', { date: formatDate(tok.last_used_at, true) }) : t('nie benutzt')}
                   </div>
                 </div>
                 <button
                   className="btn ghost s"
                   onClick={async () => {
-                    if (await confirm({ title: `Token «${t.name}» widerrufen?`, confirm: 'Widerrufen', danger: true })) {
-                      await api.del(`/api/tokens/${t.id}`);
+                    if (await confirm({ title: t('Token «{name}» widerrufen?', { name: tok.name }), confirm: t('Widerrufen'), danger: true })) {
+                      await api.del(`/api/tokens/${tok.id}`);
                       void tokens.reload();
                     }
                   }}
                 >
-                  Widerrufen
+                  {t('Widerrufen')}
                 </button>
               </li>
             ))}
@@ -601,32 +623,34 @@ export function ApiSettings() {
             <input
               className="input"
               style={{ maxWidth: '16rem' }}
-              placeholder="Name, z. B. «iOS-App»"
+              placeholder={t('Name, z. B. «iOS-App»')}
               value={newToken.name}
               onChange={(e) => setNewToken({ ...newToken, name: e.target.value })}
             />
-            <Toggle checked={newToken.write} onChange={(v) => setNewToken({ ...newToken, write: v })} label="Darf schreiben" />
+            <Toggle checked={newToken.write} onChange={(v) => setNewToken({ ...newToken, write: v })} label={t('Darf schreiben')} />
             <button className="btn" onClick={create} disabled={!newToken.name}>
-              Token erstellen
+              {t('Token erstellen')}
             </button>
           </div>
         </section>
         <section className="card">
           <div className="card-head">
-            <h2>Webhooks</h2>
+            <h2>{t('Webhooks')}</h2>
             <button className="btn s" onClick={() => set('webhooks', [...hooks, { id: '', url: 'https://', events: ['form.submitted'], secret: '', active: true }])}>
-              <Icon name="plus" size="s" /> Webhook
+              <Icon name="plus" size="s" /> {t('Webhook')}
             </button>
           </div>
-          {!hooks.length && <Empty title="Keine Webhooks">Nova schickt bei Ereignissen ein signiertes JSON (Header X-Nova-Signature, HMAC-SHA256) an deine Adresse.</Empty>}
+          {!hooks.length && (
+            <Empty title={t('Keine Webhooks')}>{t('Nova schickt bei Ereignissen ein signiertes JSON (Header X-Nova-Signature, HMAC-SHA256) an deine Adresse.')}</Empty>
+          )}
           {hooks.map((h, i) => (
             <div key={i} className="form-section">
               <div className="row">
                 <input className="input mono grow" value={h.url} onChange={(e) => setHook(i, { url: e.target.value })} />
-                <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label="aktiv" />
+                <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label={t('aktiv')} />
                 <button
                   className="btn ghost s icon-only"
-                  aria-label="Entfernen"
+                  aria-label={t('Entfernen')}
                   onClick={() =>
                     set(
                       'webhooks',
@@ -638,7 +662,7 @@ export function ApiSettings() {
                 </button>
               </div>
               <div className="chips">
-                {EVENTS.map(([ev, label]) => (
+                {events().map(([ev, label]) => (
                   <button
                     key={ev}
                     type="button"
@@ -652,17 +676,21 @@ export function ApiSettings() {
               </div>
               {h.secret && (
                 <div className="row small">
-                  <span className="muted">Signatur-Schlüssel:</span> <code className="mono">{h.secret}</code>
+                  <span className="muted">{t('Signatur-Schlüssel:')}</span> <code className="mono">{h.secret}</code>
                   <button
                     className="linkish xsmall"
                     onClick={() =>
                       api
                         .post<{ ok: boolean; status: number; ms: number; error?: string }>('/api/webhooks/test', { url: h.url })
-                        .then((r) => toast(r.ok ? `Antwort ${r.status} in ${r.ms} ms` : `Fehlgeschlagen: ${r.error ?? r.status}`, { kind: r.ok ? 'info' : 'bad' }))
+                        .then((r) =>
+                          toast(r.ok ? t('Antwort {status} in {ms} ms', { status: r.status, ms: r.ms }) : t('Fehlgeschlagen: {error}', { error: r.error ?? r.status }), {
+                            kind: r.ok ? 'info' : 'bad',
+                          }),
+                        )
                         .catch((e) => toast(e.message, { kind: 'bad' }))
                     }
                   >
-                    Test senden
+                    {t('Test senden')}
                   </button>
                 </div>
               )}
@@ -671,14 +699,19 @@ export function ApiSettings() {
         </section>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
-      <Dialog open={Boolean(secret)} onOpenChange={(o) => !o && setSecret(null)} title="Dein neues Token" description="Es wird nur jetzt angezeigt. Bewahre es sicher auf.">
+      <Dialog
+        open={Boolean(secret)}
+        onOpenChange={(o) => !o && setSecret(null)}
+        title={t('Dein neues Token')}
+        description={t('Es wird nur jetzt angezeigt. Bewahre es sicher auf.')}
+      >
         <code className="code-out" style={{ display: 'block' }}>
           {secret}
         </code>
         <pre className="code-out" style={{ marginTop: '0.75rem' }}>{`curl -H "Authorization: Bearer ${secret}" ${location.origin}/api/v1/posts?status=all`}</pre>
         <div className="dialog-actions">
           <button className="btn primary" onClick={() => setSecret(null)}>
-            Gespeichert
+            {t('Gespeichert')}
           </button>
         </div>
       </Dialog>
@@ -704,27 +737,35 @@ export function Redirects() {
   return (
     <>
       <PageHead
-        title="Weiterleitungen"
-        sub="Wenn sich die Adresse einer veröffentlichten Seite ändert, legt Nova automatisch eine 301-Weiterleitung an. Hier kannst du eigene ergänzen, z. B. nach einem Umzug von WordPress."
+        title={t('Weiterleitungen')}
+        sub={t(
+          'Wenn sich die Adresse einer veröffentlichten Seite ändert, legt Nova automatisch eine 301-Weiterleitung an. Hier kannst du eigene ergänzen, z. B. nach einem Umzug von WordPress.',
+        )}
       />
       <section className="card">
         <div className="form-section row wrap">
-          <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder="/alte-adresse" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
+          <input
+            className="input mono"
+            style={{ flex: 1, minWidth: '10rem' }}
+            placeholder={t('/alte-adresse')}
+            value={f.from}
+            onChange={(e) => setF({ ...f, from: e.target.value })}
+          />
           <Icon name="arrowRight" className="faint" />
-          <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder="/neue-adresse" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+          <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder={t('/neue-adresse')} value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
           <Select
             inline
-            label="Art der Weiterleitung"
+            label={t('Art der Weiterleitung')}
             value={String(f.code)}
             onChange={(v) => setF({ ...f, code: Number(v) })}
             options={[
-              { value: '301', label: '301 dauerhaft' },
-              { value: '302', label: '302 vorübergehend' },
-              { value: '410', label: '410 entfernt' },
+              { value: '301', label: t('301 dauerhaft') },
+              { value: '302', label: t('302 vorübergehend') },
+              { value: '410', label: t('410 entfernt') },
             ]}
           />
           <button className="btn primary" onClick={add} disabled={!f.from || (!f.to && f.code !== 410)}>
-            Hinzufügen
+            {t('Hinzufügen')}
           </button>
         </div>
         {!data ? (
@@ -734,11 +775,11 @@ export function Redirects() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Von</th>
-                  <th>Nach</th>
-                  <th>Code</th>
-                  <th className="right">Aufrufe</th>
-                  <th aria-label="Aktionen" />
+                  <th>{t('Von')}</th>
+                  <th>{t('Nach')}</th>
+                  <th>{t('Code')}</th>
+                  <th className="right">{t('Aufrufe')}</th>
+                  <th aria-label={t('Aktionen')} />
                 </tr>
               </thead>
               <tbody>
@@ -750,13 +791,13 @@ export function Redirects() {
                       {r.code}
                       {r.auto && (
                         <span className="badge" style={{ marginLeft: 6 }}>
-                          automatisch
+                          {t('automatisch')}
                         </span>
                       )}
                     </td>
                     <td className="right num">{r.hits}</td>
                     <td className="right">
-                      <button className="btn ghost s icon-only" aria-label="Entfernen" onClick={() => api.del(`/api/redirects/${r.id}`).then(reload)}>
+                      <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={() => api.del(`/api/redirects/${r.id}`).then(reload)}>
                         <Icon name="trash" size="s" />
                       </button>
                     </td>
@@ -788,7 +829,7 @@ export function SqlConsole() {
   };
   return (
     <>
-      <PageHead title="SQL-Abfrage" sub="Nur lesend, eine Anweisung, maximal 5 Sekunden und 1000 Zeilen. Jede Abfrage wird protokolliert." />
+      <PageHead title={t('SQL-Abfrage')} sub={t('Nur lesend, eine Anweisung, maximal 5 Sekunden und 1000 Zeilen. Jede Abfrage wird protokolliert.')} />
       <div className="card form-section">
         <textarea
           className="textarea code"
@@ -801,17 +842,18 @@ export function SqlConsole() {
         />
         <div className="row between">
           <span className="xsmall muted">
-            Tabellen: entries, collections, media, forms, submissions, contacts, orders, coupons, comments, redirects, analytics_events, users, audit_log
+            {t('Tabellen:')} entries, collections, media, forms, submissions, contacts, orders, coupons, comments, redirects, analytics_events, users, audit_log
           </span>
           <button className="btn primary" onClick={run}>
-            Ausführen
+            {t('Ausführen')}
           </button>
         </div>
         {err && <p className="field-error">{err}</p>}
         {res && (
           <>
             <p className="xsmall muted">
-              {res.rows.length} Zeilen{res.truncated ? ' (gekürzt)' : ''} · {res.ms} ms
+              {res.rows.length === 1 ? t('1 Zeile') : t('{n} Zeilen', { n: res.rows.length })}
+              {res.truncated ? ` ${t('(gekürzt)')}` : ''} · {res.ms} ms
             </p>
             <div className="table-wrap" style={{ maxHeight: '28rem' }}>
               <table className="table mono">
@@ -850,7 +892,7 @@ export function AuditLog() {
   }>('/api/audit?limit=300');
   return (
     <>
-      <PageHead title="Protokoll" sub="Wer hat wann was getan. Einträge werden zwei Jahre aufbewahrt." />
+      <PageHead title={t('Protokoll')} sub={t('Wer hat wann was getan. Einträge werden zwei Jahre aufbewahrt.')} />
       <section className="card">
         {!data ? (
           <Skeleton />
@@ -859,10 +901,10 @@ export function AuditLog() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Zeit</th>
-                  <th>Person</th>
-                  <th>Aktion</th>
-                  <th>Objekt</th>
+                  <th>{t('Zeit')}</th>
+                  <th>{t('Person')}</th>
+                  <th>{t('Aktion')}</th>
+                  <th>{t('Objekt')}</th>
                   <th>IP</th>
                 </tr>
               </thead>
@@ -906,18 +948,18 @@ export function HooksSettings() {
     );
   const add = () => {
     const ev = HOOK_EVENTS[0];
-    set('hooks', [...hooks, { id: '', name: 'Neuer Hook', event: ev.value, collection: '', code: ev.template, active: true }]);
+    set('hooks', [...hooks, { id: '', name: t('Neuer Hook'), event: ev.value, collection: '', code: ev.template, active: true }]);
   };
   const test = async (i: number) => {
-    setTests((t) => ({ ...t, [i]: 'busy' }));
+    setTests((prev) => ({ ...prev, [i]: 'busy' }));
     try {
       const h = hooks[i];
       const r = await api.post<HookTest>('/api/hooks/test', { code: h.code, event: h.event, collection: h.collection });
-      setTests((t) => ({ ...t, [i]: r }));
+      setTests((prev) => ({ ...prev, [i]: r }));
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
-      setTests((t) => {
-        const { [i]: _drop, ...rest } = t;
+      setTests((prev) => {
+        const { [i]: _drop, ...rest } = prev;
         return rest;
       });
     }
@@ -925,11 +967,13 @@ export function HooksSettings() {
   return (
     <>
       <PageHead
-        title="Hooks"
-        sub="Kleine JavaScript-Funktionen, die bei Ereignissen auf dem Server laufen – abgeschottet in einer eigenen Sandbox: kein Netz, keine Dateien, 50 ms und 16 MB pro Aufruf."
+        title={t('Hooks')}
+        sub={t(
+          'Kleine JavaScript-Funktionen, die bei Ereignissen auf dem Server laufen – abgeschottet in einer eigenen Sandbox: kein Netz, keine Dateien, 50 ms und 16 MB pro Aufruf.',
+        )}
         actions={
           <button className="btn" onClick={add}>
-            <Icon name="plus" size="s" /> Hook
+            <Icon name="plus" size="s" /> {t('Hook')}
           </button>
         }
       />
@@ -937,21 +981,21 @@ export function HooksSettings() {
         {!hooks.length && (
           <section className="card">
             <Empty
-              title="Noch keine Hooks"
+              title={t('Noch keine Hooks')}
               action={
                 <button className="btn primary" onClick={add}>
-                  Ersten Hook anlegen
+                  {t('Ersten Hook anlegen')}
                 </button>
               }
             >
-              Zum Beispiel: Titel vor dem Speichern bereinigen, Veröffentlichen ohne Kurzfassung verhindern oder Formular-Spam mit eigenen Regeln aussortieren. Mit{' '}
-              <code>throw new Error(«…»)</code> wird abgelehnt – die Meldung erscheint so im Studio bzw. beim Besucher.
+              {t('Zum Beispiel: Titel vor dem Speichern bereinigen, Veröffentlichen ohne Kurzfassung verhindern oder Formular-Spam mit eigenen Regeln aussortieren.')}{' '}
+              {withCode(t('Mit {code} wird abgelehnt – die Meldung erscheint so im Studio bzw. beim Besucher.'), <code>throw new Error(«…»)</code>)}
             </Empty>
           </section>
         )}
         {hooks.map((h, i) => {
           const ev = HOOK_EVENTS.find((e) => e.value === h.event) ?? HOOK_EVENTS[0];
-          const t = tests[i];
+          const res = tests[i];
           return (
             <section key={i} className="card">
               <div className="card-head">
@@ -959,16 +1003,16 @@ export function HooksSettings() {
                   className="input"
                   style={{ maxWidth: '20rem', fontWeight: 600 }}
                   value={h.name}
-                  aria-label="Name des Hooks"
+                  aria-label={t('Name des Hooks')}
                   onChange={(e) => setHook(i, { name: e.target.value })}
                 />
                 <div className="row">
-                  <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label="aktiv" />
+                  <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label={t('aktiv')} />
                   <button
                     className="btn ghost s icon-only"
-                    aria-label="Hook entfernen"
+                    aria-label={t('Hook entfernen')}
                     onClick={async () => {
-                      if (await confirm({ title: `Hook «${h.name}» entfernen?`, confirm: 'Entfernen', danger: true }))
+                      if (await confirm({ title: t('Hook «{name}» entfernen?', { name: h.name }), confirm: t('Entfernen'), danger: true }))
                         set(
                           'hooks',
                           hooks.filter((_, j) => j !== i),
@@ -981,7 +1025,7 @@ export function HooksSettings() {
               </div>
               <div className="form-section stack">
                 <div className="grid-2">
-                  <Field label="Ereignis" help={ev.help}>
+                  <Field label={t('Ereignis')} help={tl(ev.help)}>
                     <Select
                       value={h.event}
                       onChange={(v) => {
@@ -989,17 +1033,17 @@ export function HooksSettings() {
                         const untouched = HOOK_EVENTS.some((e) => e.template === h.code);
                         setHook(i, { event: v as HookEvent, code: untouched ? next.template : h.code, collection: v === 'form.beforeSubmit' ? '' : h.collection });
                       }}
-                      options={HOOK_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
+                      options={HOOK_EVENTS.map((e) => ({ value: e.value, label: tl(e.label) }))}
                     />
                   </Field>
                   {h.event !== 'form.beforeSubmit' && (
-                    <Field label="Für Inhaltstyp">
+                    <Field label={t('Für Inhaltstyp')}>
                       <Select
                         value={h.collection}
                         onChange={(v) => setHook(i, { collection: v })}
                         options={[
-                          { value: '', label: 'Alle Inhaltstypen' },
-                          ...(cols.data?.collections ?? []).filter((c) => c.id !== 'sections').map((c) => ({ value: c.id, label: c.name })),
+                          { value: '', label: t('Alle Inhaltstypen') },
+                          ...(cols.data?.collections ?? []).filter((c) => c.id !== 'sections').map((c) => ({ value: c.id, label: tl(c.name) })),
                         ]}
                       />
                     </Field>
@@ -1010,7 +1054,7 @@ export function HooksSettings() {
                   style={{ minHeight: '14rem' }}
                   spellCheck={false}
                   value={h.code}
-                  aria-label="Code"
+                  aria-label={t('Code')}
                   onChange={(e) => setHook(i, { code: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === 'Tab' && !e.shiftKey) {
@@ -1023,23 +1067,23 @@ export function HooksSettings() {
                   }}
                 />
                 <div className="row">
-                  <button className="btn s" onClick={() => test(i)} disabled={t === 'busy'} data-busy={t === 'busy' || undefined}>
-                    Mit echten Daten testen
+                  <button className="btn s" onClick={() => test(i)} disabled={res === 'busy'} data-busy={res === 'busy' || undefined}>
+                    {t('Mit echten Daten testen')}
                   </button>
-                  <span className="xsmall muted">Speichert nichts – läuft mit dem zuletzt geänderten Eintrag bzw. dem ersten Formular.</span>
+                  <span className="xsmall muted">{t('Speichert nichts – läuft mit dem zuletzt geänderten Eintrag bzw. dem ersten Formular.')}</span>
                 </div>
-                {t && t !== 'busy' && (
+                {res && res !== 'busy' && (
                   <div className="stack">
-                    <p className={`hint${t.run.ok ? '' : ' bad'}`}>
+                    <p className={`hint${res.run.ok ? '' : ' bad'}`}>
                       <span>
-                        {t.run.ok ? `Durchgelaufen in ${t.run.ms} ms.` : `Abgelehnt: ${t.run.error}`}
-                        {t.run.ok && h.event === 'form.beforeSubmit' && t.run.result?.spam === true ? ' Würde als Spam verworfen.' : ''}
+                        {res.run.ok ? t('Durchgelaufen in {ms} ms.', { ms: res.run.ms }) : t('Abgelehnt: {error}', { error: res.run.error ?? '' })}
+                        {res.run.ok && h.event === 'form.beforeSubmit' && res.run.result?.spam === true ? ` ${t('Würde als Spam verworfen.')}` : ''}
                       </span>
                     </p>
-                    {t.run.logs.length > 0 && <pre className="code-out">{t.run.logs.join('\n')}</pre>}
+                    {res.run.logs.length > 0 && <pre className="code-out">{res.run.logs.join('\n')}</pre>}
                     <details>
-                      <summary className="small">Eingabe und Ergebnis</summary>
-                      <pre className="code-out">{`// event\n${JSON.stringify(t.input, null, 2)}\n\n// Ergebnis\n${JSON.stringify(t.run.result, null, 2)}`}</pre>
+                      <summary className="small">{t('Eingabe und Ergebnis')}</summary>
+                      <pre className="code-out">{`// event\n${JSON.stringify(res.input, null, 2)}\n\n// ${t('Ergebnis')}\n${JSON.stringify(res.run.result, null, 2)}`}</pre>
                     </details>
                   </div>
                 )}

@@ -1,4 +1,5 @@
 import { track } from './progress';
+import { t, tm } from './i18n';
 
 /** Thin fetch wrapper: JSON in/out, the CSRF header, readable German errors. */
 export class ApiError extends Error {
@@ -9,6 +10,12 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+/** Server messages in the interface language; several publish problems are translated one by one. */
+function translateError(data: { error: string; details?: { problems?: unknown } }): string {
+  const problems = data.details?.problems;
+  return Array.isArray(problems) && problems.every((p) => typeof p === 'string') ? problems.map((p) => tm(p)).join(' ') : tm(data.error);
 }
 
 // Loads count for the top progress bar; saves don't (they have their own «sichert …» state).
@@ -27,13 +34,13 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
   try {
     res = await fetch(url, init);
   } catch {
-    throw new ApiError(0, 'Keine Verbindung zum Server. Deine Änderungen bleiben hier, bis die Verbindung zurück ist.');
+    throw new ApiError(0, t('Keine Verbindung zum Server. Deine Änderungen bleiben hier, bis die Verbindung zurück ist.'));
   }
   const type = res.headers.get('content-type') ?? '';
   const data = type.includes('application/json') ? await res.json() : null;
   if (!res.ok) {
     if (res.status === 401 && !url.startsWith('/api/login') && !url.startsWith('/api/session')) window.dispatchEvent(new CustomEvent('nova:unauthorized'));
-    throw new ApiError(res.status, data?.error ?? `Fehler ${res.status}`, data?.details);
+    throw new ApiError(res.status, data?.error ? translateError(data) : t('Fehler {status}', { status: res.status }), data?.details);
   }
   return data as T;
 }
@@ -53,12 +60,18 @@ export const api = {
         xhr.setRequestHeader('X-Nova', '1');
         xhr.responseType = 'json';
         xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
-        xhr.onerror = () => reject(new ApiError(0, 'Keine Verbindung zum Server. Bitte versuch es nochmals.'));
+        xhr.onerror = () => reject(new ApiError(0, t('Keine Verbindung zum Server. Bitte versuch es nochmals.')));
         xhr.onload = () => {
           const data = xhr.response as { error?: string; details?: unknown } | null;
           if (xhr.status >= 200 && xhr.status < 300) return resolve(data as T);
           if (xhr.status === 401) window.dispatchEvent(new CustomEvent('nova:unauthorized'));
-          reject(new ApiError(xhr.status, data?.error ?? `Fehler ${xhr.status}`, data?.details));
+          reject(
+            new ApiError(
+              xhr.status,
+              data?.error ? translateError({ error: data.error, details: data.details as { problems?: unknown } }) : t('Fehler {status}', { status: xhr.status }),
+              data?.details,
+            ),
+          );
         };
         xhr.send(form);
       }),

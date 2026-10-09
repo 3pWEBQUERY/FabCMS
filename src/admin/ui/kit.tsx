@@ -4,11 +4,23 @@ import * as RMenu from '@radix-ui/react-dropdown-menu';
 import * as RTooltip from '@radix-ui/react-tooltip';
 import * as RSelect from '@radix-ui/react-select';
 import { AnimatePresence, motion, LayoutGroup } from 'motion/react';
-import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon } from './icons';
 import type { EntryStatus } from '../../shared/types';
-import { parseTime } from '../../shared/hours';
+import { DAYS, parseTime } from '../../shared/hours';
+import { adminLang, adminLocale, t } from '../lib/i18n';
 import { MONTHS, WEEKDAYS_SHORT, addDays, addMonths, formatDay, fromIsoDay, isoDay, longDay, monthGrid, parseDay } from '../../shared/dates';
 
 /* ---------- pointer origin: dialogs grow out of what was clicked ---------- */
@@ -125,10 +137,10 @@ export function confirm(opts: { title: string; message?: ReactNode; confirm?: st
         <Dialog open={open} onOpenChange={(o) => !o && close(false)} title={opts.title} description={opts.message}>
           <div className="dialog-actions">
             <button className="btn ghost" onClick={() => close(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </button>
             <button className={`btn ${opts.danger ? 'danger' : 'primary'}`} autoFocus onClick={() => close(true)}>
-              {opts.confirm ?? 'Bestätigen'}
+              {opts.confirm ?? t('Bestätigen')}
             </button>
           </div>
         </Dialog>
@@ -233,7 +245,7 @@ export function Select({
   value,
   onChange,
   options,
-  placeholder = 'Auswählen …',
+  placeholder = t('Auswählen …'),
   id,
   label,
   disabled,
@@ -297,9 +309,7 @@ export function SuggestInput({
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   const q = value.trim().toLowerCase();
-  const shown = suggestions
-    .filter((s) => s.value !== value && (!q || s.value.toLowerCase().includes(q) || s.label?.toLowerCase().includes(q)))
-    .slice(0, 50);
+  const shown = suggestions.filter((s) => s.value !== value && (!q || s.value.toLowerCase().includes(q) || s.label?.toLowerCase().includes(q))).slice(0, 50);
   const visible = open && shown.length > 0;
   const pick = (v: string) => {
     onChange(v);
@@ -391,7 +401,19 @@ const QUARTERS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4
 
 const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 
-export function TimeInput({ value, onChange, label, className, style }: { value: string; onChange: (v: string) => void; label: string; className?: string; style?: CSSProperties }) {
+export function TimeInput({
+  value,
+  onChange,
+  label,
+  className,
+  style,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(value);
   const [active, setActive] = useState(0);
@@ -517,6 +539,14 @@ export function TimeInput({ value, onChange, label, className, style }: { value:
 
 /* ---------- date: Swiss text field with our own calendar ---------- */
 
+/** Month name and weekday heads in the interface language; German keeps its own short forms. */
+const monthName = (d: Date) => {
+  if (adminLang() === 'de') return MONTHS[d.getMonth()];
+  const m = d.toLocaleString(adminLocale(), { month: 'long' });
+  return m.charAt(0).toUpperCase() + m.slice(1);
+};
+const weekdaysShort = () => (adminLang() === 'de' ? WEEKDAYS_SHORT : DAYS[adminLang()].short.slice(1).map((d) => d.charAt(0).toUpperCase() + d.slice(1)));
+
 export function DateInput({
   value,
   onChange,
@@ -624,7 +654,7 @@ export function DateInput({
             ref={input}
             id={id}
             className="input num"
-            placeholder="TT.MM.JJJJ"
+            placeholder={t('TT.MM.JJJJ')}
             inputMode="numeric"
             autoComplete="off"
             role="combobox"
@@ -680,7 +710,7 @@ export function DateInput({
           collisionPadding={12}
           className="popover cal pop-anim"
           role="dialog"
-          aria-label={label ? `${label}: Datum wählen` : 'Datum wählen'}
+          aria-label={label ? t('{label}: Datum wählen', { label }) : t('Datum wählen')}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.target instanceof Node && input.current?.parentElement?.contains(e.target) && e.preventDefault()}
@@ -694,19 +724,31 @@ export function DateInput({
           }}
         >
           <div className="cal-head">
-            <button type="button" className="btn ghost s icon-only" aria-label="Vorheriger Monat" onMouseDown={(e) => e.preventDefault()} onClick={() => setActive(addMonths(active, -1))}>
+            <button
+              type="button"
+              className="btn ghost s icon-only"
+              aria-label={t('Vorheriger Monat')}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setActive(addMonths(active, -1))}
+            >
               <Icon name="chevronLeft" size="s" />
             </button>
             <strong aria-live="polite">
-              {MONTHS[view.getMonth()]} {view.getFullYear()}
+              {monthName(view)} {view.getFullYear()}
             </strong>
-            <button type="button" className="btn ghost s icon-only" aria-label="Nächster Monat" onMouseDown={(e) => e.preventDefault()} onClick={() => setActive(addMonths(active, 1))}>
+            <button
+              type="button"
+              className="btn ghost s icon-only"
+              aria-label={t('Nächster Monat')}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setActive(addMonths(active, 1))}
+            >
               <Icon name="chevronRight" size="s" />
             </button>
           </div>
           <div role="grid" id={gridId} className="cal-grid" onKeyDown={gridKeys}>
             <div role="row" className="cal-row">
-              {WEEKDAYS_SHORT.map((w) => (
+              {weekdaysShort().map((w) => (
                 <span key={w} role="columnheader" className="cal-wd">
                   {w}
                 </span>
@@ -726,7 +768,7 @@ export function DateInput({
                       data-selected={d === value ? '' : undefined}
                       data-active={d === active ? '' : undefined}
                       disabled={!allowed(d)}
-                      aria-label={longDay(d)}
+                      aria-label={longDay(d, adminLocale())}
                       onMouseDown={(e) => !inGrid.current && e.preventDefault()}
                       onFocus={() => {
                         inGrid.current = true;
@@ -743,7 +785,7 @@ export function DateInput({
           </div>
           <div className="cal-foot">
             <button type="button" className="linkish small" disabled={!allowed(today)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(today)}>
-              Heute
+              {t('Heute')}
             </button>
             {clearable && value && (
               <button
@@ -756,7 +798,7 @@ export function DateInput({
                   close(true);
                 }}
               >
-                Leeren
+                {t('Leeren')}
               </button>
             )}
           </div>
@@ -767,13 +809,33 @@ export function DateInput({
 }
 
 /** Date + time as "YYYY-MM-DDTHH:MM" (local), built from DateInput and TimeInput. */
-export function DateTimeInput({ value, onChange, id, label, min, defaultTime = '09:00' }: { value: string; onChange: (v: string) => void; id?: string; label?: string; min?: string; defaultTime?: string }) {
+export function DateTimeInput({
+  value,
+  onChange,
+  id,
+  label,
+  min,
+  defaultTime = '09:00',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  id?: string;
+  label?: string;
+  min?: string;
+  defaultTime?: string;
+}) {
   const day = value.slice(0, 10);
   const time = value.slice(11, 16);
   return (
     <div className="row" style={{ gap: '0.5rem', flexWrap: 'nowrap' }}>
-      <DateInput id={id} label={label ? `${label}, Datum` : 'Datum'} value={day} min={min?.slice(0, 10)} onChange={(d) => onChange(d ? `${d}T${time || defaultTime}` : '')} />
-      <TimeInput label={label ? `${label}, Uhrzeit` : 'Uhrzeit'} value={time} onChange={(t) => onChange(`${day || isoDay(new Date())}T${t}`)} />
+      <DateInput
+        id={id}
+        label={label ? t('{label}, Datum', { label }) : t('Datum')}
+        value={day}
+        min={min?.slice(0, 10)}
+        onChange={(d) => onChange(d ? `${d}T${time || defaultTime}` : '')}
+      />
+      <TimeInput label={label ? t('{label}, Uhrzeit', { label }) : t('Uhrzeit')} value={time} onChange={(tm) => onChange(`${day || isoDay(new Date())}T${tm}`)} />
     </div>
   );
 }
@@ -797,21 +859,31 @@ export function Toggle({ checked, onChange, label, help }: { checked: boolean; o
   );
 }
 
-export function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; icon?: string; title?: string }[]; label: string }) {
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  label,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: ReactNode; icon?: string; title?: string }[];
+  label: string;
+}) {
   const id = useId();
   return (
     <LayoutGroup id={id}>
-        <div className="seg" role="group" aria-label={label}>
-          {options.map((o) => (
-            <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)} title={o.title} aria-label={o.title}>
-              {value === o.value && <motion.span layoutId="thumb" className="seg-thumb" transition={spring} />}
-              <span>
-                {o.icon && <Icon name={o.icon} size="s" />}
-                {o.label}
-              </span>
-            </button>
-          ))}
-        </div>
+      <div className="seg" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)} title={o.title} aria-label={o.title}>
+            {value === o.value && <motion.span layoutId="thumb" className="seg-thumb" transition={spring} />}
+            <span>
+              {o.icon && <Icon name={o.icon} size="s" />}
+              {o.label}
+            </span>
+          </button>
+        ))}
+      </div>
     </LayoutGroup>
   );
 }
@@ -871,7 +943,7 @@ export function ProgressRing({ value, size = 44 }: { value: number; size?: numbe
   const r = (size - 6) / 2;
   const c = 2 * Math.PI * r;
   return (
-    <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${Math.round(value * 100)} % erledigt`}>
+    <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={t('{n} % erledigt', { n: Math.round(value * 100) })}>
       <circle className="track" cx={size / 2} cy={size / 2} r={r} />
       <circle className="bar" cx={size / 2} cy={size / 2} r={r} strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, Math.max(0, value)))} />
     </svg>
@@ -889,11 +961,11 @@ export function Empty({ title, children, action, example }: { title: string; chi
   );
 }
 
-const STATUS: Record<EntryStatus, { label: string; cls: string }> = {
-  draft: { label: 'Entwurf', cls: '' },
-  review: { label: 'Zur Freigabe', cls: 'sel' },
-  scheduled: { label: 'Geplant', cls: 'edited' },
-  published: { label: 'Online', cls: 'ok' },
+const STATUS: Record<EntryStatus, { label: () => string; cls: string }> = {
+  draft: { label: () => t('Entwurf'), cls: '' },
+  review: { label: () => t('Zur Freigabe'), cls: 'sel' },
+  scheduled: { label: () => t('Geplant'), cls: 'edited' },
+  published: { label: () => t('Online'), cls: 'ok' },
 };
 
 export function StatusBadge({ status, changed }: { status: EntryStatus; changed?: boolean }) {
@@ -901,7 +973,7 @@ export function StatusBadge({ status, changed }: { status: EntryStatus; changed?
   return (
     <span className={`badge ${changed ? 'edited' : s.cls}`}>
       <span className={`dot ${changed ? 'edited' : s.cls}`} />
-      {changed ? 'Online · geändert' : s.label}
+      {changed ? t('Online · geändert') : s.label()}
     </span>
   );
 }

@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Link, Router, usePath, navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { useHotkey, modKey } from '../lib/hooks';
+import { t } from '../lib/i18n';
 import { Icon, NovaMark } from '../ui/icons';
 import { Menu, Tip, motion } from '../ui/kit';
 import { CommandPalette } from './CommandPalette';
@@ -38,7 +39,27 @@ const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.E
 
 const LEVELS = [
   { to: '/seiten', label: 'Seiten', icon: 'page', match: ['/seiten'] },
-  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder', '/tickets', '/einlass', '/spenden', '/kueche'] },
+  {
+    to: '/inhalte',
+    label: 'Inhalte',
+    icon: 'layers',
+    match: [
+      '/inhalte',
+      '/medien',
+      '/formulare',
+      '/kontakte',
+      '/bestellungen',
+      '/gutscheine',
+      '/kommentare',
+      '/reservationen',
+      '/newsletter',
+      '/mitglieder',
+      '/tickets',
+      '/einlass',
+      '/spenden',
+      '/kueche',
+    ],
+  },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings', match: ['/einstellungen', '/konto'] },
 ];
 
@@ -82,7 +103,7 @@ export function Shell() {
                 <div className="editor-skel-bar" />
                 <div className="frame-load-veil">
                   <span className="splash-bar" />
-                  <span>Editor lädt …</span>
+                  <span>{t('Editor lädt …')}</span>
                 </div>
               </div>
             </RouteLoading>
@@ -93,100 +114,100 @@ export function Shell() {
       ) : (
         <div className="shell">
           <header className="topbar">
-            <Link to="/" className="brand-mark" aria-label="Übersicht">
+            <Link to="/" className="brand-mark" aria-label={t('Übersicht')}>
               <NovaMark />
               <span className="ellipsis hide-m" style={{ maxWidth: '14rem' }}>
                 {session.settings?.name ?? 'Nova'}
               </span>
             </Link>
-            <nav className="levels" aria-label="Bereiche">
+            <nav className="levels" aria-label={t('Bereiche')}>
               {LEVELS.map((l) => (
                 <Link key={l.to} to={l.to} aria-current={active?.to === l.to ? 'page' : undefined}>
-                  {l.label}
+                  {t(l.label)}
                   {active?.to === l.to && <motion.span layoutId="level-ind" className="level-ind" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
                 </Link>
               ))}
             </nav>
             <div className="grow" />
-            <button className="cmdk-trigger" onClick={() => setCmdk(true)} aria-label="Suchen und Befehle">
+            <button className="cmdk-trigger" onClick={() => setCmdk(true)} aria-label={t('Suchen und Befehle')}>
               <Icon name="search" size="s" />
-              <span className="cmdk-label">Suchen oder tun …</span>
+              <span className="cmdk-label">{t('Suchen oder tun …')}</span>
               <kbd>{modKey} K</kbd>
             </button>
             <NotificationBell />
             <ModeSwitch />
-            <Tip label="Website ansehen">
-              <a className="btn ghost icon-only hide-m" href={site} target="_blank" rel="noreferrer" aria-label="Website ansehen">
+            <Tip label={t('Website ansehen')}>
+              <a className="btn ghost icon-only hide-m" href={site} target="_blank" rel="noreferrer" aria-label={t('Website ansehen')}>
                 <Icon name="external" />
               </a>
             </Tip>
             <Menu
               trigger={
-                <button className="btn ghost icon-only" aria-label="Konto">
+                <button className="btn ghost icon-only" aria-label={t('Konto')}>
                   <Icon name="user" />
                 </button>
               }
               items={[
                 { label: session.user.name, icon: 'user', onSelect: () => navigate('/konto') },
                 'sep',
-                { label: 'Hell', icon: 'sun', onSelect: () => setTheme('light') },
-                { label: 'Dunkel', icon: 'eyeOff', onSelect: () => setTheme('dark') },
-                { label: 'Wie das System', icon: 'desktop', onSelect: () => setTheme('system') },
+                { label: t('Hell'), icon: 'sun', onSelect: () => setTheme('light') },
+                { label: t('Dunkel'), icon: 'eyeOff', onSelect: () => setTheme('dark') },
+                { label: t('Wie das System'), icon: 'desktop', onSelect: () => setTheme('system') },
                 'sep',
-                { label: 'Abmelden', icon: 'logout', onSelect: () => void session.logout() },
+                { label: t('Abmelden'), icon: 'logout', onSelect: () => void session.logout() },
               ]}
             />
           </header>
           <main className="main">
             <Suspense fallback={<RouteLoading />}>
-            <Router
-              routes={[
-                { path: '/', render: () => <Dashboard /> },
-                { path: '/statistik', render: () => <Stats /> },
-                { path: '/seiten', render: () => <PagesList /> },
-                { path: '/inhalte', render: () => <ContentHub /> },
-                { path: '/inhalte/:collection', render: (p) => <CollectionList key={p.collection} collection={p.collection} /> },
-                { path: '/inhalte/:collection/:id', render: (p) => <EntryRoute key={p.id} collection={p.collection} id={p.id} onOpenPalette={() => setCmdk(true)} /> },
-                { path: '/medien', render: () => <MediaLibrary /> },
-                { path: '/formulare', render: () => <FormsList /> },
-                { path: '/formulare/:id', render: (p) => <FormDetail key={p.id} id={p.id} /> },
-                { path: '/kontakte', render: () => <Contacts /> },
-                { path: '/kontakte/:id', render: (p) => <ContactDetail key={p.id} id={p.id} /> },
-                { path: '/bestellungen', render: () => <Orders /> },
-                { path: '/bestellungen/:id', render: (p) => <OrderDetail key={p.id} id={p.id} /> },
-                { path: '/gutscheine', render: () => <Coupons /> },
-                { path: '/reservationen', render: () => <Bookings /> },
-                { path: '/newsletter', render: () => <Newsletter /> },
-                { path: '/mitglieder', render: () => <Members /> },
-                { path: '/tickets', render: () => <Tickets /> },
-                { path: '/einlass', render: () => <CheckIn /> },
-                { path: '/spenden', render: () => <Donations /> },
-                { path: '/kueche', render: () => <Kitchen /> },
-                { path: '/kommentare', render: () => <Comments /> },
-                { path: '/einstellungen', render: () => <Settings section="website" /> },
-                { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },
-                { path: '/konto', render: () => <Account /> },
-              ]}
-              fallback={
-                <div className="page">
-                  <h1>Diese Seite gibt es im Admin nicht.</h1>
-                  <p className="muted" style={{ marginTop: '.5rem' }}>
-                    <Link to="/">Zur Übersicht</Link>
-                  </p>
-                </div>
-              }
-            />
+              <Router
+                routes={[
+                  { path: '/', render: () => <Dashboard /> },
+                  { path: '/statistik', render: () => <Stats /> },
+                  { path: '/seiten', render: () => <PagesList /> },
+                  { path: '/inhalte', render: () => <ContentHub /> },
+                  { path: '/inhalte/:collection', render: (p) => <CollectionList key={p.collection} collection={p.collection} /> },
+                  { path: '/inhalte/:collection/:id', render: (p) => <EntryRoute key={p.id} collection={p.collection} id={p.id} onOpenPalette={() => setCmdk(true)} /> },
+                  { path: '/medien', render: () => <MediaLibrary /> },
+                  { path: '/formulare', render: () => <FormsList /> },
+                  { path: '/formulare/:id', render: (p) => <FormDetail key={p.id} id={p.id} /> },
+                  { path: '/kontakte', render: () => <Contacts /> },
+                  { path: '/kontakte/:id', render: (p) => <ContactDetail key={p.id} id={p.id} /> },
+                  { path: '/bestellungen', render: () => <Orders /> },
+                  { path: '/bestellungen/:id', render: (p) => <OrderDetail key={p.id} id={p.id} /> },
+                  { path: '/gutscheine', render: () => <Coupons /> },
+                  { path: '/reservationen', render: () => <Bookings /> },
+                  { path: '/newsletter', render: () => <Newsletter /> },
+                  { path: '/mitglieder', render: () => <Members /> },
+                  { path: '/tickets', render: () => <Tickets /> },
+                  { path: '/einlass', render: () => <CheckIn /> },
+                  { path: '/spenden', render: () => <Donations /> },
+                  { path: '/kueche', render: () => <Kitchen /> },
+                  { path: '/kommentare', render: () => <Comments /> },
+                  { path: '/einstellungen', render: () => <Settings section="website" /> },
+                  { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },
+                  { path: '/konto', render: () => <Account /> },
+                ]}
+                fallback={
+                  <div className="page">
+                    <h1>{t('Diese Seite gibt es im Admin nicht.')}</h1>
+                    <p className="muted" style={{ marginTop: '.5rem' }}>
+                      <Link to="/">{t('Zur Übersicht')}</Link>
+                    </p>
+                  </div>
+                }
+              />
             </Suspense>
           </main>
-          <nav className="tabbar" aria-label="Bereiche">
+          <nav className="tabbar" aria-label={t('Bereiche')}>
             <Link to="/" aria-current={path === '/' || path === '/statistik' ? 'page' : undefined}>
               <Icon name="home" />
-              Übersicht
+              {t('Übersicht')}
             </Link>
             {LEVELS.map((l) => (
               <Link key={l.to} to={l.to} aria-current={active?.to === l.to ? 'page' : undefined}>
                 <Icon name={l.icon} />
-                {l.label}
+                {t(l.label)}
               </Link>
             ))}
           </nav>

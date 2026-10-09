@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
+import { t } from '../lib/i18n';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, Switch, confirm, DateInput, Select } from '../ui/kit';
@@ -59,27 +60,31 @@ export function Orders() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Bestellungen"
-        sub={data ? `Umsatz bezahlt: ${formatMoney(data.summary.revenue, settings?.shop.currency)} · ${data.summary.to_ship} zu versenden` : undefined}
+        title={t('Bestellungen')}
+        sub={
+          data
+            ? `${t('Umsatz bezahlt: {amount}', { amount: formatMoney(data.summary.revenue, settings?.shop.currency) })} · ${t('{n} zu versenden', { n: data.summary.to_ship })}`
+            : undefined
+        }
         actions={
           <a className="btn" href="/api/orders?format=csv" download>
-            <Icon name="download" size="s" /> CSV für die Buchhaltung
+            <Icon name="download" size="s" /> {t('CSV für die Buchhaltung')}
           </a>
         }
       />
       <div className="toolbar">
         <Segmented
-          label="Status"
+          label={t('Status')}
           value={status}
           onChange={setStatus}
           options={[
-            { value: '', label: 'Alle' },
-            { value: 'paid', label: 'Zu versenden' },
-            { value: 'pending', label: 'Offen' },
-            { value: 'fulfilled', label: 'Erledigt' },
+            { value: '', label: t('Alle') },
+            { value: 'paid', label: t('Zu versenden') },
+            { value: 'pending', label: t('Offen') },
+            { value: 'fulfilled', label: t('Erledigt') },
           ]}
         />
       </div>
@@ -87,17 +92,19 @@ export function Orders() {
         {!data ? (
           <Skeleton />
         ) : !data.orders.length ? (
-          <Empty title="Keine Bestellungen">{status ? 'Mit diesem Status gibt es gerade nichts.' : 'Sobald jemand im Laden bestellt, erscheint die Bestellung hier – und du bekommst eine E-Mail.'}</Empty>
+          <Empty title={t('Keine Bestellungen')}>
+            {status ? t('Mit diesem Status gibt es gerade nichts.') : t('Sobald jemand im Laden bestellt, erscheint die Bestellung hier – und du bekommst eine E-Mail.')}
+          </Empty>
         ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Nummer</th>
-                  <th>Datum</th>
-                  <th>Kunde</th>
-                  <th>Status</th>
-                  <th className="right">Total</th>
+                  <th>{t('Nummer')}</th>
+                  <th>{t('Datum')}</th>
+                  <th>{t('Kunde')}</th>
+                  <th>{t('Status')}</th>
+                  <th className="right">{t('Total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,7 +114,7 @@ export function Orders() {
                     <td>{formatDate(o.created_at, true)}</td>
                     <td>{o.customer.name}</td>
                     <td>
-                      <span className={`badge ${STATUS[o.status].cls}`}>{STATUS[o.status].label}</span>
+                      <span className={`badge ${STATUS[o.status].cls}`}>{t(STATUS[o.status].label)}</span>
                     </td>
                     <td className="right num">{formatPrice(o.total)}</td>
                   </tr>
@@ -125,14 +132,19 @@ export function OrderDetail({ id }: { id: string }) {
   const { can } = useSession();
   const toast = useToast();
   const { data, setData } = useApi<{ order: Order }>(`/api/orders/${id}`);
-  if (!data) return <div className="page"><Skeleton lines={6} /></div>;
+  if (!data)
+    return (
+      <div className="page">
+        <Skeleton lines={6} />
+      </div>
+    );
   const o = data.order;
   const setStatus = async (status: Order['status'], question?: string) => {
-    if (question && !(await confirm({ title: question, confirm: 'Ja' }))) return;
+    if (question && !(await confirm({ title: question, confirm: t('Ja') }))) return;
     try {
       const r = await api.patch<{ order: Order }>(`/api/orders/${id}`, { status });
       setData(r);
-      toast('Status geändert.');
+      toast(t('Status geändert.'));
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
@@ -142,24 +154,24 @@ export function OrderDetail({ id }: { id: string }) {
       <PageHead
         back={
           <Link to="/bestellungen" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Bestellungen
+            <Icon name="chevronLeft" size="s" /> {t('Bestellungen')}
           </Link>
         }
-        title={`Bestellung ${o.number}`}
-        sub={`${formatDate(o.created_at, true)} · ${o.payment_method === 'stripe' ? 'Online bezahlt via Stripe' : 'Rechnung'}`}
+        title={t('Bestellung {number}', { number: o.number })}
+        sub={`${formatDate(o.created_at, true)} · ${o.payment_method === 'stripe' ? t('Online bezahlt via Stripe') : t('Rechnung')}`}
         actions={
           <>
             <a className="btn" href={`/_nova/invoice/${o.id}`} target="_blank" rel="noreferrer">
-              <Icon name="receipt" size="s" /> Rechnung drucken
+              <Icon name="receipt" size="s" /> {t('Rechnung drucken')}
             </a>
             {can('orders.manage') && o.status === 'pending' && (
-              <button className="btn primary" onClick={() => setStatus('paid', 'Zahlung eingegangen?')}>
-                Als bezahlt markieren
+              <button className="btn primary" onClick={() => setStatus('paid', t('Zahlung eingegangen?'))}>
+                {t('Als bezahlt markieren')}
               </button>
             )}
             {can('orders.manage') && o.status === 'paid' && (
               <button className="btn go" onClick={() => setStatus('fulfilled')}>
-                <Icon name="check" size="s" /> Versendet / erledigt
+                <Icon name="check" size="s" /> {t('Versendet / erledigt')}
               </button>
             )}
           </>
@@ -168,8 +180,8 @@ export function OrderDetail({ id }: { id: string }) {
       <div className="dash">
         <section className="card">
           <div className="card-head">
-            <h2>Artikel</h2>
-            <span className={`badge ${STATUS[o.status].cls}`}>{STATUS[o.status].label}</span>
+            <h2>{t('Artikel')}</h2>
+            <span className={`badge ${STATUS[o.status].cls}`}>{t(STATUS[o.status].label)}</span>
           </div>
           <div className="table-wrap">
             <table className="table">
@@ -186,18 +198,20 @@ export function OrderDetail({ id }: { id: string }) {
                 ))}
                 {o.discount > 0 && (
                   <tr>
-                    <td>Rabatt {o.coupon && <span className="mono">({o.coupon})</span>}</td>
+                    <td>
+                      {t('Rabatt')} {o.coupon && <span className="mono">({o.coupon})</span>}
+                    </td>
                     <td className="right num">−{formatPrice(o.discount)}</td>
                   </tr>
                 )}
                 <tr>
-                  <td>Versand ({o.customer.shippingMethod === 'pickup' ? 'Abholung' : 'Post'})</td>
+                  <td>{o.customer.shippingMethod === 'pickup' ? t('Versand (Abholung)') : t('Versand (Post)')}</td>
                   <td className="right num">{formatPrice(o.shipping)}</td>
                 </tr>
                 <tr>
                   <td>
-                    <strong>Total {o.currency}</strong>
-                    <div className="xsmall muted">{o.vat.map((v) => `inkl. ${v.rate} % MwSt. ${formatPrice(v.amount)}`).join(' · ')}</div>
+                    <strong>{t('Total {currency}', { currency: o.currency })}</strong>
+                    <div className="xsmall muted">{o.vat.map((v) => t('inkl. {rate} % MwSt. {amount}', { rate: v.rate, amount: formatPrice(v.amount) })).join(' · ')}</div>
                   </td>
                   <td className="right num">
                     <strong>{formatPrice(o.total)}</strong>
@@ -209,7 +223,7 @@ export function OrderDetail({ id }: { id: string }) {
         </section>
         <div className="stack">
           <section className="card card-pad stack tight">
-            <h2 className="section-title">Kunde</h2>
+            <h2 className="section-title">{t('Kunde')}</h2>
             <address style={{ fontStyle: 'normal' }}>
               {o.customer.company && (
                 <>
@@ -229,24 +243,31 @@ export function OrderDetail({ id }: { id: string }) {
             </address>
             <a href={`mailto:${o.email}`}>{o.email}</a>
             {o.customer.phone && <a href={`tel:${o.customer.phone}`}>{o.customer.phone}</a>}
-            {o.note && <p className="small" style={{ whiteSpace: 'pre-wrap', borderLeft: '2px solid var(--line-2)', paddingLeft: '0.6rem' }}>{o.note}</p>}
+            {o.note && (
+              <p className="small" style={{ whiteSpace: 'pre-wrap', borderLeft: '2px solid var(--line-2)', paddingLeft: '0.6rem' }}>
+                {o.note}
+              </p>
+            )}
           </section>
           {can('orders.manage') && (
             <section className="card card-pad stack tight">
-              <button className="btn" onClick={() => api.post(`/api/orders/${id}/resend`).then(() => toast('Bestätigung erneut gesendet.'))}>
-                <Icon name="mail" size="s" /> Bestätigung erneut senden
+              <button className="btn" onClick={() => api.post(`/api/orders/${id}/resend`).then(() => toast(t('Bestätigung erneut gesendet.')))}>
+                <Icon name="mail" size="s" /> {t('Bestätigung erneut senden')}
               </button>
               <a className="btn ghost" href={`/bestellung/${o.token}`} target="_blank" rel="noreferrer">
-                <Icon name="eye" size="s" /> Kundenansicht
+                <Icon name="eye" size="s" /> {t('Kundenansicht')}
               </a>
               {o.status === 'pending' && (
-                <button className="btn danger" onClick={() => setStatus('cancelled', 'Bestellung stornieren? Der Lagerbestand wird zurückgebucht.')}>
-                  Stornieren
+                <button className="btn danger" onClick={() => setStatus('cancelled', t('Bestellung stornieren? Der Lagerbestand wird zurückgebucht.'))}>
+                  {t('Stornieren')}
                 </button>
               )}
               {['paid', 'fulfilled'].includes(o.status) && (
-                <button className="btn ghost danger" onClick={() => setStatus('refunded', 'Als erstattet markieren? Die Rückzahlung selbst erfolgt in Stripe bzw. per Überweisung.')}>
-                  Als erstattet markieren
+                <button
+                  className="btn ghost danger"
+                  onClick={() => setStatus('refunded', t('Als erstattet markieren? Die Rückzahlung selbst erfolgt in Stripe bzw. per Überweisung.'))}
+                >
+                  {t('Als erstattet markieren')}
                 </button>
               )}
             </section>
@@ -295,13 +316,13 @@ export function Coupons() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Gutscheine"
+        title={t('Gutscheine')}
         actions={
           <button className="btn primary" onClick={() => setOpen(true)}>
-            <Icon name="plus" size="s" /> Gutschein
+            <Icon name="plus" size="s" /> {t('Gutschein')}
           </button>
         }
       />
@@ -309,7 +330,7 @@ export function Coupons() {
         {!data ? (
           <Skeleton />
         ) : !data.coupons.length ? (
-          <Empty title="Noch keine Gutscheine">Zum Beispiel «SOMMER10» für 10 % Rabatt. Kundinnen geben den Code im Warenkorb ein.</Empty>
+          <Empty title={t('Noch keine Gutscheine')}>{t('Zum Beispiel «SOMMER10» für 10 % Rabatt. Kundinnen geben den Code im Warenkorb ein.')}</Empty>
         ) : (
           <ul className="list">
             {data.coupons.map((c) => (
@@ -319,15 +340,15 @@ export function Coupons() {
                 </span>
                 <span className="grow small muted">
                   {c.kind === 'percent' ? `${c.value} %` : formatPrice(c.value)}
-                  {c.min_total ? ` ab ${formatPrice(c.min_total)}` : ''} · {c.uses}
-                  {c.max_uses ? `/${c.max_uses}` : ''} eingelöst{c.valid_until ? ` · bis ${formatDate(c.valid_until)}` : ''}
+                  {c.min_total ? ` ${t('ab {amount}', { amount: formatPrice(c.min_total) })}` : ''} · {t('{n} eingelöst', { n: c.max_uses ? `${c.uses}/${c.max_uses}` : c.uses })}
+                  {c.valid_until ? ` · ${t('bis {date}', { date: formatDate(c.valid_until) })}` : ''}
                 </span>
-                <Switch label={`${c.code} aktiv`} checked={c.active} onChange={(v) => void api.patch(`/api/coupons/${c.id}`, { active: v }).then(reload)} />
+                <Switch label={t('{code} aktiv', { code: c.code })} checked={c.active} onChange={(v) => void api.patch(`/api/coupons/${c.id}`, { active: v }).then(reload)} />
                 <button
                   className="btn ghost s icon-only"
-                  aria-label="Löschen"
+                  aria-label={t('Löschen')}
                   onClick={async () => {
-                    if (await confirm({ title: `${c.code} löschen?`, confirm: 'Löschen', danger: true })) {
+                    if (await confirm({ title: t('{code} löschen?', { code: c.code }), confirm: t('Löschen'), danger: true })) {
                       await api.del(`/api/coupons/${c.id}`);
                       void reload();
                     }
@@ -340,42 +361,42 @@ export function Coupons() {
           </ul>
         )}
       </section>
-      <Dialog open={open} onOpenChange={setOpen} title="Neuer Gutschein">
+      <Dialog open={open} onOpenChange={setOpen} title={t('Neuer Gutschein')}>
         <div className="stack">
-          <Field label="Code" help="Nur Buchstaben, Zahlen, - und _.">
+          <Field label={t('Code')} help={t('Nur Buchstaben, Zahlen, - und _.')}>
             <input className="input mono" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} autoFocus />
           </Field>
           <div className="grid-2">
-            <Field label="Art">
+            <Field label={t('Art')}>
               <Select
                 value={f.kind}
                 onChange={(v) => setF({ ...f, kind: v as Coupon['kind'] })}
                 options={[
-                  { value: 'percent', label: 'Prozent' },
-                  { value: 'fixed', label: 'Fester Betrag' },
+                  { value: 'percent', label: t('Prozent') },
+                  { value: 'fixed', label: t('Fester Betrag') },
                 ]}
               />
             </Field>
-            <Field label={f.kind === 'percent' ? 'Prozent' : 'Betrag (CHF)'}>
+            <Field label={f.kind === 'percent' ? t('Prozent') : t('Betrag (CHF)')}>
               <input className="input num" inputMode="decimal" value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} />
             </Field>
-            <Field label="Ab Bestellwert (CHF)">
-              <input className="input num" inputMode="decimal" value={f.min} onChange={(e) => setF({ ...f, min: e.target.value })} placeholder="ohne" />
+            <Field label={t('Ab Bestellwert (CHF)')}>
+              <input className="input num" inputMode="decimal" value={f.min} onChange={(e) => setF({ ...f, min: e.target.value })} placeholder={t('ohne')} />
             </Field>
-            <Field label="Höchstens einlösbar">
-              <input className="input num" inputMode="numeric" value={f.max} onChange={(e) => setF({ ...f, max: e.target.value })} placeholder="unbegrenzt" />
+            <Field label={t('Höchstens einlösbar')}>
+              <input className="input num" inputMode="numeric" value={f.max} onChange={(e) => setF({ ...f, max: e.target.value })} placeholder={t('unbegrenzt')} />
             </Field>
           </div>
-          <Field label="Gültig bis">
-            <DateInput label="Gültig bis" value={f.until} min={isoDay(new Date())} onChange={(v) => setF({ ...f, until: v })} />
+          <Field label={t('Gültig bis')}>
+            <DateInput label={t('Gültig bis')} value={f.until} min={isoDay(new Date())} onChange={(v) => setF({ ...f, until: v })} />
           </Field>
         </div>
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setOpen(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" onClick={create} disabled={f.code.length < 3}>
-            Anlegen
+            {t('Anlegen')}
           </button>
         </div>
       </Dialog>

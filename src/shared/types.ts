@@ -317,6 +317,8 @@ export interface User {
   name: string;
   role: Role;
   mode: Mode;
+  /** Admin interface language; '' = follow the browser. */
+  ui_lang: '' | 'de' | 'fr' | 'it' | 'en';
   totp_enabled: boolean;
   sessions_count: number;
   seen_hints: string[];

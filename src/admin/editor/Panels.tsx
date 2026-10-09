@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
+import { adminLang, t, tl, tm } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { getMedia } from '../ui/MediaPicker';
 import { Field, Segmented, Toggle, confirm } from '../ui/kit';
@@ -65,18 +66,20 @@ export function SeoPanel({ doc, onTarget }: { doc: EntryDoc; onTarget: (c: SeoCh
           <i />
           <i />
         </span>
-        <span className="small muted">{result.status === 'good' ? 'Gut gemacht.' : result.status === 'warn' ? 'Fast – ein paar Punkte.' : 'Hier fehlt noch etwas Wichtiges.'}</span>
+        <span className="small muted">
+          {result.status === 'good' ? t('Gut gemacht.') : result.status === 'warn' ? t('Fast – ein paar Punkte.') : t('Hier fehlt noch etwas Wichtiges.')}
+        </span>
       </div>
       <div className="stack tight">
         <div className="row between">
-          <span className="section-title">So erscheint die Seite bei Google</span>
+          <span className="section-title">{t('So erscheint die Seite bei Google')}</span>
           <Segmented
-            label="Gerät"
+            label={t('Gerät')}
             value={device}
             onChange={setDevice}
             options={[
-              { value: 'desktop', label: '', icon: 'desktop', title: 'Computer' },
-              { value: 'mobile', label: '', icon: 'phone', title: 'Handy' },
+              { value: 'desktop', label: '', icon: 'desktop', title: t('Computer') },
+              { value: 'mobile', label: '', icon: 'phone', title: t('Handy') },
             ]}
           />
         </div>
@@ -86,35 +89,44 @@ export function SeoPanel({ doc, onTarget }: { doc: EntryDoc; onTarget: (c: SeoCh
             {doc.path && doc.path !== '/' ? ` › ${doc.path.slice(1).split('/').join(' › ')}` : ''}
           </div>
           <div className="t">{title.length > (device === 'mobile' ? 70 : 62) ? `${title.slice(0, device === 'mobile' ? 68 : 60)} …` : title}</div>
-          <div className="d">{description.length > 158 ? `${description.slice(0, 155)} …` : description || 'Noch keine Beschreibung.'}</div>
+          <div className="d">{description.length > 158 ? `${description.slice(0, 155)} …` : description || t('Noch keine Beschreibung.')}</div>
         </div>
       </div>
-      <Field label="Fokus-Keyword" help="Der Begriff, unter dem man diese Seite finden soll." htmlFor="seo-kw">
-        <input id="seo-kw" className="input" value={data.seo?.keyword ?? ''} onChange={(e) => setSeo({ keyword: e.target.value })} placeholder="z. B. Restaurant Uster" />
+      <Field label={t('Fokus-Keyword')} help={t('Der Begriff, unter dem man diese Seite finden soll.')} htmlFor="seo-kw">
+        <input id="seo-kw" className="input" value={data.seo?.keyword ?? ''} onChange={(e) => setSeo({ keyword: e.target.value })} placeholder={t('z. B. Restaurant Uster')} />
       </Field>
       <div className="stack tight">
         {result.checks.map((c) => (
           <button key={c.id} type="button" className="seo-check" onClick={() => onTarget(c)} disabled={!c.target}>
             <span className={`dot ${c.status === 'good' ? 'ok' : c.status === 'warn' ? 'edited' : 'bad'}`} />
-            <strong>{c.label}</strong>
+            <strong>{tm(c.label)}</strong>
             <p>
-              {c.message}
-              {c.target && c.status !== 'good' && <span style={{ color: 'var(--sel)', fontWeight: 600 }}> Zur Stelle →</span>}
+              {tm(c.message)}
+              {c.target && c.status !== 'good' && <span style={{ color: 'var(--sel)', fontWeight: 600 }}> {t('Zur Stelle →')}</span>}
             </p>
           </button>
         ))}
       </div>
       <hr className="divider" />
-      <Field label="Seitentitel für Google" htmlFor="seo-title" help={`Leer = «${fullTitle({ title: data.title, seo: {}, isHome, siteName: settings?.name ?? '', titleTemplate: settings?.seo.titleTemplate ?? '' })}»`}>
+      <Field
+        label={t('Seitentitel für Google')}
+        htmlFor="seo-title"
+        help={t('Leer = «{title}»', { title: fullTitle({ title: data.title, seo: {}, isHome, siteName: settings?.name ?? '', titleTemplate: settings?.seo.titleTemplate ?? '' }) })}
+      >
         <input id="seo-title" className="input" value={data.seo?.title ?? ''} onChange={(e) => setSeo({ title: e.target.value })} />
       </Field>
-      <Field label="Beschreibung" htmlFor="seo-desc" help={`${(data.seo?.description ?? '').length} / 155 Zeichen. Leer = automatisch aus dem Text.`}>
+      <Field label={t('Beschreibung')} htmlFor="seo-desc" help={t('{n} / 155 Zeichen. Leer = automatisch aus dem Text.', { n: (data.seo?.description ?? '').length })}>
         <textarea id="seo-desc" className="textarea" value={data.seo?.description ?? ''} onChange={(e) => setSeo({ description: e.target.value })} />
       </Field>
-      <Field label="Bild für Social Media" help="Leer = Nova erzeugt eines mit dem Titel in deinen Farben.">
+      <Field label={t('Bild für Social Media')} help={t('Leer = Nova erzeugt eines mit dem Titel in deinen Farben.')}>
         <MediaField value={data.seo?.image ?? null} type="image" onChange={(v) => setSeo({ image: v ?? undefined })} />
       </Field>
-      <Toggle checked={Boolean(data.seo?.noindex)} onChange={(v) => setSeo({ noindex: v })} label="Nicht bei Google anzeigen" help="Für interne oder vorläufige Seiten." />
+      <Toggle
+        checked={Boolean(data.seo?.noindex)}
+        onChange={(v) => setSeo({ noindex: v })}
+        label={t('Nicht bei Google anzeigen')}
+        help={t('Für interne oder vorläufige Seiten.')}
+      />
     </div>
   );
 }
@@ -130,14 +142,14 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
   return (
     <div className="stack">
       {col.id === 'pages' ? (
-        <Field label="Titel der Seite" htmlFor="pg-title" help="Erscheint in Menüs, Brotkrümeln und als Standard-Titel bei Google.">
+        <Field label={t('Titel der Seite')} htmlFor="pg-title" help={t('Erscheint in Menüs, Brotkrümeln und als Standard-Titel bei Google.')}>
           <input id="pg-title" className="input" value={data.title} onChange={(e) => doc.setData((d) => ({ ...d, title: e.target.value }))} />
         </Field>
       ) : (
         <FieldList fields={col.fields} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v, ...(k === col.title_field ? { title: String(v ?? '') } : {}) }))} />
       )}
       {!isHome && col.route !== null && (
-        <Field label="Adresse" htmlFor="pg-slug" keyName={pro ? 'slug' : undefined} help="Ändern ist sicher: Die alte Adresse leitet Nova automatisch weiter.">
+        <Field label={t('Adresse')} htmlFor="pg-slug" keyName={pro ? 'slug' : undefined} help={t('Ändern ist sicher: Die alte Adresse leitet Nova automatisch weiter.')}>
           <div className="input-affix">
             <span>{prefix}</span>
             <input id="pg-slug" className="input mono" value={doc.slug} onChange={(e) => doc.setSlug(e.target.value)} />
@@ -146,7 +158,7 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
       )}
       {doc.path && (
         <a className="btn" href={doc.path} target="_blank" rel="noreferrer" style={{ justifySelf: 'start' }}>
-          <Icon name="external" size="s" /> Live-Seite öffnen
+          <Icon name="external" size="s" /> {t('Live-Seite öffnen')}
         </a>
       )}
     </div>
@@ -155,7 +167,17 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
 
 /* ---------- structure (layers) ---------- */
 
-export function StructurePanel({ blocks, selected, onSelect, onReorder }: { blocks: Block[]; selected: string | null; onSelect: (id: string) => void; onReorder: (b: Block[]) => void }) {
+export function StructurePanel({
+  blocks,
+  selected,
+  onSelect,
+  onReorder,
+}: {
+  blocks: Block[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+  onReorder: (b: Block[]) => void;
+}) {
   const { pro } = useSession();
   return (
     <Reorder.Group axis="y" values={blocks} onReorder={onReorder} style={{ padding: 0, margin: 0, display: 'grid', gap: 4 }}>
@@ -169,7 +191,7 @@ export function StructurePanel({ blocks, selected, onSelect, onReorder }: { bloc
               <Icon name={def?.icon ?? 'page'} className="faint" />
               <span style={{ minWidth: 0 }}>
                 <span className="small" style={{ fontWeight: 600, display: 'block' }}>
-                  {i + 1}. {def?.label ?? b.type}
+                  {i + 1}. {def ? tl(def.label) : b.type}
                 </span>
                 <span className="xsmall muted ellipsis" style={{ display: 'block' }}>
                   {excerpt(text, 60) || '–'}
@@ -193,7 +215,7 @@ interface Rev {
   user_name: string | null;
 }
 
-const KIND: Record<Rev['kind'], string> = { autosave: 'Zwischenstand', publish: 'Veröffentlicht', restore: 'Wiederhergestellt', import: 'Erzeugt' };
+const kindLabel = (k: Rev['kind']): string => ({ autosave: t('Zwischenstand'), publish: t('Veröffentlicht'), restore: t('Wiederhergestellt'), import: t('Erzeugt') })[k];
 
 function diffBlocks(before: Block[] = [], after: Block[] = []) {
   const out: { kind: 'add' | 'del' | 'chg'; label: string; text: string }[] = [];
@@ -201,17 +223,18 @@ function diffBlocks(before: Block[] = [], after: Block[] = []) {
   const bmap = new Map(after.map((b) => [b.id, b]));
   for (const b of after) {
     const prev = a.get(b.id);
-    const label = BLOCK_MAP[b.type]?.label ?? b.type;
+    const label = BLOCK_MAP[b.type] ? tl(BLOCK_MAP[b.type].label) : b.type;
     const text = excerpt(BLOCK_MAP[b.type]?.text?.(b.props) ?? '', 90);
     if (!prev) out.push({ kind: 'add', label, text });
     else if (JSON.stringify(prev) !== JSON.stringify(b)) out.push({ kind: 'chg', label, text });
   }
-  for (const b of before) if (!bmap.has(b.id)) out.push({ kind: 'del', label: BLOCK_MAP[b.type]?.label ?? b.type, text: excerpt(BLOCK_MAP[b.type]?.text?.(b.props) ?? '', 90) });
+  for (const b of before)
+    if (!bmap.has(b.id)) out.push({ kind: 'del', label: BLOCK_MAP[b.type] ? tl(BLOCK_MAP[b.type].label) : b.type, text: excerpt(BLOCK_MAP[b.type]?.text?.(b.props) ?? '', 90) });
   return out;
 }
 
 function diffFields(before: EntryData, after: EntryData, col: CollectionDef) {
-  return col.fields.filter((f) => JSON.stringify(before[f.key] ?? null) !== JSON.stringify(after[f.key] ?? null)).map((f) => f.label);
+  return col.fields.filter((f) => JSON.stringify(before[f.key] ?? null) !== JSON.stringify(after[f.key] ?? null)).map((f) => tl(f.label));
 }
 
 export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: () => void }) {
@@ -229,13 +252,13 @@ export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: (
 
   const restore = async () => {
     if (!sel) return;
-    if (!(await confirm({ title: 'Diese Fassung wiederherstellen?', message: 'Der aktuelle Stand bleibt im Verlauf erhalten.', confirm: 'Wiederherstellen' }))) return;
+    if (!(await confirm({ title: t('Diese Fassung wiederherstellen?'), message: t('Der aktuelle Stand bleibt im Verlauf erhalten.'), confirm: t('Wiederherstellen') }))) return;
     try {
       await api.post(`/api/entries/${doc.entry!.id}/restore`, { revisionId: sel });
       await doc.reload();
       onRestored();
       setSel(null);
-      toast('Fassung wiederhergestellt.');
+      toast(t('Fassung wiederhergestellt.'));
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
@@ -245,36 +268,42 @@ export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: (
   const fieldChanges = rev && doc.data ? diffFields(rev, doc.data, doc.collection!) : [];
   return (
     <div className="stack">
-      <p className="small muted">Nova sichert alle paar Minuten einen Zwischenstand und jede Veröffentlichung. Wähl eine Fassung, um die Unterschiede zu sehen.</p>
+      <p className="small muted">{t('Nova sichert alle paar Minuten einen Zwischenstand und jede Veröffentlichung. Wähl eine Fassung, um die Unterschiede zu sehen.')}</p>
       <div className="stack tight" style={{ gap: 2 }}>
         {data?.revisions.map((r) => (
           <button key={r.id} type="button" className="rev" aria-pressed={sel === r.id} onClick={() => setSel(sel === r.id ? null : r.id)}>
             <span className={`dot ${r.kind === 'publish' ? 'ok' : r.kind === 'restore' ? 'sel' : ''}`} />
             <span>
               <span className="small" style={{ fontWeight: 600 }}>
-                {KIND[r.kind]}
+                {kindLabel(r.kind)}
               </span>
               <span className="xsmall muted" style={{ display: 'block' }}>
-                {formatDate(r.created_at, true)} · {r.user_name ?? 'System'}
+                {formatDate(r.created_at, true)} · {r.user_name ?? t('System')}
               </span>
             </span>
-            <span className="xsmall faint">{relativeTime(r.created_at)}</span>
+            <span className="xsmall faint">{relativeTime(r.created_at, new Date(), adminLang())}</span>
           </button>
         ))}
       </div>
       {rev && (
         <div className="card card-pad stack tight" style={{ boxShadow: 'var(--shadow-2)' }}>
-          <strong className="small">Seit dieser Fassung geändert</strong>
-          {changes.length === 0 && fieldChanges.length === 0 && <p className="small muted">Keine Unterschiede.</p>}
-          {fieldChanges.length > 0 && <div className="diff-row diff-chg">Felder: {fieldChanges.join(', ')}</div>}
+          <strong className="small">{t('Seit dieser Fassung geändert')}</strong>
+          {changes.length === 0 && fieldChanges.length === 0 && <p className="small muted">{t('Keine Unterschiede.')}</p>}
+          {fieldChanges.length > 0 && <div className="diff-row diff-chg">{t('Felder: {list}', { list: fieldChanges.join(', ') })}</div>}
           {changes.map((c, i) => (
             <div key={i} className={`diff-row diff-${c.kind}`}>
-              <strong>{c.kind === 'add' ? 'Neu' : c.kind === 'del' ? 'Entfernt' : 'Geändert'}: {c.label}</strong>
+              <strong>
+                {c.kind === 'add'
+                  ? t('Neu: {label}', { label: c.label })
+                  : c.kind === 'del'
+                    ? t('Entfernt: {label}', { label: c.label })
+                    : t('Geändert: {label}', { label: c.label })}
+              </strong>
               {c.text && <div className="xsmall muted">{c.text}</div>}
             </div>
           ))}
           <button className="btn primary" onClick={restore} style={{ justifySelf: 'start', marginTop: '0.5rem' }}>
-            <Icon name="history" size="s" /> Diese Fassung wiederherstellen
+            <Icon name="history" size="s" /> {t('Diese Fassung wiederherstellen')}
           </button>
         </div>
       )}
@@ -289,7 +318,7 @@ export function GlobalPanel({ which }: { which: 'header' | 'footer' }) {
   return (
     <div className="stack">
       <p className="small muted">
-        {which === 'header' ? 'Kopfzeile und Menü sind auf allen Seiten gleich.' : 'Die Fusszeile ist auf allen Seiten gleich.'} Änderungen wirken überall.
+        {which === 'header' ? t('Kopfzeile und Menü sind auf allen Seiten gleich.') : t('Die Fusszeile ist auf allen Seiten gleich.')} {t('Änderungen wirken überall.')}
       </p>
       {which === 'header' ? (
         <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
@@ -300,14 +329,14 @@ export function GlobalPanel({ which }: { which: 'header' | 'footer' }) {
           ))}
         </ul>
       ) : (
-        <p className="small">{settings?.footer.text || 'Noch kein Text in der Fusszeile.'}</p>
+        <p className="small">{settings?.footer.text || t('Noch kein Text in der Fusszeile.')}</p>
       )}
       <button className="btn primary" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/navigation')}>
-        {which === 'header' ? 'Menü bearbeiten' : 'Fusszeile bearbeiten'}
+        {which === 'header' ? t('Menü bearbeiten') : t('Fusszeile bearbeiten')}
       </button>
       {which === 'header' && (
         <button className="btn" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/website')}>
-          Name & Logo ändern
+          {t('Name & Logo ändern')}
         </button>
       )}
     </div>

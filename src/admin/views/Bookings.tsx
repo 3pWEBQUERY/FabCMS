@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, useMediaQuery } from '../lib/hooks';
+import { adminLocale, t, tl } from '../lib/i18n';
 import { navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { Icon } from '../ui/icons';
@@ -50,7 +51,9 @@ export function Bookings() {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(query.get('tag') ?? '') ? query.get('tag')! : today;
   const openId = query.get('id');
   const setup = useApi<Setup>('/api/booking/setup');
-  const plan = useApi<{ bookings: Booking[]; blocks: Block[]; pending: { id: string; name: string; starts_at: string; party_size: number }[] }>(`/api/bookings?from=${day}&to=${day}`);
+  const plan = useApi<{ bookings: Booking[]; blocks: Block[]; pending: { id: string; name: string; starts_at: string; party_size: number }[] }>(
+    `/api/bookings?from=${day}&to=${day}`,
+  );
   const [adding, setAdding] = useState(query.get('neu') === '1');
   const wide = useMediaQuery('(min-width: 900px)');
   const table = settings?.booking.mode !== 'appointment';
@@ -64,13 +67,15 @@ export function Bookings() {
   if (setup.data && !setup.data.services.length)
     return (
       <div className="page">
-        <PageHead title="Reservationen" />
+        <PageHead title={t('Reservationen')} />
         <div className="card card-pad stack">
-          <h2>Noch nichts buchbar</h2>
-          <p className="muted">Lege zuerst fest, was online gebucht werden kann – zum Beispiel «Tisch, 2 Stunden» oder «Haarschnitt, 45 Minuten» – und mit welchen Tischen oder Personen.</p>
+          <h2>{t('Noch nichts buchbar')}</h2>
+          <p className="muted">
+            {t('Lege zuerst fest, was online gebucht werden kann – zum Beispiel «Tisch, 2 Stunden» oder «Haarschnitt, 45 Minuten» – und mit welchen Tischen oder Personen.')}
+          </p>
           {can('settings.manage') && (
             <button className="btn primary" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/reservation')}>
-              Reservation einrichten
+              {t('Reservation einrichten')}
             </button>
           )}
         </div>
@@ -80,26 +85,36 @@ export function Bookings() {
   return (
     <div className="page wide">
       <PageHead
-        title="Reservationen"
-        sub={plan.data ? `${longDay(day)} · ${live.length} ${live.length === 1 ? 'Reservation' : 'Reservationen'}${table ? ` · ${guests} Personen` : ''}` : longDay(day)}
+        title={t('Reservationen')}
+        sub={
+          plan.data
+            ? [
+                longDay(day, adminLocale()),
+                live.length === 1 ? t('1 Reservation') : t('{n} Reservationen', { n: live.length }),
+                table ? (guests === 1 ? t('1 Person') : t('{n} Personen', { n: guests })) : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : longDay(day, adminLocale())
+        }
         actions={
           <>
             <div className="row" style={{ gap: '.35rem', flexWrap: 'nowrap' }}>
-              <button className="btn ghost icon-only" aria-label="Vorheriger Tag" onClick={() => go(addDays(day, -1))}>
+              <button className="btn ghost icon-only" aria-label={t('Vorheriger Tag')} onClick={() => go(addDays(day, -1))}>
                 <Icon name="chevronLeft" size="s" />
               </button>
-              <DateInput label="Tag" value={day} onChange={(d) => d && go(d)} clearable={false} />
-              <button className="btn ghost icon-only" aria-label="Nächster Tag" onClick={() => go(addDays(day, 1))}>
+              <DateInput label={t('Tag')} value={day} onChange={(d) => d && go(d)} clearable={false} />
+              <button className="btn ghost icon-only" aria-label={t('Nächster Tag')} onClick={() => go(addDays(day, 1))}>
                 <Icon name="chevronRight" size="s" />
               </button>
               {day !== today && (
                 <button className="btn ghost" onClick={() => go(today)}>
-                  Heute
+                  {t('Heute')}
                 </button>
               )}
             </div>
             <button className="btn primary" onClick={() => setAdding(true)}>
-              <Icon name="plus" size="s" /> Eintragen
+              <Icon name="plus" size="s" /> {t('Eintragen')}
             </button>
           </>
         }
@@ -108,8 +123,8 @@ export function Bookings() {
       {plan.data && plan.data.pending.length > 0 && (
         <section className="card bk-pending" aria-labelledby="bk-pend">
           <div className="card-head">
-            <h2 id="bk-pend">Offene Anfragen</h2>
-            <span className="small muted">Warten auf deine Bestätigung</span>
+            <h2 id="bk-pend">{t('Offene Anfragen')}</h2>
+            <span className="small muted">{t('Warten auf deine Bestätigung')}</span>
           </div>
           <ul className="list">
             {plan.data.pending.map((p) => (
@@ -118,22 +133,22 @@ export function Bookings() {
                 <div className="grow">
                   <div className="title">{p.name}</div>
                   <div className="xsmall muted">
-                    {new Date(p.starts_at).toLocaleString('de-CH', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    {table ? ` · ${p.party_size} P.` : ''}
+                    {new Date(p.starts_at).toLocaleString(adminLocale(), { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {table ? ` · ${t('{n} P.', { n: p.party_size })}` : ''}
                   </div>
                 </div>
                 <button
                   className="btn s"
                   onClick={async () => {
                     await api.patch(`/api/bookings/${p.id}`, { status: 'confirmed' });
-                    toast(`${p.name} ist bestätigt – die E-Mail ist unterwegs.`);
+                    toast(t('{name} ist bestätigt – die E-Mail ist unterwegs.', { name: p.name }));
                     void plan.reload();
                   }}
                 >
-                  Bestätigen
+                  {t('Bestätigen')}
                 </button>
                 <button className="btn s ghost" onClick={() => go(localDay(new Date(p.starts_at), tz).day, p.id)}>
-                  Ansehen
+                  {t('Ansehen')}
                 </button>
               </li>
             ))}
@@ -146,21 +161,21 @@ export function Bookings() {
           <Skeleton lines={6} />
         </div>
       ) : wide && resources.length > 0 ? (
-        <DayGrid day={day} tz={tz} resources={resources} bookings={plan.data.bookings} blocks={plan.data.blocks} hours={settings?.hours ?? []} onOpen={(id) => go(day, id)} table={table} />
+        <DayGrid
+          day={day}
+          tz={tz}
+          resources={resources}
+          bookings={plan.data.bookings}
+          blocks={plan.data.blocks}
+          hours={settings?.hours ?? []}
+          onOpen={(id) => go(day, id)}
+          table={table}
+        />
       ) : (
         <DayList bookings={plan.data.bookings} tz={tz} table={table} onOpen={(id) => go(day, id)} />
       )}
 
-      {open && setup.data && (
-        <BookingDialog
-          booking={open}
-          tz={tz}
-          table={table}
-          resources={resources}
-          onClose={() => go(day)}
-          onChanged={() => void plan.reload()}
-        />
-      )}
+      {open && setup.data && <BookingDialog booking={open} tz={tz} table={table} resources={resources} onClose={() => go(day)} onChanged={() => void plan.reload()} />}
       {adding && setup.data && (
         <AddDialog
           day={day}
@@ -230,7 +245,10 @@ function DayGrid({
   const nowMin = localDay(new Date(), tz);
   const showNow = nowMin.day === day && nowMin.minutes >= range.from && nowMin.minutes <= range.to;
   const unassigned = bookings.filter((b) => !b.resource_id || !resources.some((r) => r.id === b.resource_id));
-  const columns = [...resources.map((r) => ({ id: r.id, name: r.name, sub: r.kind === 'staff' ? '' : `${r.capacity} Pl.` })), ...(unassigned.length ? [{ id: '', name: 'Ohne Zuordnung', sub: '' }] : [])];
+  const columns = [
+    ...resources.map((r) => ({ id: r.id, name: r.name, sub: r.kind === 'staff' ? '' : t('{n} Pl.', { n: r.capacity }) })),
+    ...(unassigned.length ? [{ id: '', name: t('Ohne Zuordnung'), sub: '' }] : []),
+  ];
   return (
     <div className="card bk-grid-wrap">
       <div className="bk-grid" style={{ gridTemplateColumns: `3.5rem repeat(${columns.length}, minmax(9rem, 1fr))` }}>
@@ -253,8 +271,13 @@ function DayGrid({
             {blocks
               .filter((b) => b.resource_id === null || b.resource_id === c.id)
               .map((b) => (
-                <div key={b.id} className="bk-closed" style={{ top: Math.max(0, top(b.starts_at)), height: Math.min(hoursList.length * HOUR_PX, height(b.starts_at, b.ends_at)) }} title={b.reason || 'Gesperrt'}>
-                  <span>{b.reason || (b.source === 'ical' ? 'Kalender' : 'Gesperrt')}</span>
+                <div
+                  key={b.id}
+                  className="bk-closed"
+                  style={{ top: Math.max(0, top(b.starts_at)), height: Math.min(hoursList.length * HOUR_PX, height(b.starts_at, b.ends_at)) }}
+                  title={b.reason || t('Gesperrt')}
+                >
+                  <span>{b.reason || (b.source === 'ical' ? t('Kalender') : t('Gesperrt'))}</span>
                 </div>
               ))}
             {bookings
@@ -263,8 +286,8 @@ function DayGrid({
                 <button key={b.id} className={`bk-item s-${b.status}`} style={{ top: top(b.starts_at), height: height(b.starts_at, b.ends_at) }} onClick={() => onOpen(b.id)}>
                   <span className="bk-item-time">{localTime(b.starts_at, tz)}</span>
                   <strong>{b.name}</strong>
-                  <span className="bk-item-meta">{table ? `${b.party_size} P.` : (b.service_name ?? '')}</span>
-                  {b.note && <Icon name="chat" size="s" className="bk-item-note" aria-label="Mit Bemerkung" />}
+                  <span className="bk-item-meta">{table ? t('{n} P.', { n: b.party_size }) : (b.service_name ?? '')}</span>
+                  {b.note && <Icon name="chat" size="s" className="bk-item-note" aria-label={t('Mit Bemerkung')} />}
                 </button>
               ))}
             {showNow && <div className="bk-now" style={{ top: (nowMin.minutes - range.from) * (HOUR_PX / 60) }} />}
@@ -278,7 +301,7 @@ function DayGrid({
 const localTime = (iso: string, tz: string) => minutesToTime(localDay(new Date(iso), tz).minutes);
 
 function DayList({ bookings, tz, table, onOpen }: { bookings: Booking[]; tz: string; table: boolean; onOpen: (id: string) => void }) {
-  if (!bookings.length) return <p className="card card-pad muted">An diesem Tag ist noch nichts eingetragen.</p>;
+  if (!bookings.length) return <p className="card card-pad muted">{t('An diesem Tag ist noch nichts eingetragen.')}</p>;
   return (
     <ul className="card list bk-list">
       {bookings.map((b) => (
@@ -287,9 +310,11 @@ function DayList({ bookings, tz, table, onOpen }: { bookings: Booking[]; tz: str
             <span className="bk-row-time num">{localTime(b.starts_at, tz)}</span>
             <div className="grow">
               <div className="title">{b.name}</div>
-              <div className="xsmall muted">{[table ? `${b.party_size} Personen` : b.service_name, b.resource_name].filter(Boolean).join(' · ')}</div>
+              <div className="xsmall muted">
+                {[table ? (b.party_size === 1 ? t('1 Person') : t('{n} Personen', { n: b.party_size })) : b.service_name, b.resource_name].filter(Boolean).join(' · ')}
+              </div>
             </div>
-            <span className={`badge ${BOOKING_STATUS[b.status]?.tone ?? ''}`}>{BOOKING_STATUS[b.status]?.label ?? b.status}</span>
+            <span className={`badge ${BOOKING_STATUS[b.status]?.tone ?? ''}`}>{tl(BOOKING_STATUS[b.status]?.label ?? b.status)}</span>
           </button>
         </li>
       ))}
@@ -299,7 +324,21 @@ function DayList({ bookings, tz, table, onOpen }: { bookings: Booking[]; tz: str
 
 /* ---------- details ---------- */
 
-function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }: { booking: Booking; tz: string; table: boolean; resources: BookingResource[]; onClose: () => void; onChanged: () => void }) {
+function BookingDialog({
+  booking: b,
+  tz,
+  table,
+  resources,
+  onClose,
+  onChanged,
+}: {
+  booking: Booking;
+  tz: string;
+  table: boolean;
+  resources: BookingResource[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const toast = useToast();
   const [note, setNote] = useState(b.internal_note);
   const [moving, setMoving] = useState(false);
@@ -323,18 +362,27 @@ function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }:
   const status = BOOKING_STATUS[b.status];
   const active = ['pending', 'confirmed', 'awaiting_payment'].includes(b.status);
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={b.name} description={`${longDay(localDay(new Date(b.starts_at), tz).day)}, ${localTime(b.starts_at, tz)}–${localTime(b.ends_at, tz)} Uhr`}>
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={b.name}
+      description={t('{day}, {from}–{to} Uhr', {
+        day: longDay(localDay(new Date(b.starts_at), tz).day, adminLocale()),
+        from: localTime(b.starts_at, tz),
+        to: localTime(b.ends_at, tz),
+      })}
+    >
       <div className="stack">
         <div className="row wrap" style={{ gap: '.5rem' }}>
-          <span className={`badge ${status?.tone ?? ''}`}>{status?.label ?? b.status}</span>
-          <span className="badge">{table ? `${b.party_size} Personen` : (b.service_name ?? 'Termin')}</span>
+          <span className={`badge ${status?.tone ?? ''}`}>{tl(status?.label ?? b.status)}</span>
+          <span className="badge">{table ? (b.party_size === 1 ? t('1 Person') : t('{n} Personen', { n: b.party_size })) : (b.service_name ?? t('Termin'))}</span>
           {b.resource_name && <span className="badge">{b.resource_name}</span>}
-          <span className="xsmall muted">{b.source === 'web' ? 'online gebucht' : b.source === 'phone' ? 'telefonisch' : 'vor Ort'}</span>
+          <span className="xsmall muted">{b.source === 'web' ? t('online gebucht') : b.source === 'phone' ? t('telefonisch') : t('vor Ort')}</span>
         </div>
         <dl className="bk-contact">
           {b.phone && (
             <div>
-              <dt>Telefon</dt>
+              <dt>{t('Telefon')}</dt>
               <dd>
                 <a href={`tel:${b.phone.replace(/\s/g, '')}`}>{b.phone}</a>
               </dd>
@@ -342,7 +390,7 @@ function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }:
           )}
           {b.email && (
             <div>
-              <dt>E-Mail</dt>
+              <dt>{t('E-Mail')}</dt>
               <dd>
                 <a href={`mailto:${b.email}`}>{b.email}</a>
               </dd>
@@ -350,28 +398,53 @@ function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }:
           )}
           {b.note && (
             <div>
-              <dt>Bemerkung</dt>
+              <dt>{t('Bemerkung')}</dt>
               <dd>{b.note}</dd>
             </div>
           )}
         </dl>
-        <Field label="Interne Notiz" help="Sieht nur das Team.">
-          <textarea className="textarea" style={{ minHeight: '3.5rem' }} value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== b.internal_note && void patch({ internal_note: note }, 'Notiz gespeichert.', 'note')} />
+        <Field label={t('Interne Notiz')} help={t('Sieht nur das Team.')}>
+          <textarea
+            className="textarea"
+            style={{ minHeight: '3.5rem' }}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => note !== b.internal_note && void patch({ internal_note: note }, t('Notiz gespeichert.'), 'note')}
+          />
         </Field>
         {moving && (
           <div className="card card-pad stack tight" style={{ background: 'var(--panel-2)' }}>
             <div className="row wrap" style={{ gap: '.5rem' }}>
-              <DateInput label="Tag" value={move.day} clearable={false} onChange={(d) => d && setMove({ ...move, day: d })} />
-              <TimeInput label="Uhrzeit" value={move.time} onChange={(t) => setMove({ ...move, time: t })} />
-              {table && <input className="input num" style={{ width: '5rem' }} type="number" min={1} max={99} value={move.party} aria-label="Personen" onChange={(e) => setMove({ ...move, party: Number(e.target.value) || 1 })} />}
+              <DateInput label={t('Tag')} value={move.day} clearable={false} onChange={(d) => d && setMove({ ...move, day: d })} />
+              <TimeInput label={t('Uhrzeit')} value={move.time} onChange={(v) => setMove({ ...move, time: v })} />
+              {table && (
+                <input
+                  className="input num"
+                  style={{ width: '5rem' }}
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={move.party}
+                  aria-label={t('Personen')}
+                  onChange={(e) => setMove({ ...move, party: Number(e.target.value) || 1 })}
+                />
+              )}
             </div>
-            <Select label={table ? 'Tisch' : 'Bei'} value={move.resourceId ?? ''} onChange={(v) => setMove({ ...move, resourceId: v || null })} options={[{ value: '', label: 'Ohne Zuordnung' }, ...resources.map((r) => ({ value: r.id, label: r.kind === 'staff' ? r.name : `${r.name} (${r.capacity} Pl.)` }))]} />
+            <Select
+              label={table ? t('Tisch') : t('Bei')}
+              value={move.resourceId ?? ''}
+              onChange={(v) => setMove({ ...move, resourceId: v || null })}
+              options={[
+                { value: '', label: t('Ohne Zuordnung') },
+                ...resources.map((r) => ({ value: r.id, label: r.kind === 'staff' ? r.name : `${r.name} (${t('{n} Pl.', { n: r.capacity })})` })),
+              ]}
+            />
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button className="btn ghost" onClick={() => setMoving(false)}>
-                Abbrechen
+                {t('Abbrechen')}
               </button>
-              <button className="btn primary" aria-busy={busy === 'move' || undefined} onClick={async () => (await patch({ move }, 'Verschoben.', 'move')) && setMoving(false)}>
-                Verschieben
+              <button className="btn primary" aria-busy={busy === 'move' || undefined} onClick={async () => (await patch({ move }, t('Verschoben.'), 'move')) && setMoving(false)}>
+                {t('Verschieben')}
               </button>
             </div>
           </div>
@@ -379,7 +452,7 @@ function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }:
         <div className="dialog-actions bk-actions">
           {active && !moving && (
             <button className="btn ghost" onClick={() => setMoving(true)}>
-              Verschieben
+              {t('Verschieben')}
             </button>
           )}
           {active && (
@@ -387,26 +460,41 @@ function BookingDialog({ booking: b, tz, table, resources, onClose, onChanged }:
               className="btn ghost danger-text"
               aria-busy={busy === 'cancel' || undefined}
               onClick={async () => {
-                if (await confirm({ title: 'Reservation stornieren?', message: b.email ? `${b.name} bekommt eine E-Mail, dass die Reservation abgesagt ist.` : undefined, confirm: 'Stornieren', danger: true }))
-                  await patch({ status: 'cancelled' }, 'Storniert.', 'cancel');
+                if (
+                  await confirm({
+                    title: t('Reservation stornieren?'),
+                    message: b.email ? t('{name} bekommt eine E-Mail, dass die Reservation abgesagt ist.', { name: b.name }) : undefined,
+                    confirm: t('Stornieren'),
+                    danger: true,
+                  })
+                )
+                  await patch({ status: 'cancelled' }, t('Storniert.'), 'cancel');
               }}
             >
-              Stornieren
+              {t('Stornieren')}
             </button>
           )}
           {b.status === 'confirmed' && (
             <>
-              <button className="btn ghost" aria-busy={busy === 'no_show' || undefined} onClick={() => void patch({ status: 'no_show', mail: false }, 'Als «nicht erschienen» markiert.', 'no_show')}>
-                Nicht erschienen
+              <button
+                className="btn ghost"
+                aria-busy={busy === 'no_show' || undefined}
+                onClick={() => void patch({ status: 'no_show', mail: false }, t('Als «nicht erschienen» markiert.'), 'no_show')}
+              >
+                {t('Nicht erschienen')}
               </button>
-              <button className="btn" aria-busy={busy === 'done' || undefined} onClick={() => void patch({ status: 'done', mail: false }, 'Erledigt.', 'done')}>
-                Ist da
+              <button className="btn" aria-busy={busy === 'done' || undefined} onClick={() => void patch({ status: 'done', mail: false }, t('Erledigt.'), 'done')}>
+                {t('Ist da')}
               </button>
             </>
           )}
           {b.status === 'pending' && (
-            <button className="btn primary" aria-busy={busy === 'confirm' || undefined} onClick={() => void patch({ status: 'confirmed' }, 'Bestätigt – die E-Mail ist unterwegs.', 'confirm')}>
-              Bestätigen
+            <button
+              className="btn primary"
+              aria-busy={busy === 'confirm' || undefined}
+              onClick={() => void patch({ status: 'confirmed' }, t('Bestätigt – die E-Mail ist unterwegs.'), 'confirm')}
+            >
+              {t('Bestätigen')}
             </button>
           )}
         </div>
@@ -433,14 +521,31 @@ function AddDialog({
   onAdded: (day: string, id: string) => void;
 }) {
   const toast = useToast();
-  const [f, setF] = useState({ serviceId: services[0]?.id ?? '', day: initialDay, time: '', party: 2, resourceId: '', name: '', phone: '', email: '', note: '', source: 'phone', mail: true });
+  const [f, setF] = useState({
+    serviceId: services[0]?.id ?? '',
+    day: initialDay,
+    time: '',
+    party: 2,
+    resourceId: '',
+    name: '',
+    phone: '',
+    email: '',
+    note: '',
+    source: 'phone',
+    mail: true,
+  });
   const free = useApi<{ slots: { time: string; resourceId: string }[] }>(f.serviceId ? `/api/booking/slots?service=${f.serviceId}&day=${f.day}&party=${f.party}` : null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
     setBusy(true);
     try {
-      const r = await api.post<{ booking: { id: string } }>('/api/bookings', { ...f, resourceId: f.resourceId || null, party: table ? f.party : 1, mail: f.mail && Boolean(f.email) });
-      toast('Eingetragen.');
+      const r = await api.post<{ booking: { id: string } }>('/api/bookings', {
+        ...f,
+        resourceId: f.resourceId || null,
+        party: table ? f.party : 1,
+        mail: f.mail && Boolean(f.email),
+      });
+      toast(t('Eingetragen.'));
       onAdded(f.day, r.booking.id);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -449,29 +554,46 @@ function AddDialog({
     }
   };
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title="Reservation eintragen" description="Für Anrufe und Gäste vor Ort. Freie Zeiten sind vorgeschlagen, du kannst aber jede Zeit eintragen.">
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={t('Reservation eintragen')}
+      description={t('Für Anrufe und Gäste vor Ort. Freie Zeiten sind vorgeschlagen, du kannst aber jede Zeit eintragen.')}
+    >
       <div className="stack">
         {services.length > 1 && (
-          <Field label="Was">
-            <Select value={f.serviceId} onChange={(v) => setF({ ...f, serviceId: v, time: '' })} options={services.map((s) => ({ value: s.id, label: `${s.name} (${s.duration_min} Min.)` }))} />
+          <Field label={t('Was')}>
+            <Select
+              value={f.serviceId}
+              onChange={(v) => setF({ ...f, serviceId: v, time: '' })}
+              options={services.map((s) => ({ value: s.id, label: `${s.name} (${t('{n} Min.', { n: s.duration_min })})` }))}
+            />
           </Field>
         )}
         <div className="row wrap" style={{ gap: '.75rem', alignItems: 'flex-end' }}>
-          <Field label="Tag">
+          <Field label={t('Tag')}>
             <DateInput value={f.day} clearable={false} onChange={(d) => d && setF({ ...f, day: d, time: '' })} />
           </Field>
           {table && (
-            <Field label="Personen">
-              <input className="input num" style={{ width: '5.5rem' }} type="number" min={1} max={99} value={f.party} onChange={(e) => setF({ ...f, party: Number(e.target.value) || 1, time: '' })} />
+            <Field label={t('Personen')}>
+              <input
+                className="input num"
+                style={{ width: '5.5rem' }}
+                type="number"
+                min={1}
+                max={99}
+                value={f.party}
+                onChange={(e) => setF({ ...f, party: Number(e.target.value) || 1, time: '' })}
+              />
             </Field>
           )}
-          <Field label="Uhrzeit">
-            <TimeInput label="Uhrzeit" value={f.time} onChange={(t) => setF({ ...f, time: t })} />
+          <Field label={t('Uhrzeit')}>
+            <TimeInput label={t('Uhrzeit')} value={f.time} onChange={(v) => setF({ ...f, time: v })} />
           </Field>
         </div>
         {free.data && (
           <div className="bk-free">
-            <span className="xsmall muted">{free.data.slots.length ? 'Frei:' : 'An diesem Tag ist laut Kalender nichts mehr frei.'}</span>
+            <span className="xsmall muted">{free.data.slots.length ? t('Frei:') : t('An diesem Tag ist laut Kalender nichts mehr frei.')}</span>
             {free.data.slots.slice(0, 24).map((s) => (
               <button key={s.time} type="button" className="chip num" aria-pressed={f.time === s.time} onClick={() => setF({ ...f, time: s.time, resourceId: '' })}>
                 {s.time}
@@ -479,30 +601,37 @@ function AddDialog({
             ))}
           </div>
         )}
-        <Field label={table ? 'Tisch' : 'Bei'} help="Leer lassen: Nova nimmt den passenden, der frei ist.">
-          <Select value={f.resourceId} onChange={(v) => setF({ ...f, resourceId: v })} options={[{ value: '', label: 'Automatisch' }, ...resources.map((r) => ({ value: r.id, label: r.kind === 'staff' ? r.name : `${r.name} (${r.capacity} Pl.)` }))]} />
+        <Field label={table ? t('Tisch') : t('Bei')} help={t('Leer lassen: Nova nimmt den passenden, der frei ist.')}>
+          <Select
+            value={f.resourceId}
+            onChange={(v) => setF({ ...f, resourceId: v })}
+            options={[
+              { value: '', label: t('Automatisch') },
+              ...resources.map((r) => ({ value: r.id, label: r.kind === 'staff' ? r.name : `${r.name} (${t('{n} Pl.', { n: r.capacity })})` })),
+            ]}
+          />
         </Field>
         <div className="grid-2">
-          <Field label="Name">
+          <Field label={t('Name')}>
             <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus />
           </Field>
-          <Field label="Telefon">
+          <Field label={t('Telefon')}>
             <input className="input" type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
           </Field>
         </div>
-        <Field label="E-Mail" help="Optional – dann bekommt der Gast eine Bestätigung.">
+        <Field label={t('E-Mail')} help={t('Optional – dann bekommt der Gast eine Bestätigung.')}>
           <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
         </Field>
-        <Field label="Bemerkung">
+        <Field label={t('Bemerkung')}>
           <input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         </Field>
-        {f.email && <Toggle checked={f.mail} onChange={(v) => setF({ ...f, mail: v })} label="Bestätigung per E-Mail senden" />}
+        {f.email && <Toggle checked={f.mail} onChange={(v) => setF({ ...f, mail: v })} label={t('Bestätigung per E-Mail senden')} />}
         <div className="dialog-actions">
           <button className="btn ghost" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" disabled={!f.name || !f.time} aria-busy={busy || undefined} onClick={submit}>
-            Eintragen
+            {t('Eintragen')}
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Reorder, useDragControls } from 'motion/react';
 import { ImportSettings } from './Import';
 import { LanguageSettings } from './Languages';
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate } from '../lib/router';
@@ -20,10 +20,11 @@ import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
+import { t, tl, tm } from '../lib/i18n';
 
 interface Section {
   id: string;
-  label: string;
+  label: () => string;
   icon: string;
   cap?: Capability;
   pro?: boolean;
@@ -31,26 +32,26 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { id: 'website', label: 'Name, Logo & Kontakt', icon: 'globe', cap: 'settings.manage' },
-  { id: 'design', label: 'Design', icon: 'style', cap: 'design.manage' },
-  { id: 'navigation', label: 'Menü & Fusszeile', icon: 'nav', cap: 'settings.manage' },
-  { id: 'sprachen', label: 'Sprachen', icon: 'globe', cap: 'settings.manage' },
-  { id: 'seo', label: 'Suchmaschinen', icon: 'seo', cap: 'settings.manage' },
-  { id: 'rechtliches', label: 'Rechtliches', icon: 'scale', cap: 'settings.manage' },
-  { id: 'domain', label: 'Domain', icon: 'globe', cap: 'settings.manage' },
-  { id: 'shop', label: 'Shop', icon: 'bag', cap: 'settings.manage', module: 'shop' },
-  { id: 'reservation', label: 'Reservation & Termine', icon: 'calendar', cap: 'settings.manage', module: 'booking' },
-  { id: 'module', label: 'Module', icon: 'grid', cap: 'settings.manage' },
-  { id: 'team', label: 'Team & Rollen', icon: 'people', cap: 'users.manage' },
-  { id: 'import', label: 'Import', icon: 'upload', cap: 'settings.manage' },
-  { id: 'daten', label: 'Daten & Datenschutz', icon: 'database', cap: 'privacy.manage' },
-  { id: 'typen', label: 'Inhaltstypen', icon: 'database', cap: 'dev', pro: true },
-  { id: 'code', label: 'CSS & Tokens', icon: 'code', cap: 'dev', pro: true },
-  { id: 'api', label: 'API & Webhooks', icon: 'webhook', cap: 'dev', pro: true },
-  { id: 'hooks', label: 'Hooks', icon: 'code', cap: 'dev', pro: true },
-  { id: 'weiterleitungen', label: 'Weiterleitungen', icon: 'arrowRight', cap: 'settings.manage', pro: true },
-  { id: 'sql', label: 'SQL-Abfrage', icon: 'database', cap: 'data.sql', pro: true },
-  { id: 'protokoll', label: 'Protokoll', icon: 'history', cap: 'audit.view', pro: true },
+  { id: 'website', label: () => t('Name, Logo & Kontakt'), icon: 'globe', cap: 'settings.manage' },
+  { id: 'design', label: () => t('Design'), icon: 'style', cap: 'design.manage' },
+  { id: 'navigation', label: () => t('Menü & Fusszeile'), icon: 'nav', cap: 'settings.manage' },
+  { id: 'sprachen', label: () => t('Sprachen'), icon: 'globe', cap: 'settings.manage' },
+  { id: 'seo', label: () => t('Suchmaschinen'), icon: 'seo', cap: 'settings.manage' },
+  { id: 'rechtliches', label: () => t('Rechtliches'), icon: 'scale', cap: 'settings.manage' },
+  { id: 'domain', label: () => t('Domain'), icon: 'globe', cap: 'settings.manage' },
+  { id: 'shop', label: () => t('Shop'), icon: 'bag', cap: 'settings.manage', module: 'shop' },
+  { id: 'reservation', label: () => t('Reservation & Termine'), icon: 'calendar', cap: 'settings.manage', module: 'booking' },
+  { id: 'module', label: () => t('Module'), icon: 'grid', cap: 'settings.manage' },
+  { id: 'team', label: () => t('Team & Rollen'), icon: 'people', cap: 'users.manage' },
+  { id: 'import', label: () => t('Import'), icon: 'upload', cap: 'settings.manage' },
+  { id: 'daten', label: () => t('Daten & Datenschutz'), icon: 'database', cap: 'privacy.manage' },
+  { id: 'typen', label: () => t('Inhaltstypen'), icon: 'database', cap: 'dev', pro: true },
+  { id: 'code', label: () => t('CSS & Tokens'), icon: 'code', cap: 'dev', pro: true },
+  { id: 'api', label: () => t('API & Webhooks'), icon: 'webhook', cap: 'dev', pro: true },
+  { id: 'hooks', label: () => t('Hooks'), icon: 'code', cap: 'dev', pro: true },
+  { id: 'weiterleitungen', label: () => t('Weiterleitungen'), icon: 'arrowRight', cap: 'settings.manage', pro: true },
+  { id: 'sql', label: () => t('SQL-Abfrage'), icon: 'database', cap: 'data.sql', pro: true },
+  { id: 'protokoll', label: () => t('Protokoll'), icon: 'history', cap: 'audit.view', pro: true },
 ];
 
 export function Settings({ section }: { section: string }) {
@@ -64,22 +65,22 @@ export function Settings({ section }: { section: string }) {
   if (!current)
     return (
       <div className="page">
-        <PageHead title="Einstellungen" />
+        <PageHead title={t('Einstellungen')} />
         <Link to="/konto" className="btn">
-          Mein Konto
+          {t('Mein Konto')}
         </Link>
       </div>
     );
   return (
     <div className="page wide">
       <div className="settings">
-        <nav className="settings-nav" aria-label="Einstellungen">
-          <span className="section-title">Website</span>
+        <nav className="settings-nav" aria-label={t('Einstellungen')}>
+          <span className="section-title">{t('Website')}</span>
           {visible
             .filter((s) => !s.pro)
             .map((s) => (
               <Link key={s.id} to={`/einstellungen/${s.id}`} aria-current={s.id === current.id ? 'page' : undefined}>
-                <Icon name={s.icon} size="s" /> {s.label}
+                <Icon name={s.icon} size="s" /> {s.label()}
               </Link>
             ))}
           {pro && <span className="section-title">Werkbank</span>}
@@ -87,12 +88,12 @@ export function Settings({ section }: { section: string }) {
             .filter((s) => s.pro)
             .map((s) => (
               <Link key={s.id} to={`/einstellungen/${s.id}`} aria-current={s.id === current.id ? 'page' : undefined}>
-                <Icon name={s.icon} size="s" /> {s.label}
+                <Icon name={s.icon} size="s" /> {s.label()}
               </Link>
             ))}
-          <span className="section-title">Ich</span>
+          <span className="section-title">{t('Ich')}</span>
           <Link to="/konto">
-            <Icon name="user" size="s" /> Mein Konto
+            <Icon name="user" size="s" /> {t('Mein Konto')}
           </Link>
         </nav>
         <div style={{ minWidth: 0 }}>
@@ -134,6 +135,11 @@ function Section({ title, sub, children, id }: { title: string; sub?: ReactNode;
   );
 }
 
+/** Fills {placeholders} in a translated sentence with elements. */
+function withEl(text: string, parts: Record<string, ReactNode>) {
+  return text.split(/\{(\w+)\}/).map((x, i) => (i % 2 ? <Fragment key={i}>{parts[x]}</Fragment> : x));
+}
+
 /* ---------- website ---------- */
 
 function WebsiteSettings() {
@@ -143,65 +149,61 @@ function WebsiteSettings() {
   const setB = (patch: Partial<SiteSettings['business']>) => set('business', { ...b, ...patch });
   return (
     <>
-      <PageHead title="Name, Logo & Kontakt" sub="Diese Angaben erscheinen auf der Website, im Footer, im Impressum und bei Google." />
+      <PageHead title={t('Name, Logo & Kontakt')} sub={t('Diese Angaben erscheinen auf der Website, im Footer, im Impressum und bei Google.')} />
       <div className="card">
-        <Section title="Website">
+        <Section title={t('Website')}>
           <div className="grid-2">
-            <Field label="Name" htmlFor="s-name">
+            <Field label={t('Name')} htmlFor="s-name">
               <input id="s-name" className="input" value={draft.name} onChange={(e) => set('name', e.target.value)} />
             </Field>
-            <Field label="Kurzbeschreibung" htmlFor="s-tag" help="Erscheint auf der Startseite im Browser-Tab und bei Google.">
+            <Field label={t('Kurzbeschreibung')} htmlFor="s-tag" help={t('Erscheint auf der Startseite im Browser-Tab und bei Google.')}>
               <input id="s-tag" className="input" value={draft.tagline} onChange={(e) => set('tagline', e.target.value)} />
             </Field>
           </div>
           <div className="grid-2">
-            <Field label="Logo">
+            <Field label={t('Logo')}>
               <MediaField value={draft.logo} type="image" onChange={(v) => set('logo', v)} />
             </Field>
-            <Field label="Icon im Browser-Tab" help="Leer = Logo oder Anfangsbuchstabe.">
+            <Field label={t('Icon im Browser-Tab')} help={t('Leer = Logo oder Anfangsbuchstabe.')}>
               <MediaField value={draft.favicon} type="image" onChange={(v) => set('favicon', v)} />
             </Field>
           </div>
         </Section>
-        <Section title="Kontakt & Adresse">
+        <Section title={t('Kontakt & Adresse')}>
           <div className="grid-2">
-            <Field label="Firmenname (offiziell)">
+            <Field label={t('Firmenname (offiziell)')}>
               <input className="input" value={b.legalName} onChange={(e) => setB({ legalName: e.target.value })} />
             </Field>
-            <Field label="UID-Nummer" help="z. B. CHE-123.456.789 – für Impressum und Rechnungen.">
+            <Field label={t('UID-Nummer')} help={t('z. B. CHE-123.456.789 – für Impressum und Rechnungen.')}>
               <input className="input" value={b.uid} onChange={(e) => setB({ uid: e.target.value })} />
             </Field>
-            <Field label="Strasse und Nr.">
+            <Field label={t('Strasse und Nr.')}>
               <input className="input" value={b.street} onChange={(e) => setB({ street: e.target.value })} autoComplete="street-address" />
             </Field>
             <div className="grid-2" style={{ gridTemplateColumns: '6rem 1fr', gap: '0.5rem' }}>
-              <Field label="PLZ">
+              <Field label={t('PLZ')}>
                 <input className="input" value={b.zip} onChange={(e) => setB({ zip: e.target.value })} inputMode="numeric" />
               </Field>
-              <Field label="Ort">
+              <Field label={t('Ort')}>
                 <input className="input" value={b.city} onChange={(e) => setB({ city: e.target.value })} />
               </Field>
             </div>
-            <Field label="Telefon">
+            <Field label={t('Telefon')}>
               <input className="input" type="tel" value={b.phone} onChange={(e) => setB({ phone: e.target.value })} />
             </Field>
-            <Field label="E-Mail" help="Hierhin gehen auch Formular-Benachrichtigungen.">
+            <Field label={t('E-Mail')} help={t('Hierhin gehen auch Formular-Benachrichtigungen.')}>
               <input className="input" type="email" value={b.email} onChange={(e) => setB({ email: e.target.value })} />
             </Field>
           </div>
-          {b.lat && (
-            <p className="xsmall faint">
-              Auf der Karte gefunden ({b.lat.toFixed(4)}, {b.lng?.toFixed(4)}).
-            </p>
-          )}
+          {b.lat && <p className="xsmall faint">{t('Auf der Karte gefunden ({lat}, {lng}).', { lat: b.lat.toFixed(4), lng: b.lng?.toFixed(4) ?? '' })}</p>}
         </Section>
-        <Section title="Öffnungszeiten" id="zeiten" sub="Erscheinen im Block «Öffnungszeiten», im Footer und bei Google. «Jetzt geöffnet» rechnet Nova selbst aus.">
+        <Section title={t('Öffnungszeiten')} id="zeiten" sub={t('Erscheinen im Block «Öffnungszeiten», im Footer und bei Google. «Jetzt geöffnet» rechnet Nova selbst aus.')}>
           <HoursEditor hours={draft.hours} onChange={(h) => set('hours', h)} />
-          <Field label="Hinweis zu den Zeiten" help="z. B. «Betriebsferien 20. Juli bis 10. August»">
+          <Field label={t('Hinweis zu den Zeiten')} help={t('z. B. «Betriebsferien 20. Juli bis 10. August»')}>
             <input className="input" value={draft.hoursNote} onChange={(e) => set('hoursNote', e.target.value)} />
           </Field>
         </Section>
-        <Section title="Social Media">
+        <Section title={t('Social Media')}>
           {draft.social.map((s, i) => (
             <div key={i} className="row">
               <input
@@ -229,7 +231,7 @@ function WebsiteSettings() {
               />
               <button
                 className="btn ghost icon-only"
-                aria-label="Entfernen"
+                aria-label={t('Entfernen')}
                 onClick={() =>
                   set(
                     'social',
@@ -242,37 +244,37 @@ function WebsiteSettings() {
             </div>
           ))}
           <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('social', [...draft.social, { label: '', href: '' }])}>
-            <Icon name="plus" size="s" /> Profil hinzufügen
+            <Icon name="plus" size="s" /> {t('Profil hinzufügen')}
           </button>
         </Section>
-        <Section title="Geschäftsart für Google" sub="Bestimmt die strukturierten Daten (schema.org).">
+        <Section title={t('Geschäftsart für Google')} sub={t('Bestimmt die strukturierten Daten (schema.org).')}>
           <div className="grid-2">
-            <Field label="Art">
+            <Field label={t('Art')}>
               <Select
                 value={b.type}
                 onChange={(v) => setB({ type: v })}
                 options={[
-                  ['LocalBusiness', 'Lokales Geschäft'],
-                  ['Restaurant', 'Restaurant'],
-                  ['CafeOrCoffeeShop', 'Café'],
-                  ['BarOrPub', 'Bar'],
-                  ['Store', 'Laden'],
-                  ['BeautySalon', 'Coiffeur / Kosmetik'],
-                  ['MedicalBusiness', 'Praxis'],
-                  ['HomeAndConstructionBusiness', 'Handwerk'],
-                  ['ProfessionalService', 'Dienstleistung'],
-                  ['LodgingBusiness', 'Hotel / Unterkunft'],
-                  ['SportsOrganization', 'Verein'],
-                  ['NGO', 'Non-Profit'],
-                  ['Organization', 'Organisation'],
+                  ['LocalBusiness', t('Lokales Geschäft')],
+                  ['Restaurant', t('Restaurant')],
+                  ['CafeOrCoffeeShop', t('Café')],
+                  ['BarOrPub', t('Bar')],
+                  ['Store', t('Laden')],
+                  ['BeautySalon', t('Coiffeur / Kosmetik')],
+                  ['MedicalBusiness', t('Praxis')],
+                  ['HomeAndConstructionBusiness', t('Handwerk')],
+                  ['ProfessionalService', t('Dienstleistung')],
+                  ['LodgingBusiness', t('Hotel / Unterkunft')],
+                  ['SportsOrganization', t('Verein')],
+                  ['NGO', t('Non-Profit')],
+                  ['Organization', t('Organisation')],
                 ].map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label="Preisniveau" help="z. B. «CHF 20–50»">
+            <Field label={t('Preisniveau')} help={t('z. B. «CHF 20–50»')}>
               <input className="input" value={b.priceRange} onChange={(e) => setB({ priceRange: e.target.value })} />
             </Field>
             {['Restaurant', 'CafeOrCoffeeShop', 'BarOrPub'].includes(b.type) && (
-              <Field label="Küche" help="z. B. «Schweizer Küche, saisonal»">
+              <Field label={t('Küche|Stil')} help={t('z. B. «Schweizer Küche, saisonal»')}>
                 <input className="input" value={b.servesCuisine} onChange={(e) => setB({ servesCuisine: e.target.value })} />
               </Field>
             )}
@@ -291,84 +293,84 @@ function DesignSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const [offer, setOffer] = useState(false);
   if (!draft || !bundle) return <Skeleton />;
-  const t = draft.theme;
-  const setT = (patch: Partial<SiteSettings['theme']>) => set('theme', { ...t, ...patch });
-  const theme = bundle.themes.find((x) => x.id === t.id) ?? bundle.themes[0];
-  const preview = `/_nova/theme-preview?theme=${t.id}&palette=${t.palette}&fonts=${t.fontPair}&spacing=${t.spacing}&radius=${t.radius}`;
+  const cur = draft.theme;
+  const setT = (patch: Partial<SiteSettings['theme']>) => set('theme', { ...cur, ...patch });
+  const theme = bundle.themes.find((x) => x.id === cur.id) ?? bundle.themes[0];
+  const preview = `/_nova/theme-preview?theme=${cur.id}&palette=${cur.palette}&fonts=${cur.fontPair}&spacing=${cur.spacing}&radius=${cur.radius}`;
   return (
     <>
-      <PageHead title="Design" sub="Kuratierte Stile, Farben und Schriften. Änderungen siehst du sofort in der Vorschau." />
+      <PageHead title={t('Design')} sub={t('Kuratierte Stile, Farben und Schriften. Änderungen siehst du sofort in der Vorschau.')} />
       <div className="preview-split">
         <div className="card">
-          <Section title="Stil">
+          <Section title={t('Stil')}>
             <div className="stack tight">
               {bundle.themes.map((th) => (
-                <button key={th.id} type="button" className="tile" aria-pressed={t.id === th.id} onClick={() => setT({ id: th.id, palette: 'default', fontPair: th.pair })}>
-                  <strong>{th.name}</strong>
-                  <span>{th.description}</span>
+                <button key={th.id} type="button" className="tile" aria-pressed={cur.id === th.id} onClick={() => setT({ id: th.id, palette: 'default', fontPair: th.pair })}>
+                  <strong>{tl(th.name)}</strong>
+                  <span>{tl(th.description)}</span>
                 </button>
               ))}
             </div>
           </Section>
-          <Section title="Farben">
+          <Section title={t('Farben')}>
             <div className="row wrap" style={{ gap: '0.75rem' }}>
               {theme.palettes.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   className="chip"
-                  aria-pressed={t.palette === p.id}
+                  aria-pressed={cur.palette === p.id}
                   onClick={() => setT({ palette: p.id })}
                   style={{ height: '2.25rem', paddingLeft: '0.35rem' }}
                 >
                   <span className="swatch" style={{ width: '1.5rem', height: '1.5rem', background: `linear-gradient(135deg, ${p.bg} 0 50%, ${p.accent} 50% 100%)` }} />
-                  {p.label}
+                  {tl(p.label)}
                 </button>
               ))}
             </div>
           </Section>
-          <Section title="Schriften">
+          <Section title={t('Schriften')}>
             <Select
-              label="Schriftpaar"
-              value={t.fontPair}
+              label={t('Schriftpaar')}
+              value={cur.fontPair}
               onChange={(v) => setT({ fontPair: v })}
-              options={bundle.fontPairs.map((f) => ({ value: f.id, label: `${f.label}${f.id === theme.pair ? ' (passend zum Stil)' : ''}` }))}
+              options={bundle.fontPairs.map((f) => ({ value: f.id, label: f.id === theme.pair ? t('{font} (passend zum Stil)', { font: f.label }) : f.label }))}
             />
           </Section>
-          <Section title="Abstände & Ecken">
-            <Field label={`Luft zwischen Abschnitten: ${Math.round(t.spacing * 100)} %`}>
-              <input type="range" min={0.7} max={1.4} step={0.05} value={t.spacing} onChange={(e) => setT({ spacing: Number(e.target.value) })} />
+          <Section title={t('Abstände & Ecken')}>
+            <Field label={t('Luft zwischen Abschnitten: {n} %', { n: Math.round(cur.spacing * 100) })}>
+              <input type="range" min={0.7} max={1.4} step={0.05} value={cur.spacing} onChange={(e) => setT({ spacing: Number(e.target.value) })} />
             </Field>
-            <Field label={`Rundung von Bildern: ${t.radius} px`}>
-              <input type="range" min={0} max={24} step={1} value={t.radius} onChange={(e) => setT({ radius: Number(e.target.value) })} />
+            <Field label={t('Rundung von Bildern: {n} px', { n: cur.radius })}>
+              <input type="range" min={0} max={24} step={1} value={cur.radius} onChange={(e) => setT({ radius: Number(e.target.value) })} />
             </Field>
           </Section>
           {!pro && (
-            <Section title="Mehr Kontrolle?">
-              <p className="small muted">Eigene Farben als Design-Tokens oder eigenes CSS gibt es in der Werkbank.</p>
+            <Section title={t('Mehr Kontrolle?')}>
+              <p className="small muted">{t('Eigene Farben als Design-Tokens oder eigenes CSS gibt es in der Werkbank.')}</p>
               <button className="btn" style={{ justifySelf: 'start' }} onClick={() => setOffer(true)} disabled={!user.allowed_modes.includes('werkbank')}>
-                <Icon name="code" size="s" /> Eigenes CSS schreiben
+                <Icon name="code" size="s" /> {t('Eigenes CSS schreiben')}
               </button>
             </Section>
           )}
         </div>
         <div className="live-preview">
           <header>
-            <Icon name="eye" size="s" /> <span className="grow">Vorschau mit deinen Inhalten</span>
+            <Icon name="eye" size="s" /> <span className="grow">{t('Vorschau mit deinen Inhalten')}</span>
           </header>
-          <LoadingFrame title="Design-Vorschau" src={preview} />
+          <LoadingFrame title={t('Design-Vorschau')} src={preview} />
         </div>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
       <Dialog
         open={offer}
         onOpenChange={setOffer}
-        title="Zur Werkbank wechseln?"
-        description="Die Werkbank zeigt dieselben Inhalte – dazu Design-Tokens, eigenes CSS, Code-Ansicht pro Block, Inhaltstypen und API. Zurück ins Studio geht jederzeit."
+        title={t('Zur Werkbank wechseln?')}
+        description={t('Die Werkbank zeigt dieselben Inhalte – dazu Design-Tokens, eigenes CSS, Code-Ansicht pro Block, Inhaltstypen und API. Zurück ins Studio geht jederzeit.')}
       >
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setOffer(false)}>
-            Lieber nicht
+            {t('Lieber nicht')}
           </button>
           <button
             className="btn primary"
@@ -378,7 +380,7 @@ function DesignSettings() {
               navigate('/einstellungen/code');
             }}
           >
-            Werkbank öffnen
+            {t('Werkbank öffnen')}
           </button>
         </div>
       </Dialog>
@@ -404,28 +406,28 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
           className="input"
           style={{ maxWidth: '12rem' }}
           value={item.label}
-          placeholder="Beschriftung"
+          placeholder={t('Beschriftung')}
           onChange={(e) => onChange({ ...item, label: e.target.value })}
-          aria-label="Beschriftung"
+          aria-label={t('Beschriftung')}
         />
         <SuggestInput
           className="input grow mono"
           value={item.href}
-          placeholder="/seite"
+          placeholder={t('/seite')}
           onChange={(v) => onChange({ ...item, href: v })}
-          aria-label="Ziel"
+          aria-label={t('Ziel')}
           suggestions={pageLinks}
         />
         {depth === 0 && (
           <button
             className="btn ghost s"
             onClick={() => onChange({ ...item, children: [...(item.children ?? []), { id: shortId(), label: '', href: '' }] })}
-            title="Untermenü-Punkt"
+            title={t('Untermenü-Punkt')}
           >
-            + Unterpunkt
+            + {t('Unterpunkt')}
           </button>
         )}
-        <button className="btn ghost s icon-only" aria-label="Entfernen" onClick={onRemove}>
+        <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={onRemove}>
           <Icon name="x" size="s" />
         </button>
       </div>
@@ -453,10 +455,10 @@ function NavigationSettings() {
   if (!draft) return <Skeleton />;
   return (
     <>
-      <PageHead title="Menü & Fusszeile" sub="Einmal ändern, auf allen Seiten aktuell." />
+      <PageHead title={t('Menü & Fusszeile')} sub={t('Einmal ändern, auf allen Seiten aktuell.')} />
       <PageLinks.Provider value={pageLinks}>
         <div className="card">
-          <Section title="Hauptmenü" sub="Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.">
+          <Section title={t('Hauptmenü')} sub={t('Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.')}>
             <Reorder.Group axis="y" values={draft.nav} onReorder={(n) => set('nav', n)} style={{ padding: 0, margin: 0 }}>
               {draft.nav.map((n) => (
                 <NavRow
@@ -479,12 +481,12 @@ function NavigationSettings() {
               ))}
             </Reorder.Group>
             <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('nav', [...draft.nav, { id: shortId(), label: '', href: '' }])}>
-              <Icon name="plus" size="s" /> Menüpunkt
+              <Icon name="plus" size="s" /> {t('Menüpunkt')}
             </button>
           </Section>
-          <Section title="Kopfzeile">
+          <Section title={t('Kopfzeile')}>
             <div className="grid-2">
-              <Field label="Knopf rechts im Menü" help="z. B. «Tisch reservieren»">
+              <Field label={t('Knopf rechts im Menü')} help={t('z. B. «Tisch reservieren»')}>
                 <input
                   className="input"
                   value={draft.header.cta?.label ?? ''}
@@ -493,7 +495,7 @@ function NavigationSettings() {
                   }
                 />
               </Field>
-              <Field label="Ziel des Knopfs">
+              <Field label={t('Ziel des Knopfs')}>
                 <SuggestInput
                   className="input mono"
                   suggestions={pageLinks}
@@ -502,10 +504,10 @@ function NavigationSettings() {
                 />
               </Field>
             </div>
-            <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label="Kopfzeile beim Scrollen oben behalten" />
+            <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label={t('Kopfzeile beim Scrollen oben behalten')} />
           </Section>
-          <Section title="Fusszeile">
-            <Field label="Text">
+          <Section title={t('Fusszeile')}>
+            <Field label={t('Text')}>
               <textarea className="textarea" style={{ minHeight: '4rem' }} value={draft.footer.text} onChange={(e) => set('footer', { ...draft.footer, text: e.target.value })} />
             </Field>
             {draft.footer.columns.map((col, i) => (
@@ -514,12 +516,12 @@ function NavigationSettings() {
                   <input
                     className="input"
                     value={col.title}
-                    placeholder="Spaltentitel"
+                    placeholder={t('Spaltentitel')}
                     onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })}
                   />
                   <button
                     className="btn ghost s icon-only"
-                    aria-label="Spalte entfernen"
+                    aria-label={t('Spalte entfernen')}
                     onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}
                   >
                     <Icon name="trash" size="s" />
@@ -530,7 +532,7 @@ function NavigationSettings() {
                     <input
                       className="input"
                       value={l.label}
-                      placeholder="Beschriftung"
+                      placeholder={t('Beschriftung')}
                       onChange={(e) =>
                         set('footer', {
                           ...draft.footer,
@@ -542,8 +544,8 @@ function NavigationSettings() {
                       className="input mono"
                       suggestions={pageLinks}
                       value={l.href}
-                      placeholder="/seite"
-                      aria-label="Ziel"
+                      placeholder={t('/seite')}
+                      aria-label={t('Ziel')}
                       onChange={(v) =>
                         set('footer', {
                           ...draft.footer,
@@ -560,7 +562,7 @@ function NavigationSettings() {
                     set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })
                   }
                 >
-                  + Link
+                  + {t('Link')}
                 </button>
               </div>
             ))}
@@ -569,9 +571,9 @@ function NavigationSettings() {
               style={{ justifySelf: 'start' }}
               onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}
             >
-              <Icon name="plus" size="s" /> Spalte
+              <Icon name="plus" size="s" /> {t('Spalte')}
             </button>
-            <p className="xsmall muted">Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.</p>
+            <p className="xsmall muted">{t('Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.')}</p>
           </Section>
         </div>
       </PageLinks.Provider>
@@ -599,20 +601,23 @@ function SeoSettings() {
   const coll = (id?: string) => (pages?.entries.some((p) => p.id === id) ? 'pages' : 'posts');
   return (
     <>
-      <PageHead title="Suchmaschinen" sub="Sitemap, strukturierte Daten, Social-Vorschaubilder und Weiterleitungen erledigt Nova automatisch. Hier siehst du, was noch fehlt." />
+      <PageHead
+        title={t('Suchmaschinen')}
+        sub={t('Sitemap, strukturierte Daten, Social-Vorschaubilder und Weiterleitungen erledigt Nova automatisch. Hier siehst du, was noch fehlt.')}
+      />
       <div className="stack loose">
         <section className="card">
           <div className="card-head">
-            <h2>Website-Check</h2>
+            <h2>{t('Website-Check')}</h2>
             <button className="btn s" onClick={() => void check.reload()}>
-              Neu prüfen
+              {t('Neu prüfen')}
             </button>
           </div>
           {!check.data ? (
             <Skeleton />
           ) : !check.data.issues.length ? (
             <p className="card-pad small" style={{ color: 'var(--ok)', fontWeight: 600 }}>
-              {check.data.checked} Seiten geprüft – nichts gefunden. Sauber.
+              {check.data.checked === 1 ? t('1 Seite geprüft – nichts gefunden. Sauber.') : t('{n} Seiten geprüft – nichts gefunden. Sauber.', { n: check.data.checked })}
             </p>
           ) : (
             <ul className="list">
@@ -623,11 +628,11 @@ function SeoSettings() {
                     <div className="small" style={{ fontWeight: 600 }}>
                       {i.title}
                     </div>
-                    <div className="xsmall muted">{i.message}</div>
+                    <div className="xsmall muted">{tm(i.message)}</div>
                   </div>
                   {i.entryId && (
                     <Link className="btn s" to={entryUrl(coll(i.entryId), i.entryId)}>
-                      Beheben
+                      {t('Beheben')}
                     </Link>
                   )}
                 </li>
@@ -636,42 +641,42 @@ function SeoSettings() {
           )}
         </section>
         <div className="card">
-          <Section title="Standardwerte">
-            <Field label="Muster für Seitentitel" help="%s = Seitentitel, %site = Name der Website" keyName="seo.titleTemplate">
+          <Section title={t('Standardwerte')}>
+            <Field label={t('Muster für Seitentitel')} help={t('%s = Seitentitel, %site = Name der Website')} keyName="seo.titleTemplate">
               <input className="input mono" value={s.titleTemplate} onChange={(e) => set('seo', { ...s, titleTemplate: e.target.value })} />
             </Field>
-            <Field label="Standard-Beschreibung" help="Für Seiten ohne eigenen Text.">
+            <Field label={t('Standard-Beschreibung')} help={t('Für Seiten ohne eigenen Text.')}>
               <textarea className="textarea" value={s.defaultDescription} onChange={(e) => set('seo', { ...s, defaultDescription: e.target.value })} />
             </Field>
-            <Field label="Standard-Bild für Social Media" help="Leer = Nova erzeugt pro Seite ein Bild mit dem Titel.">
+            <Field label={t('Standard-Bild für Social Media')} help={t('Leer = Nova erzeugt pro Seite ein Bild mit dem Titel.')}>
               <MediaField value={s.defaultImage} type="image" onChange={(v) => set('seo', { ...s, defaultImage: v })} />
             </Field>
           </Section>
-          <Section title="Indexierung">
+          <Section title={t('Indexierung')}>
             <Toggle
               checked={!s.noindex}
               onChange={(v) => set('seo', { ...s, noindex: !v })}
-              label="Suchmaschinen dürfen die Website aufnehmen"
-              help="Ausschalten, solange die Website noch im Aufbau ist."
+              label={t('Suchmaschinen dürfen die Website aufnehmen')}
+              help={t('Ausschalten, solange die Website noch im Aufbau ist.')}
             />
-            <Toggle checked={s.indexNow} onChange={(v) => set('seo', { ...s, indexNow: v })} label="Bing & Co. bei Änderungen sofort benachrichtigen (IndexNow)" />
+            <Toggle checked={s.indexNow} onChange={(v) => set('seo', { ...s, indexNow: v })} label={t('Bing & Co. bei Änderungen sofort benachrichtigen (IndexNow)')} />
             <Toggle
               checked={s.adult}
               onChange={(v) => set('seo', { ...s, adult: v })}
-              label="Inhalte für Erwachsene kennzeichnen"
-              help="Für SafeSearch: Google zeigt die Website dann nicht bei eingeschaltetem Jugendschutz."
+              label={t('Inhalte für Erwachsene kennzeichnen')}
+              help={t('Für SafeSearch: Google zeigt die Website dann nicht bei eingeschaltetem Jugendschutz.')}
             />
             <p className="xsmall muted">
-              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>. Die Google Search Console verbindest du, indem du dort die Sitemap
-              einreichst.
+              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>.{' '}
+              {t('Die Google Search Console verbindest du, indem du dort die Sitemap einreichst.')}
             </p>
           </Section>
-          <Section title="Statistik">
+          <Section title={t('Statistik')}>
             <Toggle
               checked={draft.analytics.enabled}
               onChange={(v) => set('analytics', { ...draft.analytics, enabled: v })}
-              label="Besuche zählen (ohne Cookies)"
-              help="Ohne Einwilligungsbanner zulässig: keine Cookies, keine IP-Speicherung, keine Wiedererkennung über Tage."
+              label={t('Besuche zählen (ohne Cookies)')}
+              help={t('Ohne Einwilligungsbanner zulässig: keine Cookies, keine IP-Speicherung, keine Wiedererkennung über Tage.')}
             />
           </Section>
         </div>
@@ -691,12 +696,16 @@ function LegalSettings() {
   const generate = async () => {
     if (
       legal.length &&
-      !(await confirm({ title: 'Texte neu erzeugen?', message: 'Bestehende Entwürfe werden überschrieben. Ältere Fassungen bleiben im Verlauf.', confirm: 'Neu erzeugen' }))
+      !(await confirm({
+        title: t('Texte neu erzeugen?'),
+        message: t('Bestehende Entwürfe werden überschrieben. Ältere Fassungen bleiben im Verlauf.'),
+        confirm: t('Neu erzeugen'),
+      }))
     )
       return;
     try {
       await api.post('/api/legal/generate');
-      toast('Texte erzeugt – bitte lesen, anpassen und veröffentlichen.');
+      toast(t('Texte erzeugt – bitte lesen, anpassen und veröffentlichen.'));
       void reload();
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -706,15 +715,15 @@ function LegalSettings() {
   return (
     <>
       <PageHead
-        title="Rechtliches"
-        sub="Nova erzeugt Impressum, Datenschutzerklärung und AGB aus dem, was deine Website tatsächlich tut – Formulare, Shop, Statistik, Einbettungen."
+        title={t('Rechtliches')}
+        sub={t('Nova erzeugt Impressum, Datenschutzerklärung und AGB aus dem, was deine Website tatsächlich tut – Formulare, Shop, Statistik, Einbettungen.')}
       />
       <div className="stack loose">
         <section className="card">
           <div className="card-head">
-            <h2>Rechtstexte</h2>
+            <h2>{t('Rechtstexte')}</h2>
             <button className="btn primary s" onClick={generate}>
-              {legal.length ? 'Neu erzeugen' : 'Texte erzeugen'}
+              {legal.length ? t('Neu erzeugen') : t('Texte erzeugen')}
             </button>
           </div>
           {legal.length ? (
@@ -724,29 +733,29 @@ function LegalSettings() {
                   <Link to={`/seiten/${p.id}`} className="list-item">
                     <Icon name="scale" className="faint" />
                     <span className="grow">{p.title}</span>
-                    <span className={`badge ${p.status === 'published' ? 'ok' : ''}`}>{p.status === 'published' ? 'Online' : 'Entwurf – prüfen'}</span>
+                    <span className={`badge ${p.status === 'published' ? 'ok' : ''}`}>{p.status === 'published' ? t('Online') : t('Entwurf – prüfen')}</span>
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="card-pad small muted">Noch keine Rechtstexte.</p>
+            <p className="card-pad small muted">{t('Noch keine Rechtstexte.')}</p>
           )}
           <p className="card-pad xsmall muted" style={{ borderTop: '1px solid var(--line)' }}>
-            Das sind Vorlagen, keine Rechtsberatung. Lass sie prüfen, bevor du sie veröffentlichst – besonders bei Shop und Erwachsenen-Inhalten.
+            {t('Das sind Vorlagen, keine Rechtsberatung. Lass sie prüfen, bevor du sie veröffentlichst – besonders bei Shop und Erwachsenen-Inhalten.')}
           </p>
         </section>
         <div className="card">
-          <Section title="Einbettungen mit Zustimmung" sub="Videos und Karten laden erst nach Klick (Zwei-Klick-Lösung). Ausschalten blendet sie ganz aus.">
-            <Toggle checked={draft.consent.youtube} onChange={(v) => set('consent', { ...draft.consent, youtube: v })} label="YouTube (im Datenschutzmodus)" />
+          <Section title={t('Einbettungen mit Zustimmung')} sub={t('Videos und Karten laden erst nach Klick (Zwei-Klick-Lösung). Ausschalten blendet sie ganz aus.')}>
+            <Toggle checked={draft.consent.youtube} onChange={(v) => set('consent', { ...draft.consent, youtube: v })} label={t('YouTube (im Datenschutzmodus)')} />
             <Toggle checked={draft.consent.vimeo} onChange={(v) => set('consent', { ...draft.consent, vimeo: v })} label="Vimeo" />
-            <Toggle checked={draft.consent.maps} onChange={(v) => set('consent', { ...draft.consent, maps: v })} label="Karte (OpenStreetMap)" />
+            <Toggle checked={draft.consent.maps} onChange={(v) => set('consent', { ...draft.consent, maps: v })} label={t('Karte (OpenStreetMap)')} />
           </Section>
-          <Section title="Altersschranke" sub="Für Websites mit Inhalten für Erwachsene. Besucher bestätigen ihr Alter, bevor sie etwas sehen.">
-            <Toggle checked={draft.ageGate.enabled} onChange={(v) => set('ageGate', { ...draft.ageGate, enabled: v })} label="Altersschranke anzeigen" />
+          <Section title={t('Altersschranke')} sub={t('Für Websites mit Inhalten für Erwachsene. Besucher bestätigen ihr Alter, bevor sie etwas sehen.')}>
+            <Toggle checked={draft.ageGate.enabled} onChange={(v) => set('ageGate', { ...draft.ageGate, enabled: v })} label={t('Altersschranke anzeigen')} />
             {draft.ageGate.enabled && (
               <div className="grid-2">
-                <Field label="Mindestalter">
+                <Field label={t('Mindestalter')}>
                   <input
                     className="input num"
                     type="number"
@@ -756,14 +765,14 @@ function LegalSettings() {
                     onChange={(e) => set('ageGate', { ...draft.ageGate, minAge: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Hinweistext">
+                <Field label={t('Hinweistext')}>
                   <input className="input" value={draft.ageGate.text} onChange={(e) => set('ageGate', { ...draft.ageGate, text: e.target.value })} />
                 </Field>
               </div>
             )}
             {draft.ageGate.enabled && (
               <p className="xsmall muted">
-                Wo das Gesetz eine echte Altersverifikation verlangt (z. B. in Deutschland), reicht eine Selbstauskunft nicht. Dafür braucht es einen Verifikationsanbieter.
+                {t('Wo das Gesetz eine echte Altersverifikation verlangt (z. B. in Deutschland), reicht eine Selbstauskunft nicht. Dafür braucht es einen Verifikationsanbieter.')}
               </p>
             )}
           </Section>
@@ -785,33 +794,37 @@ function DomainSettings() {
   const apex = custom && custom.split('.').length === 2;
   return (
     <>
-      <PageHead title="Domain" sub="Deine Website ist sofort unter der Railway-Adresse erreichbar. Mit eigener Domain wirkt sie professioneller." />
+      <PageHead title={t('Domain')} sub={t('Deine Website ist sofort unter der Railway-Adresse erreichbar. Mit eigener Domain wirkt sie professioneller.')} />
       <div className="card">
-        <Section title="Aktuelle Adresse">
+        <Section title={t('Aktuelle Adresse')}>
           <div className="row">
             <Icon name="globe" />
             <span className="mono grow">{railway}</span>
-            <span className="badge ok">aktiv</span>
+            <span className="badge ok">{t('aktiv')}</span>
           </div>
         </Section>
-        <Section title="Eigene Domain" sub="So geht's – Schritt für Schritt:">
-          <Field label="Deine Domain" help="Mit https://, ohne Pfad. Nova nutzt sie für Links, Sitemap und Social-Media-Vorschauen." htmlFor="d-url">
-            <input id="d-url" className="input mono" value={draft.baseUrl} placeholder="https://www.meine-domain.ch" onChange={(e) => set('baseUrl', e.target.value.trim())} />
+        <Section title={t('Eigene Domain')} sub={t('So geht’s – Schritt für Schritt:')}>
+          <Field label={t('Deine Domain')} help={t('Mit https://, ohne Pfad. Nova nutzt sie für Links, Sitemap und Social-Media-Vorschauen.')} htmlFor="d-url">
+            <input id="d-url" className="input mono" value={draft.baseUrl} placeholder={t('https://www.meine-domain.ch')} onChange={(e) => set('baseUrl', e.target.value.trim())} />
           </Field>
           <ol className="small stack tight" style={{ paddingLeft: '1.2rem', margin: 0 }}>
             <li>
-              Öffne in Railway deinen Nova-Dienst → <strong>Settings → Networking → Custom Domain</strong> und trag <span className="mono">{custom || 'www.meine-domain.ch'}</span>{' '}
-              ein.
+              {withEl(t('Öffne in Railway deinen Nova-Dienst → {path} und trag {domain} ein.'), {
+                path: <strong>Settings → Networking → Custom Domain</strong>,
+                domain: <span className="mono">{custom || t('www.meine-domain.ch')}</span>,
+              })}
             </li>
             <li>
-              Railway zeigt dir einen <strong>CNAME-Eintrag</strong> (Ziel endet auf <span className="mono">.up.railway.app</span>). Leg ihn bei deinem Domain-Anbieter (z. B.
-              Hostpoint, Infomaniak, Cyon) an:
-              <pre className="code-out" style={{ marginTop: '0.5rem' }}>{`Typ:   CNAME
-Name:  ${apex ? '@' : custom.split('.')[0] || 'www'}
-Ziel:  (aus Railway kopieren)`}</pre>
+              {withEl(t('Railway zeigt dir einen {record} (Ziel endet auf {suffix}). Leg ihn bei deinem Domain-Anbieter (z. B. Hostpoint, Infomaniak, Cyon) an:'), {
+                record: <strong>{t('CNAME-Eintrag')}</strong>,
+                suffix: <span className="mono">.up.railway.app</span>,
+              })}
+              <pre className="code-out" style={{ marginTop: '0.5rem' }}>{`${t('Typ:')}   CNAME
+${t('Name:')}  ${apex ? '@' : custom.split('.')[0] || 'www'}
+${t('Ziel:')}  ${t('(aus Railway kopieren)')}`}</pre>
             </li>
-            {apex && <li>Für Domains ohne «www» braucht dein Anbieter CNAME-Flattening oder ALIAS. Sonst: www verwenden und die nackte Domain weiterleiten.</li>}
-            <li>Warten, bis Railway das Zertifikat ausgestellt hat (meist wenige Minuten, manchmal bis zu einer Stunde). Dann hier speichern.</li>
+            {apex && <li>{t('Für Domains ohne «www» braucht dein Anbieter CNAME-Flattening oder ALIAS. Sonst: www verwenden und die nackte Domain weiterleiten.')}</li>}
+            <li>{t('Warten, bis Railway das Zertifikat ausgestellt hat (meist wenige Minuten, manchmal bis zu einer Stunde). Dann hier speichern.')}</li>
           </ol>
         </Section>
       </div>
@@ -832,41 +845,45 @@ function ShopSettings() {
   const parse = (v: string) => (v.trim() === '' ? null : Math.round(parseFloat(v.replace(',', '.')) * 100));
   return (
     <>
-      <PageHead title="Shop" />
+      <PageHead title={t('Shop')} />
       <div className="card">
-        <Section title="Bezahlen">
+        <Section title={t('Bezahlen')}>
           <div className="row">
             <span className={`dot ${bundle.system.stripe ? 'ok' : ''}`} />
             <span className="small grow">
-              Online-Zahlung (TWINT, Karte, Apple Pay, Google Pay via Stripe):{' '}
-              {bundle.system.stripe ? (bundle.system.stripeWebhook ? 'eingerichtet' : 'Schlüssel da – Webhook-Secret fehlt noch') : 'nicht eingerichtet'}
+              {t('Online-Zahlung (TWINT, Karte, Apple Pay, Google Pay via Stripe):')}{' '}
+              {bundle.system.stripe ? (bundle.system.stripeWebhook ? t('eingerichtet') : t('Schlüssel da – Webhook-Secret fehlt noch')) : t('nicht eingerichtet')}
             </span>
           </div>
           {!bundle.system.stripeWebhook && (
             <p className="xsmall muted">
-              In Railway die Variablen <span className="mono">STRIPE_SECRET_KEY</span> und <span className="mono">STRIPE_WEBHOOK_SECRET</span> setzen. Webhook-Ziel in Stripe:{' '}
-              <span className="mono">{(draft.baseUrl || bundle.system.publicUrl) + '/_nova/stripe/webhook'}</span> mit den Ereignissen «checkout.session.completed»,
-              «…async_payment_succeeded», «…async_payment_failed», «…expired». Welche Zahlarten (TWINT usw.) angeboten werden, stellst du im Stripe-Dashboard ein.
+              {withEl(t('In Railway die Variablen {key} und {secret} setzen. Webhook-Ziel in Stripe: {url} mit den Ereignissen {events}.'), {
+                key: <span className="mono">STRIPE_SECRET_KEY</span>,
+                secret: <span className="mono">STRIPE_WEBHOOK_SECRET</span>,
+                url: <span className="mono">{(draft.baseUrl || bundle.system.publicUrl) + '/_nova/stripe/webhook'}</span>,
+                events: '«checkout.session.completed», «…async_payment_succeeded», «…async_payment_failed», «…expired»',
+              })}{' '}
+              {t('Welche Zahlarten (TWINT usw.) angeboten werden, stellst du im Stripe-Dashboard ein.')}
             </p>
           )}
-          <Toggle checked={sh.invoiceEnabled} onChange={(v) => setS({ invoiceEnabled: v })} label="Kauf auf Rechnung anbieten" />
+          <Toggle checked={sh.invoiceEnabled} onChange={(v) => setS({ invoiceEnabled: v })} label={t('Kauf auf Rechnung anbieten')} />
           {sh.invoiceEnabled && (
             <>
               <Field
-                label="IBAN für die QR-Rechnung"
-                help="Mit IBAN bekommt jede Rechnung den Schweizer QR-Zahlteil – die Kundschaft scannt ihn mit der Banking-App. QR-IBAN geht auch."
+                label={t('IBAN für die QR-Rechnung')}
+                help={t('Mit IBAN bekommt jede Rechnung den Schweizer QR-Zahlteil – die Kundschaft scannt ihn mit der Banking-App. QR-IBAN geht auch.')}
               >
                 <input className="input mono" value={sh.iban} maxLength={40} placeholder="CH93 0076 2011 6238 5295 7" onChange={(e) => setS({ iban: e.target.value })} />
               </Field>
-              <Field label="Weitere Zahlungsangaben" help="Erscheint auf der Rechnung, z. B. Bank oder Zahlungsfrist.">
+              <Field label={t('Weitere Zahlungsangaben')} help={t('Erscheint auf der Rechnung, z. B. Bank oder Zahlungsfrist.')}>
                 <textarea className="textarea" style={{ minHeight: '4rem' }} value={sh.invoiceNote} onChange={(e) => setS({ invoiceNote: e.target.value })} />
               </Field>
             </>
           )}
         </Section>
-        <Section title="Mehrwertsteuer" sub="Preise werden inklusive MwSt. erfasst und angezeigt.">
+        <Section title={t('Mehrwertsteuer')} sub={t('Preise werden inklusive MwSt. erfasst und angezeigt.')}>
           <div className="grid-2">
-            <Field label="Normalsatz %">
+            <Field label={t('Normalsatz %')}>
               <input
                 className="input num"
                 type="number"
@@ -875,7 +892,7 @@ function ShopSettings() {
                 onChange={(e) => setS({ vatRates: { ...sh.vatRates, standard: Number(e.target.value) } })}
               />
             </Field>
-            <Field label="Reduzierter Satz %">
+            <Field label={t('Reduzierter Satz %')}>
               <input
                 className="input num"
                 type="number"
@@ -886,9 +903,9 @@ function ShopSettings() {
             </Field>
           </div>
         </Section>
-        <Section title="Versand">
+        <Section title={t('Versand')}>
           <div className="grid-2">
-            <Field label="Versandkosten (CHF)">
+            <Field label={t('Versandkosten (CHF)')}>
               <input
                 className="input num"
                 inputMode="decimal"
@@ -896,7 +913,7 @@ function ShopSettings() {
                 onBlur={(e) => setS({ shipping: { ...sh.shipping, flat: parse(e.target.value) ?? 0 } })}
               />
             </Field>
-            <Field label="Gratis ab (CHF)" help="Leer = nie gratis">
+            <Field label={t('Gratis ab (CHF)')} help={t('Leer = nie gratis')}>
               <input
                 className="input num"
                 inputMode="decimal"
@@ -905,8 +922,8 @@ function ShopSettings() {
               />
             </Field>
           </div>
-          <Toggle checked={sh.shipping.pickup} onChange={(v) => setS({ shipping: { ...sh.shipping, pickup: v } })} label="Abholung anbieten" />
-          <Field label="Lieferländer" help="Ländercodes, z. B. CH, LI, DE, AT">
+          <Toggle checked={sh.shipping.pickup} onChange={(v) => setS({ shipping: { ...sh.shipping, pickup: v } })} label={t('Abholung anbieten')} />
+          <Field label={t('Lieferländer')} help={t('Ländercodes, z. B. CH, LI, DE, AT')}>
             <input
               className="input mono"
               value={sh.shipping.countries.join(', ')}
@@ -924,12 +941,12 @@ function ShopSettings() {
             />
           </Field>
         </Section>
-        <Section title="Bestellungen">
+        <Section title={t('Bestellungen')}>
           <div className="grid-2">
-            <Field label="Benachrichtigung an" help="Leer = Kontakt-E-Mail">
+            <Field label={t('Benachrichtigung an')} help={t('Leer = Kontakt-E-Mail')}>
               <input className="input" type="email" value={sh.notifyEmail} onChange={(e) => setS({ notifyEmail: e.target.value })} />
             </Field>
-            <Field label="Präfix der Bestellnummer">
+            <Field label={t('Präfix der Bestellnummer')}>
               <input className="input mono" value={sh.orderPrefix} onChange={(e) => setS({ orderPrefix: e.target.value })} />
             </Field>
           </div>
@@ -948,8 +965,8 @@ function ModuleSettings() {
   return (
     <>
       <PageHead
-        title="Module"
-        sub="Was 80 % aller Websites brauchen, ist eingebaut. Schalt ein, was du nutzt – ausgeschaltete Module verschwinden aus der Verwaltung, ihre Daten bleiben erhalten."
+        title={t('Module')}
+        sub={t('Was 80 % aller Websites brauchen, ist eingebaut. Schalt ein, was du nutzt – ausgeschaltete Module verschwinden aus der Verwaltung, ihre Daten bleiben erhalten.')}
       />
       <div className="card">
         {MODULES.map((m) => (
@@ -959,10 +976,10 @@ function ModuleSettings() {
               onChange={(v) => m.status === 'ready' && set('modules', v ? [...draft.modules, m.id] : draft.modules.filter((x) => x !== m.id))}
               label={
                 <>
-                  {m.name} {m.status === 'later' && <span className="badge">Version 1.0</span>}
+                  {tl(m.name)} {m.status === 'later' && <span className="badge">{t('Version 1.0')}</span>}
                 </>
               }
-              help={m.description}
+              help={tl(m.description)}
             />
           </div>
         ))}
@@ -1004,10 +1021,10 @@ function TeamSettings() {
   return (
     <>
       <PageHead
-        title="Team & Rollen"
+        title={t('Team & Rollen')}
         actions={
           <button className="btn primary" onClick={() => setInvite(true)}>
-            <Icon name="plus" size="s" /> Person hinzufügen
+            <Icon name="plus" size="s" /> {t('Person hinzufügen')}
           </button>
         }
       />
@@ -1022,38 +1039,38 @@ function TeamSettings() {
                   <Icon name="user" className="faint" />
                   <div className="grow">
                     <div className="title">
-                      {u.name} {u.id === me.id && <span className="faint small">(du)</span>}
+                      {u.name} {u.id === me.id && <span className="faint small">{t('(du)')}</span>}
                     </div>
                     <div className="xsmall muted">
-                      {u.email} · {u.last_login_at ? `zuletzt ${formatDate(u.last_login_at)}` : 'noch nie angemeldet'}
+                      {u.email} · {u.last_login_at ? t('zuletzt {date}', { date: formatDate(u.last_login_at) }) : t('noch nie angemeldet')}
                       {u.totp_enabled ? ' · 2FA' : ''}
                     </div>
                   </div>
                   <Select
                     inline
-                    label={`Rolle von ${u.name}`}
+                    label={t('Rolle von {name}', { name: u.name })}
                     value={u.role}
                     disabled={u.id === me.id}
                     onChange={(v) => void changeRole(u, v as Role)}
-                    options={ROLE_ORDER.map((r) => ({ value: r, label: ROLE_LABELS[r].name }))}
+                    options={ROLE_ORDER.map((r) => ({ value: r, label: tl(ROLE_LABELS[r].name) }))}
                   />
                   {u.id !== me.id && (
                     <Menu
                       trigger={
-                        <button className="btn ghost s icon-only" aria-label="Aktionen">
+                        <button className="btn ghost s icon-only" aria-label={t('Aktionen')}>
                           <Icon name="more" />
                         </button>
                       }
                       items={[
                         {
-                          label: 'Passwort zurücksetzen',
+                          label: t('Passwort zurücksetzen'),
                           icon: 'key',
                           onSelect: async () => {
                             if (
                               !(await confirm({
-                                title: `Passwort von ${u.name} zurücksetzen?`,
-                                message: 'Alle Sitzungen werden beendet und 2FA wird ausgeschaltet.',
-                                confirm: 'Zurücksetzen',
+                                title: t('Passwort von {name} zurücksetzen?', { name: u.name }),
+                                message: t('Alle Sitzungen werden beendet und 2FA wird ausgeschaltet.'),
+                                confirm: t('Zurücksetzen'),
                               }))
                             )
                               return;
@@ -1062,11 +1079,19 @@ function TeamSettings() {
                           },
                         },
                         {
-                          label: 'Entfernen',
+                          label: t('Entfernen'),
                           icon: 'trash',
                           danger: true,
                           onSelect: async () => {
-                            if (!(await confirm({ title: `${u.name} entfernen?`, message: 'Inhalte der Person bleiben erhalten.', confirm: 'Entfernen', danger: true }))) return;
+                            if (
+                              !(await confirm({
+                                title: t('{name} entfernen?', { name: u.name }),
+                                message: t('Inhalte der Person bleiben erhalten.'),
+                                confirm: t('Entfernen'),
+                                danger: true,
+                              }))
+                            )
+                              return;
                             await api.del(`/api/users/${u.id}`);
                             void reload();
                           },
@@ -1080,13 +1105,13 @@ function TeamSettings() {
           )}
         </section>
         <section className="card card-pad stack tight">
-          <h2 className="section-title">Was die Rollen dürfen</h2>
+          <h2 className="section-title">{t('Was die Rollen dürfen')}</h2>
           <dl className="small" style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.35rem 1rem' }}>
             {ROLE_ORDER.map((r) => (
               <div key={r} style={{ display: 'contents' }}>
-                <dt style={{ fontWeight: 600 }}>{ROLE_LABELS[r].name}</dt>
+                <dt style={{ fontWeight: 600 }}>{tl(ROLE_LABELS[r].name)}</dt>
                 <dd style={{ margin: 0 }} className="muted">
-                  {ROLE_LABELS[r].help}
+                  {tl(ROLE_LABELS[r].help)}
                 </dd>
               </div>
             ))}
@@ -1095,7 +1120,7 @@ function TeamSettings() {
         {pro && draft && (
           <section className="card">
             <div className="card-head">
-              <h2>Welche Rolle sieht welchen Modus</h2>
+              <h2>{t('Welche Rolle sieht welchen Modus')}</h2>
             </div>
             <div className="form-section">
               {(['editor', 'author'] as Role[]).map((r) => (
@@ -1103,8 +1128,8 @@ function TeamSettings() {
                   key={r}
                   checked={draft.roleModes[r].includes('werkbank')}
                   onChange={(v) => set('roleModes', { ...draft.roleModes, [r]: v ? ['studio', 'werkbank'] : ['studio'] })}
-                  label={`${ROLE_LABELS[r].name} darf die Werkbank nutzen`}
-                  help={r === 'editor' ? 'Aus: Redaktion arbeitet nur im Studio und sieht keinen Code.' : undefined}
+                  label={t('{role} darf die Werkbank nutzen', { role: tl(ROLE_LABELS[r].name) })}
+                  help={r === 'editor' ? t('Aus: Redaktion arbeitet nur im Studio und sieht keinen Code.') : undefined}
                 />
               ))}
             </div>
@@ -1112,39 +1137,39 @@ function TeamSettings() {
         )}
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
-      <Dialog open={invite} onOpenChange={setInvite} title="Person hinzufügen">
+      <Dialog open={invite} onOpenChange={setInvite} title={t('Person hinzufügen')}>
         <div className="stack">
           <div className="grid-2">
-            <Field label="Name">
+            <Field label={t('Name')}>
               <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
             </Field>
-            <Field label="E-Mail">
+            <Field label={t('E-Mail')}>
               <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </Field>
           </div>
-          <Field label="Rolle" help={ROLE_LABELS[form.role].help}>
+          <Field label={t('Rolle')} help={tl(ROLE_LABELS[form.role].help)}>
             <Segmented
-              label="Rolle"
+              label={t('Rolle')}
               value={form.role}
               onChange={(r) => setForm({ ...form, role: r })}
-              options={(['admin', 'editor', 'author'] as Role[]).map((r) => ({ value: r, label: ROLE_LABELS[r].name }))}
+              options={(['admin', 'editor', 'author'] as Role[]).map((r) => ({ value: r, label: tl(ROLE_LABELS[r].name) }))}
             />
           </Field>
         </div>
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setInvite(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" onClick={create} disabled={!form.name || !form.email}>
-            Hinzufügen
+            {t('Hinzufügen')}
           </button>
         </div>
       </Dialog>
       <Dialog
         open={Boolean(secret)}
         onOpenChange={(o) => !o && setSecret(null)}
-        title="Vorläufiges Passwort"
-        description={secret?.mailed ? 'Wir haben die Zugangsdaten auch per E-Mail geschickt.' : 'Gib es persönlich weiter – es wird nur jetzt angezeigt.'}
+        title={t('Vorläufiges Passwort')}
+        description={secret?.mailed ? t('Wir haben die Zugangsdaten auch per E-Mail geschickt.') : t('Gib es persönlich weiter – es wird nur jetzt angezeigt.')}
       >
         {secret && (
           <div className="stack tight">
@@ -1156,7 +1181,7 @@ function TeamSettings() {
         )}
         <div className="dialog-actions">
           <button className="btn primary" onClick={() => setSecret(null)}>
-            Notiert
+            {t('Notiert')}
           </button>
         </div>
       </Dialog>
@@ -1168,6 +1193,39 @@ function TeamSettings() {
 
 interface PersonData {
   counts: Record<string, number>;
+}
+
+/** «3 Kontakte», «1 Bestellung» … for the data kinds a person can have. */
+function count(kind: string, n: number): string {
+  const one = n === 1;
+  switch (kind) {
+    case 'contacts':
+      return one ? t('1 Kontakt') : t('{n} Kontakte', { n });
+    case 'submissions':
+      return one ? t('1 Formulareintrag') : t('{n} Formulareinträge', { n });
+    case 'orders':
+      return one ? t('1 Bestellung') : t('{n} Bestellungen', { n });
+    case 'comments':
+      return one ? t('1 Kommentar') : t('{n} Kommentare', { n });
+    case 'users':
+      return one ? t('1 Benutzerkonto') : t('{n} Benutzerkonten', { n });
+    case 'bookings':
+      return one ? t('1 Reservation') : t('{n} Reservationen', { n });
+    case 'subscribers':
+      return one ? t('1 Newsletter-Anmeldung') : t('{n} Newsletter-Anmeldungen', { n });
+    case 'members':
+      return one ? t('1 Mitgliederkonto') : t('{n} Mitgliederkonten', { n });
+    case 'ticketOrders':
+      return one ? t('1 Ticketbestellung') : t('{n} Ticketbestellungen', { n });
+    case 'waitlist':
+      return one ? t('1 Wartelisten-Eintrag') : t('{n} Wartelisten-Einträge', { n });
+    case 'donations':
+      return one ? t('1 Spende') : t('{n} Spenden', { n });
+    case 'foodOrders':
+      return one ? t('1 Essensbestellung') : t('{n} Essensbestellungen', { n });
+    default:
+      return `${n} ${kind}`;
+  }
 }
 
 function DataSettings() {
@@ -1186,60 +1244,54 @@ function DataSettings() {
   const erase = async () => {
     if (
       !(await confirm({
-        title: `Alle Daten von ${email} löschen?`,
-        message:
+        title: t('Alle Daten von {email} löschen?', { email }),
+        message: t(
           'Formulareinträge, Kontakt, Kommentare und Newsletter-Anmeldung werden gelöscht. Bestellungen werden anonymisiert (Aufbewahrungspflicht), Reservationen bleiben als belegte Zeit ohne Namen.',
-        confirm: 'Löschen',
+        ),
+        confirm: t('Löschen'),
         danger: true,
       }))
     )
       return;
     try {
       const r = await api.post<{ deleted: Record<string, number>; anonymizedOrders: number; anonymizedBookings: number }>('/api/privacy/delete', { email });
-      const kept = [r.anonymizedOrders && `${r.anonymizedOrders} Bestellungen`, r.anonymizedBookings && `${r.anonymizedBookings} Reservationen`].filter(Boolean).join(' und ');
-      toast(
-        `Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}${r.deleted.members ? ', Mitgliederkonto' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`,
-      );
+      const orders = r.anonymizedOrders ? count('orders', r.anonymizedOrders) : '';
+      const bookings = r.anonymizedBookings ? count('bookings', r.anonymizedBookings) : '';
+      const kept = orders && bookings ? t('{a} und {b}', { a: orders, b: bookings }) : orders || bookings;
+      const deleted = [
+        r.deleted.submissions === 1 ? t('1 Eintrag') : t('{n} Einträge', { n: r.deleted.submissions }),
+        count('contacts', r.deleted.contacts),
+        count('comments', r.deleted.comments),
+        r.deleted.subscribers ? t('Newsletter-Anmeldung') : '',
+        r.deleted.members ? t('Mitgliederkonto') : '',
+      ].filter(Boolean);
+      toast(`${t('Gelöscht: {list}.', { list: deleted.join(', ') })}${kept ? ` ${t('{list} anonymisiert.', { list: kept })}` : ''}`);
       setPerson(null);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const LABEL: Record<string, string> = {
-    contacts: 'Kontakte',
-    submissions: 'Formulareinträge',
-    orders: 'Bestellungen',
-    comments: 'Kommentare',
-    users: 'Benutzerkonten',
-    bookings: 'Reservationen',
-    subscribers: 'Newsletter-Anmeldungen',
-    members: 'Mitgliederkonten',
-    ticketOrders: 'Ticketbestellungen',
-    waitlist: 'Wartelisten-Einträge',
-    donations: 'Spenden',
-    foodOrders: 'Essensbestellungen',
-  };
   return (
     <>
-      <PageHead title="Daten & Datenschutz" sub="Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support." />
+      <PageHead title={t('Daten & Datenschutz')} sub={t('Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support.')} />
       <div className="stack loose">
         <section className="card card-pad stack">
           <div className="row between wrap">
             <div>
-              <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>Alles exportieren</h2>
-              <p className="small muted">ZIP mit Inhalten (JSON + Markdown), Konfiguration als Code, Original-Medien und CSV für Kontakte, Bestellungen, Formulare.</p>
+              <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>{t('Alles exportieren')}</h2>
+              <p className="small muted">{t('ZIP mit Inhalten (JSON + Markdown), Konfiguration als Code, Original-Medien und CSV für Kontakte, Bestellungen, Formulare.')}</p>
             </div>
             <a className="btn primary" href="/api/export">
-              <Icon name="download" size="s" /> Export herunterladen
+              <Icon name="download" size="s" /> {t('Export herunterladen')}
             </a>
           </div>
         </section>
         <section className="card">
           <div className="card-head">
-            <h2>Auskunft & Löschung</h2>
+            <h2>{t('Auskunft & Löschung')}</h2>
           </div>
           <div className="form-section">
-            <p className="small muted">Jemand möchte wissen, was du über sie oder ihn gespeichert hast – oder es löschen lassen? Gib die E-Mail-Adresse ein.</p>
+            <p className="small muted">{t('Jemand möchte wissen, was du über sie oder ihn gespeichert hast – oder es löschen lassen? Gib die E-Mail-Adresse ein.')}</p>
             <form
               className="row"
               onSubmit={(e) => {
@@ -1247,22 +1299,22 @@ function DataSettings() {
                 void lookup();
               }}
             >
-              <input className="input grow" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@beispiel.ch" />
-              <button className="btn">Suchen</button>
+              <input className="input grow" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('person@beispiel.ch')} />
+              <button className="btn">{t('Suchen')}</button>
             </form>
             {person && (
               <div className="stack tight">
                 <p className="small">
                   {Object.entries(person.counts)
-                    .map(([k, v]) => `${v} ${LABEL[k] ?? k}`)
+                    .map(([k, v]) => count(k, v))
                     .join(' · ')}
                 </p>
                 <div className="row">
                   <a className="btn" href={`/api/privacy?email=${encodeURIComponent(email)}&download=1`}>
-                    <Icon name="download" size="s" /> Auskunft als Datei
+                    <Icon name="download" size="s" /> {t('Auskunft als Datei')}
                   </a>
                   <button className="btn danger" onClick={erase}>
-                    <Icon name="trash" size="s" /> Alles löschen
+                    <Icon name="trash" size="s" /> {t('Alles löschen')}
                   </button>
                 </div>
               </div>
@@ -1271,35 +1323,35 @@ function DataSettings() {
         </section>
         <section className="card">
           <div className="card-head">
-            <h2>Sicherungen</h2>
+            <h2>{t('Sicherungen')}</h2>
             <button
               className="btn s"
               onClick={async () => {
                 await api.post('/api/backups');
-                toast('Sicherung erstellt.');
+                toast(t('Sicherung erstellt.'));
                 void backups.reload();
               }}
             >
-              Jetzt sichern
+              {t('Jetzt sichern')}
             </button>
           </div>
           <p className="card-pad small muted" style={{ paddingBottom: 0 }}>
-            Nova sichert alle Inhalte täglich in den Bucket und behält 30 Tage. Medien liegen ohnehin im Bucket. Railway Postgres hat zusätzlich eigene Backups.
+            {t('Nova sichert alle Inhalte täglich in den Bucket und behält 30 Tage. Medien liegen ohnehin im Bucket. Railway Postgres hat zusätzlich eigene Backups.')}
           </p>
           {!backups.data ? (
             <Skeleton />
           ) : !backups.data.backups.length ? (
-            <p className="card-pad small muted">Die erste Sicherung entsteht in der nächsten Stunde.</p>
+            <p className="card-pad small muted">{t('Die erste Sicherung entsteht in der nächsten Stunde.')}</p>
           ) : (
             <ul className="list" style={{ marginTop: '0.75rem' }}>
               {backups.data.backups.map((b) => (
                 <li key={b.id} className="list-item">
                   <Icon name="backup" className="faint" />
                   <span className="grow small">
-                    {formatDate(b.created_at, true)} · {b.kind === 'auto' ? 'automatisch' : 'manuell'} · {Math.max(1, Math.round(b.size / 1024))} KB
+                    {formatDate(b.created_at, true)} · {b.kind === 'auto' ? t('automatisch') : t('manuell')} · {Math.max(1, Math.round(b.size / 1024))} KB
                   </span>
                   <a className="btn ghost s" href={`/api/backups/${b.id}/download`}>
-                    Herunterladen
+                    {t('Herunterladen')}
                   </a>
                   {can('data.sql') && (
                     <button
@@ -1307,24 +1359,25 @@ function DataSettings() {
                       onClick={async () => {
                         if (
                           !(await confirm({
-                            title: 'Diese Sicherung wiederherstellen?',
-                            message:
+                            title: t('Diese Sicherung wiederherstellen?'),
+                            message: t(
                               'Alle Inhalte, Formulare, Kontakte und Bestellungen werden auf diesen Stand gesetzt. Vorher legt Nova automatisch eine Sicherung des aktuellen Stands an.',
-                            confirm: 'Wiederherstellen',
+                            ),
+                            confirm: t('Wiederherstellen'),
                             danger: true,
                           }))
                         )
                           return;
                         try {
                           await api.post(`/api/backups/${b.id}/restore`);
-                          toast('Wiederhergestellt.');
+                          toast(t('Wiederhergestellt.'));
                           setTimeout(() => location.reload(), 800);
                         } catch (e) {
                           toast((e as Error).message, { kind: 'bad' });
                         }
                       }}
                     >
-                      Wiederherstellen
+                      {t('Wiederherstellen')}
                     </button>
                   )}
                 </li>
@@ -1334,20 +1387,20 @@ function DataSettings() {
         </section>
         {bundle && (
           <section className="card card-pad stack tight">
-            <h2 className="section-title">System</h2>
+            <h2 className="section-title">{t('System')}</h2>
             <p className="small row">
-              <span className={`dot ${bundle.system.storage === 'bucket' ? 'ok' : 'edited'}`} /> Dateispeicher:{' '}
-              {bundle.system.storage === 'bucket' ? 'Railway Bucket' : 'lokal – für Railway Bucket-Variablen setzen, sonst gehen Uploads beim Neustart verloren'}
+              <span className={`dot ${bundle.system.storage === 'bucket' ? 'ok' : 'edited'}`} /> {t('Dateispeicher:')}{' '}
+              {bundle.system.storage === 'bucket' ? 'Railway Bucket' : t('lokal – für Railway Bucket-Variablen setzen, sonst gehen Uploads beim Neustart verloren')}
             </p>
             <p className="small row">
-              <span className={`dot ${bundle.system.mail ? 'ok' : 'edited'}`} /> E-Mail-Versand:{' '}
-              {bundle.system.mail ? 'eingerichtet' : 'nicht eingerichtet (RESEND_API_KEY oder SMTP_URL)'}
+              <span className={`dot ${bundle.system.mail ? 'ok' : 'edited'}`} /> {t('E-Mail-Versand:')}{' '}
+              {bundle.system.mail ? t('eingerichtet') : t('nicht eingerichtet (RESEND_API_KEY oder SMTP_URL)')}
               {bundle.system.mail && (
                 <button
                   className="linkish xsmall"
-                  onClick={() => api.post<{ ok: boolean }>('/api/mail/test').then((r) => toast(r.ok ? 'Test-Mail ist unterwegs.' : 'Versand fehlgeschlagen – siehe Logs.'))}
+                  onClick={() => api.post<{ ok: boolean }>('/api/mail/test').then((r) => toast(r.ok ? t('Test-Mail ist unterwegs.') : t('Versand fehlgeschlagen – siehe Logs.')))}
                 >
-                  Test senden
+                  {t('Test senden')}
                 </button>
               )}
             </p>

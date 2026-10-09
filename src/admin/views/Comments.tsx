@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link } from '../lib/router';
+import { t } from '../lib/i18n';
 import { Empty, PageHead, Segmented, Skeleton } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { AnimatePresence, motion } from 'motion/react';
@@ -31,20 +32,20 @@ export function Comments() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Kommentare"
-        sub="Nichts erscheint, bevor du es freigibst."
+        title={t('Kommentare')}
+        sub={t('Nichts erscheint, bevor du es freigibst.')}
         actions={
           <Segmented
-            label="Status"
+            label={t('Status')}
             value={status}
             onChange={setStatus}
             options={[
-              { value: 'pending', label: 'Warten' },
-              { value: 'approved', label: 'Freigegeben' },
-              { value: 'spam', label: 'Spam' },
+              { value: 'pending', label: t('Warten') },
+              { value: 'approved', label: t('Freigegeben') },
+              { value: 'spam', label: t('Spam') },
             ]}
           />
         }
@@ -53,7 +54,7 @@ export function Comments() {
         <Skeleton />
       ) : !data.comments.length ? (
         <section className="card">
-          <Empty title={status === 'pending' ? 'Alles erledigt' : 'Nichts hier'} />
+          <Empty title={status === 'pending' ? t('Alles erledigt') : t('Nichts hier')} />
         </section>
       ) : (
         <div className="stack">
@@ -66,26 +67,27 @@ export function Comments() {
                 </div>
                 <p style={{ whiteSpace: 'pre-wrap' }}>{c.body}</p>
                 <p className="xsmall muted">
-                  zu «{c.entry_title}»{c.email ? ` · ${c.email}` : ''}
+                  {t('zu «{title}»', { title: c.entry_title })}
+                  {c.email ? ` · ${c.email}` : ''}
                 </p>
                 <div className="row wrap">
                   {c.status !== 'approved' && (
                     <button className="btn go s" onClick={() => void act(c, 'approved')}>
-                      <Icon name="check" size="s" /> Freigeben
+                      <Icon name="check" size="s" /> {t('Freigeben')}
                     </button>
                   )}
                   {c.status !== 'spam' && (
                     <button className="btn s" onClick={() => void act(c, 'spam')}>
-                      Spam
+                      {t('Spam')}
                     </button>
                   )}
                   {c.status === 'approved' && (
                     <button className="btn s" onClick={() => void act(c, 'pending')}>
-                      Zurückziehen
+                      {t('Zurückziehen')}
                     </button>
                   )}
                   <button className="btn ghost danger s" onClick={() => void act(c, 'delete')}>
-                    Löschen
+                    {t('Löschen')}
                   </button>
                 </div>
               </motion.article>

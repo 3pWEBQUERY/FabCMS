@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { useSession } from '../lib/session';
-import { Dialog, Field, PageHead, confirm } from '../ui/kit';
+import { Dialog, Field, PageHead, Select, confirm } from '../ui/kit';
+import { adminLang, loadAdminLang, pickAdminLang, t, tl } from '../lib/i18n';
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
 import { relativeTime } from '../../shared/text';
 import { Icon } from '../ui/icons';
@@ -21,17 +22,27 @@ export function Account() {
   const [disablePw, setDisablePw] = useState('');
 
   const device = (ua: string) => {
-    const os = /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Unbekannt';
+    const os = /iPhone|iPad/.test(ua)
+      ? 'iPhone/iPad'
+      : /Android/.test(ua)
+        ? 'Android'
+        : /Mac/.test(ua)
+          ? 'Mac'
+          : /Windows/.test(ua)
+            ? 'Windows'
+            : /Linux/.test(ua)
+              ? 'Linux'
+              : t('Unbekannt');
     const br = /Edg\//.test(ua) ? 'Edge' : /Firefox/.test(ua) ? 'Firefox' : /Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : '';
-    return `${br} auf ${os}`;
+    return t('{browser} auf {os}', { browser: br, os });
   };
 
   return (
     <div className="page narrow">
-      <PageHead title="Mein Konto" sub={`${user.email} · ${ROLE_LABELS[user.role].name}`} />
+      <PageHead title={t('Mein Konto')} sub={`${user.email} · ${tl(ROLE_LABELS[user.role].name)}`} />
       <div className="stack loose">
         <section className="card form-section">
-          <Field label="Name" htmlFor="a-name">
+          <Field label={t('Name')} htmlFor="a-name">
             <div className="row">
               <input id="a-name" className="input grow" value={name} onChange={(e) => setName(e.target.value)} />
               <button
@@ -40,18 +51,36 @@ export function Account() {
                 onClick={async () => {
                   await api.patch('/api/me', { name });
                   updateUser({ name });
-                  toast('Gespeichert.');
+                  toast(t('Gespeichert.'));
                 }}
               >
-                Speichern
+                {t('Speichern')}
               </button>
             </div>
+          </Field>
+          <Field label={t('Sprache der Oberfläche')} help={t('Nur für dich. Die Sprachen der Website stellst du unter Einstellungen → Sprachen ein.')}>
+            <Select
+              value={user.ui_lang ?? ''}
+              onChange={async (v) => {
+                await api.patch('/api/me', { uiLang: v });
+                updateUser({ ui_lang: v as typeof user.ui_lang });
+                await loadAdminLang(pickAdminLang(v));
+                location.reload();
+              }}
+              options={[
+                { value: '', label: t('Wie im Browser') },
+                { value: 'de', label: 'Deutsch' },
+                { value: 'fr', label: 'Français' },
+                { value: 'it', label: 'Italiano' },
+                { value: 'en', label: 'English' },
+              ]}
+            />
           </Field>
         </section>
         <section className="card form-section">
           <header>
-            <h2>Passwort ändern</h2>
-            <p>Danach werden alle anderen Geräte abgemeldet.</p>
+            <h2>{t('Passwort ändern')}</h2>
+            <p>{t('Danach werden alle anderen Geräte abgemeldet.')}</p>
           </header>
           <form
             className="stack"
@@ -60,7 +89,7 @@ export function Account() {
               try {
                 await api.patch('/api/me', { currentPassword: pw.current, newPassword: pw.next });
                 setPw({ current: '', next: '' });
-                toast('Passwort geändert.');
+                toast(t('Passwort geändert.'));
                 void sessions.reload();
               } catch (err) {
                 toast((err as Error).message, { kind: 'bad' });
@@ -68,44 +97,51 @@ export function Account() {
             }}
           >
             <div className="grid-2">
-              <Field label="Aktuelles Passwort">
+              <Field label={t('Aktuelles Passwort')}>
                 <input className="input" type="password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
               </Field>
-              <Field label="Neues Passwort" help="Mindestens 10 Zeichen.">
+              <Field label={t('Neues Passwort')} help={t('Mindestens 10 Zeichen.')}>
                 <input className="input" type="password" autoComplete="new-password" minLength={10} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
               </Field>
             </div>
             <button className="btn" style={{ justifySelf: 'start' }} disabled={!pw.current || pw.next.length < 10}>
-              Passwort ändern
+              {t('Passwort ändern')}
             </button>
           </form>
         </section>
         <section className="card form-section">
           <header>
-            <h2>Zwei-Faktor-Anmeldung</h2>
-            <p>Zusätzlich zum Passwort ein Code aus einer App wie 1Password, Google Authenticator oder Apple Passwörter.</p>
+            <h2>{t('Zwei-Faktor-Anmeldung')}</h2>
+            <p>{t('Zusätzlich zum Passwort ein Code aus einer App wie 1Password, Google Authenticator oder Apple Passwörter.')}</p>
           </header>
           {user.totp_enabled ? (
             <div className="row">
               <span className="badge ok">
-                <Icon name="shield" size="s" /> Aktiv
+                <Icon name="shield" size="s" /> {t('Aktiv')}
               </span>
               <button className="btn ghost danger" onClick={() => setDisable(true)}>
-                Ausschalten
+                {t('Ausschalten')}
               </button>
             </div>
           ) : totp ? (
             <div className="stack">
               <div className="row wrap" style={{ alignItems: 'flex-start', gap: '1.25rem' }}>
-                <div className="qr" dangerouslySetInnerHTML={{ __html: totp.svg }} aria-label="QR-Code für die Authenticator-App" />
+                <div className="qr" dangerouslySetInnerHTML={{ __html: totp.svg }} aria-label={t('QR-Code für die Authenticator-App')} />
                 <div className="stack tight" style={{ flex: 1, minWidth: '14rem' }}>
-                  <p className="small">1. QR-Code mit der App scannen – oder den Schlüssel von Hand eingeben:</p>
+                  <p className="small">{t('1. QR-Code mit der App scannen – oder den Schlüssel von Hand eingeben:')}</p>
                   <code className="mono small" style={{ wordBreak: 'break-all' }}>
                     {totp.secret.match(/.{1,4}/g)?.join(' ')}
                   </code>
-                  <p className="small">2. Den sechsstelligen Code eingeben:</p>
+                  <p className="small">{t('2. Den sechsstelligen Code eingeben:')}</p>
                   <div className="row">
-                    <input className="input num" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} style={{ maxWidth: '9rem', letterSpacing: '0.2em' }} />
+                    <input
+                      className="input num"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      style={{ maxWidth: '9rem', letterSpacing: '0.2em' }}
+                    />
                     <button
                       className="btn primary"
                       onClick={async () => {
@@ -113,13 +149,13 @@ export function Account() {
                           await api.post('/api/me/totp/enable', { code });
                           updateUser({ totp_enabled: true });
                           setTotp(null);
-                          toast('Zwei-Faktor-Anmeldung ist aktiv.');
+                          toast(t('Zwei-Faktor-Anmeldung ist aktiv.'));
                         } catch (e) {
                           toast((e as Error).message, { kind: 'bad' });
                         }
                       }}
                     >
-                      Aktivieren
+                      {t('Aktivieren')}
                     </button>
                   </div>
                 </div>
@@ -127,14 +163,14 @@ export function Account() {
             </div>
           ) : (
             <button className="btn" style={{ justifySelf: 'start' }} onClick={async () => setTotp(await api.post('/api/me/totp/start'))}>
-              <Icon name="shield" size="s" /> Einrichten
+              <Icon name="shield" size="s" /> {t('Einrichten')}
             </button>
           )}
         </section>
         <Passkeys />
         <section className="card">
           <div className="card-head">
-            <h2>Angemeldete Geräte</h2>
+            <h2>{t('Angemeldete Geräte')}</h2>
           </div>
           <ul className="list">
             {sessions.data?.sessions.map((s) => (
@@ -142,15 +178,15 @@ export function Account() {
                 <Icon name={/iPhone|Android/.test(s.user_agent) ? 'phone' : 'desktop'} className="faint" />
                 <div className="grow">
                   <div className="title small">
-                    {device(s.user_agent)} {s.current && <span className="badge ok">dieses Gerät</span>}
+                    {device(s.user_agent)} {s.current && <span className="badge ok">{t('dieses Gerät')}</span>}
                   </div>
                   <div className="xsmall muted">
-                    zuletzt {formatDate(s.last_seen_at, true)} · {s.ip}
+                    {t('zuletzt {date}', { date: formatDate(s.last_seen_at, true) })} · {s.ip}
                   </div>
                 </div>
                 {!s.current && (
                   <button className="btn ghost s" onClick={() => api.del(`/api/me/sessions/${s.id}`).then(sessions.reload)}>
-                    Abmelden
+                    {t('Abmelden')}
                   </button>
                 )}
               </li>
@@ -158,11 +194,11 @@ export function Account() {
           </ul>
         </section>
       </div>
-      <Dialog open={disable} onOpenChange={setDisable} title="Zwei-Faktor ausschalten?" description="Bestätige mit deinem Passwort.">
+      <Dialog open={disable} onOpenChange={setDisable} title={t('Zwei-Faktor ausschalten?')} description={t('Bestätige mit deinem Passwort.')}>
         <input className="input" type="password" value={disablePw} onChange={(e) => setDisablePw(e.target.value)} autoFocus />
         <div className="dialog-actions">
           <button className="btn ghost" onClick={() => setDisable(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button
             className="btn danger"
@@ -176,7 +212,7 @@ export function Account() {
               }
             }}
           >
-            Ausschalten
+            {t('Ausschalten')}
           </button>
         </div>
       </Dialog>
@@ -214,26 +250,34 @@ function Passkeys() {
       const options = await api.post<Parameters<typeof startRegistration>[0]['optionsJSON']>('/api/me/passkeys/options');
       const response = await startRegistration({ optionsJSON: options });
       await api.post('/api/me/passkeys', { response, name: deviceName() });
-      toast('Passkey gespeichert. Ab jetzt reicht Fingerabdruck, Gesicht oder PIN.');
+      toast(t('Passkey gespeichert. Ab jetzt reicht Fingerabdruck, Gesicht oder PIN.'));
       void list.reload();
     } catch (e) {
       const err = e as Error;
-      if (err.name === 'InvalidStateError') toast('Dieses Gerät hat schon einen Passkey für dein Konto.');
+      if (err.name === 'InvalidStateError') toast(t('Dieses Gerät hat schon einen Passkey für dein Konto.'));
       else if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') toast(err.message, { kind: 'bad' });
     } finally {
       setBusy(false);
     }
   };
   const remove = async (p: Passkey) => {
-    if (!(await confirm({ title: `Passkey «${p.name}» entfernen?`, message: 'Danach meldest du dich auf diesem Gerät wieder mit dem Passwort an. Entferne ihn auch im Passwort-Manager des Geräts.', confirm: 'Entfernen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: t('Passkey «{name}» entfernen?', { name: p.name }),
+        message: t('Danach meldest du dich auf diesem Gerät wieder mit dem Passwort an. Entferne ihn auch im Passwort-Manager des Geräts.'),
+        confirm: t('Entfernen'),
+        danger: true,
+      }))
+    )
+      return;
     await api.del(`/api/me/passkeys/${encodeURIComponent(p.id)}`);
     void list.reload();
   };
   return (
     <section className="card form-section">
       <header>
-        <h2>Passkeys</h2>
-        <p>Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN statt Passwort. Sicher gegen Phishing – der Passkey funktioniert nur auf dieser Website.</p>
+        <h2>{t('Passkeys')}</h2>
+        <p>{t('Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN statt Passwort. Sicher gegen Phishing – der Passkey funktioniert nur auf dieser Website.')}</p>
       </header>
       {list.data?.passkeys.length ? (
         <div className="list bordered">
@@ -242,10 +286,14 @@ function Passkeys() {
               <Icon name="key" size="s" />
               <span className="grow">
                 {p.name}
-                {p.backed_up && <span className="xsmall muted"> · synchronisiert</span>}
+                {p.backed_up && <span className="xsmall muted"> · {t('synchronisiert')}</span>}
               </span>
-              <span className="xsmall muted">{p.last_used_at ? `zuletzt ${relativeTime(p.last_used_at)}` : `seit ${relativeTime(p.created_at)}`}</span>
-              <button className="btn ghost small" aria-label={`Passkey ${p.name} entfernen`} onClick={() => void remove(p)}>
+              <span className="xsmall muted">
+                {p.last_used_at
+                  ? t('zuletzt {time}', { time: relativeTime(p.last_used_at, new Date(), adminLang()) })
+                  : t('seit {time}', { time: relativeTime(p.created_at, new Date(), adminLang()) })}
+              </span>
+              <button className="btn ghost small" aria-label={t('Passkey {name} entfernen', { name: p.name })} onClick={() => void remove(p)}>
                 <Icon name="trash" size="s" />
               </button>
             </div>
@@ -254,10 +302,10 @@ function Passkeys() {
       ) : null}
       {supported ? (
         <button className="btn" style={{ justifySelf: 'start' }} onClick={add} disabled={busy} data-busy={busy || undefined}>
-          <Icon name="plus" size="s" /> Passkey hinzufügen
+          <Icon name="plus" size="s" /> {t('Passkey hinzufügen')}
         </button>
       ) : (
-        <p className="small muted">Dieser Browser unterstützt keine Passkeys.</p>
+        <p className="small muted">{t('Dieser Browser unterstützt keine Passkeys.')}</p>
       )}
     </section>
   );

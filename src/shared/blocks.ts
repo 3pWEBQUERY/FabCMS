@@ -640,7 +640,7 @@ export const BLOCKS: BlockDef[] = [
       { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
       { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
       { key: 'campaign', type: 'text', label: 'Wofür? (Kampagne)', help: 'z. B. «Neue Werkstatt». Leer = allgemeine Spende. Spenden werden pro Kampagne zusammengezählt.' },
-      { key: 'goal', type: 'money', label: 'Ziel', help: 'Leer = ohne Fortschrittsbalken.', min: 0 },
+      { key: 'goal', type: 'money', label: 'Spendenziel', help: 'Leer = ohne Fortschrittsbalken.', min: 0 },
       { key: 'amounts', type: 'text', label: 'Beträge zur Auswahl', help: 'Mit Komma getrennt, z. B. «20, 50, 100, 250».' },
       { key: 'monthly', type: 'boolean', label: 'Monatliche Spende anbieten', default: true },
       { key: 'showTotal', type: 'boolean', label: 'Gesammelten Betrag zeigen (auch ohne Ziel)' },

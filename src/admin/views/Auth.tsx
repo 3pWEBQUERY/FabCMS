@@ -3,6 +3,7 @@ import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthenti
 import { api } from '../lib/api';
 import { Field } from '../ui/kit';
 import { Icon, NovaMark } from '../ui/icons';
+import { t } from '../lib/i18n';
 
 function useSubmit(fn: () => Promise<void>) {
   const [busy, setBusy] = useState(false);
@@ -77,13 +78,13 @@ export function Login({ siteName, onDone, onTwoFactor }: { siteName: string; onD
       <form className="auth-card" onSubmit={submit}>
         <NovaMark size={32} />
         <div>
-          <h1>Anmelden</h1>
-          <p className="muted">bei {siteName}</p>
+          <h1>{t('Anmelden')}</h1>
+          <p className="muted">{t('bei {site}', { site: siteName })}</p>
         </div>
-        <Field label="E-Mail" htmlFor="email">
+        <Field label={t('E-Mail')} htmlFor="email">
           <input id="email" className="input" type="email" autoComplete="username webauthn" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </Field>
-        <Field label="Passwort" htmlFor="pw">
+        <Field label={t('Passwort')} htmlFor="pw">
           <input id="pw" className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         {error && (
@@ -92,15 +93,15 @@ export function Login({ siteName, onDone, onTwoFactor }: { siteName: string; onD
           </p>
         )}
         <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
-          Anmelden
+          {t('Anmelden')}
         </button>
         {canPasskey && (
           <>
             <div className="auth-or" aria-hidden="true">
-              <span>oder</span>
+              <span>{t('oder')}</span>
             </div>
             <button type="button" className="btn l" onClick={withPasskey} disabled={pkBusy} data-busy={pkBusy || undefined}>
-              <Icon name="key" size="s" /> Mit Passkey anmelden
+              <Icon name="key" size="s" /> {t('Mit Passkey anmelden')}
             </button>
             {pkError && (
               <p className="field-error" role="alert">
@@ -109,7 +110,7 @@ export function Login({ siteName, onDone, onTwoFactor }: { siteName: string; onD
             )}
           </>
         )}
-        <p className="xsmall faint">Passwort vergessen? Eine Person mit Admin-Rechten kann es unter «Team» zurücksetzen.</p>
+        <p className="xsmall faint">{t('Passwort vergessen? Eine Person mit Admin-Rechten kann es unter «Team» zurücksetzen.')}</p>
       </form>
     </main>
   );
@@ -126,10 +127,10 @@ export function TwoFactor({ onDone }: { onDone: () => void }) {
       <form className="auth-card" onSubmit={submit}>
         <NovaMark size={32} />
         <div>
-          <h1>Bestätigungscode</h1>
-          <p className="muted">Gib die sechs Ziffern aus deiner Authenticator-App ein.</p>
+          <h1>{t('Bestätigungscode')}</h1>
+          <p className="muted">{t('Gib die sechs Ziffern aus deiner Authenticator-App ein.')}</p>
         </div>
-        <Field label="Code" htmlFor="code">
+        <Field label={t('Code')} htmlFor="code">
           <input
             id="code"
             className="input num"
@@ -149,7 +150,7 @@ export function TwoFactor({ onDone }: { onDone: () => void }) {
           </p>
         )}
         <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
-          Bestätigen
+          {t('Bestätigen')}
         </button>
       </form>
     </main>
@@ -168,19 +169,23 @@ export function SetupOwner({ onDone }: { onDone: () => void }) {
       <form className="auth-card" onSubmit={submit}>
         <NovaMark size={32} />
         <div>
-          <h1>Willkommen bei Nova</h1>
-          <p className="muted">Zuerst dein Zugang. Danach richten wir in fünf Fragen deine Website ein.</p>
+          <h1>{t('Willkommen bei Nova')}</h1>
+          <p className="muted">{t('Zuerst dein Zugang. Danach richten wir in fünf Fragen deine Website ein.')}</p>
         </div>
-        <Field label="Einrichtungscode" htmlFor="code" help="Steht in den Logs deines Railway-Dienstes, z. B. «482-913». Er verhindert, dass jemand anderes diese Installation übernimmt.">
+        <Field
+          label={t('Einrichtungscode')}
+          htmlFor="code"
+          help={t('Steht in den Logs deines Railway-Dienstes, z. B. «482-913». Er verhindert, dass jemand anderes diese Installation übernimmt.')}
+        >
           <input id="code" className="input num" required autoComplete="off" value={form.code} onChange={set('code')} autoFocus />
         </Field>
-        <Field label="Dein Name" htmlFor="name">
+        <Field label={t('Dein Name')} htmlFor="name">
           <input id="name" className="input" required autoComplete="name" value={form.name} onChange={set('name')} />
         </Field>
-        <Field label="E-Mail" htmlFor="email">
+        <Field label={t('E-Mail')} htmlFor="email">
           <input id="email" className="input" type="email" required autoComplete="email" value={form.email} onChange={set('email')} />
         </Field>
-        <Field label="Passwort" htmlFor="pw" help="Mindestens 10 Zeichen. Ein Satz ist sicherer als ein kompliziertes Wort.">
+        <Field label={t('Passwort')} htmlFor="pw" help={t('Mindestens 10 Zeichen. Ein Satz ist sicherer als ein kompliziertes Wort.')}>
           <input id="pw" className="input" type="password" required minLength={10} autoComplete="new-password" value={form.password} onChange={set('password')} />
         </Field>
         {error && (
@@ -189,7 +194,7 @@ export function SetupOwner({ onDone }: { onDone: () => void }) {
           </p>
         )}
         <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
-          Weiter
+          {t('Weiter')}
         </button>
       </form>
     </main>

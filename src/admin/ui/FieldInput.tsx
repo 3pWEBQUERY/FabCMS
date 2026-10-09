@@ -5,6 +5,7 @@ import { defaultsFor } from '../../shared/fields';
 import { shortId } from '../../shared/text';
 import { useSession } from '../lib/session';
 import { useApi } from '../lib/hooks';
+import { t, tl } from '../lib/i18n';
 import { Icon } from './icons';
 import { DateInput, DateTimeInput, Field, Select, SuggestInput, Toggle } from './kit';
 import { RichText } from './RichText';
@@ -75,13 +76,13 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
   const id = useId();
   const label = (
     <>
-      {f.label}
+      {tl(f.label)}
       {f.required && <span className="faint">*</span>}
     </>
   );
   const keyName = pro ? f.key : undefined;
   const wrap = (control: React.ReactNode) => (
-    <Field label={label} help={f.help} error={error} htmlFor={id} keyName={keyName}>
+    <Field label={label} help={tl(f.help) || undefined} error={error} htmlFor={id} keyName={keyName}>
       {control}
     </Field>
   );
@@ -97,7 +98,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
           type={f.type === 'email' ? 'email' : f.type === 'url' ? 'text' : 'text'}
           inputMode={f.type === 'url' ? 'url' : f.type === 'email' ? 'email' : undefined}
           value={(value as string) ?? ''}
-          placeholder={f.placeholder ?? (f.type === 'url' ? '/seite oder https://…' : undefined)}
+          placeholder={f.placeholder ? tl(f.placeholder) : f.type === 'url' ? t('/seite oder https://…') : undefined}
           maxLength={f.maxLength ? f.maxLength + 40 : undefined}
           aria-invalid={Boolean(error)}
           onChange={(e) => onChange(e.target.value)}
@@ -109,7 +110,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
           id={id}
           className="textarea"
           value={(value as string) ?? ''}
-          placeholder={f.placeholder}
+          placeholder={tl(f.placeholder) || undefined}
           aria-invalid={Boolean(error)}
           onChange={(e) => onChange(e.target.value)}
         />,
@@ -138,7 +139,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
     case 'boolean':
       return (
         <div className="field">
-          <Toggle checked={Boolean(value)} onChange={onChange} label={f.label} help={f.help} />
+          <Toggle checked={Boolean(value)} onChange={onChange} label={tl(f.label)} help={tl(f.help) || undefined} />
           {keyName && (
             <span className="field-key" style={{ justifySelf: 'start' }}>
               {keyName}
@@ -147,11 +148,18 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
         </div>
       );
     case 'select':
-      return wrap(<Select id={id} value={(value as string) ?? ''} onChange={onChange} options={[...(f.required ? [] : [{ value: '', label: '–' }]), ...(f.options ?? [])]} />);
+      return wrap(
+        <Select
+          id={id}
+          value={(value as string) ?? ''}
+          onChange={onChange}
+          options={[...(f.required ? [] : [{ value: '', label: '–' }]), ...(f.options ?? []).map((o) => ({ ...o, label: tl(o.label) }))]}
+        />,
+      );
     case 'multiselect': {
       const v = (value as string[]) ?? [];
       return wrap(
-        <div className="chips" role="group" aria-label={f.label}>
+        <div className="chips" role="group" aria-label={tl(f.label)}>
           {f.options?.map((o) => (
             <button
               key={o.value}
@@ -160,7 +168,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
               aria-pressed={v.includes(o.value)}
               onClick={() => onChange(v.includes(o.value) ? v.filter((x) => x !== o.value) : [...v, o.value])}
             >
-              {o.label}
+              {tl(o.label)}
             </button>
           ))}
         </div>,
@@ -197,7 +205,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
           id={id}
           className="input"
           value={(value as { address?: string })?.address ?? ''}
-          placeholder="Strasse, PLZ Ort"
+          placeholder={t('Strasse, PLZ Ort')}
           onChange={(e) => onChange({ address: e.target.value })}
         />,
       );
@@ -207,10 +215,10 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
       return (
         <div className="field">
           <span className="field-label">
-            {f.label}
+            {tl(f.label)}
             {keyName && <span className="field-key">{keyName}</span>}
           </span>
-          {f.help && <span className="field-help">{f.help}</span>}
+          {f.help && <span className="field-help">{tl(f.help)}</span>}
           <GroupInput field={f} value={(value as Values[]) ?? []} onChange={onChange} />
           {error && <span className="field-error">{error}</span>}
         </div>
@@ -250,16 +258,16 @@ function MoneyInput({ id, value, onChange }: { id: string; value: number | null;
 export function TagInput({ id, value, onChange }: { id?: string; value: string[]; onChange: (v: string[]) => void }) {
   const [text, setText] = useState('');
   const add = () => {
-    const t = text.trim().replace(/,$/, '');
-    if (t && !value.includes(t)) onChange([...value, t]);
+    const tag = text.trim().replace(/,$/, '');
+    if (tag && !value.includes(tag)) onChange([...value, tag]);
     setText('');
   };
   return (
     <div className="tag-input">
-      {value.map((t) => (
-        <span className="chip" key={t}>
-          {t}
-          <button type="button" aria-label={`${t} entfernen`} onClick={() => onChange(value.filter((x) => x !== t))}>
+      {value.map((tag) => (
+        <span className="chip" key={tag}>
+          {tag}
+          <button type="button" aria-label={t('{name} entfernen', { name: tag })} onClick={() => onChange(value.filter((x) => x !== tag))}>
             <Icon name="x" size="s" />
           </button>
         </span>
@@ -267,7 +275,7 @@ export function TagInput({ id, value, onChange }: { id?: string; value: string[]
       <input
         id={id}
         value={text}
-        placeholder={value.length ? '' : 'Eintippen, Enter drücken'}
+        placeholder={value.length ? '' : t('Eintippen, Enter drücken')}
         onChange={(e) => (e.target.value.endsWith(',') ? (setText(e.target.value), setTimeout(add)) : setText(e.target.value))}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
@@ -296,10 +304,10 @@ export function MediaField({
   const [open, setOpen] = useState(false);
   return (
     <div className="media-field">
-      <button type="button" className="preview" onClick={() => setOpen(true)} aria-label={value ? 'Ersetzen' : 'Auswählen'}>
+      <button type="button" className="preview" onClick={() => setOpen(true)} aria-label={value ? t('Ersetzen') : t('Auswählen')}>
         {m?.thumb ? <img src={m.thumb} alt="" /> : <Icon name={type === 'image' ? 'image' : 'page'} />}
         {m?.image && !m.alt && (
-          <span className="warn-alt" title="Bild ohne Beschreibung">
+          <span className="warn-alt" title={t('Bild ohne Beschreibung')}>
             !
           </span>
         )}
@@ -312,16 +320,16 @@ export function MediaField({
         )}
         {m?.image && !m.alt && (
           <span className="xsmall" style={{ color: 'var(--edited)' }}>
-            Beschreibung fehlt – in der Mediathek ergänzen
+            {t('Beschreibung fehlt – in der Mediathek ergänzen')}
           </span>
         )}
         <div className="row">
           <button type="button" className="btn s" onClick={() => setOpen(true)}>
-            {value ? 'Ersetzen' : 'Auswählen'}
+            {value ? t('Ersetzen') : t('Auswählen')}
           </button>
           {value && (
             <button type="button" className="btn s ghost" onClick={() => onChange(null)}>
-              Entfernen
+              {t('Entfernen')}
             </button>
           )}
         </div>
@@ -355,7 +363,7 @@ function Thumb({ id, onRemove }: { id: string; onRemove: () => void }) {
       <div className="media-tile" style={{ width: '5rem', height: '5rem', cursor: 'grab', touchAction: 'none' }} onPointerDown={(e) => controls.start(e)}>
         {m?.thumb ? <img src={m.thumb} alt={m.alt} draggable={false} /> : <Icon name="image" />}
       </div>
-      <button type="button" className="btn s icon-only" style={{ position: 'absolute', top: -8, right: -8, borderRadius: '50%' }} aria-label="Entfernen" onClick={onRemove}>
+      <button type="button" className="btn s icon-only" style={{ position: 'absolute', top: -8, right: -8, borderRadius: '50%' }} aria-label={t('Entfernen')} onClick={onRemove}>
         <Icon name="x" size="s" />
       </button>
     </Reorder.Item>
@@ -376,7 +384,7 @@ export function MediaList({ value, onChange }: { value: string[]; onChange: (v: 
       <div>
         <button type="button" className="btn s" onClick={() => setOpen(true)}>
           <Icon name="plus" size="s" />
-          Bilder hinzufügen
+          {t('Bilder hinzufügen')}
         </button>
       </div>
       <MediaPicker
@@ -403,13 +411,13 @@ function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v:
   };
   return (
     <div className="grid-2" style={{ gap: '0.5rem' }}>
-      <input className="input" placeholder="Beschriftung" value={v.label} onChange={(e) => set({ label: e.target.value })} aria-label="Beschriftung" />
+      <input className="input" placeholder={t('Beschriftung')} value={v.label} onChange={(e) => set({ label: e.target.value })} aria-label={t('Beschriftung')} />
       <SuggestInput
         className="input"
         placeholder="/kontakt"
         value={v.href}
         onChange={(href) => set({ href })}
-        aria-label="Ziel"
+        aria-label={t('Ziel')}
         suggestions={(data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title }))}
       />
     </div>
@@ -423,7 +431,7 @@ function FormSelect({ id, value, onChange }: { id: string; value: string; onChan
       id={id}
       value={value ?? ''}
       onChange={(v) => onChange(v || null)}
-      placeholder="Formular wählen …"
+      placeholder={t('Formular wählen …')}
       options={(data?.forms ?? []).map((f) => ({ value: f.id, label: f.name }))}
     />
   );
@@ -432,7 +440,7 @@ function FormSelect({ id, value, onChange }: { id: string; value: string; onChan
 function RelationSelect({ id, collection, value, onChange }: { id: string; collection: string; value: string; onChange: (v: string | null) => void }) {
   const { data } = useApi<{ entries: { id: string; title: string }[] }>(`/api/entries?collection=${collection}&limit=500`);
   return (
-    <Select id={id} value={value ?? ''} onChange={(v) => onChange(v || null)} options={(data?.entries ?? []).map((e) => ({ value: e.id, label: e.title || '(ohne Titel)' }))} />
+    <Select id={id} value={value ?? ''} onChange={(v) => onChange(v || null)} options={(data?.entries ?? []).map((e) => ({ value: e.id, label: e.title || t('(ohne Titel)') }))} />
   );
 }
 
@@ -485,7 +493,7 @@ function GroupItem({
 }) {
   const controls = useDragControls();
   const titleField = field.fields?.find((f) => ['text', 'email'].includes(f.type));
-  const title = (titleField && (item[titleField.key] as string)) || `${field.itemLabel ?? 'Eintrag'} ${index + 1}`;
+  const title = (titleField && (item[titleField.key] as string)) || (field.itemLabel ? `${tl(field.itemLabel)} ${index + 1}` : t('Eintrag {n}', { n: index + 1 }));
   return (
     <Reorder.Item
       value={item}
@@ -508,10 +516,10 @@ function GroupItem({
         >
           {title}
         </button>
-        <button type="button" className="btn ghost s icon-only" aria-label={`${title} entfernen`} onClick={onRemove}>
+        <button type="button" className="btn ghost s icon-only" aria-label={t('{name} entfernen', { name: title })} onClick={onRemove}>
           <Icon name="trash" size="s" />
         </button>
-        <button type="button" className="btn ghost s icon-only" aria-label={open ? 'Zuklappen' : 'Aufklappen'} onClick={() => setOpen(!open)}>
+        <button type="button" className="btn ghost s icon-only" aria-label={open ? t('Zuklappen') : t('Aufklappen')} onClick={() => setOpen(!open)}>
           <Icon name={open ? 'chevronDown' : 'chevronRight'} size="s" />
         </button>
       </header>
@@ -566,7 +574,7 @@ export function GroupInput({ field, value, onChange }: { field: FieldDef; value:
           }}
         >
           <Icon name="plus" size="s" />
-          {field.itemLabel ?? 'Eintrag'} hinzufügen
+          {field.itemLabel ? t('{name} hinzufügen', { name: tl(field.itemLabel) }) : t('Eintrag hinzufügen')}
         </button>
       )}
     </div>

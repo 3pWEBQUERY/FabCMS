@@ -4,6 +4,7 @@ import { useDebounced } from '../lib/hooks';
 import { Dialog } from './kit';
 import { Icon } from './icons';
 import { useToast } from './toast';
+import { t } from '../lib/i18n';
 
 export interface MediaRow {
   id: string;
@@ -48,7 +49,7 @@ export function rememberMedia(m: MediaRow) {
 }
 
 export function useMedia(id: string | null | undefined) {
-  const [m, setM] = useState<MediaRow | null>(id ? cache.get(id) ?? null : null);
+  const [m, setM] = useState<MediaRow | null>(id ? (cache.get(id) ?? null) : null);
   useEffect(() => {
     if (!id) return setM(null);
     let alive = true;
@@ -135,7 +136,12 @@ export function MediaPicker({
   const toggle = (id: string) => setSelected((s) => (multiple ? (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]) : [id]));
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={multiple ? 'Bilder auswählen' : type === 'image' || !type ? 'Bild auswählen' : 'Datei auswählen'} wide>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={multiple ? t('Bilder auswählen') : type === 'image' || !type ? t('Bild auswählen') : t('Datei auswählen')}
+      wide
+    >
       <div
         className="stack"
         onDragOver={(e) => {
@@ -152,16 +158,16 @@ export function MediaPicker({
         <div className="row">
           <div className="search">
             <Icon name="search" />
-            <input className="input" placeholder="Suchen nach Name oder Beschreibung" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="input" placeholder={t('Suchen nach Name oder Beschreibung')} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <button className={`btn ${uploading ? 'uploading' : ''}`} style={{ '--up': share } as React.CSSProperties} onClick={() => input.current?.click()} disabled={uploading}>
             {uploading ? <span className="spin" aria-hidden="true" /> : <Icon name="upload" size="s" />}
             {uploading ? (
               <span>
-                Lädt hoch … <span className="up-pct">{Math.round(share * 100)} %</span>
+                {t('Lädt hoch …')} <span className="up-pct">{Math.round(share * 100)} %</span>
               </span>
             ) : (
-              'Hochladen'
+              t('Hochladen')
             )}
           </button>
           <input
@@ -175,18 +181,26 @@ export function MediaPicker({
         </div>
         <div className={`dropzone ${over ? 'over' : ''}`} style={{ padding: items.length ? '0.6rem' : '2.5rem' }}>
           {items.length === 0 ? (
-            <p>Zieh Dateien hierher oder tipp auf «Hochladen» – auch direkt vom Handy.</p>
+            <p>{t('Zieh Dateien hierher oder tipp auf «Hochladen» – auch direkt vom Handy.')}</p>
           ) : (
             <div className="media-grid" style={{ maxHeight: '52vh', overflow: 'auto' }}>
               {items.map((m) => {
                 const idx = selected.indexOf(m.id);
                 return (
-                  <button key={m.id} type="button" className="media-tile" aria-pressed={idx >= 0} onClick={() => toggle(m.id)} onDoubleClick={() => !multiple && onPick([m.id])} title={m.filename}>
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="media-tile"
+                    aria-pressed={idx >= 0}
+                    onClick={() => toggle(m.id)}
+                    onDoubleClick={() => !multiple && onPick([m.id])}
+                    title={m.filename}
+                  >
                     <Thumb m={m} />
                     {!m.image && <span className="fname ellipsis">{m.filename}</span>}
                     {m.image && !m.alt && (
-                      <span className="flag badge edited" title="Keine Bildbeschreibung">
-                        Alt fehlt
+                      <span className="flag badge edited" title={t('Keine Bildbeschreibung')}>
+                        {t('Alt fehlt')}
                       </span>
                     )}
                     {multiple && idx >= 0 && <span className="order">{idx + 1}</span>}
@@ -198,12 +212,12 @@ export function MediaPicker({
         </div>
       </div>
       <div className="dialog-actions">
-        <span className="small muted grow">{selected.length ? `${selected.length} ausgewählt` : ''}</span>
+        <span className="small muted grow">{selected.length ? t('{n} ausgewählt', { n: selected.length }) : ''}</span>
         <button className="btn ghost" onClick={onClose}>
-          Abbrechen
+          {t('Abbrechen')}
         </button>
         <button className="btn primary" disabled={!selected.length} onClick={() => onPick(selected)}>
-          Übernehmen
+          {t('Übernehmen')}
         </button>
       </div>
     </Dialog>

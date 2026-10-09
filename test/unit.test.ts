@@ -21,6 +21,7 @@ import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, re
 import { generateSdk } from '../src/server/sdk';
 import { runHook, checkHookCode } from '../src/server/hooks';
 import { DICT } from '../src/site/dict';
+import { ADMIN_DICT } from '../src/admin/i18n/all';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -597,3 +598,26 @@ describe('website translations', () => {
   });
 });
 
+describe('admin translations', () => {
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? files(join(dir, d.name)) : /\.tsx?$/.test(d.name) ? [join(dir, d.name)] : []));
+  const keys = new Map<string, string>();
+  for (const f of files('src/admin').filter((f) => !f.includes('/i18n/'))) {
+    const text = readFileSync(f, 'utf8');
+    for (const m of text.matchAll(/\b(?:t|tl)\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
+      if (m[1] === '`' && m[2].includes('${')) continue;
+      keys.set(m[2].replace(/\\(['"`\\])/g, '$1'), f);
+    }
+  }
+
+  it('has French, Italian and English for every interface text', () => {
+    const missing = [...keys].filter(([k]) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en).map(([k, f]) => `${f}: ${k}`);
+    expect(missing).toEqual([]);
+  });
+
+  it('keeps placeholders identical', () => {
+    const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+    const broken = Object.entries(ADMIN_DICT).flatMap(([de, v]) => (['fr', 'it', 'en'] as const).filter((l) => ph(v[l]) !== ph(de)).map((l) => `${l}: ${de}`));
+    expect(broken).toEqual([]);
+  });
+});

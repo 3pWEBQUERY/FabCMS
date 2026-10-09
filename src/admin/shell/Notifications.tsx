@@ -5,6 +5,7 @@ import { Icon } from '../ui/icons';
 import { Popover } from '../ui/kit';
 import { useToast } from '../ui/toast';
 import { relativeTime } from '../../shared/text';
+import { adminLang, t, tm } from '../lib/i18n';
 
 interface Notice {
   id: string;
@@ -99,7 +100,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       const n = { ...(JSON.parse((e as MessageEvent).data) as Notice), read: false };
       setItems((list) => (list.some((x) => x.id === n.id) ? list : [n, ...list].slice(0, 40)));
       setUnread((u) => u + 1);
-      toastRef.current(n.title, { kind: 'notice', icon: KIND_ICON[n.kind], ms: 6500, action: n.href ? { label: 'Ansehen', run: () => open(n) } : undefined });
+      toastRef.current(tm(n.title), { kind: 'notice', icon: KIND_ICON[n.kind], ms: 6500, action: n.href ? { label: t('Ansehen'), run: () => open(n) } : undefined });
     });
     return () => es.close();
   }, [load, open]);
@@ -126,22 +127,22 @@ export function NotificationBell() {
       align="end"
       className="notes"
       trigger={
-        <button className="btn ghost icon-only bell" aria-label={unread ? `Benachrichtigungen, ${unread} neu` : 'Benachrichtigungen'}>
+        <button className="btn ghost icon-only bell" aria-label={unread ? t('Benachrichtigungen, {n} neu', { n: unread }) : t('Benachrichtigungen')}>
           <Icon name="bell" />
           {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
         </button>
       }
     >
       <div className="notes-head">
-        <strong>Benachrichtigungen</strong>
+        <strong>{t('Benachrichtigungen')}</strong>
         {unread > 0 && (
           <button className="linkish small" onClick={readAll}>
-            Alle als gelesen markieren
+            {t('Alle als gelesen markieren')}
           </button>
         )}
       </div>
       {items.length === 0 ? (
-        <p className="notes-empty">Alles ruhig. Neue Anfragen, Bestellungen, Kommentare und Freigaben erscheinen hier, sobald sie eintreffen.</p>
+        <p className="notes-empty">{t('Alles ruhig. Neue Anfragen, Bestellungen, Kommentare und Freigaben erscheinen hier, sobald sie eintreffen.')}</p>
       ) : (
         <ul className="notes-list">
           {items.map((n) => (
@@ -157,11 +158,11 @@ export function NotificationBell() {
                   <Icon name={KIND_ICON[n.kind]} size="s" />
                 </span>
                 <span className="note-text">
-                  <span className="note-title">{n.title}</span>
-                  {n.body && <span className="note-body">{n.body}</span>}
-                  <span className="note-time">{relativeTime(n.created_at)}</span>
+                  <span className="note-title">{tm(n.title)}</span>
+                  {n.body && <span className="note-body">{tm(n.body)}</span>}
+                  <span className="note-time">{relativeTime(n.created_at, new Date(), adminLang())}</span>
                 </span>
-                {!n.read && <span className="note-dot" aria-label="neu" />}
+                {!n.read && <span className="note-dot" aria-label={t('neu')} />}
               </button>
             </li>
           ))}

@@ -9,6 +9,7 @@ import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { rememberMedia, uploadFiles, type MediaRow, Thumb } from '../ui/MediaPicker';
 import { TagInput } from '../ui/FieldInput';
+import { t } from '../lib/i18n';
 
 const sizeLabel = (b: number) => (b > 1_048_576 ? `${(b / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
@@ -30,7 +31,9 @@ export function MediaLibrary() {
   const dq = useDebounced(q, 200);
 
   const load = useCallback(async () => {
-    const r = await api.get<{ media: MediaRow[]; folders: { folder: string; n: number }[] }>(`/api/media${qs({ folder, type, q: dq, missingAlt: missingAlt ? '1' : undefined, limit: 200 })}`);
+    const r = await api.get<{ media: MediaRow[]; folders: { folder: string; n: number }[] }>(
+      `/api/media${qs({ folder, type, q: dq, missingAlt: missingAlt ? '1' : undefined, limit: 200 })}`,
+    );
     r.media.forEach(rememberMedia);
     setItems(r.media);
     setFolders(r.folders);
@@ -51,7 +54,8 @@ export function MediaLibrary() {
       const added = await uploadFiles(list, { folder: folder === '*' ? '' : folder }, setShare);
       setItems((cur) => [...added, ...(cur ?? [])]);
       const noAlt = added.filter((m) => m.image).length;
-      toast(`${added.length} ${added.length === 1 ? 'Datei' : 'Dateien'} hochgeladen.${noAlt ? ' Ergänze noch kurze Bildbeschreibungen.' : ''}`);
+      const done = added.length === 1 ? t('1 Datei hochgeladen.') : t('{n} Dateien hochgeladen.', { n: added.length });
+      toast(noAlt ? `${done} ${t('Ergänze noch kurze Bildbeschreibungen.')}` : done);
       if (added.length === 1) setOpenId(added[0].id);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -80,25 +84,37 @@ export function MediaLibrary() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Mediathek"
-        sub="Lade Bilder so hoch, wie sie aus der Kamera kommen. Nova macht daraus schnelle AVIF- und WebP-Versionen in allen Grössen."
+        title={t('Mediathek')}
+        sub={t('Lade Bilder so hoch, wie sie aus der Kamera kommen. Nova macht daraus schnelle AVIF- und WebP-Versionen in allen Grössen.')}
         actions={
           can('media.upload') && (
             <>
-              <button className={`btn primary ${uploading ? 'uploading' : ''}`} style={{ '--up': share } as React.CSSProperties} onClick={() => input.current?.click()} disabled={uploading > 0}>
+              <button
+                className={`btn primary ${uploading ? 'uploading' : ''}`}
+                style={{ '--up': share } as React.CSSProperties}
+                onClick={() => input.current?.click()}
+                disabled={uploading > 0}
+              >
                 {uploading ? <span className="spin" aria-hidden="true" /> : <Icon name="upload" size="s" />}
                 {uploading ? (
                   <span>
-                    {uploading === 1 ? 'Lädt hoch' : `Lädt ${uploading} Dateien hoch`} · <span className="up-pct">{Math.round(share * 100)} %</span>
+                    {uploading === 1 ? t('Lädt hoch') : t('Lädt {n} Dateien hoch', { n: uploading })} · <span className="up-pct">{Math.round(share * 100)} %</span>
                   </span>
                 ) : (
-                  'Hochladen'
+                  t('Hochladen')
                 )}
               </button>
-              <input ref={input} type="file" hidden multiple accept="image/*,video/*,.pdf,.docx,.xlsx,.zip,.mp3,.m4a,.csv,.txt" onChange={(e) => e.target.files && void upload(e.target.files)} />
+              <input
+                ref={input}
+                type="file"
+                hidden
+                multiple
+                accept="image/*,video/*,.pdf,.docx,.xlsx,.zip,.mp3,.m4a,.csv,.txt"
+                onChange={(e) => e.target.files && void upload(e.target.files)}
+              />
             </>
           )
         }
@@ -106,42 +122,44 @@ export function MediaLibrary() {
       <div className="toolbar">
         <div className="search">
           <Icon name="search" />
-          <input className="input" placeholder="Dateiname, Beschreibung oder Schlagwort" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input" placeholder={t('Dateiname, Beschreibung oder Schlagwort')} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select
           inline
-          label="Ordner"
+          label={t('Ordner')}
           value={folder}
           onChange={setFolder}
-          options={[{ value: '*', label: 'Alle Ordner' }, ...folders.map((f) => ({ value: f.folder, label: `${f.folder || 'Ohne Ordner'} (${f.n})` }))]}
+          options={[{ value: '*', label: t('Alle Ordner') }, ...folders.map((f) => ({ value: f.folder, label: `${f.folder || t('Ohne Ordner')} (${f.n})` }))]}
         />
         <Segmented
-          label="Typ"
+          label={t('Typ')}
           value={type}
           onChange={setType}
           options={[
-            { value: '', label: 'Alle' },
-            { value: 'image', label: 'Bilder' },
-            { value: 'video', label: 'Videos' },
-            { value: 'file', label: 'Dateien' },
+            { value: '', label: t('Alle') },
+            { value: 'image', label: t('Bilder') },
+            { value: 'video', label: t('Videos') },
+            { value: 'file', label: t('Dateien') },
           ]}
         />
         <button className="btn" aria-pressed={missingAlt} onClick={() => setMissingAlt((v) => !v)}>
-          Ohne Beschreibung
+          {t('Ohne Beschreibung')}
         </button>
       </div>
       <div className={`dropzone ${over ? 'over' : ''}`} style={{ padding: items?.length ? '0.75rem' : '3rem', textAlign: items?.length ? 'left' : 'center' }}>
         {!items ? (
           <Skeleton lines={4} />
         ) : items.length === 0 ? (
-          <Empty title={q || missingAlt ? 'Nichts gefunden' : 'Noch keine Dateien'}>{q || missingAlt ? 'Versuch einen anderen Filter.' : 'Zieh Bilder hierher oder tipp auf «Hochladen» – auch direkt vom Handy aus der Kamera.'}</Empty>
+          <Empty title={q || missingAlt ? t('Nichts gefunden') : t('Noch keine Dateien')}>
+            {q || missingAlt ? t('Versuch einen anderen Filter.') : t('Zieh Bilder hierher oder tipp auf «Hochladen» – auch direkt vom Handy aus der Kamera.')}
+          </Empty>
         ) : (
           <div className="media-grid">
             {items.map((m) => (
               <button key={m.id} type="button" className="media-tile" onClick={() => setOpenId(m.id)} title={m.filename}>
                 <Thumb m={m} />
                 {!m.image && <span className="fname ellipsis">{m.filename}</span>}
-                {m.image && !m.alt && <span className="flag badge edited">Beschreibung fehlt</span>}
+                {m.image && !m.alt && <span className="flag badge edited">{t('Beschreibung fehlt')}</span>}
               </button>
             ))}
           </div>
@@ -195,9 +213,17 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
 
   const remove = async () => {
     const used = usage?.length ?? 0;
-    if (!(await confirm({ title: 'Datei löschen?', message: used ? `Diese Datei wird noch an ${used} Stelle(n) verwendet. Dort fehlt sie danach.` : 'Die Datei wird endgültig entfernt.', confirm: 'Löschen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: t('Datei löschen?'),
+        message: used ? t('Diese Datei wird noch an {n} Stelle(n) verwendet. Dort fehlt sie danach.', { n: used }) : t('Die Datei wird endgültig entfernt.'),
+        confirm: t('Löschen'),
+        danger: true,
+      }))
+    )
+      return;
     await api.del(`/api/media/${media.id}`);
-    toast('Gelöscht.');
+    toast(t('Gelöscht.'));
     onDelete();
   };
 
@@ -211,7 +237,7 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
             const m = await save({ edits });
             if (m) {
               setEditing(false);
-              toast('Bild bearbeitet. Das Original bleibt unverändert.');
+              toast(t('Bild bearbeitet. Das Original bleibt unverändert.'));
             }
           }}
         />
@@ -229,12 +255,12 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
                     void save({ focus: f });
                   }}
                   role="button"
-                  aria-label="Fokuspunkt setzen"
+                  aria-label={t('Fokuspunkt setzen')}
                 >
                   <img src={media.preview!} alt={media.alt} />
                   <span className="focus-dot" style={{ left: `${focus.x * 100}%`, top: `${focus.y * 100}%` }} />
                 </div>
-                <p className="xsmall muted">Tipp ins Bild, um den Fokuspunkt zu setzen. Beim Zuschneiden auf Hoch- oder Querformat bleibt diese Stelle sichtbar.</p>
+                <p className="xsmall muted">{t('Tipp ins Bild, um den Fokuspunkt zu setzen. Beim Zuschneiden auf Hoch- oder Querformat bleibt diese Stelle sichtbar.')}</p>
               </>
             ) : media.mime.startsWith('video') ? (
               <video src={media.url} controls style={{ width: '100%', borderRadius: 8 }} />
@@ -250,18 +276,27 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
           </div>
           <div className="stack">
             {media.image && (
-              <Field label="Bildbeschreibung (Alt-Text)" htmlFor="m-alt" help={alt ? 'Wird von Screenreadern vorgelesen und von Google gelesen.' : 'Beschreib in einem Satz, was zu sehen ist – z. B. «Gaststube mit Holztischen am Abend».'} error={!alt ? 'Fehlt noch' : null}>
+              <Field
+                label={t('Bildbeschreibung (Alt-Text)')}
+                htmlFor="m-alt"
+                help={
+                  alt
+                    ? t('Wird von Screenreadern vorgelesen und von Google gelesen.')
+                    : t('Beschreib in einem Satz, was zu sehen ist – z. B. «Gaststube mit Holztischen am Abend».')
+                }
+                error={!alt ? t('Fehlt noch') : null}
+              >
                 <input id="m-alt" className="input" value={alt} onChange={(e) => setAlt(e.target.value)} onBlur={() => alt !== media.alt && void save({ alt })} />
               </Field>
             )}
-            <Field label="Bildunterschrift" htmlFor="m-cap">
+            <Field label={t('Bildunterschrift')} htmlFor="m-cap">
               <input id="m-cap" className="input" value={caption} onChange={(e) => setCaption(e.target.value)} onBlur={() => caption !== media.caption && void save({ caption })} />
             </Field>
             <div className="grid-2">
-              <Field label="Ordner" htmlFor="m-folder">
+              <Field label={t('Ordner')} htmlFor="m-folder">
                 <input id="m-folder" className="input" value={folder} onChange={(e) => setFolder(e.target.value)} onBlur={() => folder !== media.folder && void save({ folder })} />
               </Field>
-              <Field label="Schlagwörter">
+              <Field label={t('Schlagwörter')}>
                 <TagInput
                   value={tags}
                   onChange={(t) => {
@@ -272,11 +307,11 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
               </Field>
             </div>
             <div className="stack tight">
-              <span className="section-title">Verwendet in</span>
+              <span className="section-title">{t('Verwendet in')}</span>
               {usage === null ? (
                 <span className="small muted">…</span>
               ) : usage.length === 0 ? (
-                <span className="small muted">Nirgends.</span>
+                <span className="small muted">{t('Nirgends.')}</span>
               ) : (
                 <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
                   {usage.map((u) => (
@@ -292,24 +327,24 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
             <div className="row wrap">
               {media.image && can('media.upload') && (
                 <button className="btn" onClick={() => setEditing(true)}>
-                  <Icon name="crop" size="s" /> Zuschneiden & drehen
+                  <Icon name="crop" size="s" /> {t('Zuschneiden & drehen')}
                 </button>
               )}
               <a className="btn" href={media.url} target="_blank" rel="noreferrer">
-                <Icon name="external" size="s" /> Öffnen
+                <Icon name="external" size="s" /> {t('Öffnen')}
               </a>
               <button
                 className="btn ghost"
                 onClick={() => {
                   void navigator.clipboard?.writeText(location.origin + media.url);
-                  toast('Link kopiert.');
+                  toast(t('Link kopiert.'));
                 }}
               >
-                <Icon name="copy" size="s" /> Link kopieren
+                <Icon name="copy" size="s" /> {t('Link kopieren')}
               </button>
               {can('media.manage') && (
                 <button className="btn danger" onClick={remove} style={{ marginLeft: 'auto' }}>
-                  <Icon name="trash" size="s" /> Löschen
+                  <Icon name="trash" size="s" /> {t('Löschen')}
                 </button>
               )}
             </div>
@@ -369,7 +404,7 @@ function ImageEditor({ media, onSave, onCancel }: { media: MediaRow; onSave: (e:
     const imgH = (rotated ? media.width : media.height) ?? 1;
     const target = a / b;
     let w = 1;
-    let h = (imgW / target) / imgH;
+    let h = imgW / target / imgH;
     if (h > 1) {
       h = 1;
       w = (imgH * target) / imgW;
@@ -421,14 +456,14 @@ function ImageEditor({ media, onSave, onCancel }: { media: MediaRow; onSave: (e:
           )}
         </div>
       </div>
-      <p className="xsmall muted">Zuschneiden wirkt auf das Bild nach dem Drehen. Ziehen verschiebt den Ausschnitt, die Ecke ändert die Grösse.</p>
+      <p className="xsmall muted">{t('Zuschneiden wirkt auf das Bild nach dem Drehen. Ziehen verschiebt den Ausschnitt, die Ecke ändert die Grösse.')}</p>
       <div className="row wrap" style={{ gap: '1rem' }}>
         <Segmented
-          label="Seitenverhältnis"
+          label={t('Seitenverhältnis')}
           value={ratio}
           onChange={(r) => (crop || r !== 'free' ? applyRatio(r) : setRatio(r))}
           options={[
-            { value: 'free', label: 'Frei' },
+            { value: 'free', label: t('Frei') },
             { value: '1', label: '1:1' },
             { value: '4/3', label: '4:3' },
             { value: '16/9', label: '16:9' },
@@ -436,26 +471,26 @@ function ImageEditor({ media, onSave, onCancel }: { media: MediaRow; onSave: (e:
           ]}
         />
         <button className="btn" onClick={() => setCrop(crop ? null : { x: 0.1, y: 0.1, w: 0.8, h: 0.8 })} aria-pressed={Boolean(crop)}>
-          <Icon name="crop" size="s" /> {crop ? 'Zuschnitt entfernen' : 'Zuschneiden'}
+          <Icon name="crop" size="s" /> {crop ? t('Zuschnitt entfernen') : t('Zuschneiden')}
         </button>
-        <button className="btn" onClick={() => setRotate((r) => (((r + 90) % 360) as Edits['rotate']))}>
-          <Icon name="rotate" size="s" /> Drehen
+        <button className="btn" onClick={() => setRotate((r) => ((r + 90) % 360) as Edits['rotate'])}>
+          <Icon name="rotate" size="s" /> {t('Drehen')}
         </button>
         <label className="row small" style={{ gap: '0.5rem' }}>
-          <Icon name="sun" size="s" /> Helligkeit
+          <Icon name="sun" size="s" /> {t('Helligkeit')}
           <input type="range" min={0.6} max={1.4} step={0.05} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} />
         </label>
       </div>
       <div className="dialog-actions">
         <button className="btn ghost" onClick={() => onSave({ crop: null, rotate: 0, brightness: 1 })}>
-          Auf Original zurücksetzen
+          {t('Auf Original zurücksetzen')}
         </button>
         <span className="grow" />
         <button className="btn ghost" onClick={onCancel}>
-          Abbrechen
+          {t('Abbrechen')}
         </button>
         <button className="btn primary" onClick={() => onSave({ crop, rotate, brightness })}>
-          Übernehmen
+          {t('Übernehmen')}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { adminLocale, t } from '../lib/i18n';
 
 /**
  * Daily bar chart for one measure (visitors). Single series → no legend box,
@@ -19,7 +20,7 @@ function niceMax(v: number) {
   return step * pow;
 }
 
-const dayLabel = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00`).toLocaleDateString('de-CH', opts);
+const dayLabel = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00`).toLocaleDateString(adminLocale(), opts);
 
 export function VisitorsChart({ data, height = 220, label }: { data: DayPoint[]; height?: number; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -59,13 +60,20 @@ export function VisitorsChart({ data, height = 220, label }: { data: DayPoint[];
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <svg className="chart" width={width} height={height} role="img" aria-label={`${label}: ${total} Besuche in ${data.length} Tagen`} onMouseLeave={() => setHover(null)}>
+      <svg
+        className="chart"
+        width={width}
+        height={height}
+        role="img"
+        aria-label={t('{label}: {total} Besuche in {days} Tagen', { label, total, days: data.length })}
+        onMouseLeave={() => setHover(null)}
+      >
         <g className="grid">
-          {ticks.map((t) => (
-            <g key={t}>
-              <line x1={padL} x2={width} y1={y(t)} y2={y(t)} />
-              <text x={padL - 8} y={y(t) + 4} textAnchor="end">
-                {Math.round(t)}
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={padL} x2={width} y1={y(tick)} y2={y(tick)} />
+              <text x={padL - 8} y={y(tick) + 4} textAnchor="end">
+                {Math.round(tick)}
               </text>
             </g>
           ))}
@@ -103,11 +111,11 @@ export function VisitorsChart({ data, height = 220, label }: { data: DayPoint[];
         >
           <div className="muted">{dayLabel(hp.day, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           <div className="row between">
-            <span>Besuche</span>
+            <span>{t('Besuche')}</span>
             <strong className="num">{hp.visitors}</strong>
           </div>
           <div className="row between">
-            <span>Seitenaufrufe</span>
+            <span>{t('Seitenaufrufe')}</span>
             <strong className="num">{hp.pageviews}</strong>
           </div>
         </div>
@@ -119,7 +127,12 @@ export function VisitorsChart({ data, height = 220, label }: { data: DayPoint[];
 /** Horizontal magnitude bars with the value as text (pages, sources). */
 export function BarList({ rows, valueLabel }: { rows: { label: string; value: number; sub?: string }[]; valueLabel: string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (!rows.length) return <p className="small muted" style={{ padding: '0.5rem 0.6rem' }}>Noch keine Daten.</p>;
+  if (!rows.length)
+    return (
+      <p className="small muted" style={{ padding: '0.5rem 0.6rem' }}>
+        {t('Noch keine Daten.')}
+      </p>
+    );
   return (
     <div className="bars-h" role="table" aria-label={valueLabel}>
       {rows.map((r) => (
@@ -129,7 +142,7 @@ export function BarList({ rows, valueLabel }: { rows: { label: string; value: nu
             {r.label}
           </span>
           <span className="num" role="cell" style={{ fontWeight: 600 }}>
-            {r.value.toLocaleString('de-CH')}
+            {r.value.toLocaleString(adminLocale())}
           </span>
         </div>
       ))}

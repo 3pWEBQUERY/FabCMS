@@ -7,6 +7,7 @@ import { Dialog, Empty, Field, PageHead, Skeleton, confirm, Select } from '../ui
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatMoney, formatPrice, relativeTime } from '../../shared/text';
+import { t, adminLang, adminLocale } from '../lib/i18n';
 
 type Status = 'new' | 'contacted' | 'offer' | 'won' | 'lost';
 const LANES: { id: Status; label: string }[] = [
@@ -60,18 +61,18 @@ export function Contacts() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Kontakte"
-        sub="Jede Anfrage aus einem Formular landet hier. Zieh die Karten in die nächste Spalte, wenn sich etwas tut."
+        title={t('Kontakte')}
+        sub={t('Jede Anfrage aus einem Formular landet hier. Zieh die Karten in die nächste Spalte, wenn sich etwas tut.')}
         actions={
           <>
             <a className="btn" href="/api/contacts?format=csv" download>
               <Icon name="download" size="s" /> CSV
             </a>
             <button className="btn primary" onClick={() => setAdding(true)}>
-              <Icon name="plus" size="s" /> Kontakt
+              <Icon name="plus" size="s" /> {t('Kontakt')}
             </button>
           </>
         }
@@ -80,7 +81,9 @@ export function Contacts() {
         <Skeleton lines={5} />
       ) : !data.contacts.length ? (
         <section className="card">
-          <Empty title="Noch keine Kontakte">Sobald jemand ein Formular mit E-Mail-Adresse absendet, erscheint die Person hier – mit Status, Notizen und allen Anfragen.</Empty>
+          <Empty title={t('Noch keine Kontakte')}>
+            {t('Sobald jemand ein Formular mit E-Mail-Adresse absendet, erscheint die Person hier – mit Status, Notizen und allen Anfragen.')}
+          </Empty>
         </section>
       ) : (
         <div className="kanban">
@@ -88,7 +91,7 @@ export function Contacts() {
             <section
               key={l.id}
               className={`lane ${over === l.id ? 'over' : ''}`}
-              aria-label={l.label}
+              aria-label={t(l.label)}
               onDragOver={(e) => {
                 e.preventDefault();
                 setOver(l.id);
@@ -103,9 +106,9 @@ export function Contacts() {
             >
               <header>
                 <span>
-                  {l.label} <span className="faint">{pipeline(l.id).length}</span>
+                  {t(l.label)} <span className="faint">{pipeline(l.id).length}</span>
                 </span>
-                {sum(l.id) > 0 && <span className="xsmall muted num">{formatMoney(sum(l.id), settings?.shop.currency)}</span>}
+                {sum(l.id) > 0 && <span className="xsmall muted num">{formatMoney(sum(l.id), settings?.shop.currency, adminLocale())}</span>}
               </header>
               {pipeline(l.id).map((c) => (
                 <div
@@ -121,12 +124,17 @@ export function Contacts() {
                   <strong className="small ellipsis">{c.name || c.email}</strong>
                   {c.company && <span className="xsmall muted">{c.company}</span>}
                   <span className="xsmall faint">
-                    {c.source || 'manuell'} · {relativeTime(c.last_contact ?? c.created_at)}
+                    {c.source || t('manuell')} · {relativeTime(c.last_contact ?? c.created_at, new Date(), adminLang())}
                   </span>
                   {mobile && (
                     // The card navigates on click/Enter; events from the list (portal) bubble here too.
                     <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                      <Select label="Status" value={c.status} onChange={(v) => void move(c.id, v as Status)} options={LANES.map((x) => ({ value: x.id, label: x.label }))} />
+                      <Select
+                        label={t('Status')}
+                        value={c.status}
+                        onChange={(v) => void move(c.id, v as Status)}
+                        options={LANES.map((x) => ({ value: x.id, label: t(x.label) }))}
+                      />
                     </span>
                   )}
                 </div>
@@ -152,32 +160,32 @@ function NewContact({ open, onClose }: { open: boolean; onClose: () => void }) {
     }
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title="Kontakt erfassen">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={t('Kontakt erfassen')}>
       <div className="stack">
         <div className="grid-2">
-          <Field label="Name">
+          <Field label={t('Name')}>
             <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus />
           </Field>
-          <Field label="Firma">
+          <Field label={t('Firma')}>
             <input className="input" value={f.company} onChange={(e) => setF({ ...f, company: e.target.value })} />
           </Field>
-          <Field label="E-Mail">
+          <Field label={t('E-Mail')}>
             <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
           </Field>
-          <Field label="Telefon">
+          <Field label={t('Telefon')}>
             <input className="input" type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
           </Field>
         </div>
-        <Field label="Notiz">
+        <Field label={t('Notiz')}>
           <textarea className="textarea" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         </Field>
       </div>
       <div className="dialog-actions">
         <button className="btn ghost" onClick={onClose}>
-          Abbrechen
+          {t('Abbrechen')}
         </button>
         <button className="btn primary" onClick={save} disabled={!f.name && !f.email}>
-          Speichern
+          {t('Speichern')}
         </button>
       </div>
     </Dialog>
@@ -193,7 +201,12 @@ export function ContactDetail({ id }: { id: string }) {
     orders: { id: string; number: string; total: number; status: string; created_at: string }[];
   }>(`/api/contacts/${id}`);
   const [note, setNote] = useState('');
-  if (!data) return <div className="page"><Skeleton lines={6} /></div>;
+  if (!data)
+    return (
+      <div className="page">
+        <Skeleton lines={6} />
+      </div>
+    );
   const c = data.contact;
   const patch = async (p: Record<string, unknown>) => {
     try {
@@ -208,21 +221,21 @@ export function ContactDetail({ id }: { id: string }) {
       <PageHead
         back={
           <Link to="/kontakte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Kontakte
+            <Icon name="chevronLeft" size="s" /> {t('Kontakte')}
           </Link>
         }
-        title={c.name || c.email || 'Kontakt'}
-        sub={[c.company, c.source && `über «${c.source}»`].filter(Boolean).join(' · ')}
+        title={c.name || c.email || t('Kontakt')}
+        sub={[c.company, c.source && t('über «{source}»', { source: c.source })].filter(Boolean).join(' · ')}
         actions={
           <>
             {c.email && (
               <a className="btn" href={`mailto:${c.email}`}>
-                <Icon name="mail" size="s" /> E-Mail
+                <Icon name="mail" size="s" /> {t('E-Mail')}
               </a>
             )}
             {c.phone && (
               <a className="btn" href={`tel:${c.phone}`}>
-                <Icon name="phone" size="s" /> Anrufen
+                <Icon name="phone" size="s" /> {t('Anrufen')}
               </a>
             )}
           </>
@@ -231,7 +244,7 @@ export function ContactDetail({ id }: { id: string }) {
       <div className="dash">
         <div className="stack">
           <section className="card card-pad stack">
-            <h2 className="section-title">Notizen</h2>
+            <h2 className="section-title">{t('Notizen')}</h2>
             <form
               className="stack tight"
               onSubmit={(e) => {
@@ -240,9 +253,15 @@ export function ContactDetail({ id }: { id: string }) {
                 void patch({ note }).then(() => setNote(''));
               }}
             >
-              <textarea className="textarea" placeholder="Was wurde besprochen? Was ist der nächste Schritt?" value={note} onChange={(e) => setNote(e.target.value)} style={{ minHeight: '4rem' }} />
+              <textarea
+                className="textarea"
+                placeholder={t('Was wurde besprochen? Was ist der nächste Schritt?')}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                style={{ minHeight: '4rem' }}
+              />
               <button className="btn primary" style={{ justifySelf: 'start' }} disabled={!note.trim()}>
-                Notiz speichern
+                {t('Notiz speichern')}
               </button>
             </form>
             {[...c.notes].reverse().map((n) => (
@@ -256,7 +275,7 @@ export function ContactDetail({ id }: { id: string }) {
           </section>
           <section className="card">
             <div className="card-head">
-              <h2>Anfragen ({data.submissions.length})</h2>
+              <h2>{t('Anfragen ({n})', { n: data.submissions.length })}</h2>
             </div>
             {data.submissions.map((s) => (
               <div key={s.id} className="card-pad" style={{ borderTop: '1px solid var(--line)' }}>
@@ -279,10 +298,10 @@ export function ContactDetail({ id }: { id: string }) {
         </div>
         <div className="stack">
           <section className="card card-pad stack">
-            <Field label="Status">
-              <Select value={c.status} onChange={(v) => void patch({ status: v })} options={LANES.map((l) => ({ value: l.id, label: l.label }))} />
+            <Field label={t('Status')}>
+              <Select value={c.status} onChange={(v) => void patch({ status: v })} options={LANES.map((l) => ({ value: l.id, label: t(l.label) }))} />
             </Field>
-            <Field label="Möglicher Auftragswert">
+            <Field label={t('Möglicher Auftragswert')}>
               <div className="input-affix">
                 <span>{settings?.shop.currency ?? 'CHF'}</span>
                 <input
@@ -296,21 +315,21 @@ export function ContactDetail({ id }: { id: string }) {
                 />
               </div>
             </Field>
-            <Field label="Name">
+            <Field label={t('Name')}>
               <input className="input" defaultValue={c.name} onBlur={(e) => e.target.value !== c.name && void patch({ name: e.target.value })} />
             </Field>
-            <Field label="Firma">
+            <Field label={t('Firma')}>
               <input className="input" defaultValue={c.company} onBlur={(e) => e.target.value !== c.company && void patch({ company: e.target.value })} />
             </Field>
-            <Field label="Telefon">
+            <Field label={t('Telefon')}>
               <input className="input" defaultValue={c.phone} onBlur={(e) => e.target.value !== c.phone && void patch({ phone: e.target.value })} />
             </Field>
-            <p className="xsmall faint">Erfasst {formatDate(c.created_at)}</p>
+            <p className="xsmall faint">{t('Erfasst {date}', { date: formatDate(c.created_at) })}</p>
           </section>
           {data.orders.length > 0 && (
             <section className="card">
               <div className="card-head">
-                <h2>Bestellungen</h2>
+                <h2>{t('Bestellungen')}</h2>
               </div>
               <ul className="list">
                 {data.orders.map((o) => (
@@ -329,12 +348,20 @@ export function ContactDetail({ id }: { id: string }) {
               className="btn danger"
               style={{ justifySelf: 'start' }}
               onClick={async () => {
-                if (!(await confirm({ title: 'Kontakt löschen?', message: 'Die Anfragen bleiben beim Formular erhalten. Für eine vollständige Löschung nutze «Daten & Datenschutz».', confirm: 'Löschen', danger: true }))) return;
+                if (
+                  !(await confirm({
+                    title: t('Kontakt löschen?'),
+                    message: t('Die Anfragen bleiben beim Formular erhalten. Für eine vollständige Löschung nutze «Daten & Datenschutz».'),
+                    confirm: t('Löschen'),
+                    danger: true,
+                  }))
+                )
+                  return;
                 await api.del(`/api/contacts/${id}`);
                 navigate('/kontakte');
               }}
             >
-              <Icon name="trash" size="s" /> Kontakt löschen
+              <Icon name="trash" size="s" /> {t('Kontakt löschen')}
             </button>
           )}
         </div>

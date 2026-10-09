@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
+import { t } from '../lib/i18n';
 import { PAGE_PRESETS } from '../lib/presets';
 import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, confirm, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
@@ -44,7 +45,7 @@ export function NewPageDialog({ open, onClose, pages }: { open: boolean; onClose
     }
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title="Neue Seite">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={t('Neue Seite')}>
       <form
         className="stack"
         onSubmit={(e) => {
@@ -52,34 +53,34 @@ export function NewPageDialog({ open, onClose, pages }: { open: boolean; onClose
           if (title.trim()) void create();
         }}
       >
-        <Field label="Titel" htmlFor="np-title" help={title ? `Adresse: /${slug}` : 'Die Adresse ergibt sich aus dem Titel.'}>
-          <input id="np-title" className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Über uns" />
+        <Field label={t('Titel')} htmlFor="np-title" help={title ? t('Adresse: {path}', { path: `/${slug}` }) : t('Die Adresse ergibt sich aus dem Titel.')}>
+          <input id="np-title" className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('z. B. Über uns')} />
         </Field>
-        <Field label="Liegt unter" htmlFor="np-parent">
+        <Field label={t('Liegt unter')} htmlFor="np-parent">
           <Select
             id="np-parent"
             value={parent}
             onChange={setParent}
-            options={[{ value: '', label: '– oberste Ebene –' }, ...pages.filter((p) => p.slug).map((p) => ({ value: p.slug, label: `${p.title} (/${p.slug})` }))]}
+            options={[{ value: '', label: t('– oberste Ebene –') }, ...pages.filter((p) => p.slug).map((p) => ({ value: p.slug, label: `${p.title} (/${p.slug})` }))]}
           />
         </Field>
         <div className="field">
-          <span className="field-label">Vorlage</span>
+          <span className="field-label">{t('Vorlage')}</span>
           <div className="tiles" style={{ marginTop: 0, gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
             {PAGE_PRESETS.map((p) => (
               <button key={p.id} type="button" className="tile" aria-pressed={preset === p.id} onClick={() => setPreset(p.id)} style={{ padding: '0.7rem 0.8rem' }}>
-                <strong className="small">{p.label}</strong>
-                <span className="xsmall">{p.description}</span>
+                <strong className="small">{t(p.label)}</strong>
+                <span className="xsmall">{t(p.description)}</span>
               </button>
             ))}
           </div>
         </div>
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" disabled={!title.trim() || busy}>
-            Seite anlegen
+            {t('Seite anlegen')}
           </button>
         </div>
       </form>
@@ -97,16 +98,16 @@ export function PagesList() {
   const remove = async (r: Row) => {
     if (
       !(await confirm({
-        title: `«${r.title}» löschen?`,
-        message: 'Die Seite und ihr Verlauf werden entfernt. Das lässt sich nicht rückgängig machen – ausser über eine Sicherung.',
-        confirm: 'Löschen',
+        title: t('«{name}» löschen?', { name: r.title }),
+        message: t('Die Seite und ihr Verlauf werden entfernt. Das lässt sich nicht rückgängig machen – ausser über eine Sicherung.'),
+        confirm: t('Löschen'),
         danger: true,
       }))
     )
       return;
     try {
       await api.del(`/api/entries/${r.id}`);
-      toast('Seite gelöscht.');
+      toast(t('Seite gelöscht.'));
       void reload();
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -120,13 +121,13 @@ export function PagesList() {
   return (
     <div className="page">
       <PageHead
-        title="Seiten"
-        sub="Klick auf eine Seite, um direkt darauf zu schreiben."
+        title={t('Seiten')}
+        sub={t('Klick auf eine Seite, um direkt darauf zu schreiben.')}
         actions={
           can('content.edit') && (
             <button className="btn primary" onClick={() => setCreating(true)}>
               <Icon name="plus" size="s" />
-              Neue Seite
+              {t('Neue Seite')}
             </button>
           )
         }
@@ -136,10 +137,10 @@ export function PagesList() {
           <Skeleton lines={5} />
         ) : rows.length === 0 ? (
           <Empty
-            title="Noch keine Seiten"
+            title={t('Noch keine Seiten')}
             action={
               <button className="btn primary" onClick={() => setCreating(true)}>
-                Erste Seite anlegen
+                {t('Erste Seite anlegen')}
               </button>
             }
           />
@@ -151,7 +152,7 @@ export function PagesList() {
                 <li key={r.id} className="list-item" style={{ paddingLeft: `${1.25 + depth * 1.5}rem` }}>
                   <Icon name={r.slug === '' ? 'home' : 'page'} className="faint" />
                   <Link to={`/seiten/${r.id}`} className="grow" style={{ textDecoration: 'none', minWidth: 0 }}>
-                    <div className="title ellipsis">{r.title || '(ohne Titel)'}</div>
+                    <div className="title ellipsis">{r.title || t('(ohne Titel)')}</div>
                     <div className="xsmall muted mono ellipsis">/{r.slug}</div>
                   </Link>
                   <span className="xsmall faint hide-m">{formatDate(r.updated_at)}</span>
@@ -159,16 +160,16 @@ export function PagesList() {
                   <StatusBadge status={r.status} changed={r.changed} />
                   <Menu
                     trigger={
-                      <button className="btn ghost icon-only s" aria-label={`Aktionen für ${r.title}`}>
+                      <button className="btn ghost icon-only s" aria-label={t('Aktionen für {name}', { name: r.title })}>
                         <Icon name="more" />
                       </button>
                     }
                     items={[
-                      { label: 'Bearbeiten', icon: 'text', onSelect: () => navigate(`/seiten/${r.id}`) },
-                      { label: 'Vorschau', icon: 'eye', onSelect: () => window.open(`/_nova/preview/${r.id}`, '_blank') },
-                      { label: 'Duplizieren', icon: 'copy', onSelect: () => void duplicate(r), hidden: !can('content.edit') },
+                      { label: t('Bearbeiten'), icon: 'text', onSelect: () => navigate(`/seiten/${r.id}`) },
+                      { label: t('Vorschau'), icon: 'eye', onSelect: () => window.open(`/_nova/preview/${r.id}`, '_blank') },
+                      { label: t('Duplizieren'), icon: 'copy', onSelect: () => void duplicate(r), hidden: !can('content.edit') },
                       'sep',
-                      { label: 'Löschen', icon: 'trash', danger: true, onSelect: () => void remove(r), hidden: !can('content.delete') || r.slug === '' },
+                      { label: t('Löschen'), icon: 'trash', danger: true, onSelect: () => void remove(r), hidden: !can('content.delete') || r.slug === '' },
                     ]}
                   />
                 </li>

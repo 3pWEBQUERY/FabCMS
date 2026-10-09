@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense, useCallback, useEffect, useState } from 're
 import { createRoot } from 'react-dom/client';
 import './styles/app.css';
 import { api } from './lib/api';
+import { loadAdminLang, pickAdminLang, t, tm } from './lib/i18n';
 import { SessionProvider, type SessionUser } from './lib/session';
 import { ToastProvider } from './ui/toast';
 import { TooltipProvider } from './ui/kit';
@@ -28,15 +29,24 @@ try {
   /* storage unavailable */
 }
 
+let langReady = false;
+
 function App() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      setSession(await api.get<SessionResponse>('/api/session'));
+      const s = await api.get<SessionResponse>('/api/session');
+      // Interface language first, so nothing flashes in German.
+      await loadAdminLang(pickAdminLang(s.user?.ui_lang));
+      langReady = true;
+      setSession(s);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      // No session, so no saved choice: the error screen follows the browser's language.
+      // The message was made before the language was known; tm() turns it over now.
+      if (!langReady) await loadAdminLang(pickAdminLang(null)).catch(() => {});
+      setError(tm((e as Error).message));
     }
   }, []);
   useEffect(() => {
@@ -54,10 +64,10 @@ function App() {
     return (
       <div className="auth">
         <div className="auth-card">
-          <h1>Keine Verbindung</h1>
+          <h1>{t('Keine Verbindung')}</h1>
           <p className="muted">{error}</p>
           <button className="btn primary" onClick={load}>
-            Nochmals versuchen
+            {t('Nochmals versuchen')}
           </button>
         </div>
       </div>

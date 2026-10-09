@@ -1,3 +1,4 @@
+import { adminLocale } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 
@@ -78,5 +79,5 @@ export const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: r
 export function formatDate(iso: string | null | undefined, withTime = false) {
   if (!iso) return '–';
   const d = new Date(iso);
-  return d.toLocaleString('de-CH', { day: 'numeric', month: 'short', year: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}) });
+  return d.toLocaleString(adminLocale(), { day: 'numeric', month: 'short', year: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}) });
 }

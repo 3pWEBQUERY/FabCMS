@@ -6,6 +6,7 @@ import { Icon } from './icons';
 import { useToast } from './toast';
 import { defaultLang, extraLangs, langInfo, type Lang } from '../../shared/i18n';
 import type { EntryDoc } from '../lib/useEntryDoc';
+import { t, tl } from '../lib/i18n';
 
 /** Language being edited, from ?sprache=fr; null = main language. */
 export function useEditLang(): string | null {
@@ -25,9 +26,9 @@ export function LangSwitch({ doc }: { doc: EntryDoc }) {
   const main = defaultLang(settings);
   const current = (doc.lang ?? main) as Lang;
   const state = (l: Lang) => {
-    if (l === main) return 'Original';
-    const t = doc.translations.find((x) => x.lang === l);
-    return !t ? 'noch nicht übersetzt' : t.status === 'published' ? (t.changed ? 'veröffentlicht, mit Änderungen' : 'veröffentlicht') : 'Entwurf';
+    if (l === main) return t('Original');
+    const tr = doc.translations.find((x) => x.lang === l);
+    return !tr ? t('noch nicht übersetzt') : tr.status === 'published' ? (tr.changed ? t('veröffentlicht, mit Änderungen') : t('veröffentlicht')) : t('Entwurf');
   };
   const go = async (l: Lang) => {
     if (!(await doc.saveNow())) return;
@@ -37,7 +38,7 @@ export function LangSwitch({ doc }: { doc: EntryDoc }) {
     <Menu
       align="end"
       trigger={
-        <button className="btn ghost lang-btn" aria-label={`Sprache: ${langInfo(current).name}`}>
+        <button className="btn ghost lang-btn" aria-label={t('Sprache: {name}', { name: tl(langInfo(current).name) })}>
           <Icon name="globe" size="s" />
           <span>{current.toUpperCase()}</span>
           <Icon name="chevronDown" size="s" />
@@ -52,21 +53,21 @@ export function LangSwitch({ doc }: { doc: EntryDoc }) {
           ? [
               'sep' as const,
               {
-                label: 'Übersetzung löschen',
+                label: t('Übersetzung löschen'),
                 icon: 'trash',
                 danger: true,
                 onSelect: async () => {
                   if (
                     !(await confirm({
-                      title: `Übersetzung ${langInfo(doc.lang!).name} löschen?`,
-                      message: 'Die Seite erscheint in dieser Sprache danach wieder in der Hauptsprache.',
-                      confirm: 'Löschen',
+                      title: t('Übersetzung {name} löschen?', { name: tl(langInfo(doc.lang!).name) }),
+                      message: t('Die Seite erscheint in dieser Sprache danach wieder in der Hauptsprache.'),
+                      confirm: t('Löschen'),
                       danger: true,
                     }))
                   )
                     return;
                   await api.del(`/api/entries/${doc.entry!.id}/translations/${doc.lang}`);
-                  toast('Übersetzung gelöscht.');
+                  toast(t('Übersetzung gelöscht.'));
                   navigate(here());
                 },
               },
@@ -80,17 +81,17 @@ export function LangSwitch({ doc }: { doc: EntryDoc }) {
 /** Banner above the form or canvas while a translation is edited. */
 export function TranslationNote({ doc }: { doc: EntryDoc }) {
   if (!doc.lang || !doc.entry) return null;
-  const name = langInfo(doc.lang).name;
+  const name = tl(langInfo(doc.lang).name);
   return (
     <p className="hint translation-note" role="note">
       <Icon name="globe" />
       <span>
-        <strong>Fassung auf {name}.</strong>{' '}
+        <strong>{t('Fassung auf {name}.', { name })}</strong>{' '}
         {doc.entry.translated
-          ? 'Du änderst nur die Texte dieser Sprache.'
-          : 'Noch nicht übersetzt – die Texte stammen aus dem Original. Sobald du etwas änderst, entsteht die Übersetzung.'}{' '}
-        Preise, Bilder, Daten und Einstellungen kommen vom Original.
-        {doc.original && doc.original.status !== 'published' ? ' Das Original ist noch nicht veröffentlicht – die Übersetzung geht mit ihm online.' : ''}
+          ? t('Du änderst nur die Texte dieser Sprache.')
+          : t('Noch nicht übersetzt – die Texte stammen aus dem Original. Sobald du etwas änderst, entsteht die Übersetzung.')}{' '}
+        {t('Preise, Bilder, Daten und Einstellungen kommen vom Original.')}
+        {doc.original && doc.original.status !== 'published' ? ` ${t('Das Original ist noch nicht veröffentlicht – die Übersetzung geht mit ihm online.')}` : ''}
       </span>
     </p>
   );
@@ -105,9 +106,12 @@ export function LangBadges({ translations }: { translations?: { lang: string; st
   return (
     <span className="lang-badges">
       {langs.map((l) => {
-        const t = translations?.find((x) => x.lang === l);
-        const state = !t ? 'none' : t.status === 'published' ? 'live' : 'draft';
-        const title = `${langInfo(l).name}: ${!t ? 'noch nicht übersetzt' : t.status === 'published' ? (t.changed ? 'online, mit Änderungen' : 'online') : 'Entwurf'}`;
+        const tr = translations?.find((x) => x.lang === l);
+        const state = !tr ? 'none' : tr.status === 'published' ? 'live' : 'draft';
+        const title = t('{lang}: {state}', {
+          lang: tl(langInfo(l).name),
+          state: !tr ? t('noch nicht übersetzt') : tr.status === 'published' ? (tr.changed ? t('online, mit Änderungen') : t('online')) : t('Entwurf'),
+        });
         return (
           <span key={l} className={`lang-badge ${state}`} title={title} aria-label={title}>
             {l.toUpperCase()}

@@ -10,6 +10,7 @@ import { useToast } from '../ui/toast';
 import { useLeaveGuard } from './settingsDraft';
 import { shortId, slugify } from '../../shared/text';
 import type { FormDef, FormFieldDef } from '../../shared/types';
+import { t } from '../lib/i18n';
 
 type FormRow = FormDef & { submissions: number; unread: number };
 
@@ -33,13 +34,13 @@ export function FormsList() {
   const create = async () => {
     try {
       const { form } = await api.post<{ form: FormDef }>('/api/forms', {
-        name: 'Neues Formular',
+        name: t('Neues Formular'),
         fields: [
-          { id: shortId(8), type: 'text', label: 'Name', name: 'name', required: true },
-          { id: shortId(8), type: 'email', label: 'E-Mail', name: 'e_mail', required: true },
-          { id: shortId(8), type: 'textarea', label: 'Nachricht', name: 'nachricht', required: true },
+          { id: shortId(8), type: 'text', label: t('Name'), name: 'name', required: true },
+          { id: shortId(8), type: 'email', label: t('E-Mail'), name: 'e_mail', required: true },
+          { id: shortId(8), type: 'textarea', label: t('Nachricht'), name: 'nachricht', required: true },
         ],
-        settings: { submitLabel: 'Senden', successMessage: 'Danke! Wir melden uns bald.', notifyEmail: '', createLead: true, turnstile: false },
+        settings: { submitLabel: t('Senden'), successMessage: t('Danke! Wir melden uns bald.'), notifyEmail: '', createLead: true, turnstile: false },
       });
       navigate(`/formulare/${form.id}?tab=fields`);
     } catch (e) {
@@ -51,15 +52,15 @@ export function FormsList() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Formulare"
-        sub="Ohne Rätsel-CAPTCHA: Spam fängt Nova mit unsichtbarem Feld, Zeitprüfung und Rate-Limit ab."
+        title={t('Formulare')}
+        sub={t('Ohne Rätsel-CAPTCHA: Spam fängt Nova mit unsichtbarem Feld, Zeitprüfung und Rate-Limit ab.')}
         actions={
           can('forms.manage') && (
             <button className="btn primary" onClick={create}>
-              <Icon name="plus" size="s" /> Neues Formular
+              <Icon name="plus" size="s" /> {t('Neues Formular')}
             </button>
           )
         }
@@ -68,8 +69,15 @@ export function FormsList() {
         {!data ? (
           <Skeleton />
         ) : !data.forms.length ? (
-          <Empty title="Noch keine Formulare" action={<button className="btn primary" onClick={create}>Erstes Formular anlegen</button>}>
-            Ein Kontaktformular ist ein guter Anfang. Einbauen kannst du es danach mit dem Block «Formular».
+          <Empty
+            title={t('Noch keine Formulare')}
+            action={
+              <button className="btn primary" onClick={create}>
+                {t('Erstes Formular anlegen')}
+              </button>
+            }
+          >
+            {t('Ein Kontaktformular ist ein guter Anfang. Einbauen kannst du es danach mit dem Block «Formular».')}
           </Empty>
         ) : (
           <ul className="list">
@@ -80,10 +88,10 @@ export function FormsList() {
                   <div className="grow">
                     <div className="title">{f.name}</div>
                     <div className="xsmall muted">
-                      {f.fields.filter((x) => x.type !== 'step').length} Felder · {f.submissions} Einträge
+                      {fieldCount(f.fields.filter((x) => x.type !== 'step').length)} · {entryCount(f.submissions)}
                     </div>
                   </div>
-                  {f.unread > 0 && <span className="badge sel">{f.unread} neu</span>}
+                  {f.unread > 0 && <span className="badge sel">{t('{n} neu', { n: f.unread })}</span>}
                   <Icon name="chevronRight" size="s" className="faint" />
                 </Link>
               </li>
@@ -95,11 +103,14 @@ export function FormsList() {
   );
 }
 
+const fieldCount = (n: number) => (n === 1 ? t('1 Feld') : t('{n} Felder', { n }));
+const entryCount = (n: number) => (n === 1 ? t('1 Eintrag') : t('{n} Einträge', { n }));
+
 function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFieldDef[]; onChange: (f: FormFieldDef) => void; onRemove: () => void }) {
   const { pro } = useSession();
   const controls = useDragControls();
   const [open, setOpen] = useState(false);
-  const type = TYPES.find((t) => t.value === f.type)!;
+  const type = TYPES.find((x) => x.value === f.type)!;
   if (f.type === 'step')
     return (
       <Reorder.Item value={f} dragListener={false} dragControls={controls} className="repeat-item" style={{ listStyle: 'none', background: 'var(--sunken)' }}>
@@ -108,8 +119,14 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
             <Icon name="grip" size="s" />
           </span>
           <Icon name="arrowRight" size="s" className="faint" />
-          <input className="input" style={{ border: 0, background: 'transparent', fontWeight: 600 }} value={f.label} onChange={(e) => onChange({ ...f, label: e.target.value })} aria-label="Name des Schritts" />
-          <button className="btn ghost s icon-only" onClick={onRemove} aria-label="Schritt entfernen">
+          <input
+            className="input"
+            style={{ border: 0, background: 'transparent', fontWeight: 600 }}
+            value={f.label}
+            onChange={(e) => onChange({ ...f, label: e.target.value })}
+            aria-label={t('Name des Schritts')}
+          />
+          <button className="btn ghost s icon-only" onClick={onRemove} aria-label={t('Schritt entfernen')}>
             <Icon name="trash" size="s" />
           </button>
         </header>
@@ -117,7 +134,14 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
     );
   const others = all.filter((x) => x.id !== f.id && ['select', 'checkbox'].includes(x.type));
   return (
-    <Reorder.Item value={f} dragListener={false} dragControls={controls} className="repeat-item" style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 4 }}>
+    <Reorder.Item
+      value={f}
+      dragListener={false}
+      dragControls={controls}
+      className="repeat-item"
+      style={{ listStyle: 'none' }}
+      whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 4 }}
+    >
       <header onPointerDown={(e) => !(e.target as HTMLElement).closest('button') && controls.start(e)}>
         <span className="grip">
           <Icon name="grip" size="s" />
@@ -126,60 +150,77 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
         <button className="title ellipsis" style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: '0.3rem 0' }} onClick={() => setOpen(!open)}>
           {f.label}
           {f.required && <span className="faint"> *</span>}
-          {f.showIf?.field && <span className="badge" style={{ marginLeft: 6 }}>bedingt</span>}
+          {f.showIf?.field && (
+            <span className="badge" style={{ marginLeft: 6 }}>
+              {t('bedingt')}
+            </span>
+          )}
         </button>
-        <span className="xsmall faint hide-m">{type.label}</span>
-        <button className="btn ghost s icon-only" onClick={onRemove} aria-label="Feld entfernen">
+        <span className="xsmall faint hide-m">{t(type.label)}</span>
+        <button className="btn ghost s icon-only" onClick={onRemove} aria-label={t('Feld entfernen')}>
           <Icon name="trash" size="s" />
         </button>
-        <button className="btn ghost s icon-only" onClick={() => setOpen(!open)} aria-label={open ? 'Zuklappen' : 'Bearbeiten'}>
+        <button className="btn ghost s icon-only" onClick={() => setOpen(!open)} aria-label={open ? t('Zuklappen') : t('Bearbeiten')}>
           <Icon name={open ? 'chevronDown' : 'chevronRight'} size="s" />
         </button>
       </header>
       {open && (
         <div className="body">
           <div className="grid-2">
-            <Field label="Beschriftung">
-              <input className="input" value={f.label} onChange={(e) => onChange({ ...f, label: e.target.value, name: pro ? f.name : slugify(e.target.value).replace(/-/g, '_') })} />
+            <Field label={t('Beschriftung')}>
+              <input
+                className="input"
+                value={f.label}
+                onChange={(e) => onChange({ ...f, label: e.target.value, name: pro ? f.name : slugify(e.target.value).replace(/-/g, '_') })}
+              />
             </Field>
-            <Field label="Art">
-              <Select value={f.type} onChange={(v) => onChange({ ...f, type: v as FormFieldDef['type'] })} options={TYPES.filter((t) => t.value !== 'step')} />
+            <Field label={t('Art')}>
+              <Select
+                value={f.type}
+                onChange={(v) => onChange({ ...f, type: v as FormFieldDef['type'] })}
+                options={TYPES.filter((x) => x.value !== 'step').map((x) => ({ value: x.value, label: t(x.label) }))}
+              />
             </Field>
           </div>
           {f.type === 'select' && (
-            <Field label="Auswahlmöglichkeiten" help="Eine pro Zeile.">
-              <textarea className="textarea" value={(f.options ?? []).join('\n')} onChange={(e) => onChange({ ...f, options: e.target.value.split('\n') })} onBlur={() => onChange({ ...f, options: (f.options ?? []).map((o) => o.trim()).filter(Boolean) })} />
+            <Field label={t('Auswahlmöglichkeiten')} help={t('Eine pro Zeile.')}>
+              <textarea
+                className="textarea"
+                value={(f.options ?? []).join('\n')}
+                onChange={(e) => onChange({ ...f, options: e.target.value.split('\n') })}
+                onBlur={() => onChange({ ...f, options: (f.options ?? []).map((o) => o.trim()).filter(Boolean) })}
+              />
             </Field>
           )}
           <div className="grid-2">
-            <Field label="Hilfetext">
+            <Field label={t('Hilfetext')}>
               <input className="input" value={f.help ?? ''} onChange={(e) => onChange({ ...f, help: e.target.value })} />
             </Field>
             {!['checkbox', 'select', 'file', 'date'].includes(f.type) && (
-              <Field label="Platzhalter">
+              <Field label={t('Platzhalter')}>
                 <input className="input" value={f.placeholder ?? ''} onChange={(e) => onChange({ ...f, placeholder: e.target.value })} />
               </Field>
             )}
           </div>
-          <Toggle checked={f.required} onChange={(v) => onChange({ ...f, required: v })} label="Pflichtfeld" />
+          <Toggle checked={f.required} onChange={(v) => onChange({ ...f, required: v })} label={t('Pflichtfeld')} />
           {others.length > 0 && (
-            <Field label="Nur zeigen, wenn …" help="Zum Beispiel: «Firma» nur, wenn bei «Kundenart» «Geschäftlich» gewählt ist.">
+            <Field label={t('Nur zeigen, wenn …')} help={t('Zum Beispiel: «Firma» nur, wenn bei «Kundenart» «Geschäftlich» gewählt ist.')}>
               <div className="grid-2" style={{ gap: '0.5rem' }}>
                 <Select
-                  label="Abhängig von Feld"
+                  label={t('Abhängig von Feld')}
                   value={f.showIf?.field ?? ''}
                   onChange={(v) => onChange({ ...f, showIf: v ? { field: v, equals: f.showIf?.equals ?? '' } : null })}
-                  options={[{ value: '', label: '– immer zeigen –' }, ...others.map((o) => ({ value: o.name, label: o.label }))]}
+                  options={[{ value: '', label: t('– immer zeigen –') }, ...others.map((o) => ({ value: o.name, label: o.label }))]}
                 />
                 {f.showIf?.field && (
                   <Select
-                    label="Wert"
-                    placeholder="Bitte wählen"
+                    label={t('Wert')}
+                    placeholder={t('Bitte wählen')}
                     value={f.showIf.equals}
                     onChange={(v) => onChange({ ...f, showIf: { field: f.showIf!.field, equals: v } })}
                     options={(() => {
                       const src = others.find((o) => o.name === f.showIf!.field);
-                      if (src?.type === 'checkbox') return [{ value: 'ja', label: 'angehakt' }];
+                      if (src?.type === 'checkbox') return [{ value: 'ja', label: t('angehakt') }];
                       return [...new Set(src?.options ?? [])].filter(Boolean).map((o) => ({ value: o, label: o }));
                     })()}
                   />
@@ -188,7 +229,7 @@ function FieldRow({ f, all, onChange, onRemove }: { f: FormFieldDef; all: FormFi
             </Field>
           )}
           {pro && (
-            <Field label="Technischer Name" keyName="name" help="Schlüssel in Einträgen, CSV und Webhooks.">
+            <Field label={t('Technischer Name')} keyName="name" help={t('Schlüssel in Einträgen, CSV und Webhooks.')}>
               <input className="input mono" value={f.name} onChange={(e) => onChange({ ...f, name: e.target.value })} />
             </Field>
           )}
@@ -231,7 +272,7 @@ export function FormDetail({ id }: { id: string }) {
       const r = await api.put<{ form: FormDef }>(`/api/forms/${id}`, { name: form.name, fields: form.fields, settings: form.settings });
       setForm(r.form);
       setDirty(false);
-      toast('Formular gespeichert.');
+      toast(t('Formular gespeichert.'));
       return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -245,7 +286,20 @@ export function FormDetail({ id }: { id: string }) {
   useLeaveGuard(dirty, save, discard);
   const remove = async () => {
     const n = subs.data?.submissions.length ?? 0;
-    if (!(await confirm({ title: 'Formular löschen?', message: n ? `Mit ${n} Einträgen. Exportiere sie vorher, wenn du sie brauchst.` : undefined, confirm: 'Löschen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: t('Formular löschen?'),
+        message:
+          n === 1
+            ? t('Mit einem Eintrag. Exportiere ihn vorher, wenn du ihn brauchst.')
+            : n
+              ? t('Mit {n} Einträgen. Exportiere sie vorher, wenn du sie brauchst.', { n })
+              : undefined,
+        confirm: t('Löschen'),
+        danger: true,
+      }))
+    )
+      return;
     await api.del(`/api/forms/${id}?force=1`);
     navigate('/formulare');
   };
@@ -257,7 +311,12 @@ export function FormDetail({ id }: { id: string }) {
     }
   };
 
-  if (!form || !subs.data) return <div className="page"><Skeleton lines={6} /></div>;
+  if (!form || !subs.data)
+    return (
+      <div className="page">
+        <Skeleton lines={6} />
+      </div>
+    );
   const fields = form.fields.filter((f) => f.type !== 'step');
   const preview = fields.slice(0, 3);
 
@@ -266,19 +325,24 @@ export function FormDetail({ id }: { id: string }) {
       <PageHead
         back={
           <Link to="/formulare" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Formulare
+            <Icon name="chevronLeft" size="s" /> {t('Formulare')}
           </Link>
         }
         title={form.name}
         actions={
           <>
             <Segmented
-              label="Bereich"
+              label={t('Bereich')}
               value={tab}
               onChange={setTab}
               options={[
-                { value: 'entries', label: `Einträge (${subs.data.submissions.length})` },
-                ...(can('forms.manage') ? [{ value: 'fields' as const, label: 'Felder' }, { value: 'settings' as const, label: 'Einstellungen' }] : []),
+                { value: 'entries', label: t('Einträge ({n})', { n: subs.data.submissions.length }) },
+                ...(can('forms.manage')
+                  ? [
+                      { value: 'fields' as const, label: t('Felder') },
+                      { value: 'settings' as const, label: t('Einstellungen') },
+                    ]
+                  : []),
               ]}
             />
             {tab === 'entries' && (
@@ -292,13 +356,17 @@ export function FormDetail({ id }: { id: string }) {
       {tab === 'entries' && (
         <section className="card">
           {!subs.data.submissions.length ? (
-            <Empty title="Noch keine Einträge">Sobald jemand das Formular absendet, erscheint es hier{settings?.business.email ? ` und per E-Mail an ${form.settings.notifyEmail || settings.business.email}` : ''}.</Empty>
+            <Empty title={t('Noch keine Einträge')}>
+              {settings?.business.email
+                ? t('Sobald jemand das Formular absendet, erscheint es hier und per E-Mail an {email}.', { email: form.settings.notifyEmail || settings.business.email })
+                : t('Sobald jemand das Formular absendet, erscheint es hier.')}
+            </Empty>
           ) : (
             <div className="table-wrap">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Datum</th>
+                    <th>{t('Datum')}</th>
                     {preview.map((f) => (
                       <th key={f.id}>{f.label}</th>
                     ))}
@@ -328,74 +396,103 @@ export function FormDetail({ id }: { id: string }) {
         <div className="stack">
           <Reorder.Group axis="y" values={form.fields} onReorder={(next) => update({ fields: next })} style={{ padding: 0, margin: 0, display: 'grid', gap: '0.5rem' }}>
             {form.fields.map((f) => (
-              <FieldRow key={f.id} f={f} all={form.fields} onChange={(nf) => update({ fields: form.fields.map((x) => (x.id === f.id ? nf : x)) })} onRemove={() => update({ fields: form.fields.filter((x) => x.id !== f.id) })} />
+              <FieldRow
+                key={f.id}
+                f={f}
+                all={form.fields}
+                onChange={(nf) => update({ fields: form.fields.map((x) => (x.id === f.id ? nf : x)) })}
+                onRemove={() => update({ fields: form.fields.filter((x) => x.id !== f.id) })}
+              />
             ))}
           </Reorder.Group>
           <div className="row wrap">
-            {TYPES.map((t) => (
+            {TYPES.map((ty) => (
               <button
-                key={t.value}
+                key={ty.value}
                 className="btn s"
                 onClick={() =>
                   update({
                     fields: [
                       ...form.fields,
-                      { id: shortId(8), type: t.value, label: t.value === 'step' ? 'Schritt 2' : t.label, name: slugify(t.label).replace(/-/g, '_') + '_' + shortId(3), required: false, options: t.value === 'select' ? ['Option A', 'Option B'] : undefined },
+                      {
+                        id: shortId(8),
+                        type: ty.value,
+                        label: ty.value === 'step' ? t('Schritt {n}', { n: 2 }) : t(ty.label),
+                        name: slugify(ty.label).replace(/-/g, '_') + '_' + shortId(3),
+                        required: false,
+                        options: ty.value === 'select' ? ['Option A', 'Option B'] : undefined,
+                      },
                     ],
                   })
                 }
               >
-                <Icon name="plus" size="s" /> {t.label}
+                <Icon name="plus" size="s" /> {t(ty.label)}
               </button>
             ))}
           </div>
-          <p className="xsmall muted">«Neuer Schritt» teilt lange Formulare in Etappen. Ohne JavaScript erscheinen alle Schritte untereinander.</p>
+          <p className="xsmall muted">{t('«Neuer Schritt» teilt lange Formulare in Etappen. Ohne JavaScript erscheinen alle Schritte untereinander.')}</p>
         </div>
       )}
       {tab === 'settings' && (
         <section className="card form-section">
-          <Field label="Name" htmlFor="f-name">
+          <Field label={t('Name')} htmlFor="f-name">
             <input id="f-name" className="input" value={form.name} onChange={(e) => update({ name: e.target.value })} />
           </Field>
           <div className="grid-2">
-            <Field label="Beschriftung des Knopfs" htmlFor="f-sub">
+            <Field label={t('Beschriftung des Knopfs')} htmlFor="f-sub">
               <input id="f-sub" className="input" value={form.settings.submitLabel} onChange={(e) => update({ settings: { ...form.settings, submitLabel: e.target.value } })} />
             </Field>
-            <Field label="Benachrichtigung an" htmlFor="f-mail" help={`Leer = ${settings?.business.email || 'Kontakt-E-Mail aus den Einstellungen'}`}>
-              <input id="f-mail" className="input" type="email" value={form.settings.notifyEmail} onChange={(e) => update({ settings: { ...form.settings, notifyEmail: e.target.value } })} />
+            <Field label={t('Benachrichtigung an')} htmlFor="f-mail" help={t('Leer = {email}', { email: settings?.business.email || t('Kontakt-E-Mail aus den Einstellungen') })}>
+              <input
+                id="f-mail"
+                className="input"
+                type="email"
+                value={form.settings.notifyEmail}
+                onChange={(e) => update({ settings: { ...form.settings, notifyEmail: e.target.value } })}
+              />
             </Field>
           </div>
-          <Field label="Bestätigung nach dem Absenden" htmlFor="f-ok">
-            <textarea id="f-ok" className="textarea" value={form.settings.successMessage} onChange={(e) => update({ settings: { ...form.settings, successMessage: e.target.value } })} />
+          <Field label={t('Bestätigung nach dem Absenden')} htmlFor="f-ok">
+            <textarea
+              id="f-ok"
+              className="textarea"
+              value={form.settings.successMessage}
+              onChange={(e) => update({ settings: { ...form.settings, successMessage: e.target.value } })}
+            />
           </Field>
-          <Toggle checked={form.settings.createLead} onChange={(v) => update({ settings: { ...form.settings, createLead: v } })} label="Als Kontakt speichern" help="Anfragen mit E-Mail erscheinen unter «Kontakte» mit Status und Notizen." />
+          <Toggle
+            checked={form.settings.createLead}
+            onChange={(v) => update({ settings: { ...form.settings, createLead: v } })}
+            label={t('Als Kontakt speichern')}
+            help={t('Anfragen mit E-Mail erscheinen unter «Kontakte» mit Status und Notizen.')}
+          />
           <Toggle
             checked={form.settings.turnstile}
             onChange={(v) => update({ settings: { ...form.settings, turnstile: v } })}
-            label="Zusätzlicher Spamschutz (Cloudflare Turnstile)"
-            help="Unsichtbar für Menschen. Braucht TURNSTILE_SITE_KEY und TURNSTILE_SECRET in den Railway-Variablen."
+            label={t('Zusätzlicher Spamschutz (Cloudflare Turnstile)')}
+            help={t('Unsichtbar für Menschen. Braucht TURNSTILE_SITE_KEY und TURNSTILE_SECRET in den Railway-Variablen.')}
           />
           <div className="row">
             <button className="btn danger" onClick={remove}>
-              <Icon name="trash" size="s" /> Formular löschen
+              <Icon name="trash" size="s" /> {t('Formular löschen')}
             </button>
           </div>
         </section>
       )}
       {dirty && (
         <div className="save-bar">
-          <span>Ungespeicherte Änderungen am Formular</span>
+          <span>{t('Ungespeicherte Änderungen am Formular')}</span>
           <div className="row">
             <button className="btn ghost" onClick={discard}>
-              Verwerfen
+              {t('Verwerfen')}
             </button>
             <button className="btn primary" aria-busy={saving || undefined} onClick={async () => (setSaving(true), await save(), setSaving(false))}>
-              Speichern
+              {t('Speichern')}
             </button>
           </div>
         </div>
       )}
-      <Dialog open={Boolean(open)} onOpenChange={(o) => !o && setOpen(null)} title={open ? `Eintrag vom ${formatDate(open.created_at, true)}` : ''}>
+      <Dialog open={Boolean(open)} onOpenChange={(o) => !o && setOpen(null)} title={open ? t('Eintrag vom {date}', { date: formatDate(open.created_at, true) }) : ''}>
         {open && (
           <div className="stack">
             <dl className="stack tight" style={{ margin: 0 }}>
@@ -416,24 +513,24 @@ export function FormDetail({ id }: { id: string }) {
                 </div>
               ))}
             </dl>
-            <p className="xsmall faint">Gesendet von {open.page}</p>
+            <p className="xsmall faint">{t('Gesendet von {page}', { page: open.page })}</p>
             <div className="dialog-actions">
               {can('forms.manage') && (
                 <button
                   className="btn danger"
                   onClick={async () => {
-                    if (!(await confirm({ title: 'Eintrag löschen?', confirm: 'Löschen', danger: true }))) return;
+                    if (!(await confirm({ title: t('Eintrag löschen?'), confirm: t('Löschen'), danger: true }))) return;
                     await api.del(`/api/submissions/${open.id}`);
                     subs.setData((d) => (d ? { ...d, submissions: d.submissions.filter((x) => x.id !== open.id) } : d));
                     setOpen(null);
                   }}
                 >
-                  Löschen
+                  {t('Löschen')}
                 </button>
               )}
               {Object.values(open.data).find((v) => /@/.test(v)) && (
                 <a className="btn primary" href={`mailto:${Object.values(open.data).find((v) => /@/.test(v))}`}>
-                  <Icon name="mail" size="s" /> Antworten
+                  <Icon name="mail" size="s" /> {t('Antworten')}
                 </a>
               )}
             </div>

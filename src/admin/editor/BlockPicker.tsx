@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BLOCKS, BLOCK_CATEGORIES } from '../../shared/blocks';
 import { useSession } from '../lib/session';
+import { t, tl } from '../lib/i18n';
 import { Icon } from '../ui/icons';
 
 /** Block library, grouped and searchable. Werkbank adds code blocks. */
@@ -12,14 +13,21 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
   const list = useMemo(() => {
     const n = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
     const all = BLOCKS.filter((b) => (pro || !b.pro) && (!b.module || modules.includes(b.module)));
-    const hits = q ? all.filter((b) => n(`${b.label} ${b.description} ${b.type}`).includes(n(q))) : all;
+    const hits = q ? all.filter((b) => n(`${tl(b.label)} ${tl(b.description)} ${b.label} ${b.type}`).includes(n(q))) : all;
     return hits;
   }, [q, pro, modules]);
 
   const items = [
-    ...list.map((b) => ({ key: b.type, label: b.label, description: b.description, icon: b.icon, category: b.category, run: () => onPick(b.type) })),
-    ...(q === '' || 'sektion wiederverwendbar'.includes(q.toLowerCase())
-      ? sections.map((s) => ({ key: `s-${s.id}`, label: s.title, description: 'Wiederverwendbare Sektion', icon: 'link', category: 'sections', run: () => onPick('section', { section: s.id }) }))
+    ...list.map((b) => ({ key: b.type, label: tl(b.label), description: tl(b.description), icon: b.icon, category: b.category, run: () => onPick(b.type) })),
+    ...(q === '' || 'sektion wiederverwendbar'.includes(q.toLowerCase()) || t('Wiederverwendbare Sektion').toLowerCase().includes(q.toLowerCase())
+      ? sections.map((s) => ({
+          key: `s-${s.id}`,
+          label: s.title,
+          description: t('Wiederverwendbare Sektion'),
+          icon: 'link',
+          category: 'sections',
+          run: () => onPick('section', { section: s.id }),
+        }))
       : []),
   ];
 
@@ -30,7 +38,7 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
         <input
           className="input"
           autoFocus
-          placeholder="Block suchen – z. B. «Bild», «Preise», «Karte»"
+          placeholder={t('Block suchen – z. B. «Bild», «Preise», «Karte»')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -48,12 +56,12 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
               items[sel].run();
             }
           }}
-          aria-label="Block suchen"
+          aria-label={t('Block suchen')}
         />
       </div>
-      <div className="picker-list" role="listbox" aria-label="Blöcke">
+      <div className="picker-list" role="listbox" aria-label={t('Blöcke')}>
         {items.map((it, i) => {
-          const cat = it.category === 'sections' ? 'Sektionen' : BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label ?? '';
+          const cat = it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
           const head = !q && cat !== last ? (last = cat) : null;
           return (
             <div key={it.key}>
@@ -68,7 +76,11 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
             </div>
           );
         })}
-        {!items.length && <p className="small muted" style={{ padding: '1rem' }}>Kein Block passt. Versuch ein anderes Wort.</p>}
+        {!items.length && (
+          <p className="small muted" style={{ padding: '1rem' }}>
+            {t('Kein Block passt. Versuch ein anderes Wort.')}
+          </p>
+        )}
       </div>
     </div>
   );

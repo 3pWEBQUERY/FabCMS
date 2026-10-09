@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { formatDate, useApi } from '../lib/hooks';
+import { adminLang, t } from '../lib/i18n';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { Icon } from '../ui/icons';
@@ -43,13 +44,17 @@ type Filter = 'all' | 'paid' | 'free' | 'unverified' | 'blocked';
 const chf = (cents: number) => (cents ? (cents / 100).toFixed(2).replace(/\.00$/, '') : '');
 const cents = (v: string) => (v.trim() === '' ? 0 : Math.max(0, Math.round(Number(v.replace(',', '.')) * 100) || 0));
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
+/** Fills {placeholders} in a translated sentence with elements. */
+const rich = (text: string, parts: Record<string, ReactNode>) => text.split(/\{(\w+)\}/).map((s, i) => (i % 2 ? <Fragment key={i}>{parts[s]}</Fragment> : s));
 
 function badge(m: Member) {
-  if (m.status === 'blocked') return <span className="badge bad">Gesperrt</span>;
-  if (!m.email_verified_at) return <span className="badge warn">Unbestätigt</span>;
+  if (m.status === 'blocked') return <span className="badge bad">{t('Gesperrt')}</span>;
+  if (!m.email_verified_at) return <span className="badge warn">{t('Unbestätigt')}</span>;
   if (m.level === 'paid')
-    return <span className="badge ok">{m.subscription_status === 'canceling' ? 'Zahlend, gekündigt' : m.subscription_status === 'past_due' ? 'Zahlung offen' : 'Zahlend'}</span>;
-  return <span className="badge muted">Kostenlos</span>;
+    return (
+      <span className="badge ok">{m.subscription_status === 'canceling' ? t('Zahlend, gekündigt') : m.subscription_status === 'past_due' ? t('Zahlung offen') : t('Zahlend')}</span>
+    );
+  return <span className="badge muted">{t('Kostenlos')}</span>;
 }
 
 export function Members() {
@@ -61,8 +66,8 @@ export function Members() {
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   useEffect(() => {
-    const t = setTimeout(() => setTerm(q), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setTerm(q), 250);
+    return () => clearTimeout(timer);
   }, [q]);
   const data = useApi<Data>(`/api/members?filter=${filter}&q=${encodeURIComponent(term)}`);
   const [inviting, setInviting] = useState(false);
@@ -75,18 +80,22 @@ export function Members() {
       <PageHead
         back={
           <Link to="/inhalte" className="crumb">
-            <Icon name="chevronLeft" size="s" /> Inhalte
+            <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title="Mitglieder"
-        sub={d ? `${d.counts.all} ${d.counts.all === 1 ? 'Konto' : 'Konten'}${d.counts.paid ? ` · ${d.counts.paid} zahlend` : ''}` : undefined}
+        title={t('Mitglieder')}
+        sub={
+          d
+            ? [d.counts.all === 1 ? t('1 Konto') : t('{n} Konten', { n: d.counts.all }), d.counts.paid ? t('{n} zahlend', { n: d.counts.paid }) : ''].filter(Boolean).join(' · ')
+            : undefined
+        }
         actions={
           <>
             <a className="btn" href="/api/members.csv" download>
               <Icon name="download" size="s" /> CSV
             </a>
             <button className="btn primary" onClick={() => setInviting(true)}>
-              <Icon name="plus" size="s" /> Einladen
+              <Icon name="plus" size="s" /> {t('Einladen')}
             </button>
           </>
         }
@@ -94,18 +103,20 @@ export function Members() {
       {settings && !settings.modules.includes('members') && (
         <p className="hint" role="note" style={{ marginBottom: '1rem' }}>
           <span>
-            Das Modul ist noch aus. Schalte es unter <Link to="/einstellungen/module">Einstellungen → Module</Link> ein – dann gibt es «Anmelden» auf der Website.
+            {rich(t('Das Modul ist noch aus. Schalte es unter {link} ein – dann gibt es «Anmelden» auf der Website.'), {
+              link: <Link to="/einstellungen/module">{t('Einstellungen → Module')}</Link>,
+            })}
           </span>
         </p>
       )}
       <div className="toolbar">
         <Segmented
-          label="Bereich"
+          label={t('Bereich')}
           value={tab}
-          onChange={(t) => navigate(t === 'liste' ? '/mitglieder' : '/mitglieder?tab=einstellungen', { replace: true })}
+          onChange={(v) => navigate(v === 'liste' ? '/mitglieder' : '/mitglieder?tab=einstellungen', { replace: true })}
           options={[
-            { value: 'liste', label: 'Mitglieder' },
-            { value: 'einstellungen', label: 'Mitgliedschaft' },
+            { value: 'liste', label: t('Mitglieder') },
+            { value: 'einstellungen', label: t('Mitgliedschaft') },
           ]}
         />
       </div>
@@ -119,22 +130,22 @@ export function Members() {
         <>
           <div className="toolbar">
             <Segmented
-              label="Filter"
+              label={t('Filter')}
               value={filter}
               onChange={setFilter}
               options={[
-                { value: 'all', label: `Alle ${d.counts.all}` },
-                { value: 'paid', label: `Zahlend ${d.counts.paid}` },
-                { value: 'free', label: 'Kostenlos' },
-                { value: 'unverified', label: `Unbestätigt ${d.counts.unverified}` },
-                ...(d.counts.blocked ? [{ value: 'blocked' as const, label: `Gesperrt ${d.counts.blocked}` }] : []),
+                { value: 'all', label: `${t('Alle')} ${d.counts.all}` },
+                { value: 'paid', label: `${t('Zahlend')} ${d.counts.paid}` },
+                { value: 'free', label: t('Kostenlos') },
+                { value: 'unverified', label: `${t('Unbestätigt')} ${d.counts.unverified}` },
+                ...(d.counts.blocked ? [{ value: 'blocked' as const, label: `${t('Gesperrt')} ${d.counts.blocked}` }] : []),
               ]}
             />
             <input
               className="input"
               type="search"
-              placeholder="Suchen …"
-              aria-label="Mitglieder suchen"
+              placeholder={t('Suchen …')}
+              aria-label={t('Mitglieder suchen')}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ maxWidth: '16rem' }}
@@ -142,20 +153,22 @@ export function Members() {
           </div>
           <section className="card">
             {!d.members.length ? (
-              <Empty title={term || filter !== 'all' ? 'Niemand gefunden' : 'Noch keine Mitglieder'}>
+              <Empty title={term || filter !== 'all' ? t('Niemand gefunden') : t('Noch keine Mitglieder')}>
                 {term || filter !== 'all'
                   ? undefined
-                  : 'Wer sich auf der Website ein Konto erstellt, erscheint hier. Stell bei einer Seite oder einem Beitrag «Wer darf das sehen?» auf «Mitglieder» – alle anderen sehen dort eine Einladung.'}
+                  : t(
+                      'Wer sich auf der Website ein Konto erstellt, erscheint hier. Stell bei einer Seite oder einem Beitrag «Wer darf das sehen?» auf «Mitglieder» – alle anderen sehen dort eine Einladung.',
+                    )}
               </Empty>
             ) : (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Status</th>
-                      <th>Seit</th>
-                      <th>Zuletzt da</th>
+                      <th>{t('Name')}</th>
+                      <th>{t('Status')}</th>
+                      <th>{t('Seit')}</th>
+                      <th>{t('Zuletzt da')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -167,7 +180,7 @@ export function Members() {
                         </td>
                         <td>{badge(m)}</td>
                         <td>{formatDate(m.created_at)}</td>
-                        <td className="small muted">{m.last_login_at ? relativeTime(m.last_login_at) : '–'}</td>
+                        <td className="small muted">{m.last_login_at ? relativeTime(m.last_login_at, new Date(), adminLang()) : '–'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -180,7 +193,7 @@ export function Members() {
       {open && (
         <MemberDialog
           member={open}
-          planName={d?.settings.planName ?? 'Mitgliedschaft'}
+          planName={d?.settings.planName ?? t('Mitgliedschaft')}
           onClose={close}
           onChanged={(m) => data.setData((x) => (x ? { ...x, members: x.members.map((y) => (y.id === m.id ? m : y)) } : x))}
           onDeleted={() => {
@@ -191,7 +204,7 @@ export function Members() {
       )}
       <InviteDialog
         open={inviting}
-        planName={d?.settings.planName ?? 'Mitgliedschaft'}
+        planName={d?.settings.planName ?? t('Mitgliedschaft')}
         onClose={() => setInviting(false)}
         onDone={() => {
           setFilter('unverified');
@@ -231,15 +244,15 @@ function MemberDialog({
   const remove = async () => {
     if (
       !(await confirm({
-        title: `Konto von ${member.name || member.email} löschen?`,
-        message: subscription ? 'Das laufende Abo bei Stripe wird sofort beendet. Das lässt sich nicht rückgängig machen.' : 'Das lässt sich nicht rückgängig machen.',
-        confirm: 'Löschen',
+        title: t('Konto von {name} löschen?', { name: member.name || member.email }),
+        message: subscription ? t('Das laufende Abo bei Stripe wird sofort beendet. Das lässt sich nicht rückgängig machen.') : t('Das lässt sich nicht rückgängig machen.'),
+        confirm: t('Löschen'),
         danger: true,
       }))
     )
       return;
     await api.del(`/api/members/${member.id}`);
-    toast('Konto gelöscht.');
+    toast(t('Konto gelöscht.'));
     onDeleted();
   };
   return (
@@ -247,29 +260,31 @@ function MemberDialog({
       <div className="stack">
         <dl className="facts">
           <div>
-            <dt>Status</dt>
+            <dt>{t('Status')}</dt>
             <dd>{badge(member)}</dd>
           </div>
           <div>
-            <dt>Konto seit</dt>
+            <dt>{t('Konto seit')}</dt>
             <dd>{formatDate(member.created_at)}</dd>
           </div>
           <div>
-            <dt>Zuletzt angemeldet</dt>
-            <dd>{member.last_login_at ? formatDate(member.last_login_at, true) : 'noch nie'}</dd>
+            <dt>{t('Zuletzt angemeldet')}</dt>
+            <dd>{member.last_login_at ? formatDate(member.last_login_at, true) : t('noch nie')}</dd>
           </div>
           {subscription && (
             <div>
-              <dt>Abo</dt>
+              <dt>{t('Abo')}</dt>
               <dd>
                 {member.subscription_status === 'canceling'
-                  ? `Gekündigt, läuft bis ${formatDate(member.paid_until)}`
-                  : `Läuft${member.paid_until ? `, nächste Zahlung ${formatDate(member.paid_until)}` : ''}`}
+                  ? t('Gekündigt, läuft bis {date}', { date: formatDate(member.paid_until) })
+                  : member.paid_until
+                    ? t('Läuft, nächste Zahlung {date}', { date: formatDate(member.paid_until) })
+                    : t('Läuft')}
                 {member.stripe_customer && (
                   <>
                     {' · '}
                     <a href={`https://dashboard.stripe.com/customers/${member.stripe_customer}`} target="_blank" rel="noreferrer">
-                      in Stripe <Icon name="external" size="s" />
+                      {t('in Stripe')} <Icon name="external" size="s" />
                     </a>
                   </>
                 )}
@@ -278,38 +293,40 @@ function MemberDialog({
           )}
         </dl>
         {!subscription && (
-          <Field label={`${planName} schenken bis`} help="Zum Beispiel für Vorstand, Presse oder wer bar bezahlt hat. Leer = kein geschenkter Zugang.">
+          <Field label={t('{plan} schenken bis', { plan: planName })} help={t('Zum Beispiel für Vorstand, Presse oder wer bar bezahlt hat. Leer = kein geschenkter Zugang.')}>
             <div className="row">
-              <DateInput value={until} onChange={setUntil} label={`${planName} schenken bis`} />
+              <DateInput value={until} onChange={setUntil} label={t('{plan} schenken bis', { plan: planName })} />
               <button
                 className="btn"
                 disabled={until === day(member.paid_until)}
-                onClick={() => void patch({ paid_until: until || null }, until ? `Zugang bis ${formatDate(until)} gespeichert.` : 'Geschenkter Zugang entfernt.')}
+                onClick={() =>
+                  void patch({ paid_until: until || null }, until ? t('Zugang bis {date} gespeichert.', { date: formatDate(until) }) : t('Geschenkter Zugang entfernt.'))
+                }
               >
-                Speichern
+                {t('Speichern')}
               </button>
             </div>
           </Field>
         )}
-        <Field label="Interne Notiz" help="Sieht nur das Team.">
+        <Field label={t('Interne Notiz')} help={t('Sieht nur das Team.')}>
           <textarea className="textarea" rows={3} value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== member.note && void patch({ note })} />
         </Field>
         <div className="dialog-actions">
           <button className="btn ghost danger-text" onClick={remove}>
-            <Icon name="trash" size="s" /> Löschen
+            <Icon name="trash" size="s" /> {t('Löschen')}
           </button>
           <span className="grow" />
           {member.status === 'blocked' ? (
-            <button className="btn" onClick={() => void patch({ status: 'active' }, 'Konto wieder freigegeben.')}>
-              Freigeben
+            <button className="btn" onClick={() => void patch({ status: 'active' }, t('Konto wieder freigegeben.'))}>
+              {t('Freigeben')}
             </button>
           ) : (
-            <button className="btn" onClick={() => void patch({ status: 'blocked' }, 'Gesperrt. Alle Sitzungen sind beendet.')}>
-              <Icon name="lock" size="s" /> Sperren
+            <button className="btn" onClick={() => void patch({ status: 'blocked' }, t('Gesperrt. Alle Sitzungen sind beendet.'))}>
+              <Icon name="lock" size="s" /> {t('Sperren')}
             </button>
           )}
           <button className="btn primary" onClick={onClose}>
-            Fertig
+            {t('Fertig')}
           </button>
         </div>
       </div>
@@ -327,7 +344,7 @@ function InviteDialog({ open, planName, onClose, onDone }: { open: boolean; plan
     setBusy(true);
     try {
       await api.post('/api/members', { email, name, paidUntil: until || null });
-      toast(`Einladung an ${email} verschickt.`);
+      toast(t('Einladung an {email} verschickt.', { email }));
       setEmail('');
       setName('');
       setUntil('');
@@ -343,8 +360,8 @@ function InviteDialog({ open, planName, onClose, onDone }: { open: boolean; plan
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Mitglied einladen"
-      description="Die Person bekommt eine E-Mail mit einem Link, über den sie ihr Passwort selbst festlegt."
+      title={t('Mitglied einladen')}
+      description={t('Die Person bekommt eine E-Mail mit einem Link, über den sie ihr Passwort selbst festlegt.')}
     >
       <form
         className="stack"
@@ -353,21 +370,21 @@ function InviteDialog({ open, planName, onClose, onDone }: { open: boolean; plan
           void submit();
         }}
       >
-        <Field label="Name">
+        <Field label={t('Name')}>
           <input className="input" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoFocus />
         </Field>
-        <Field label="E-Mail">
+        <Field label={t('E-Mail')}>
           <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <Field label={`${planName} schenken bis`} help="Optional.">
-          <DateInput value={until} onChange={setUntil} label={`${planName} schenken bis`} />
+        <Field label={t('{plan} schenken bis', { plan: planName })} help={t('Optional.')}>
+          <DateInput value={until} onChange={setUntil} label={t('{plan} schenken bis', { plan: planName })} />
         </Field>
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </button>
           <button className="btn primary" disabled={busy} data-busy={busy || undefined}>
-            Einladung schicken
+            {t('Einladung schicken')}
           </button>
         </div>
       </form>
@@ -396,7 +413,7 @@ function PlanSettings({ data, onSaved }: { data: Data; onSaved: (s: MemberSettin
       const r = await api.put<{ settings: MemberSettings }>('/api/members/settings', body);
       onSaved(r.settings);
       setF({ ...r.settings, priceText: chf(r.settings.price) });
-      toast('Gespeichert.');
+      toast(t('Gespeichert.'));
       return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -411,74 +428,87 @@ function PlanSettings({ data, onSaved }: { data: Data; onSaved: (s: MemberSettin
     <div className="stack">
       <section className="card card-pad stack">
         <div className="grid-2">
-          <Field label="Wer kann ein Konto erstellen?">
+          <Field label={t('Wer kann ein Konto erstellen?')}>
             <Select
-              label="Wer kann ein Konto erstellen?"
+              label={t('Wer kann ein Konto erstellen?')}
               value={f.registration}
               onChange={(v) => setF({ ...f, registration: v as MemberSettings['registration'] })}
               options={[
-                { value: 'open', label: 'Alle, über «Konto erstellen»' },
-                { value: 'invite', label: 'Nur wer eingeladen wird' },
+                { value: 'open', label: t('Alle, über «Konto erstellen»') },
+                { value: 'invite', label: t('Nur wer eingeladen wird') },
               ]}
             />
           </Field>
-          <Field label="Name der Mitgliedschaft">
+          <Field label={t('Name der Mitgliedschaft')}>
             <input className="input" value={f.planName} maxLength={60} onChange={(e) => setF({ ...f, planName: e.target.value })} />
           </Field>
-          <Field label="Preis" help="Leer lassen, wenn es keine bezahlte Mitgliedschaft gibt.">
+          <Field label={t('Preis')} help={t('Leer lassen, wenn es keine bezahlte Mitgliedschaft gibt.')}>
             <div className="input-affix">
               <span>{currency}</span>
-              <input className="input num" inputMode="decimal" value={f.priceText} placeholder="kostenlos" onChange={(e) => setF({ ...f, priceText: e.target.value })} />
+              <input className="input num" inputMode="decimal" value={f.priceText} placeholder={t('kostenlos')} onChange={(e) => setF({ ...f, priceText: e.target.value })} />
             </div>
           </Field>
-          <Field label="Abgerechnet">
+          <Field label={t('Abgerechnet')}>
             <Select
-              label="Abgerechnet"
+              label={t('Abgerechnet')}
               value={f.interval}
               onChange={(v) => setF({ ...f, interval: v as MemberSettings['interval'] })}
               options={[
-                { value: 'month', label: 'Monatlich' },
-                { value: 'year', label: 'Jährlich' },
+                { value: 'month', label: t('Monatlich') },
+                { value: 'year', label: t('Jährlich') },
               ]}
             />
           </Field>
         </div>
-        <Field label="Was Mitglieder bekommen" help="Eine Zeile pro Punkt. Erscheint auf der Einladung bei geschützten Inhalten und im Block «Mitgliedschaft».">
+        <Field label={t('Was Mitglieder bekommen')} help={t('Eine Zeile pro Punkt. Erscheint auf der Einladung bei geschützten Inhalten und im Block «Mitgliedschaft».')}>
           <textarea
             className="textarea"
             rows={4}
             value={f.perks}
             maxLength={2000}
             onChange={(e) => setF({ ...f, perks: e.target.value })}
-            placeholder={'Alle Beiträge ganz lesen\nMonatlicher Hintergrundbericht\nEinladung zum Jahresanlass'}
+            placeholder={[t('Alle Beiträge ganz lesen'), t('Monatlicher Hintergrundbericht'), t('Einladung zum Jahresanlass')].join('\n')}
           />
         </Field>
         {body.price > 0 && (
           <p className="small muted">
-            Mitglieder zahlen {formatMoney(body.price, currency)} pro {f.interval === 'year' ? 'Jahr' : 'Monat'} über Stripe und können jederzeit selbst kündigen.
+            {f.interval === 'year'
+              ? t('Mitglieder zahlen {price} pro Jahr über Stripe und können jederzeit selbst kündigen.', { price: formatMoney(body.price, currency) })
+              : t('Mitglieder zahlen {price} pro Monat über Stripe und können jederzeit selbst kündigen.', { price: formatMoney(body.price, currency) })}
           </p>
         )}
         <div className="row">
           <button className="btn primary" disabled={!dirty || busy} data-busy={busy || undefined} onClick={() => void save()}>
-            Speichern
+            {t('Speichern')}
           </button>
         </div>
       </section>
       {body.price > 0 && (!data.stripe || !data.webhook) && (
         <p className="hint" role="note">
           <span>
-            Für die bezahlte Mitgliedschaft fehlen in Railway noch {!data.stripe && <span className="mono">STRIPE_SECRET_KEY</span>}
-            {!data.stripe && !data.webhook && ' und '}
-            {!data.webhook && <span className="mono">STRIPE_WEBHOOK_SECRET</span>}. Der Webhook in Stripe braucht die Ereignisse checkout.session.completed,
-            customer.subscription.updated und customer.subscription.deleted.
+            {rich(
+              !data.stripe && !data.webhook
+                ? t('Für die bezahlte Mitgliedschaft fehlen in Railway noch {a} und {b}.')
+                : t('Für die bezahlte Mitgliedschaft fehlen in Railway noch {a}.'),
+              {
+                a: <span className="mono">{data.stripe ? 'STRIPE_WEBHOOK_SECRET' : 'STRIPE_SECRET_KEY'}</span>,
+                b: <span className="mono">STRIPE_WEBHOOK_SECRET</span>,
+              },
+            )}{' '}
+            {t('Der Webhook in Stripe braucht die Ereignisse {a}, {b} und {c}.', {
+              a: 'checkout.session.completed',
+              b: 'customer.subscription.updated',
+              c: 'customer.subscription.deleted',
+            })}
           </span>
         </p>
       )}
       <section className="card card-pad stack tight">
-        <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>So schützt du Inhalte</h2>
+        <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>{t('So schützt du Inhalte')}</h2>
         <p className="small muted">
-          Bei jeder Seite und jedem Beitrag gibt es das Feld «Wer darf das sehen?»: Alle, nur angemeldete Mitglieder oder nur zahlende Mitglieder. Wer keinen Zugang hat, sieht
-          Titel, Kurzfassung und eine Einladung – Suchmaschinen, RSS und die API ebenso. Der Block «Mitgliedschaft» zeigt Preis und Vorteile auf einer eigenen Seite.
+          {t(
+            'Bei jeder Seite und jedem Beitrag gibt es das Feld «Wer darf das sehen?»: Alle, nur angemeldete Mitglieder oder nur zahlende Mitglieder. Wer keinen Zugang hat, sieht Titel, Kurzfassung und eine Einladung – Suchmaschinen, RSS und die API ebenso. Der Block «Mitgliedschaft» zeigt Preis und Vorteile auf einer eigenen Seite.',
+          )}
         </p>
       </section>
     </div>
