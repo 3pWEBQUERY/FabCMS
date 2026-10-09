@@ -34,6 +34,9 @@ style.textContent = `
 .nova-section-ref{position:relative}
 .nova-section-ref::after{content:"Wiederverwendbare Sektion – Doppelklick zum Bearbeiten";position:absolute;top:8px;right:8px;font:600 11px/1 system-ui,sans-serif;background:#1b1a17;color:#fff;padding:5px 8px;border-radius:5px;opacity:0;transition:opacity .15s;pointer-events:none}
 [data-nova-block]:hover .nova-section-ref::after{opacity:1}
+.nova-cmt{all:initial;position:absolute;top:10px;right:10px;z-index:5;display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px 0 7px;border-radius:13px 13px 13px 3px;background:#f2b84b;color:#1b1a17;font:650 12px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22)}
+.nova-cmt:hover{background:#f5c66a}
+.nova-cmt svg{width:14px;height:14px}
 .nova-dragging{z-index:50;box-shadow:0 24px 64px -16px rgba(0,0,0,.35);transition:none!important;cursor:grabbing}
 .nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 a[href]{cursor:default}
@@ -451,6 +454,29 @@ function htmlToElement(html: string): HTMLElement {
   return t.content.firstElementChild as HTMLElement;
 }
 
+/* ---------- comment bubbles: open threads per block ---------- */
+
+let commentCounts: Record<string, number> = {};
+let commentLabel = 'Kommentare';
+function paintComments() {
+  d.querySelectorAll('.nova-cmt').forEach((b) => b.remove());
+  for (const [id, n] of Object.entries(commentCounts)) {
+    const el = blockEl(id);
+    if (!el || !n) continue;
+    const b = d.createElement('button');
+    b.className = 'nova-cmt';
+    b.type = 'button';
+    b.setAttribute('aria-label', `${commentLabel}: ${n}`);
+    b.innerHTML = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 4.5h12v8.5H9l-3.5 3v-3H4z"/></svg>${n}`;
+    b.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      post({ t: 'comments-open', id });
+    });
+    el.append(b);
+  }
+}
+
 addEventListener('message', (e) => {
   if (e.origin !== location.origin || !e.data?.nova) return;
   const m = e.data as Msg;
@@ -474,6 +500,7 @@ addEventListener('message', (e) => {
       old.replaceWith(next);
       setupFields(next);
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
+      paintComments();
       sendRect();
       break;
     }
@@ -545,6 +572,7 @@ addEventListener('message', (e) => {
       }
       if (selected && blockEl(selected)) blockEl(selected)!.setAttribute('data-nova-selected', '');
       else select(null, true);
+      paintComments();
       sendRect();
       break;
     }
@@ -563,6 +591,12 @@ addEventListener('message', (e) => {
         }, reduced ? 0 : 300);
       }
       if (el) flash(el);
+      break;
+    }
+    case 'comments': {
+      commentCounts = (m.counts as Record<string, number>) ?? {};
+      if (typeof m.label === 'string') commentLabel = m.label;
+      paintComments();
       break;
     }
     case 'flash': {

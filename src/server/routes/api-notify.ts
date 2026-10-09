@@ -24,10 +24,14 @@ export function notifyApi(app: Hono<AppEnv>) {
     return streamSSE(c, async (stream) => {
       const queue: Notification[] = [];
       let wake: (() => void) | null = null;
-      const off = subscribe(u.role, (n) => {
-        queue.push(n);
-        wake?.();
-      });
+      const off = subscribe(
+        u.role,
+        (n) => {
+          queue.push(n);
+          wake?.();
+        },
+        u.id,
+      );
       stream.onAbort(off);
       while (!stream.aborted) {
         while (queue.length) await stream.writeSSE({ event: 'notification', data: JSON.stringify(queue.shift()) });

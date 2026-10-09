@@ -6,9 +6,10 @@ import { api } from '../lib/api';
 import { useEntryDoc } from '../lib/useEntryDoc';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
-import { navigate } from '../lib/router';
+import { navigate, usePath } from '../lib/router';
 import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
+import { CommentsPanel, useComments } from './Comments';
 import { Icon } from '../ui/icons';
 import { Segmented, Tip } from '../ui/kit';
 import { PublishControls, SaveStatus } from '../ui/Publish';
@@ -23,7 +24,7 @@ import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block } from '../../shared/types';
 
-type Panel = 'inspector' | 'seo' | 'history' | 'page' | 'structure' | 'header' | 'footer' | null;
+type Panel = 'inspector' | 'seo' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
 type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -37,6 +38,7 @@ const panelTitle = (p: Exclude<Panel, null>): string =>
     structure: t('Aufbau'),
     header: t('Kopfzeile & Menü'),
     footer: t('Fusszeile'),
+    comments: t('Kommentare'),
   })[p];
 
 /** One editor per language: switching language mounts a fresh one (own history, own canvas). */
@@ -47,6 +49,9 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
 
 function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | null; onOpenPalette: () => void }) {
   const doc = useEntryDoc(id, lang);
+  const comments = useComments(id);
+  // ?kommentar=… (from a notification) opens the thread.
+  const focusComment = usePath().query.get('kommentar');
   const session = useSession();
   const toast = useToast();
   const narrow = useMediaQuery('(max-width: 900px)');
@@ -54,7 +59,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
-  const [panel, setPanel] = useState<Panel>(null);
+  const [panel, setPanel] = useState<Panel>(focusComment ? 'comments' : null);
   const [device, setDevice] = useState<Device>('desktop');
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
@@ -111,6 +116,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         case 'ready':
           setReady(true);
           postToCanvas(frame.current, { t: 'init', studio });
+          postToCanvas(frame.current, { t: 'comments', counts: comments.counts, label: t('Kommentare') });
           if (selected) postToCanvas(frame.current, { t: 'select', id: selected });
           break;
         case 'select':
@@ -151,6 +157,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         case 'section':
           navigate(`/inhalte/sections/${m.id}`);
           break;
+        case 'comments-open':
+          selectBlock(m.id);
+          setPanel('comments');
+          break;
         case 'key':
           if (m.key === 'undo') doc.undo();
           else if (m.key === 'redo') doc.redo();
@@ -164,6 +174,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     window.addEventListener('message', on);
     return () => window.removeEventListener('message', on);
   });
+
+  // Open threads show as bubbles on their blocks.
+  useEffect(() => {
+    if (ready) postToCanvas(frame.current, { t: 'comments', counts: comments.counts, label: t('Kommentare') });
+  }, [comments.counts, ready]);
 
   // Mode switch changes what's editable on the canvas.
   useEffect(() => {
@@ -368,6 +383,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           />
         </div>
         <div className="row" style={{ gap: 2 }}>
+          <Tip label={t('Kommentare')}>
+            <button
+              className="btn ghost icon-only badge-host"
+              aria-pressed={panel === 'comments'}
+              onClick={() => setPanel(panel === 'comments' ? null : 'comments')}
+              aria-label={comments.open ? t('Kommentare, {n} offen', { n: comments.open }) : t('Kommentare')}
+            >
+              <Icon name="chat" />
+              {comments.open > 0 && <span className="dot-count">{comments.open}</span>}
+            </button>
+          </Tip>
           {(
             [
               ['page', 'page', t('Seite')],
@@ -444,6 +470,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                             aria-label={t('Nach unten')}
                           >
                             <Icon name="arrowDown" size="s" />
+                          </button>
+                        </Tip>
+                        <Tip label={t('Kommentieren')}>
+                          <button className="btn icon-only" onClick={() => setPanel('comments')} aria-label={t('Kommentieren')}>
+                            <Icon name="chat" size="s" />
                           </button>
                         </Tip>
                         <Tip label={t('Duplizieren')}>
@@ -551,6 +582,16 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   </div>
                 )}
                 {(panel === 'header' || panel === 'footer') && <GlobalPanel which={panel} />}
+                {panel === 'comments' && (
+                  <CommentsPanel
+                    entryId={id}
+                    data={comments}
+                    blocks={doc.data.blocks ?? []}
+                    selectedBlock={selected}
+                    focus={focusComment}
+                    onSelectBlock={(bid) => selectBlock(bid)}
+                  />
+                )}
               </div>
             </motion.aside>
           )}

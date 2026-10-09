@@ -2721,7 +2721,8 @@ button.list-item {
   font-weight: 550;
   cursor: pointer;
 }
-.chip[aria-pressed='true'] {
+.chip[aria-pressed='true'],
+.chip[aria-checked='true'] {
   background: var(--ink);
   color: var(--bg);
   border-color: var(--ink);
@@ -3729,4 +3730,151 @@ button.list-item {
 .lang-badge.none {
   opacity: 0.55;
   border-style: dashed;
+}
+
+/* comments */
+.badge-host {
+  position: relative;
+}
+.dot-count {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f2b84b;
+  color: #1b1a17;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.comments-panel .cmt-new {
+  display: grid;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.cmt-target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.cmt-target .chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmt-composer {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+}
+.cmt-composer .textarea {
+  min-height: 3.4rem;
+}
+.cmt-mentions {
+  position: absolute;
+  z-index: 5;
+  top: 3.6rem;
+  left: 0;
+  min-width: 12rem;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-l, 0 12px 32px -8px rgba(0, 0, 0, 0.25));
+}
+.cmt-mentions button {
+  all: unset;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-s);
+  cursor: pointer;
+  font-size: var(--t-s);
+}
+.cmt-mentions [aria-selected='true'] button,
+.cmt-mentions button:hover {
+  background: var(--sel-soft);
+}
+.cmt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.cmt-thread {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid #f2b84b;
+  border-radius: var(--r-m);
+  background: var(--surface);
+}
+.cmt-thread.done {
+  border-left-color: var(--line);
+  opacity: 0.75;
+}
+.cmt-anchor {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: var(--t-xs, 12px);
+  color: var(--ink-2, var(--muted));
+  cursor: pointer;
+}
+.cmt-anchor:disabled {
+  cursor: default;
+}
+.cmt-anchor:not(:disabled):hover {
+  color: var(--ink);
+}
+.cmt + .cmt {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+}
+.cmt.focus {
+  animation: cmt-focus 1.6s ease-out;
+}
+@keyframes cmt-focus {
+  from {
+    background: var(--sel-soft);
+  }
+}
+.cmt-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: var(--t-s);
+}
+.cmt-body {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--t-s);
+}
+.cmt-body .mention {
+  color: var(--sel);
+  font-weight: 600;
+}
+.cmt-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.3rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmt.focus {
+    animation: none;
+  }
 }

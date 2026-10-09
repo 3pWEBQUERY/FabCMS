@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { LoadingFrame, RouteLoading } from '../ui/loading';
 import { api } from '../lib/api';
 import { useApi, useHotkey, modKey } from '../lib/hooks';
-import { Link, navigate } from '../lib/router';
+import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { t, tl, tm } from '../lib/i18n';
 import { useEntryDoc } from '../lib/useEntryDoc';
@@ -14,6 +14,7 @@ import { useToast } from '../ui/toast';
 import { validateFields } from '../../shared/fields';
 import { isTranslatable } from '../../shared/i18n';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
+import { CommentsPanel, useComments } from '../editor/Comments';
 import type { CollectionDef } from '../../shared/types';
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
@@ -39,6 +40,8 @@ function EntryFormLang({ id }: { id: string }) {
 
 function EntryForm({ id, lang }: { id: string; lang: string | null }) {
   const doc = useEntryDoc(id, lang);
+  const comments = useComments(lang ? null : id);
+  const focusComment = usePath().query.get('kommentar');
   const { can, pro } = useSession();
   const toast = useToast();
   const [previewKey, setPreviewKey] = useState(0);
@@ -195,6 +198,14 @@ function EntryForm({ id, lang }: { id: string; lang: string | null }) {
           </div>
         )}
       </div>
+      {!lang && (
+        <section className="card form-section entry-comments" style={{ marginTop: '1.5rem', maxWidth: '48rem' }} id="kommentare">
+          <header>
+            <h2>{t('Kommentare')}</h2>
+          </header>
+          <CommentsPanel entryId={id} data={comments} blocks={[]} selectedBlock={null} focus={focusComment} />
+        </section>
+      )}
     </div>
   );
 }

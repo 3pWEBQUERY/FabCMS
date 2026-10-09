@@ -1015,7 +1015,20 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
 
     // Mails sent later (kitchen, reminders, webhooks) speak the language the order was placed in.
     outbox.length = 0;
-    const order = { number: 7, mode: 'pickup', slot_at: new Date().toISOString(), name: 'Claire Dubois', email: 'claire@example.ch', items: [], currency: 'CHF', total: 0, delivery_fee: 0, payment: 'onsite', token: 'x', paid_at: null };
+    const order = {
+      number: 7,
+      mode: 'pickup',
+      slot_at: new Date().toISOString(),
+      name: 'Claire Dubois',
+      email: 'claire@example.ch',
+      items: [],
+      currency: 'CHF',
+      total: 0,
+      delivery_fee: 0,
+      payment: 'onsite',
+      token: 'x',
+      paid_at: null,
+    };
     await foodMail({ ...order, lang: 'fr' } as never, 'ready');
     await foodMail({ ...order, lang: '' } as never, 'ready');
     expect(outbox.map((m) => m.subject)).toEqual([tr('fr', 'Bereit zum Abholen: Nr. {n}', { n: 7 }), 'Bereit zum Abholen: Nr. 7']);
@@ -1046,5 +1059,55 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(authorNotes.data.items).toHaveLength(0);
     const settings = await req('PATCH', '/api/settings', { name: 'Gehackt' }, { cookies: author });
     expect(settings.status).toBe(403);
+  });
+
+  it('keeps comments on entries, with threads, mentions and personal notices', async () => {
+    const [post] = await sql`select id from entries where data ->> 'title' = 'Mein Beitrag'`;
+    const lucaId = (await sql`select id from users where email = 'luca@example.ch'`)[0].id;
+    const rea = await req('POST', '/api/users', { email: 'rea@example.ch', name: 'Rea Keller', role: 'editor' });
+    expect(rea.status).toBe(200);
+
+    // A comment with a mention reaches only the person mentioned.
+    const first = await req('POST', `/api/entries/${post.id}/comments`, { body: '@Luca kannst du den Titel noch schärfen?' });
+    expect(first.status).toBe(200);
+    expect(first.data.comment.mentions).toEqual([lucaId]);
+    await new Promise((r) => setTimeout(r, 50)); // notices are written after the response
+    const [mention] = await sql`select kind, title, href, user_id from notifications where kind = 'mention'`;
+    expect(mention).toMatchObject({ title: 'Sandra hat dich erwähnt: Mein Beitrag', user_id: lucaId });
+    expect(mention.href).toBe(`/inhalte/posts/${post.id}?kommentar=${first.data.comment.id}`);
+    const reaUser = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'rea@example.ch', password: rea.data.temporaryPassword }, { cookies: reaUser });
+    expect((await req('GET', '/api/notifications', undefined, { cookies: reaUser })).data.items.some((n: { kind: string }) => n.kind === 'mention')).toBe(false);
+    expect((await req('GET', '/api/notifications')).data.items.some((n: { kind: string }) => n.kind === 'mention')).toBe(false);
+
+    // Resolve, then a reply reopens the thread and tells the others in it.
+    await req('PATCH', `/api/entry-comments/${first.data.comment.id}`, { resolved: true });
+    const reply = await req('POST', `/api/entries/${post.id}/comments`, { body: 'Mach ich.', parentId: first.data.comment.id }, { cookies: reaUser });
+    expect(reply.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 50));
+    const list = await req('GET', `/api/entries/${post.id}/comments`);
+    expect(list.data.comments).toHaveLength(2);
+    expect(list.data.comments[0].resolved_at).toBeNull();
+    expect(list.data.people.map((p: { name: string }) => p.name)).toContain('Rea Keller');
+    const [replied] = await sql`select title, user_id from notifications where title like 'Rea Keller hat geantwortet%'`;
+    expect(replied.user_id).toBe((await sql`select id from users where email = 'sandra@example.ch'`)[0].id);
+
+    // Pinned to a block; replies stay on the thread's block.
+    const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+    const blockId = page.data.blocks[0].id;
+    const pinned = await req('POST', `/api/entries/${page.id}/comments`, { body: 'Bild fehlt', blockId });
+    expect(pinned.data.comment.block_id).toBe(blockId);
+
+    // Rights: only the writer edits; deleting others' comments needs publishing rights.
+    const edit = await req('PATCH', `/api/entry-comments/${first.data.comment.id}`, { body: 'Geändert' }, { cookies: reaUser });
+    expect(edit.status).toBe(403);
+    const tim = await req('POST', '/api/users', { email: 'tim@example.ch', name: 'Tim', role: 'author' });
+    const timUser = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'tim@example.ch', password: tim.data.temporaryPassword }, { cookies: timUser });
+    expect((await req('DELETE', `/api/entry-comments/${first.data.comment.id}`, undefined, { cookies: timUser })).status).toBe(403);
+    // Authors see comments only on their own entries.
+    expect((await req('GET', `/api/entries/${page.id}/comments`, undefined, { cookies: timUser })).status).toBe(403);
+    expect((await req('POST', `/api/entries/${post.id}/comments`, { body: '   ' })).status).toBe(400);
+    expect((await req('DELETE', `/api/entry-comments/${reply.data.comment.id}`)).status).toBe(200);
   });
 });

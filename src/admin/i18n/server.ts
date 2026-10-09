@@ -1028,4 +1028,34 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   '«{text}» – wartet auf Freigabe.': { fr: '«{text}» – en attente de validation.', it: '«{text}» – in attesa di approvazione.', en: '“{text}” – awaiting approval.' },
   'Anfrage: {title}': { fr: 'Demande: {title}', it: 'Richiesta: {title}', en: 'Enquiry: {title}' },
   '{name} möchte besichtigen': { fr: '{name} souhaite visiter', it: '{name} vorrebbe visitare', en: '{name} would like a viewing' },
+  'Der Kommentar ist leer.': { fr: 'Le commentaire est vide.', it: 'Il commento è vuoto.', en: 'The comment is empty.' },
+  'Diesen Kommentar gibt es nicht mehr.': { fr: 'Ce commentaire n’existe plus.', it: 'Questo commento non esiste più.', en: 'This comment no longer exists.' },
+  'Antworten gehen an den ersten Kommentar eines Gesprächs.': {
+    fr: 'Les réponses s’adressent au premier commentaire d’une discussion.',
+    it: 'Le risposte vanno al primo commento di una discussione.',
+    en: 'Replies go to the first comment of a thread.',
+  },
+  'Nur wer den Kommentar geschrieben hat, kann ihn ändern.': {
+    fr: 'Seule la personne qui a écrit le commentaire peut le modifier.',
+    it: 'Solo chi ha scritto il commento può modificarlo.',
+    en: 'Only the person who wrote the comment can change it.',
+  },
+  'Erledigt wird das ganze Gespräch, nicht eine Antwort.': {
+    fr: 'C’est toute la discussion qui est réglée, pas une réponse.',
+    it: 'Si risolve l’intera discussione, non una risposta.',
+    en: 'The whole thread is resolved, not a single reply.',
+  },
+  'Nur wer den Kommentar geschrieben hat, kann ihn löschen.': {
+    fr: 'Seule la personne qui a écrit le commentaire peut le supprimer.',
+    it: 'Solo chi ha scritto il commento può eliminarlo.',
+    en: 'Only the person who wrote the comment can delete it.',
+  },
+  'Du kannst nur Kommentare zu deinen eigenen Beiträgen sehen.': {
+    fr: 'Vous ne pouvez voir que les commentaires sur vos propres articles.',
+    it: 'Puoi vedere solo i commenti sui tuoi articoli.',
+    en: 'You can only see comments on your own posts.',
+  },
+  '{user} hat dich erwähnt: {title}': { fr: '{user} vous a mentionné : {title}', it: '{user} ti ha menzionato: {title}', en: '{user} mentioned you: {title}' },
+  '{user} hat geantwortet: {title}': { fr: '{user} a répondu : {title}', it: '{user} ha risposto: {title}', en: '{user} replied: {title}' },
+  'Neuer Kommentar von {user}: {title}': { fr: 'Nouveau commentaire de {user} : {title}', it: 'Nuovo commento di {user}: {title}', en: 'New comment from {user}: {title}' },
 };
