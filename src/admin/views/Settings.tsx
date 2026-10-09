@@ -958,13 +958,13 @@ function DataSettings() {
     try {
       const r = await api.post<{ deleted: Record<string, number>; anonymizedOrders: number; anonymizedBookings: number }>('/api/privacy/delete', { email });
       const kept = [r.anonymizedOrders && `${r.anonymizedOrders} Bestellungen`, r.anonymizedBookings && `${r.anonymizedBookings} Reservationen`].filter(Boolean).join(' und ');
-      toast(`Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`);
+      toast(`Gelöscht: ${r.deleted.submissions} Einträge, ${r.deleted.contacts} Kontakte, ${r.deleted.comments} Kommentare${r.deleted.subscribers ? ', Newsletter-Anmeldung' : ''}${r.deleted.members ? ', Mitgliederkonto' : ''}.${kept ? ` ${kept} anonymisiert.` : ''}`);
       setPerson(null);
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen' };
+  const LABEL: Record<string, string> = { contacts: 'Kontakte', submissions: 'Formulareinträge', orders: 'Bestellungen', comments: 'Kommentare', users: 'Benutzerkonten', bookings: 'Reservationen', subscribers: 'Newsletter-Anmeldungen', members: 'Mitgliederkonten' };
   return (
     <>
       <PageHead title="Daten & Datenschutz" sub="Deine Daten gehören dir. Alles lässt sich jederzeit exportieren – ohne Umweg über den Support." />

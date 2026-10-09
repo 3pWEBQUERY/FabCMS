@@ -13,6 +13,7 @@ export type Capability =
   | 'orders.manage'
   | 'bookings.manage'
   | 'newsletter.manage'
+  | 'members.manage'
   | 'comments.moderate'
   | 'settings.manage'
   | 'users.manage'
@@ -35,6 +36,7 @@ const ALL: Capability[] = [
   'orders.manage',
   'bookings.manage',
   'newsletter.manage',
+  'members.manage',
   'comments.moderate',
   'settings.manage',
   'users.manage',
@@ -61,6 +63,7 @@ export const ROLE_CAPS: Record<Role, Capability[]> = {
     'orders.manage',
     'bookings.manage',
     'newsletter.manage',
+    'members.manage',
     'comments.moderate',
   ],
   author: ['content.edit.own', 'media.upload'],
@@ -72,7 +75,7 @@ export const ROLE_LABELS: Record<Role, { name: string; help: string }> = {
   admin: { name: 'Admin', help: 'Darf alles ausser die direkte Datenbank-Abfrage.' },
   editor: { name: 'Redaktion', help: 'Bearbeitet und veröffentlicht alle Inhalte.' },
   author: { name: 'Autor', help: 'Schreibt eigene Beiträge und reicht sie zur Freigabe ein.' },
-  member: { name: 'Mitglied', help: 'Kein Zugang zur Verwaltung.' },
+  member: { name: 'Mitglied', help: 'Kein Zugang zur Verwaltung. (Mitglieder der Website verwaltest du unter «Mitglieder».)' },
 };
 
 export const DEFAULT_ROLE_MODES: Record<Role, Mode[]> = {

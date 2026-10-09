@@ -22,12 +22,14 @@ const f = (type: FormFieldDef['type'], label: string, required = false, extra: P
 
 interface Seed {
   home: Block[];
-  pages: { slug: string; title: string; blocks: Block[] }[];
+  pages: { slug: string; title: string; blocks: Block[]; access?: 'members' | 'paid' }[];
   nav: NavItem[];
   forms: { key: string; name: string; fields: FormFieldDef[]; success: string; submit: string }[];
   entries: { collection: string; data: Record<string, unknown> }[];
   tagline: string;
   footer: string;
+  /** Mitglieder: e.g. a club invites its members instead of open sign-up. */
+  members?: { registration: 'open' | 'invite' };
   /** Reservation & Termine: what can be booked, with what or whom. */
   booking?: {
     mode: 'table' | 'appointment';
@@ -519,6 +521,7 @@ function hotel(): Seed {
 function club(): Seed {
   return {
     tagline: 'Gemeinsam laufen seit 1972',
+    members: { registration: 'invite' },
     footer: 'Training jeden Dienstag und Donnerstag, 18:30 beim Schulhaus.',
     home: [
       b('hero', { variant: 'statement', eyebrow: 'Laufverein', title: 'Gemeinsam laufen. Bei jedem Wetter, in jedem Tempo.', text: 'Dienstag und Donnerstag um 18:30 beim Schulhaus. Probetraining jederzeit – einfach vorbeikommen.', primary: { label: 'Mitglied werden', href: '/mitmachen' } }),
@@ -526,7 +529,19 @@ function club(): Seed {
       b('stats', { items: [{ value: '1972', label: 'gegründet' }, { value: '86', label: 'Mitglieder' }, { value: '2×', label: 'Training pro Woche' }] }),
       b('cta', { heading: 'Mitlaufen?', text: 'Jahresbeitrag CHF 60, Jugendliche gratis.', primary: { label: 'Mitglied werden', href: '/mitmachen' } }, { tone: 'muted' }),
     ],
-    pages: [{ slug: 'mitmachen', title: 'Mitmachen', blocks: [b('form', { heading: 'Mitglied werden', form: '@form:beitritt' })] }, contactPage()],
+    pages: [
+      { slug: 'mitmachen', title: 'Mitmachen', blocks: [b('form', { heading: 'Mitglied werden', form: '@form:beitritt' })] },
+      {
+        slug: 'intern',
+        title: 'Intern',
+        access: 'members',
+        blocks: [
+          b('text', { heading: 'Für Mitglieder', body: '<p>Trainingsplan, Protokolle der Generalversammlung, Telefonliste – alles, was nicht öffentlich sein soll. Nur wer angemeldet ist, sieht diese Seite.</p>' }),
+          b('faq', { heading: 'Häufige Fragen', items: [{ q: 'Wer bekommt ein Konto?', a: '<p>Alle Vereinsmitglieder. Der Vorstand lädt dich per E-Mail ein.</p>' }] }),
+        ],
+      },
+      contactPage(),
+    ],
     nav: [
       { id: shortId(), label: 'Neuigkeiten', href: '/journal' },
       { id: shortId(), label: 'Mitmachen', href: '/mitmachen' },
@@ -636,8 +651,8 @@ export async function seedSite(sectors: string[], siteName: string, userId: stri
         formIds.set(form.key, row.id as string);
       }
     }
-    const upsertPage = async (slug: string, title: string, blocks: Block[]) => {
-      const data = { title, blocks: linkForms(blocks, formIds), seo: {} };
+    const upsertPage = async (slug: string, title: string, blocks: Block[], access?: string) => {
+      const data = { title, blocks: linkForms(blocks, formIds), seo: {}, ...(access ? { access } : {}) };
       await tx`
         insert into entries (collection, slug, status, data, published_data, published_slug, published_at, author_id)
         values ('pages', ${slug}, 'published', ${json(data)}, ${json(data)}, ${slug}, ${now}, ${userId})
@@ -649,7 +664,7 @@ export async function seedSite(sectors: string[], siteName: string, userId: stri
       for (const p of s.pages) {
         if (seenPages.has(p.slug)) continue;
         seenPages.add(p.slug);
-        await upsertPage(p.slug, p.title, p.blocks);
+        await upsertPage(p.slug, p.title, p.blocks, p.access);
       }
     let order = 0;
     for (const s of seeds)
@@ -682,6 +697,8 @@ export async function seedSite(sectors: string[], siteName: string, userId: stri
     const current = await getSettings();
     await updateSettings({ booking: { ...current.booking, mode: bookingMode, autoConfirm: bookingMode === 'table' } });
   }
+  const members = seeds.find((s) => s.members)?.members;
+  if (members) await updateSettings({ members: { ...(await getSettings()).members, ...members } });
   bumpGeneration();
   return { tagline: primary.tagline, footer: primary.footer, nav };
 }

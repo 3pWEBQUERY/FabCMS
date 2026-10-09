@@ -2,7 +2,7 @@ import { html, raw, esc, cx, field, lines, join, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
-import type { Block, FormDef } from '../shared/types';
+import type { Block, EntryData, FormDef } from '../shared/types';
 import type { LinkValue } from '../shared/fields';
 import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
@@ -13,6 +13,8 @@ import { localDay, zonedToUtc, type BookingService } from '../shared/booking';
 import { MONTHS, longDay } from '../shared/dates';
 import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
+import { entryAccess } from '../shared/members';
+import { membershipBox } from './members';
 import { env } from '../server/env';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
@@ -137,6 +139,12 @@ export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): 
 /** Without a photo a card shows the first letter in the display face – deliberate, not a broken image. */
 const noPhoto = (title: string) => html`<div class="ph ph-empty" aria-hidden="true">${(title.trim()[0] ?? '·').toUpperCase()}</div>`;
 
+/** Small «Mitglieder» tag on teasers of members-only posts. */
+function lockTag(d: EntryData): Html {
+  const a = entryAccess(d);
+  return a === 'public' ? html`` : html` <span class="lock-tag">${a === 'paid' ? 'Mitgliedschaft' : 'Mitglieder'}</span>`;
+}
+
 export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<typeof publishedEntries>>['items'], layout: string): Promise<Html> {
   const posts = ctx.collections.find((c) => c.id === 'posts')!;
   await ctx.preloadMedia(items.map((i) => i.data.cover));
@@ -147,7 +155,7 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
   if (layout === 'list')
     return html`<ul class="posts-list">${items.map(
       (i) =>
-        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}"><h3>${i.data.title}</h3>${
+        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}"><h3>${i.data.title}${lockTag(i.data)}</h3>${
           i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
         }</a></li>`,
     )}</ul>`;
@@ -156,7 +164,7 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
       const img = await ctx.media(i.data.cover);
       return html`<a class="card" href="${entryPath(posts, i.slug)}">${
         img ? html`<div class="ph">${picture(img, { sizes: layout === 'feature' && idx === 0 ? '(min-width: 56rem) 60vw, 100vw' : '(min-width: 56rem) 30vw, 100vw', maxWidth: 1600, ratio: '3/2' })}</div>` : ''
-      }<div><span class="label">${(i.data.category as string) || ''}</span><h3>${i.data.title}</h3>${
+      }<div><span class="label">${(i.data.category as string) || ''}</span><h3>${i.data.title}${lockTag(i.data)}</h3>${
         i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
       }<p class="muted" style="margin-top:.5rem">${date(i)} · ${readingTime(blocksText(i.data.blocks))} Min. Lesezeit</p></div></a>`;
     }),
@@ -504,6 +512,13 @@ const R: Record<string, Renderer> = {
     </form>
     <p class="nl-note">Du bekommst zuerst eine E-Mail zum Bestätigen. Abmelden geht jederzeit. <a href="/datenschutz">Datenschutz</a></p>`
     }</div>`;
+  },
+
+  membership(b, ctx) {
+    const p = b.props as P;
+    const head = heading(ctx, p, 'heading', 'intro');
+    if (!ctx.settings.modules.includes('members')) return html`<div class="wrap">${head}${empty(ctx, 'Aktiviere «Mitglieder» unter Einstellungen → Module.')}</div>`;
+    return membershipBox(ctx, p, head);
   },
 
   contact(b, ctx) {

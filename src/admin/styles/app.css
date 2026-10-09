@@ -3458,3 +3458,22 @@ button.list-item {
   background: var(--sel);
   transition: width 0.4s var(--ease);
 }
+
+/* key facts in dialogs (member detail) */
+.facts {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+.facts div {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.75rem;
+  font-size: var(--t-s);
+}
+.facts dt {
+  color: var(--ink-3);
+}
+.facts dd {
+  margin: 0;
+}

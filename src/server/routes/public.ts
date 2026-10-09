@@ -37,6 +37,9 @@ import { runtimeScript, type RuntimeName } from '../../site/assets';
 import { notify as notifyTeam } from '../notify';
 import { bookingPublicRoutes } from './public-booking';
 import { newsletterPublicRoutes } from './public-newsletter';
+import { membersPublicRoutes } from './public-members';
+import { currentMember } from '../members';
+import { entryAccess, mayRead } from '../../shared/members';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
@@ -77,6 +80,7 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
   const url = new URL(c.req.url);
   const cart = settings.modules.includes('shop') ? await cartItems(c) : [];
   const age = unsign(getCookie(c, AGE_COOKIE), await appSecret()) === '1';
+  const member = settings.modules.includes('members') && !opts.edit && !opts.preview ? await currentMember(c) : null;
   return createContext({
     settings,
     collections: await activeCollections(),
@@ -87,6 +91,7 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
     preview: opts.preview,
     ageOk: age,
     cartCount: cart.reduce((s, i) => s + i.q, 0),
+    member: member ? { id: member.id, name: member.name, level: member.level } : null,
   });
 }
 
@@ -207,6 +212,7 @@ export function looksLikeSpam(body: Record<string, unknown>): boolean {
 export function publicRoutes(app: Hono<AppEnv>) {
   bookingPublicRoutes(app);
   newsletterPublicRoutes(app);
+  membersPublicRoutes(app);
   app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
     const name = c.req.param('name').replace('.js', '') as RuntimeName;
     const { code } = await runtimeScript(name);
@@ -410,6 +416,9 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const s = await getSettings();
     const [e] = await sql`select collection, slug, published_data from entries where id = ${id} and status = 'published' and collection = 'posts'`;
     if (!e || !s.blog.comments || (e.published_data as EntryData).allowComments === false) return c.notFound();
+    // Behind the paywall, only those who can read may comment.
+    const access = entryAccess(e.published_data as EntryData);
+    if (access !== 'public' && !mayRead(access, (await currentMember(c))?.level ?? null)) return c.notFound();
     const path = entryPath(await getCollection('posts'), e.slug as string) ?? '/';
     const body = await c.req.parseBody();
     if (looksLikeSpam(body)) return c.redirect(`${path}?kommentar=danke#kommentare`, 303);
@@ -669,7 +678,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
       .map((i) => {
         const d = i.data as EntryData;
         const link = base + entryPath(col, i.slug as string);
-        const desc = (d.excerpt as string) || excerpt(blocksText(d.blocks), 300);
+        const desc = (d.excerpt as string) || (entryAccess(d) === 'public' ? excerpt(blocksText(d.blocks), 300) : '');
         const date = new Date((d.date as string) || i.published_at).toUTCString();
         return `<item><title>${x(d.title)}</title><link>${x(link)}</link><guid>${x(link)}</guid><pubDate>${date}</pubDate><description>${x(desc)}</description>${d.category ? `<category>${x(d.category)}</category>` : ''}</item>`;
       })
@@ -699,7 +708,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
                ts_rank(to_tsvector('german', published_data::text), websearch_to_tsquery('german', ${q})) as rank
         from entries
         where status = 'published' and collection = any(${collections.map((x) => x.id)})
-          and (to_tsvector('german', published_data::text) @@ websearch_to_tsquery('german', ${q}) or published_data ->> 'title' ilike ${'%' + q.replace(/[%_]/g, '') + '%'})
+          and ((coalesce(published_data ->> 'access', 'public') = 'public' and to_tsvector('german', published_data::text) @@ websearch_to_tsquery('german', ${q}))
+            or published_data ->> 'title' ilike ${'%' + q.replace(/[%_]/g, '') + '%'})
           and coalesce(published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
         order by rank desc limit 30`;
       results = rows
@@ -707,7 +717,9 @@ export function publicRoutes(app: Hono<AppEnv>) {
           const col = collections.find((x) => x.id === r.collection)!;
           const d = r.data as EntryData;
           const href = entryPath(col, r.slug as string) ?? col.list_route;
-          return href ? { title: d.title, href, text: excerpt((d.excerpt as string) || (d.description ? stripHtml(String(d.description)) : '') || blocksText(d.blocks), 180) } : null;
+          // Members-only entries are found by their title and show only their excerpt.
+          const body = entryAccess(d) === 'public' ? (d.description ? stripHtml(String(d.description)) : '') || blocksText(d.blocks) : '';
+          return href ? { title: d.title, href, text: excerpt((d.excerpt as string) || body, 180) } : null;
         })
         .filter((x): x is { title: string; href: string; text: string } => x !== null);
     }
@@ -748,11 +760,18 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const s = await getSettings();
     const ageOk = unsign(getCookie(c, AGE_COOKIE), await appSecret()) === '1';
     const cart = s.modules.includes('shop') ? (await cartItems(c)).reduce((n, i) => n + i.q, 0) : 0;
-    const key = `${path}?${url.searchParams}|${ageOk ? 1 : 0}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}`;
+    // Members see other content (and «Mein Konto» in the header): one cached copy per level.
+    const member = s.modules.includes('members') ? await currentMember(c) : null;
+    const key = `${path}?${url.searchParams}|${ageOk ? 1 : 0}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
+    const send = (body: string, etag: string) => {
+      const res = sendHtml(c, body, 200, etag);
+      if (member) res.headers.set('Cache-Control', 'private, no-cache');
+      return res;
+    };
     const hit = cacheGet(key);
     if (hit) {
       if (c.req.header('if-none-match') === hit.etag) return c.body(null, 304);
-      return sendHtml(c, hit.html, 200, hit.etag);
+      return send(hit.html, hit.etag);
     }
 
     const staff = Boolean(c.get('user'));
@@ -762,7 +781,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const ctx = await ctxFor(c);
     const body = resolved.kind === 'entry' ? await renderPage(ctx, resolved.collection, resolved.entry) : await renderList(ctx, resolved.collection);
     const etag = cacheSet(key, body);
-    return sendHtml(c, body, 200, etag);
+    return send(body, etag);
   });
 }
 

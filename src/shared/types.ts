@@ -193,6 +193,16 @@ export interface SiteSettings {
     /** Secret part of the calendar subscription URL. */
     feedToken: string;
   };
+  members: {
+    /** «open»: anyone can create an account; «invite»: only the team adds people. */
+    registration: 'open' | 'invite';
+    /** Paid membership via Stripe; price 0 = no paid tier. */
+    planName: string;
+    price: number;
+    interval: 'month' | 'year';
+    /** What members get, shown on the paywall and the membership block. */
+    perks: string;
+  };
   newsletter: {
     /** «each»: every new post goes out on its own; «weekly»: one digest per week. */
     auto: 'off' | 'each' | 'weekly';

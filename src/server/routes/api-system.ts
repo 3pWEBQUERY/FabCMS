@@ -1,4 +1,5 @@
 import type { Hono } from 'hono';
+import { deleteMember } from '../members';
 import { z } from 'zod';
 import { createHmac } from 'node:crypto';
 import QRCode from 'qrcode';
@@ -452,7 +453,8 @@ export function systemApi(app: Hono<AppEnv>) {
     const users = await sql`select id, email, name, role, created_at from users where lower(email) = ${e}`;
     const bookings = await sql`select id, starts_at, party_size, name, email, phone, note, status, created_at from bookings where lower(email) = ${e}`;
     const subscribers = await sql`select id, email, name, status, source, ip, created_at, confirmed_at, unsubscribed_at from subscribers where lower(email) = ${e}`;
-    return { contacts, submissions, orders, comments, users, bookings, subscribers };
+    const members = await sql`select id, email, name, status, email_verified_at, paid_until, subscription_status, created_at, last_login_at from members where lower(email) = ${e}`;
+    return { contacts, submissions, orders, comments, users, bookings, subscribers, members };
   }
 
   app.get('/api/privacy', async (c) => {
@@ -488,10 +490,12 @@ export function systemApi(app: Hono<AppEnv>) {
           customer = jsonb_build_object('name', 'Gelöscht', 'street', '', 'zip', customer ->> 'zip', 'city', customer ->> 'city', 'country', customer ->> 'country', 'phone', '', 'company', ''),
           note = '' where id = any(${d.orders.map((s) => s.id as string)}::uuid[])`;
     });
+    // Member accounts last: this also ends a running subscription at Stripe.
+    for (const m of d.members) await deleteMember(m.id as string);
     await audit(c, 'privacy.delete', 'person', sha256(email.toLowerCase()).slice(0, 12), { submissions: d.submissions.length, orders: d.orders.length });
     bumpGeneration();
     return c.json({
-      deleted: { submissions: d.submissions.length, contacts: d.contacts.length, comments: d.comments.length, subscribers: d.subscribers.length },
+      deleted: { submissions: d.submissions.length, contacts: d.contacts.length, comments: d.comments.length, subscribers: d.subscribers.length, members: d.members.length },
       anonymizedOrders: d.orders.length,
       anonymizedBookings: d.bookings.length,
     });

@@ -333,6 +333,81 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(info.data.counts.subscribers).toBe(1);
   });
 
+  it('keeps members-only content behind the paywall everywhere, and members get in', async () => {
+    const settings = await req('GET', '/api/settings');
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.data.settings.modules, 'members', 'blog'])] });
+    const text = (body: string) => ({ id: Math.random().toString(36).slice(2), type: 'text', props: { heading: '', body } });
+    const post = await req('POST', '/api/entries', {
+      collection: 'posts',
+      data: { title: 'Nur für Mitglieder', excerpt: 'Ein Blick hinter die Kulissen.', access: 'members', blocks: [text('<p>Der Einstieg ist für alle.</p>'), text('<p>Geheimzutat Kardamom.</p>')] },
+    });
+    await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    const path = `/journal/${post.data.entry.slug}`;
+
+    const anon = await req('GET', path, undefined, { cookies: new Map() });
+    expect(anon.status).toBe(200);
+    expect(anon.data).toContain('Weiterlesen mit deinem Konto');
+    expect(anon.data).toContain('Der Einstieg ist für alle.');
+    expect(anon.data).not.toContain('Kardamom');
+    expect(anon.data).toContain('"isAccessibleForFree":false');
+    // Nothing leaks through search, feed or the public API.
+    expect((await req('GET', '/suche?q=Kardamom', undefined, { cookies: new Map() })).data).not.toContain('Kardamom</');
+    expect((await req('GET', '/feed.xml', undefined, { cookies: new Map() })).data).not.toContain('Kardamom');
+    expect(JSON.stringify((await req('GET', '/api/v1/posts', undefined, { cookies: new Map() })).data)).not.toContain('Kardamom');
+
+    // Sign up → confirmation link → signed in.
+    const visitor = new Map<string, string>();
+    outbox.length = 0;
+    const reg = await req('POST', '/konto/registrieren', undefined, {
+      cookies: visitor,
+      form: { name: 'Mia Keller', email: 'mia@example.ch', password: 'ein langes passwort', weiter: path, _t: (Date.now() - 5000).toString(36) },
+    });
+    expect(reg.headers.get('location')).toBe('/konto/registrieren?gesendet=1');
+    const early = await req('POST', '/konto/anmelden', undefined, { cookies: visitor, form: { email: 'mia@example.ch', password: 'ein langes passwort' } });
+    expect(early.status).toBe(403);
+    const link = outbox.find((m) => m.to === 'mia@example.ch')!.text.match(/\/konto\/bestaetigen\/[\w-]+\?weiter=[^\s]+/)![0];
+    expect((await req('GET', link, undefined, { cookies: visitor })).data).toContain('Konto bestätigen');
+    const token = link.split('/')[3].split('?')[0];
+    const confirmed = await req('POST', `/konto/bestaetigen/${token}`, undefined, { cookies: visitor, form: { weiter: path } });
+    expect(confirmed.headers.get('location')).toBe(path);
+    expect(visitor.get('nova_member')).toBeTruthy();
+
+    const member = await req('GET', path, undefined, { cookies: visitor });
+    expect(member.data).toContain('Kardamom');
+    expect(member.data).toContain('Mein Konto');
+    expect(member.headers.get('cache-control')).toContain('private');
+    // The page cache keeps the two apart.
+    expect((await req('GET', path, undefined, { cookies: new Map() })).data).not.toContain('Kardamom');
+
+    // Paid content: a free account is not enough, granted access is.
+    const current = await req('GET', `/api/entries/${post.data.entry.id}`);
+    await req('PUT', `/api/entries/${post.data.entry.id}`, { data: { ...current.data.entry.data, access: 'paid' } });
+    await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    expect((await req('GET', path, undefined, { cookies: visitor })).data).not.toContain('Kardamom');
+    const list = await req('GET', '/api/members');
+    const mia = list.data.members.find((m: { email: string }) => m.email === 'mia@example.ch');
+    expect(mia.level).toBe('member');
+    const nextYear = `${new Date().getFullYear() + 1}-12-31`;
+    expect((await req('PATCH', `/api/members/${mia.id}`, { paid_until: nextYear })).data.member.level).toBe('paid');
+    expect((await req('GET', path, undefined, { cookies: visitor })).data).toContain('Kardamom');
+
+    // Blocking ends the session at once.
+    await req('PATCH', `/api/members/${mia.id}`, { status: 'blocked' });
+    expect((await req('GET', path, undefined, { cookies: visitor })).data).not.toContain('Kardamom');
+    await req('PATCH', `/api/members/${mia.id}`, { status: 'active' });
+
+    // Forgot password → link → new password works.
+    outbox.length = 0;
+    await req('POST', '/konto/passwort-vergessen', undefined, { cookies: new Map(), form: { email: 'mia@example.ch' } });
+    const reset = outbox[0].text.match(/\/konto\/passwort\/[\w-]+/)![0];
+    expect((await req('POST', reset, undefined, { cookies: new Map(), form: { password: 'noch ein langes passwort' } })).headers.get('location')).toBe('/konto?ok=passwort');
+    const login = await req('POST', '/konto/anmelden', undefined, { cookies: new Map(), form: { email: 'mia@example.ch', password: 'noch ein langes passwort', weiter: '/konto' } });
+    expect(login.headers.get('location')).toBe('/konto');
+
+    const info = await req('GET', '/api/privacy?email=mia@example.ch');
+    expect(info.data.counts.members).toBe(1);
+  });
+
   it('keeps authors out of other people’s work', async () => {
     const created = await req('POST', '/api/users', { email: 'luca@example.ch', name: 'Luca', role: 'author' });
     const author = new Map<string, string>();

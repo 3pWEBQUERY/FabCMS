@@ -38,6 +38,7 @@ export function ContentHub() {
     { to: '/kontakte', icon: 'people', name: 'Kontakte', sub: 'Anfragen als Pipeline', show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },
     { to: '/reservationen', icon: 'calendar', name: 'Reservationen', sub: 'Tagesplan, Anfragen, Telefonbuchungen', show: can('bookings.manage') && mods.includes('booking'), n: counts?.counts.pending_bookings },
     { to: '/newsletter', icon: 'mail', name: 'Newsletter', sub: 'Ausgaben, Abonnent:innen, Wochenrückblick', show: can('newsletter.manage') && mods.includes('newsletter') },
+    { to: '/mitglieder', icon: 'key', name: 'Mitglieder', sub: 'Konten, Mitgliedschaft, geschützte Inhalte', show: can('members.manage') && mods.includes('members') },
     { to: '/bestellungen', icon: 'receipt', name: 'Bestellungen', sub: 'Shop-Bestellungen', show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
     { to: '/gutscheine', icon: 'ticket', name: 'Gutscheine', sub: 'Rabattcodes', show: can('orders.manage') && mods.includes('shop') },
     { to: '/kommentare', icon: 'chat', name: 'Kommentare', sub: 'Moderation', show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },

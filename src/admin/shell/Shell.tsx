@@ -28,12 +28,13 @@ const Account = lazy(() => import('../views/Account').then((m) => ({ default: m.
 const Stats = lazy(() => import('../views/Stats').then((m) => ({ default: m.Stats })));
 const Bookings = lazy(() => import('../views/Bookings').then((m) => ({ default: m.Bookings })));
 const Newsletter = lazy(() => import('../views/Newsletter').then((m) => ({ default: m.Newsletter })));
+const Members = lazy(() => import('../views/Members').then((m) => ({ default: m.Members })));
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
 
 const LEVELS = [
   { to: '/seiten', label: 'Seiten', icon: 'page', match: ['/seiten'] },
-  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter'] },
+  { to: '/inhalte', label: 'Inhalte', icon: 'layers', match: ['/inhalte', '/medien', '/formulare', '/kontakte', '/bestellungen', '/gutscheine', '/kommentare', '/reservationen', '/newsletter', '/mitglieder'] },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings', match: ['/einstellungen', '/konto'] },
 ];
 
@@ -152,6 +153,7 @@ export function Shell() {
                 { path: '/gutscheine', render: () => <Coupons /> },
                 { path: '/reservationen', render: () => <Bookings /> },
                 { path: '/newsletter', render: () => <Newsletter /> },
+                { path: '/mitglieder', render: () => <Members /> },
                 { path: '/kommentare', render: () => <Comments /> },
                 { path: '/einstellungen', render: () => <Settings section="website" /> },
                 { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },

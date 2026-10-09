@@ -7,6 +7,7 @@ import { HttpError, notFound } from '../lib/http';
 import { rateLimit } from '../lib/ratelimit';
 import { clientIp } from '../lib/http';
 import { entryPath } from '../../shared/paths';
+import { entryAccess } from '../../shared/members';
 import type { EntryData } from '../../shared/types';
 
 /**
@@ -22,7 +23,10 @@ async function tokenScopes(c: Context<AppEnv>): Promise<{ id: string; scopes: st
   return { id: t.id as string, scopes: t.scopes as string[], userId: t.created_by as string | null };
 }
 
-function shape(c: { id: string; route: string | null }, e: Record<string, any>, includeDraft: boolean) {
+function shape(c: { id: string; route: string | null }, e: Record<string, any>, includeDraft: boolean, token = includeDraft) {
+  const data = includeDraft ? e.data : e.published_data;
+  // Members-only content: without an API token only what the paywall shows (title, excerpt, cover).
+  const open = token || entryAccess(data) === 'public';
   return {
     id: e.id,
     slug: e.slug,
@@ -30,7 +34,7 @@ function shape(c: { id: string; route: string | null }, e: Record<string, any>, 
     status: e.status,
     published_at: e.published_at,
     updated_at: e.updated_at,
-    data: includeDraft ? e.data : e.published_data,
+    data: open ? data : { ...data, blocks: [], body: undefined, description: undefined },
   };
 }
 
@@ -83,15 +87,16 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     const rows = await sql`
       select *, count(*) over() as total from entries where ${where} ${filters.length ? filters.reduce((a, b) => sql`${a} ${b}`) : sql``}
       order by ${order} limit ${limit} offset ${offset}`;
-    return c.json({ data: rows.map((r) => shape(col, r, Boolean(drafts))), meta: { total: Number(rows[0]?.total ?? 0), limit, offset } });
+    return c.json({ data: rows.map((r) => shape(col, r, Boolean(drafts), Boolean(token))), meta: { total: Number(rows[0]?.total ?? 0), limit, offset } });
   });
 
   app.get('/api/v1/:collection/:slug{.+}', async (c) => {
+    const token = await tokenScopes(c);
     const col = await getCollection(c.req.param('collection'));
     const slug = c.req.param('slug') === '_home' ? '' : c.req.param('slug');
     const [e] = await sql`select * from entries where collection = ${col.id} and slug = ${slug} and status = 'published'`;
     if (!e) throw notFound();
-    return c.json({ data: shape(col, e, false) });
+    return c.json({ data: shape(col, e, false, Boolean(token)) });
   });
 
   /* writes */

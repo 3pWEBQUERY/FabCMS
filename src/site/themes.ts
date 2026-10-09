@@ -159,6 +159,8 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .nav a:hover,.nav a[aria-current=page]{background-size:100% 2px}
 .nav a:active{color:inherit}
 .nav li{position:relative}
+/* Same box as the links outside the list (account, cart), so all sit on one line. */
+.nav li>a{display:block}
 .nav .sub{position:absolute;top:100%;left:-1rem;min-width:13rem;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--line);display:none;flex-direction:column;gap:.5rem;box-shadow:0 12px 32px -16px rgb(0 0 0/.25)}
 .nav li:hover>.sub,.nav li:focus-within>.sub{display:flex}
 .cart-link{position:relative;display:inline-flex;align-items:center;gap:.35rem;text-decoration:none;font-weight:600}
@@ -477,6 +479,41 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.4;cursor:not-a
 .sys-msg h1{font-size:var(--step-5);margin:0}
 .sys-msg p{margin:0}
 .sys-msg form{margin-top:.5rem}
+/* member area */
+.acct-link{text-decoration:none;font-weight:600;white-space:nowrap}
+.nav .acct-link{align-self:center}
+.acct{display:grid;gap:1.25rem;max-width:30rem;padding-block:var(--sp-s)}
+.acct.wide{max-width:40rem}
+.acct h1{font-size:var(--step-5);margin:0}
+.acct>p,.acct-sec p{margin:0}
+.acct .nform{gap:1rem}
+.acct .hint a{color:inherit}
+.acct-alt{color:var(--ink-2);font-size:var(--step-n1)}
+.acct-sec{display:grid;gap:1rem;border-top:1px solid var(--line);padding-top:1.5rem;margin-top:.5rem}
+.acct-sec h2{font-family:var(--font-body);font-style:normal;font-size:var(--step-0);font-weight:700;letter-spacing:0;text-transform:none;margin:0}
+.acct-sec .actions{margin:0}
+.acct-plan{font-size:var(--step-1)}
+.acct-danger{color:var(--ink-2);font-size:var(--step-n1)}
+.gate-head{padding-top:var(--sp-s)}
+.gate-head h1{font-size:var(--step-6);margin:0;max-width:20ch}
+.gate{padding-block:var(--s-6) var(--sp-s)}
+.gate-box{position:relative;display:grid;gap:.85rem;justify-items:start;max-width:38rem;margin-inline:auto;padding:clamp(1.5rem,4vw,2.5rem);border:1px solid var(--line);border-radius:var(--img-radius,0);background:var(--surface)}
+.gate-box h2{font-size:var(--step-3);margin:0}
+.gate-box p{margin:0}
+.gate-lock{position:relative;width:2.25rem;height:2.25rem;border-radius:50%;background:var(--accent)}
+.gate-lock::after{content:'';position:absolute;inset:0;background:var(--accent-ink,#fff);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Crect x='7.5' y='11' width='9' height='7' rx='1.5'/%3E%3Cpath d='M9.5 11V9a2.5 2.5 0 0 1 5 0v2'/%3E%3C/svg%3E") center/100% no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Crect x='7.5' y='11' width='9' height='7' rx='1.5'/%3E%3Cpath d='M9.5 11V9a2.5 2.5 0 0 1 5 0v2'/%3E%3C/svg%3E") center/100% no-repeat}
+.gate-perks{margin:0;padding:0;list-style:none;display:grid;gap:.45rem}
+.gate-perks li{position:relative;padding-left:1.6rem}
+.gate-perks li::before{content:'';position:absolute;left:0;top:.45em;width:.85rem;height:.45rem;border-left:2px solid var(--accent);border-bottom:2px solid var(--accent);transform:rotate(-45deg)}
+.gate-actions{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:center;margin-top:.5rem}
+.gate-teaser{position:relative;max-height:14rem;overflow:hidden;-webkit-mask-image:linear-gradient(#000 40%,transparent);mask-image:linear-gradient(#000 40%,transparent)}
+.lock-tag{display:inline-block;vertical-align:.2em;margin-left:.35em;padding:.15em .55em;border:1px solid var(--line);border-radius:99px;font-family:var(--font-body);font-size:.55em;font-weight:600;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap}
+.plan{display:grid;gap:1rem;justify-items:start;max-width:30rem;padding:clamp(1.5rem,4vw,2.25rem);border:1px solid var(--line);border-radius:var(--img-radius,0);background:var(--surface)}
+.plan-head h3{font-size:var(--step-2);margin:0}
+.plan-price{margin:.35rem 0 0;color:var(--ink-2)}
+.plan-price .num{font-family:var(--font-display);font-size:var(--step-4);color:var(--ink);margin-right:.2em}
+.plan .form-ok{padding:.6rem 1rem}
+.plan-note{margin:0;color:var(--ink-2);font-size:var(--step-n1)}
 /* newsletter */
 .nl{display:grid;gap:var(--s-5);max-width:40rem}
 .nl-form{display:grid;grid-template-columns:1fr auto;gap:.75rem 1rem;align-items:end}

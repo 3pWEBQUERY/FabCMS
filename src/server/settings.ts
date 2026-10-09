@@ -79,6 +79,7 @@ export function defaultSettings(): SiteSettings {
       notifyEmail: '',
       feedToken: '',
     },
+    members: { registration: 'open', planName: 'Mitgliedschaft', price: 0, interval: 'month', perks: '' },
     newsletter: { auto: 'off', weekday: 1 },
     blog: { comments: true, perPage: 10 },
     menu: { showAllergens: true, dailyTitle: 'Heute' },

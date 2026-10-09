@@ -1,4 +1,6 @@
 import type { CollectionDef } from './types';
+import type { FieldDef } from './fields';
+import { ACCESS_OPTIONS } from './members';
 
 export const ALLERGENS: { value: string; label: string; short: string }[] = [
   { value: 'gluten', label: 'Glutenhaltiges Getreide', short: 'Gluten' },
@@ -26,13 +28,23 @@ export const DISH_TAGS = [
 
 const seoNote = 'Wird automatisch aus dem Inhalt erzeugt, wenn leer.';
 
+const accessField: FieldDef = {
+  key: 'access',
+  type: 'select',
+  label: 'Wer darf das sehen?',
+  help: 'Mit dem Modul «Mitglieder». Alle anderen sehen Titel, Kurzfassung und eine Einladung, sich anzumelden.',
+  options: ACCESS_OPTIONS,
+  default: 'public',
+  width: 'half',
+};
+
 export const BUILTIN_COLLECTIONS: CollectionDef[] = [
   {
     id: 'pages',
     name: 'Seiten',
     singular: 'Seite',
     icon: 'page',
-    fields: [{ key: 'title', type: 'text', label: 'Titel der Seite', required: true, maxLength: 120 }],
+    fields: [{ key: 'title', type: 'text', label: 'Titel der Seite', required: true, maxLength: 120 }, accessField],
     route: '/:slug',
     list_route: null,
     has_blocks: true,
@@ -55,6 +67,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
       { key: 'tags', type: 'tags', label: 'Schlagwörter', width: 'half' },
       { key: 'series', type: 'text', label: 'Serie', help: 'Beiträge mit gleichem Seriennamen werden miteinander verlinkt.', pro: false },
       { key: 'allowComments', type: 'boolean', label: 'Kommentare erlauben', default: true },
+      accessField,
     ],
     route: '/journal/:slug',
     list_route: '/journal',
@@ -261,6 +274,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'profiles', name: 'Profile & Verfügbarkeit', description: 'Personenprofile mit Anwesenheit – inklusive Einwilligungsnachweis.', collections: ['profiles'], status: 'ready' },
   { id: 'booking', name: 'Reservation & Termine', description: 'Tische oder Termine online buchen: freie Zeiten aus den Öffnungszeiten, Bestätigung und Erinnerung per E-Mail, Kalender-Abo.', collections: [], status: 'ready' },
   { id: 'newsletter', name: 'Newsletter', description: 'Anmeldung mit Bestätigung per E-Mail, neue Beiträge verschicken – von Hand, einzeln oder als Wochenrückblick. Abmelden mit einem Klick.', collections: [], status: 'ready' },
+  { id: 'members', name: 'Mitglieder', description: 'Konten für Besucher:innen, Seiten und Beiträge nur für Mitglieder, bezahlte Mitgliedschaft im Abo über Stripe.', collections: [], status: 'ready' },
   { id: 'events', name: 'Events & Tickets', description: 'Eventkalender, Ticketkategorien, Check-in.', collections: [], status: 'later' },
 ];
 
@@ -284,7 +298,7 @@ export const SECTORS: SectorDef[] = [
   { id: 'practice', name: 'Praxis & Therapie', hint: 'Angebot, Termine online, Anfahrt', modules: ['booking', 'leads'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'MedicalBusiness' },
   { id: 'portfolio', name: 'Portfolio & Agentur', hint: 'Arbeiten zeigen', modules: ['portfolio', 'leads'], themes: ['kante', 'feuilleton', 'salon'], businessType: 'ProfessionalService' },
   { id: 'hotel', name: 'Hotel & Ferienwohnung', hint: 'Zimmer, Lage, Anfragen', modules: ['leads'], themes: ['salon', 'bistro', 'feuilleton'], businessType: 'LodgingBusiness' },
-  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
+  { id: 'club', name: 'Verein', hint: 'Neuigkeiten, Termine, Mitmachen', modules: ['blog', 'leads', 'newsletter', 'members'], themes: ['kante', 'bistro', 'feuilleton'], businessType: 'SportsOrganization' },
   { id: 'nonprofit', name: 'Non-Profit', hint: 'Anliegen erklären, Unterstützung gewinnen', modules: ['blog', 'leads', 'newsletter'], themes: ['feuilleton', 'kante', 'bistro'], businessType: 'NGO' },
   { id: 'adult', name: 'Erotikbetrieb', hint: 'Bordell, Studio, Agentur – mit Altersschranke', modules: ['profiles', 'leads'], themes: ['salon', 'kante', 'feuilleton'], businessType: 'LocalBusiness' },
 ];

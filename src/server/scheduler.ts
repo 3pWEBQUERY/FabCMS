@@ -47,6 +47,10 @@ export function startScheduler() {
   });
   every(60 * 60_000, 'cleanup', async () => {
     await sql`delete from sessions where expires_at < now()`;
+    await sql`delete from member_sessions where expires_at < now()`;
+    await sql`delete from member_tokens where expires_at < now()`;
+    // Accounts never confirmed are dropped after 30 days.
+    await sql`delete from members where email_verified_at is null and created_at < now() - interval '30 days' and stripe_customer is null`;
     // Raw statistics are kept for 25 months, enough for year-over-year comparisons.
     await sql`delete from analytics_events where ts < now() - interval '25 months'`;
     await sql`delete from audit_log where created_at < now() - interval '2 years'`;

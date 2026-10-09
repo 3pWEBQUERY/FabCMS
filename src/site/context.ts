@@ -1,4 +1,5 @@
 import { sql } from '../server/db';
+import type { MemberLevel } from '../shared/members';
 import type { CollectionDef, MediaItem, SiteSettings } from '../shared/types';
 import type { Theme } from './themes';
 
@@ -39,6 +40,8 @@ export interface RenderContext {
   ageOk: boolean;
   cartCount: number;
   csrf: string;
+  /** Signed-in member of the website (Mitgliederbereich), if any. */
+  member: { id: string; name: string; level: MemberLevel } | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

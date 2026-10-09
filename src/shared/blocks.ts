@@ -603,6 +603,21 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'membership',
+    label: 'Mitgliedschaft',
+    description: 'Was die Mitgliedschaft kostet und bringt – mit dem passenden nächsten Schritt.',
+    icon: 'key',
+    category: 'contact',
+    module: 'members',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+    ],
+    defaults: { heading: 'Mitglied werden', intro: 'Preis und Vorteile kommen aus Einstellungen → Mitglieder.' },
+    text: (p) => sentences(p.heading, p.intro),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'contact',
     label: 'Kontaktangaben',
     description: 'Adresse, Telefon und E-Mail – kommt aus den Einstellungen.',

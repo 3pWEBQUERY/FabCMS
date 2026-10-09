@@ -1,6 +1,7 @@
 import type { RenderContext, Crumb } from './context';
 import type { CollectionDef, EntryData, MediaItem } from '../shared/types';
 import { blocksText } from '../shared/blocks';
+import { entryAccess } from '../shared/members';
 import { excerpt, stripHtml } from '../shared/text';
 import { schemaOpeningHours } from '../shared/hours';
 import { variantUrl } from './picture';
@@ -33,7 +34,7 @@ export function describe(data: EntryData, ctx: RenderContext): string {
     const v = data[k];
     if (typeof v === 'string' && v.trim()) return excerpt(stripHtml(v));
   }
-  const text = blocksText(data.blocks);
+  const text = entryAccess(data) === 'public' ? blocksText(data.blocks) : '';
   if (text) return excerpt(text);
   return ctx.settings.seo.defaultDescription || ctx.settings.tagline || '';
 }

@@ -13,6 +13,7 @@ import { csvEscape } from '../src/server/lib/http';
 import { html, raw } from '../src/site/html';
 import { scopeCss } from '../src/site/blocks';
 import { woffToSfnt } from '../src/server/og';
+import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -221,5 +222,26 @@ describe('og fonts', () => {
     const ttf = woffToSfnt(woff);
     expect(ttf.readUInt32BE(0)).toBe(woff.readUInt32BE(4));
     expect(ttf.readUInt16BE(4)).toBe(woff.readUInt16BE(12));
+  });
+});
+
+describe('member access', () => {
+  it('decides who may read what', () => {
+    expect(entryAccess({ title: 'x' })).toBe('public');
+    expect(entryAccess({ title: 'x', access: 'paid' })).toBe('paid');
+    expect(entryAccess({ title: 'x', access: 'irgendwas' })).toBe('public');
+    expect(mayRead('public', null)).toBe(true);
+    expect(mayRead('members', null)).toBe(false);
+    expect(mayRead('members', 'member')).toBe(true);
+    expect(mayRead('paid', 'member')).toBe(false);
+    expect(mayRead('paid', 'paid')).toBe(true);
+  });
+
+  it('counts running subscriptions and granted access as paid', () => {
+    const now = new Date('2026-10-10T12:00:00Z');
+    expect(memberLevel({ paid_until: null, subscription_status: '' }, now)).toBe('member');
+    expect(memberLevel({ paid_until: null, subscription_status: 'active' }, now)).toBe('paid');
+    expect(memberLevel({ paid_until: '2026-10-31T00:00:00Z', subscription_status: 'canceling' }, now)).toBe('paid');
+    expect(memberLevel({ paid_until: '2026-10-01T00:00:00Z', subscription_status: 'canceled' }, now)).toBe('member');
   });
 });

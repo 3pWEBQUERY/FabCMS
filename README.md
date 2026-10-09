@@ -39,9 +39,10 @@ Gebaut nach der PRD «Nova CMS» (Okt. 2026). Gehostet auf **Railway** mit **Rai
 
 | Variable | Wofür |
 |---|---|
-| `RESEND_API_KEY`, `MAIL_FROM` | E-Mails (Formular-Benachrichtigungen, Bestellbestätigungen, Einladungen). **Railway blockiert SMTP auf Free/Hobby-Plänen** – Resend läuft über HTTPS und funktioniert überall. |
+| `RESEND_API_KEY`, `MAIL_FROM` | E-Mails (Formular-Benachrichtigungen, Bestellbestätigungen, Reservationen, Newsletter, Mitgliederkonten, Einladungen). **Railway blockiert SMTP auf Free/Hobby-Plänen** – Resend läuft über HTTPS und funktioniert überall. |
 | `SMTP_URL` | Alternativ SMTP, z. B. `smtps://user:pass@host:465` (Railway Pro). |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Online-Zahlung: TWINT, Karte, Apple Pay, Google Pay (welche Methoden, stellst du im Stripe-Dashboard ein). Webhook-Ziel: `https://<domain>/_nova/stripe/webhook`, Ereignisse `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Online-Zahlung: TWINT, Karte, Apple Pay, Google Pay (welche Methoden, stellst du im Stripe-Dashboard ein). Webhook-Ziel: `https://<domain>/_nova/stripe/webhook`, Ereignisse `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`; für bezahlte Mitgliedschaften zusätzlich `customer.subscription.updated` und `customer.subscription.deleted`. Für «Abo verwalten» muss im Stripe-Dashboard das Kundenportal einmal gespeichert sein. |
+| `BREVO_API_KEY` + `BREVO_LIST_ID` oder `MAILCHIMP_API_KEY` + `MAILCHIMP_LIST_ID` | Optional: Die Newsletter-Liste wird dorthin gespiegelt (An- und Abmeldungen, Löschungen). Verschickt wird weiterhin von Nova. |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | Optionaler unsichtbarer Spamschutz (Cloudflare Turnstile) pro Formular zuschaltbar. |
 | `APP_SECRET` | Schlüssel für signierte Cookies (Warenkorb, Altersschranke). Ohne Angabe erzeugt Nova einen und speichert ihn in der Datenbank. |
 | `HOST` | Bind-Adresse, Standard `0.0.0.0`. Für Railways privates Netzwerk (IPv6) `::`. |
@@ -101,7 +102,7 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 
 **Editor & Inhalte**
 - Visueller On-Page-Editor: direkt auf der Seite tippen, Fliesstext mit Formatierungsleiste, Blöcke per Drag & Drop oder Pfeiltasten, «+» zwischen Abschnitten, Duplizieren, Entfernen mit «Rückgängig».
-- 28 Blöcke: Einstieg (3 Varianten), Text, Text mit Bild, Bild, Galerie (Raster/Mosaik/Streifen, Lightbox), Video (YouTube/Vimeo im Datenschutzmodus mit Zwei-Klick, eigene Videos), Aufzählung (nummeriert/Preisliste/Spalten), Aufruf, FAQ (mit FAQPage-JSON-LD), Stimmen, Zitat, Zahlen, Preise, Team, Logos, Knöpfe, Abstand, Formular, Kontaktangaben, Öffnungszeiten (mit «jetzt geöffnet»), Karte (OpenStreetMap, Zwei-Klick), Beiträge, Produkte, Speisekarte, Projekte, Profile, Wiederverwendbare Sektion, Eigener Code (Werkbank, im Studio nur die Platzhalter als Felder).
+- 31 Blöcke: Einstieg (3 Varianten), Text, Text mit Bild, Bild, Galerie (Raster/Mosaik/Streifen, Lightbox), Video (YouTube/Vimeo im Datenschutzmodus mit Zwei-Klick, eigene Videos), Aufzählung (nummeriert/Preisliste/Spalten), Aufruf, FAQ (mit FAQPage-JSON-LD), Stimmen, Zitat, Zahlen, Preise, Team, Logos, Knöpfe, Abstand, Formular, Reservation, Newsletter-Anmeldung, Mitgliedschaft, Kontaktangaben, Öffnungszeiten (mit «jetzt geöffnet»), Karte (OpenStreetMap, Zwei-Klick), Beiträge, Produkte, Speisekarte, Projekte, Profile, Wiederverwendbare Sektion, Eigener Code (Werkbank, im Studio nur die Platzhalter als Felder).
 - Responsive Vorschau (Computer/Tablet/Handy), Abstände und Ausblenden pro Breakpoint.
 - Unbegrenztes Rückgängig/Wiederholen (300 Schritte im Speicher), Versionsverlauf mit Vergleich und Wiederherstellen.
 - Entwürfe, «Zur Freigabe» für Autoren, geplante Veröffentlichung, Änderungen verwerfen, offline nehmen.
@@ -128,6 +129,9 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 - Shop: Varianten mit eigenem Preis/Lager, Lagerführung (mit Schutz gegen veraltete Editor-Stände), serverseitiger Warenkorb ohne JavaScript, Kasse auf einer Seite, Gutscheine, MwSt. CH (Normal/reduziert, korrekt aufgeteilt inkl. Rabatt und Versand), Versandregeln mit Gratis-Grenze und Abholung, digitale Produkte mit Download nach Zahlung, Stripe Checkout (TWINT, Karte, Apple/Google Pay) oder Rechnung, Bestellübersicht, druckbare Rechnung, Bestätigungs-Mails.
 - Speisekarte: Kategorien, 14 Allergene, Fleisch-/Fischherkunft (CH-Pflicht), Preise pro Grösse, Tageskarte, «ausverkauft», Druckversion (als PDF sichern), QR-Code für Tische, Menu-JSON-LD.
 - Portfolio: Projekte, Filter, Lightbox.
+- Reservation & Termine: Tische (nach Personen, kleinster passender Tisch) oder Termine (Leistung, Dauer, Pause, Person mit eigenen Arbeitszeiten); freie Zeiten aus Öffnungszeiten, Vorlauf, Horizont, Sperrzeiten und bestehenden Buchungen, ohne Doppelbelegung auch bei gleichzeitigen Anfragen; Buchen ohne JavaScript; Bestätigung, Erinnerung und Absage per E-Mail mit .ics; Gästeseite mit Absagen; Anzahlung über Stripe; Tagesplan im Admin, Telefonbuchungen; Kalender-Abo und Import belegter Zeiten aus fremden Kalendern.
+- Newsletter: Anmelde-Block mit Double Opt-in, Ausgaben aus Einleitung und Beiträgen (HTML-E-Mail mit Textversion), Test an mich, Versand mit Protokoll pro Empfänger (setzt nach einem Neustart fort, ohne Doppelte), Abmelden mit einem Klick inkl. List-Unsubscribe (RFC 8058), automatisch bei jedem neuen Beitrag oder als Wochenrückblick, Import mit Einwilligungsnachweis, CSV-Export, optionaler Abgleich mit Brevo/Mailchimp.
+- Mitglieder: Konten für Besucher:innen (getrennt von den Admin-Benutzern), Registrierung mit Bestätigungslink oder nur auf Einladung, Passwort vergessen, «Mein Konto»; Seiten und Beiträge für alle, Mitglieder oder zahlende Mitglieder – alle anderen sehen Titel, Kurzfassung, den ersten Absatz und eine Einladung; geschützte Inhalte bleiben auch aus Suche, RSS, API und Meta-Beschreibung draussen; bezahlte Mitgliedschaft als Stripe-Abo (Kündigen, Karte und Quittungen im Stripe-Kundenportal), Zugang verschenken, sperren, CSV.
 - Profile & Verfügbarkeit mit Einwilligungsnachweis: Profile gehen erst online, wenn Volljährigkeit und Einwilligung bestätigt sind; Widerruf löscht Profil und alle Bilder sofort, auch aus dem Verlauf.
 
 **SEO, Performance, Statistik**
@@ -137,7 +141,7 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 - IndexNow-Ping bei Veröffentlichung.
 - SEO-Coach im Editor: Ampel, konkrete Handlungen mit «Zur Stelle», Snippet-Vorschau Desktop/Handy, Lesbarkeit (Amstad-Formel für Deutsch; Formeln für FR/IT/EN vorhanden).
 - Website-Check: kaputte interne Links, doppelte Titel, verwaiste Seiten, fehlende Alt-Texte und Beschreibungen, fehlende H1.
-- Cookielose Statistik: Besuche, Seiten, Quellen, Geräte, Ziele (Formular, Kauf), Umsatz – mit täglich wechselndem, nie gespeichertem Salt, ohne Banner.
+- Cookielose Statistik: Besuche, Seiten, Quellen, Geräte, Ziele (Formular, Kauf, Reservation, Newsletter-Anmeldung, Konto), Umsatz – mit täglich wechselndem, nie gespeichertem Salt, ohne Banner.
 - Website-Suche über Postgres-Volltext.
 
 **Design & UX**
@@ -148,7 +152,7 @@ test/        Vitest: Unit + Integration gegen echtes Postgres
 
 **Datenhoheit & Datenschutz**
 - Export als ZIP: Inhalte (JSON + Markdown mit Frontmatter), Konfiguration als Code, Original-Medien, CSV für Kontakte/Bestellungen/Formulare.
-- Auskunft und Löschung pro E-Mail-Adresse (Bestellungen werden wegen der Aufbewahrungspflicht anonymisiert).
+- Auskunft und Löschung pro E-Mail-Adresse, inklusive Newsletter, Mitgliederkonto und Reservationen (Bestellungen werden wegen der Aufbewahrungspflicht anonymisiert, Reservationen bleiben als belegte Zeit ohne Namen).
 - Generator für Impressum, Datenschutzerklärung und AGB aus den tatsächlich aktiven Funktionen – ausdrücklich als Vorlage zur rechtlichen Prüfung.
 - Zwei-Klick-Einbettungen, Altersschranke ohne JavaScript, Content-Security-Policy, CSRF-Schutz, Output-Escaping, Rich-Text-Whitelist.
 - Tägliche Sicherungen in den Bucket (30 Tage) mit Wiederherstellung per Klick.
@@ -164,12 +168,12 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 - **KI-Assistent.**
 - **Mehrsprachigkeit** der Website und der Admin-UI (Admin nur Deutsch; Lesbarkeitsformeln für FR/IT/EN sind vorbereitet).
 - **Import** aus WordPress, Wix, Squarespace, Shopify.
-- Module **Reservation & Termine, Bestellung & Lieferung, Events & Tickets, Kurse & Mitglieder, Immobilien, Spenden**; Mitgliederbereiche und Newsletter.
+- Module **Bestellung & Lieferung, Events & Tickets, Kurse, Immobilien, Spenden**.
 - **Passkeys** (2FA ist TOTP), **GraphQL** (nur REST), typisierte SDKs.
 - **Serverseitige Hooks in einer Sandbox** (V8-Isolates), Marktplatz, Git-Sync, CLI, Preview-Deployments pro Branch.
 - **Video-Transcoding** (Videos werden so ausgeliefert, wie sie hochgeladen werden), **Malware-Scan** von Uploads, **QR-Rechnung**, echte **Altersverifikation** über einen Anbieter.
 - Google-Search-Console-Verbindung per OAuth, GA4/Matomo/Plausible mit Consent-Manager, Meilisearch.
-- Die PRD nennt «ca. 40 Blöcke», «ca. 400 Icons» und «3 Vorlagen pro Sparte in 2 Stilen» – umgesetzt sind 28 Blöcke, rund 90 Icons und 4 Stile × 3 Paletten, die jede Sparte nutzen kann.
+- Die PRD nennt «ca. 40 Blöcke», «ca. 400 Icons» und «3 Vorlagen pro Sparte in 2 Stilen» – umgesetzt sind 31 Blöcke, rund 90 Icons und 4 Stile × 3 Paletten, die jede Sparte nutzen kann.
 - Lighthouse-Werte sind nicht automatisiert in CI gemessen.
 
 ---
@@ -180,4 +184,4 @@ Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 npm test
 ```
 
-35 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren.
+48 Tests: Sanitizer (XSS-Fälle), TOTP gegen RFC-6238-Vektoren, signierte Cookies, Passwort-Hashing, HTML-Escaping, CSS-Scoping, CSV-Formel-Injection, Öffnungszeiten über Zeitzonen, SEO-Coach, und Integrationstests gegen Postgres: Setup-Code, CSRF, Holding-Page vor dem Launch, JSON-LD, Sitemap, Auto-301, Versionskonflikte, Schutzzonen gegen manipulierte Requests, Warenkorb mit MwSt./Gutschein/Versand und Lagerabbuchung, Spam-Abwehr und Lead-Erfassung, Headless-API, Datenschutz-Löschung, Rechte von Autoren, Reservationen ohne Doppelbuchung, Newsletter (Double Opt-in, automatischer Versand genau einmal, One-Click-Abmeldung), Mitgliederbereich (nichts sickert durch Suche/Feed/API, Bestätigung, Passwort zurücksetzen, Sperren, bezahlter Zugang).

@@ -26,6 +26,8 @@ import { DAY_NAMES } from '../shared/hours';
 import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
 import { sql } from '../server/db';
 import { runtimeVersion } from './assets';
+import { accountLink, gate } from './members';
+import { entryAccess, mayRead, type Access } from '../shared/members';
 
 export function createContext(input: {
   settings: SiteSettings;
@@ -37,6 +39,7 @@ export function createContext(input: {
   preview?: boolean;
   ageOk?: boolean;
   cartCount?: number;
+  member?: RenderContext['member'];
 }): RenderContext {
   const loader = mediaLoader();
   return {
@@ -61,6 +64,7 @@ export function createContext(input: {
     ageOk: input.ageOk ?? false,
     cartCount: input.cartCount ?? 0,
     csrf: '',
+    member: input.member ?? null,
   };
 }
 
@@ -90,11 +94,12 @@ async function header(ctx: RenderContext): Promise<Html> {
     ? html`<a class="cart-link" href="/warenkorb" aria-label="Warenkorb, ${ctx.cartCount} Artikel">Warenkorb <span class="cart-count" data-cart-count>${ctx.cartCount}</span></a>`
     : '';
   const cta = s.header.cta?.href ? html`<a class="btn" href="${s.header.cta.href}">${s.header.cta.label}</a>` : '';
+  const account = accountLink(ctx);
   const editAttr = ctx.edit ? raw(' data-nova-global="header"') : '';
-  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="Hauptnavigation">${navList(ctx, s.nav)}${cart}${cta}</nav><details class="menu-toggle"><summary aria-label="Menü"><span class="bars" aria-hidden="true"></span>Menü</summary><nav class="menu-panel" aria-label="Hauptnavigation mobil">${navList(
+  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="Hauptnavigation">${navList(ctx, s.nav)}${account}${cart}${cta}</nav><details class="menu-toggle"><summary aria-label="Menü"><span class="bars" aria-hidden="true"></span>Menü</summary><nav class="menu-panel" aria-label="Hauptnavigation mobil">${navList(
     ctx,
     s.nav,
-  )}${cart ? html`<p>${cart}</p>` : ''}${cta}</nav></details></div></header>`;
+  )}${account}${cart ? html`<p>${cart}</p>` : ''}${cta}</nav></details></div></header>`;
 }
 
 async function footer(ctx: RenderContext): Promise<Html> {
@@ -214,18 +219,23 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     noindex: Boolean(e.data.seo?.noindex),
     publishedAt: c.id === 'posts' ? ((e.data.date as string) || e.published_at) : null,
   };
+  // Members-only content: everyone else gets title, excerpt and an invitation.
+  const access = entryAccess(e.data);
+  const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
   let main: Html;
   let crumbs: Crumb[] = [];
   const listCrumb = c.list_route ? [{ label: 'Start', href: '/' }, { label: c.name, href: c.list_route }] : [{ label: 'Start', href: '/' }];
   switch (c.id) {
     case 'pages':
       crumbs = await pageCrumbs(ctx, e.slug, e.data.title);
-      main = await renderBlocks(e.data.blocks ?? [], ctx);
+      main = locked
+        ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}`
+        : await renderBlocks(e.data.blocks ?? [], ctx);
       if (!e.data.blocks?.length && ctx.edit) main = html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Diese Seite ist noch leer. Füg oben den ersten Block hinzu.</div></div>`;
       break;
     case 'posts':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
-      main = await postTemplate(ctx, c, e, image);
+      main = await postTemplate(ctx, c, e, image, locked ? access : null);
       break;
     case 'products':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
@@ -241,18 +251,23 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       break;
     default:
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
-      main = await genericTemplate(ctx, c, e);
+      main = locked ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}` : await genericTemplate(ctx, c, e);
   }
   return documentHtml(ctx, meta, main, crumbs);
 }
 
-async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null): Promise<Html> {
+async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null, locked: Access | null): Promise<Html> {
   const d = e.data;
   ctx.h1 = true;
   const cover = await ctx.media(d.cover);
   const date = (d.date as string) || e.published_at;
-  ctx.jsonLd.push(articleLd(ctx, c, { ...e, author_name: e.author_name ?? null }, image));
-  const body = await renderBlocks(d.blocks ?? [], ctx);
+  const ld = articleLd(ctx, c, { ...e, author_name: e.author_name ?? null }, image);
+  ctx.jsonLd.push(entryAccess(d) === 'public' ? ld : { ...ld, isAccessibleForFree: false });
+  // Locked: the first text block as a teaser, faded out, then the invitation.
+  const first = (d.blocks ?? []).find((b) => b.type === 'text');
+  const body = locked
+    ? html`${first ? html`<div class="gate-teaser" aria-hidden="false">${await renderBlocks([first], ctx)}</div>` : ''}${gate(ctx, locked)}`
+    : await renderBlocks(d.blocks ?? [], ctx);
   const tags = (d.tags as string[]) ?? [];
   let series = html``;
   if (d.series) {
@@ -265,7 +280,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
   }
   const { items: related } = await publishedEntries(c, { limit: 4, category: (d.category as string) || undefined });
   const others = related.filter((r) => r.id !== e.id).slice(0, 3);
-  const commentsHtml = ctx.settings.blog.comments && d.allowComments !== false ? await commentsSection(ctx, e.id) : html``;
+  const commentsHtml = !locked && ctx.settings.blog.comments && d.allowComments !== false ? await commentsSection(ctx, e.id) : html``;
   return html`<article><header class="wrap art-head">${d.category ? html`<a class="label" href="${c.list_route}?kategorie=${encodeURIComponent(d.category as string)}">${d.category as string}</a>` : ''}<h1${
     ctx.edit ? raw(' data-nova-entry-field="title"') : ''
   }>${d.title}</h1>${d.excerpt ? html`<p class="lead">${d.excerpt as string}</p>` : ''}<div class="art-meta">${
