@@ -33,7 +33,7 @@ import {
   type CheckoutInput,
   type QuoteLine,
 } from '../shop';
-import { runtimeScript } from '../../site/assets';
+import { runtimeScript, type RuntimeName } from '../../site/assets';
 import { FONT_FILES } from '../../site/fonts';
 import { createContext, renderList, renderPage, renderSystemPage } from '../../site/render';
 import { renderMenu } from '../../site/blocks';
@@ -202,8 +202,8 @@ function looksLikeSpam(body: Record<string, unknown>): boolean {
 /* ---------- routes ---------- */
 
 export function publicRoutes(app: Hono<AppEnv>) {
-  app.get('/_nova/:name{(site|bridge)\\.js}', async (c) => {
-    const name = c.req.param('name').replace('.js', '') as 'site' | 'bridge';
+  app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
+    const name = c.req.param('name').replace('.js', '') as RuntimeName;
     const { code } = await runtimeScript(name);
     c.header('Content-Type', 'text/javascript; charset=utf-8');
     c.header('Cache-Control', c.req.query('v') && env.production ? IMMUTABLE : 'no-cache');

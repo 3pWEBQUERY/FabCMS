@@ -140,6 +140,8 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   if (ctx.path === '/') ctx.jsonLd.unshift(organizationLd(ctx, logo), websiteLd(ctx));
   const favicon = await ctx.media(s.favicon ?? s.logo);
   const runtime = s.analytics.enabled || ctx.needs.size > 0 || s.modules.includes('shop');
+  // Own selects, calendars, steppers and file pickers only where such fields exist.
+  const fields = /<select[\s>]|type="(?:date|number|file)"/.test(main.value);
   const gate = ageGate(ctx);
   const blog = ctx.collections.find((c) => c.id === 'posts');
   const head = html`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${meta.title}</title>${
@@ -158,7 +160,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${
     runtime ? html`<script src="/_nova/site.js?v=${runtimeVersion('site')}" defer></script>` : ''
-  }${ctx.edit ? html`<script src="/_nova/bridge.js?v=${runtimeVersion('bridge')}" defer></script>` : ''}`;
+  }${fields ? html`<script src="/_nova/fields.js?v=${runtimeVersion('fields')}" defer></script>` : ''}${ctx.edit ? html`<script src="/_nova/bridge.js?v=${runtimeVersion('bridge')}" defer></script>` : ''}`;
   const bodyAttrs = raw(
     [
       gate.value ? ' class="age-locked"' : '',

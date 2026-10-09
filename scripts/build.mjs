@@ -21,7 +21,7 @@ await build({
   logLevel: 'warning',
 });
 
-for (const name of ['site', 'bridge']) {
+for (const name of ['site', 'bridge', 'fields']) {
   await build({
     entryPoints: [`src/site/runtime/${name}.ts`],
     outfile: `dist/public/${name}.js`,

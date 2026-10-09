@@ -19,7 +19,7 @@ async function main() {
   }
   await syncBuiltinCollections();
   await getSettings();
-  await Promise.all([runtimeScript('site'), runtimeScript('bridge')]);
+  await Promise.all([runtimeScript('site'), runtimeScript('bridge'), runtimeScript('fields')]);
 
   const app = createApp();
   serve({ fetch: app.fetch, port: env.port, hostname: process.env.HOST ?? '0.0.0.0' }, () => {

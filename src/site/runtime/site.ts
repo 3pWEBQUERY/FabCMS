@@ -108,6 +108,62 @@ d.querySelectorAll<HTMLElement>('[data-lightbox]').forEach((gal) => {
   }
 });
 
+/* ---------- form validation: own German messages under the field, no browser bubbles ---------- */
+type Ctrl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+function message(c: Ctrl): string {
+  const v = c.validity;
+  const type = c instanceof HTMLInputElement ? c.type : c instanceof HTMLSelectElement ? 'select' : 'text';
+  if (v.valueMissing)
+    return type === 'checkbox' ? 'Bitte bestätige das.' : type === 'select' || type === 'radio' ? 'Bitte wähle etwas aus.' : type === 'file' ? 'Bitte wähle eine Datei.' : type === 'date' ? 'Bitte gib ein Datum ein.' : 'Bitte fülle dieses Feld aus.';
+  if (v.typeMismatch) return type === 'email' ? 'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.' : 'Bitte gib eine gültige Adresse ein.';
+  if (v.rangeUnderflow) return type === 'date' ? 'Dieses Datum ist zu früh.' : `Bitte mindestens ${(c as HTMLInputElement).min}.`;
+  if (v.rangeOverflow) return type === 'date' ? 'Dieses Datum ist zu spät.' : `Bitte höchstens ${(c as HTMLInputElement).max}.`;
+  if (v.tooShort) return `Bitte mindestens ${(c as HTMLInputElement).minLength} Zeichen.`;
+  if (v.badInput || v.stepMismatch) return 'Bitte gib eine gültige Zahl ein.';
+  return c.validationMessage;
+}
+let focusedInvalid = false;
+d.addEventListener(
+  'invalid',
+  (e) => {
+    const c = e.target as Ctrl;
+    if (!c.closest('form')) return;
+    e.preventDefault();
+    // Where the message goes: after an own control's wrapper (fields.js), at the end of a checkbox row, else after the field.
+    const host = (c.closest('.nw') ?? (c.type === 'checkbox' ? c.closest('.fld') : null) ?? c) as HTMLElement;
+    const id = `${c.name || c.id}-err`;
+    // An own control from fields.js took over the id; the native one is "<id>-n".
+    const front = (c.id.endsWith('-n') && d.getElementById(c.id.slice(0, -2))) || c;
+    let msg = d.getElementById(id);
+    if (!msg) {
+      msg = d.createElement('span');
+      msg.className = 'nerr';
+      msg.id = id;
+      if (host === c.closest('.fld') && host !== c) host.append(msg);
+      else host.after(msg);
+      front.setAttribute('aria-describedby', `${front.getAttribute('aria-describedby') ?? ''} ${id}`.trim());
+    }
+    msg.textContent = message(c);
+    c.setAttribute('aria-invalid', 'true');
+    if (!focusedInvalid) {
+      focusedInvalid = true;
+      c.focus();
+      setTimeout(() => (focusedInvalid = false));
+    }
+    if (c.dataset.nv) return;
+    c.dataset.nv = '1';
+    // validity.valid, not checkValidity(): that would fire "invalid" again.
+    const clear = () => {
+      if (!c.validity.valid) return;
+      d.getElementById(id)?.remove();
+      c.removeAttribute('aria-invalid');
+    };
+    c.addEventListener('input', clear);
+    c.addEventListener('change', clear);
+  },
+  true,
+);
+
 /* ---------- forms: conditions, steps, async submit ---------- */
 d.querySelectorAll<HTMLFormElement>('form[data-nova-form]').forEach((form) => {
   const conds = [...form.querySelectorAll<HTMLElement>('[data-show-if]')];

@@ -10,7 +10,10 @@ const DIST = join(process.cwd(), 'dist', 'public');
 const SOURCES: Record<string, string> = {
   site: 'src/site/runtime/site.ts',
   bridge: 'src/site/runtime/bridge.ts',
+  fields: 'src/site/runtime/fields.ts',
 };
+
+export type RuntimeName = 'site' | 'bridge' | 'fields';
 
 const cache = new Map<string, { code: string; hash: string }>();
 const dev = process.env.NODE_ENV !== 'production';
@@ -21,7 +24,7 @@ async function devBuild(name: string): Promise<string> {
   return r.outputFiles[0].text;
 }
 
-export async function runtimeScript(name: 'site' | 'bridge'): Promise<{ code: string; hash: string }> {
+export async function runtimeScript(name: RuntimeName): Promise<{ code: string; hash: string }> {
   if (!dev && cache.has(name)) return cache.get(name)!;
   let code: string;
   const file = join(DIST, `${name}.js`);
@@ -32,6 +35,6 @@ export async function runtimeScript(name: 'site' | 'bridge'): Promise<{ code: st
   return entry;
 }
 
-export function runtimeVersion(name: 'site' | 'bridge'): string {
+export function runtimeVersion(name: RuntimeName): string {
   return cache.get(name)?.hash ?? 'dev';
 }
