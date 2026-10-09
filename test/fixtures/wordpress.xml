@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+  <title>Velo-Blog</title>
+  <link>https://alt.example.ch</link>
+  <generator>https://wordpress.org/?v=6.6</generator>
+  <wp:wxr_version>1.2</wp:wxr_version>
+  <item>
+    <title><![CDATA[Bild zum Beitrag]]></title>
+    <wp:post_id>7</wp:post_id>
+    <wp:post_type><![CDATA[attachment]]></wp:post_type>
+    <wp:status><![CDATA[inherit]]></wp:status>
+    <wp:attachment_url><![CDATA[https://alt.example.ch/wp-content/uploads/2024/03/velo.jpg]]></wp:attachment_url>
+  </item>
+  <item>
+    <title><![CDATA[Frühlingstour an den Bodensee]]></title>
+    <link>https://alt.example.ch/2024/03/fruehlingstour/</link>
+    <pubDate>Fri, 01 Mar 2024 08:00:00 +0000</pubDate>
+    <content:encoded><![CDATA[<!-- wp:paragraph -->
+<p>Wir sind <strong>früh</strong> gestartet.</p>
+<!-- /wp:paragraph -->
+[caption id="attachment_7" align="alignnone" width="800"]<img src="https://alt.example.ch/wp-content/uploads/2024/03/velo-800x600.jpg" alt="Velos am See" /> Pause am See[/caption]
+
+Dann ging es weiter bis Romanshorn.
+
+[gallery ids="1,2,3"]]]></content:encoded>
+    <excerpt:encoded><![CDATA[Eine Tour über 120 Kilometer.]]></excerpt:encoded>
+    <wp:post_id>12</wp:post_id>
+    <wp:post_date><![CDATA[2024-03-01 09:00:00]]></wp:post_date>
+    <wp:post_name><![CDATA[fruehlingstour]]></wp:post_name>
+    <wp:status><![CDATA[publish]]></wp:status>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <category domain="category" nicename="touren"><![CDATA[Touren]]></category>
+    <category domain="post_tag" nicename="see"><![CDATA[See]]></category>
+    <category domain="post_tag" nicename="fruehling"><![CDATA[Frühling]]></category>
+    <wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[7]]></wp:meta_value></wp:postmeta>
+    <wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Velotour an den Bodensee im März.]]></wp:meta_value></wp:postmeta>
+  </item>
+  <item>
+    <title><![CDATA[Über uns]]></title>
+    <link>https://alt.example.ch/ueber-uns/</link>
+    <content:encoded><![CDATA[Wir sind ein kleiner Verein.
+
+Seit 1999 unterwegs.]]></content:encoded>
+    <wp:post_id>2</wp:post_id>
+    <wp:post_date><![CDATA[2020-01-01 10:00:00]]></wp:post_date>
+    <wp:post_name><![CDATA[ueber-uns]]></wp:post_name>
+    <wp:status><![CDATA[publish]]></wp:status>
+    <wp:post_type><![CDATA[page]]></wp:post_type>
+  </item>
+  <item>
+    <title><![CDATA[Halbfertiger Entwurf]]></title>
+    <content:encoded><![CDATA[<p>Noch nicht fertig.</p>]]></content:encoded>
+    <wp:post_name><![CDATA[entwurf]]></wp:post_name>
+    <wp:status><![CDATA[draft]]></wp:status>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+  </item>
+</channel>
+</rss>

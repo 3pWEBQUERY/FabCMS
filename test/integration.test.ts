@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
@@ -659,6 +660,35 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     // A challenge is good for one try only.
     const again = await req('POST', '/api/login/passkey', { key: login.data.key, response: { id: 'unbekannt' } }, { cookies: new Map() });
     expect(again.status).toBe(400);
+  });
+
+  it('imports a WordPress export with redirects from the old addresses', async () => {
+    const form = new FormData();
+    form.append('file', new File([readFileSync(join(process.cwd(), 'test/fixtures/wordpress.xml'))], 'export.xml', { type: 'text/xml' }));
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const up = await app.request('/api/import/upload', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+    const analysed = (await up.json()) as { id: string; summary: { counts: Record<string, number>; drafts: number } };
+    expect(analysed.summary.counts).toEqual({ post: 2, page: 1, product: 0 });
+    expect(analysed.summary.drafts).toBe(1);
+    const started = await req('POST', '/api/import/run', { id: analysed.id, publish: true, images: false, redirects: true });
+    let job = started.data.job;
+    for (let i = 0; i < 50 && job.status === 'running'; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await req('GET', `/api/import/jobs/${job.id}`)).data.job;
+    }
+    expect(job).toMatchObject({ status: 'done', done: 3, redirects: 2 });
+    const [post] = await sql`select status, published_data from entries where collection = 'posts' and slug = 'fruehlingstour'`;
+    expect(post.status).toBe('published');
+    expect(post.published_data).toMatchObject({ category: 'Touren', tags: ['See', 'Frühling'], date: '2024-03-01' });
+    const [draft] = await sql`select status from entries where collection = 'posts' and slug = 'entwurf'`;
+    expect(draft.status).toBe('draft');
+    const old = await req('GET', '/2024/03/fruehlingstour/', undefined, { cookies: new Map() });
+    expect(old.status).toBe(301);
+    const target = await req('GET', old.headers.get('location')!, undefined, { cookies: new Map() });
+    expect(target.headers.get('location')).toBe('/journal/fruehlingstour');
+    expect((await req('GET', '/journal/fruehlingstour', undefined, { cookies: new Map() })).data).toContain('Romanshorn');
+    // The same preview can't be imported twice.
+    expect((await req('POST', '/api/import/run', { id: analysed.id, publish: true, images: false, redirects: true })).status).toBe(400);
   });
 
   it('keeps authors out of other people’s work', async () => {

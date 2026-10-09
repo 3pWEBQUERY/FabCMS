@@ -1,0 +1,4 @@
+Handle,Title,Body (HTML),Vendor,Type,Tags,Published,Option1 Name,Option1 Value,Variant SKU,Variant Inventory Qty,Variant Price,Variant Compare At Price,Image Src,Status
+alpkaese,Alpkäse rezent,"<p>Gereift, mit <em>Charakter</em>.</p>",Hof,Käse,"Käse, Bio",true,Gewicht,250 g,AK-250,12,9.50,,https://cdn.example.com/kaese.jpg,active
+alpkaese,,,,,,,,500 g,AK-500,4,17.00,,https://cdn.example.com/kaese-2.jpg,
+honig,Waldhonig,<p>Dunkel.</p>,Hof,Honig,,true,Title,Default Title,WH-1,30,12.00,14.00,https://cdn.example.com/honig.jpg,draft

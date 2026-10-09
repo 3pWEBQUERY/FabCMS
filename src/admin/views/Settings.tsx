@@ -1,4 +1,5 @@
 import { Reorder, useDragControls } from 'motion/react';
+import { ImportSettings } from './Import';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
@@ -39,6 +40,7 @@ const SECTIONS: Section[] = [
   { id: 'reservation', label: 'Reservation & Termine', icon: 'calendar', cap: 'settings.manage', module: 'booking' },
   { id: 'module', label: 'Module', icon: 'grid', cap: 'settings.manage' },
   { id: 'team', label: 'Team & Rollen', icon: 'people', cap: 'users.manage' },
+  { id: 'import', label: 'Import', icon: 'upload', cap: 'settings.manage' },
   { id: 'daten', label: 'Daten & Datenschutz', icon: 'database', cap: 'privacy.manage' },
   { id: 'typen', label: 'Inhaltstypen', icon: 'database', cap: 'dev', pro: true },
   { id: 'code', label: 'CSS & Tokens', icon: 'code', cap: 'dev', pro: true },
@@ -101,6 +103,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'reservation' && <BookingSettings />}
           {current.id === 'module' && <ModuleSettings />}
           {current.id === 'team' && <TeamSettings />}
+          {current.id === 'import' && <ImportSettings />}
           {current.id === 'daten' && <DataSettings />}
           {current.id === 'typen' && <ContentTypes />}
           {current.id === 'code' && <CodeSettings />}

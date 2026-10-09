@@ -15,6 +15,8 @@ import { scopeCss } from '../src/site/blocks';
 import { woffToSfnt } from '../src/server/og';
 import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { orderSlots, foodTotals } from '../src/shared/ordering';
+import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv } from '../src/server/importer/parse';
+import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -318,5 +320,68 @@ describe('Swiss QR bill', () => {
     expect(lines.slice(4, 11)).toEqual(['S', 'Robert Schneider AG', 'Rue du Lac 1268', '', '2501', 'Biel', 'CH']);
     expect(lines.slice(18, 20)).toEqual(['1995.95', 'CHF']);
     expect(lines.slice(27)).toEqual(['QRR', '210000000003139471430009017', 'Auftrag vom 15.06.2020', 'EPD']);
+  });
+});
+
+describe('import', () => {
+  const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
+
+  it('reads a WordPress export with featured image, tags, SEO and drafts', () => {
+    const b = parseWxr(fixture('wordpress.xml'));
+    expect(b.source).toBe('wordpress');
+    expect(b.items.map((i) => [i.kind, i.slug, i.published])).toEqual([
+      ['post', 'fruehlingstour', true],
+      ['page', 'ueber-uns', true],
+      ['post', 'entwurf', false],
+    ]);
+    const post = b.items[0];
+    expect(post).toMatchObject({ date: '2024-03-01', category: 'Touren', tags: ['See', 'Frühling'], oldPath: '/2024/03/fruehlingstour', seoDescription: 'Velotour an den Bodensee im März.' });
+    expect(post.cover).toBe('https://alt.example.ch/wp-content/uploads/2024/03/velo.jpg');
+    expect(post.html).toContain('<figure>');
+    expect(post.html).not.toContain('[gallery');
+    expect(post.html).not.toContain('wp:paragraph');
+    // Pages without HTML get their paragraphs back.
+    expect(b.items[1].html).toBe('<p>Wir sind ein kleiner Verein.</p>\n<p>Seit 1999 unterwegs.</p>');
+  });
+
+  it('keeps text and images in order when turning HTML into blocks', async () => {
+    const seen: string[] = [];
+    const blocks = await htmlToBlocks(parseWxr(fixture('wordpress.xml')).items[0].html, async (src, alt) => {
+      seen.push(`${src}|${alt}`);
+      return 'media-1';
+    });
+    expect(blocks.map((b) => b.type)).toEqual(['text', 'image', 'text']);
+    expect(blocks[1].props).toMatchObject({ image: 'media-1', caption: '' });
+    expect(seen).toEqual(['https://alt.example.ch/wp-content/uploads/2024/03/velo-800x600.jpg|Velos am See']);
+    expect(blocks[2].props.body).toContain('Romanshorn');
+  });
+
+  it('groups Shopify rows into products with variants', () => {
+    const b = parseShopifyCsv(fixture('shopify.csv'));
+    expect(b.items).toHaveLength(2);
+    const [cheese, honey] = b.items;
+    expect(cheese).toMatchObject({ title: 'Alpkäse rezent', price: 950, category: 'Käse', tags: ['Käse', 'Bio'], published: true, oldPath: '/products/alpkaese' });
+    expect(cheese.variants).toEqual([
+      { name: '250 g', price: 950, stock: 12, sku: 'AK-250' },
+      { name: '500 g', price: 1700, stock: 4, sku: 'AK-500' },
+    ]);
+    expect(cheese.images).toHaveLength(2);
+    expect(honey).toMatchObject({ price: 1200, comparePrice: 1400, sku: 'WH-1', stock: 30, variants: [], published: false });
+  });
+
+  it('parses CSV with quotes and line breaks', () => {
+    expect(parseCsv('a,b\n"x, y","zeile 1\nzeile 2"\n')).toEqual([['a', 'b'], ['x, y', 'zeile 1\nzeile 2']]);
+  });
+
+  it('reads Markdown with frontmatter and Jekyll file names', () => {
+    const md = parseMarkdownFile('_posts/2023-05-10-velo-putzen.md', '---\ntitle: Velo putzen\ntags: [Pflege, Tipps]\ndraft: false\n---\n\nErst **Wasser**, dann Öl.\n');
+    expect(md).toMatchObject({ kind: 'post', title: 'Velo putzen', slug: 'velo-putzen', date: '2023-05-10', tags: ['Pflege', 'Tipps'], published: true });
+    expect(md.html).toContain('<strong>Wasser</strong>');
+    expect(parseMarkdownFile('pages/kontakt.md', '# Kontakt\n\nRuf an.').kind).toBe('page');
+  });
+
+  it('reads RSS feeds as from Wix', () => {
+    const b = parseFeed('<rss version="2.0"><channel><title>Mein Blog</title><item><title>Hallo Welt</title><link>https://x.wixsite.com/blog/post/hallo-welt</link><pubDate>Mon, 06 May 2024 10:00:00 GMT</pubDate><description><![CDATA[<p>Erster Beitrag</p>]]></description></item></channel></rss>');
+    expect(b.items[0]).toMatchObject({ title: 'Hallo Welt', slug: 'hallo-welt', date: '2024-05-06', oldPath: '/blog/post/hallo-welt' });
   });
 });
