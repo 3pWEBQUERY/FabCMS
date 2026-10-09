@@ -27,9 +27,10 @@ async function main() {
     console.info(`[nova] Speicher: ${s3Configured() ? `Bucket «${env.s3.bucket}»` : `lokal (${env.localStorageDir}) – für Railway BUCKET/ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY setzen`}`);
   });
   if (!(await hasUsers())) {
+    const code = await getSetupCode();
     console.info('');
     console.info('  ┌──────────────────────────────────────────────┐');
-    console.info(`  │  Einrichtungscode: ${getSetupCode().padEnd(26)}│`);
+    console.info(`  │  Einrichtungscode: ${code.padEnd(26)}│`);
     console.info(`  │  Öffne ${(env.publicUrl + '/admin').padEnd(38).slice(0, 38)}│`);
     console.info('  └──────────────────────────────────────────────┘');
     console.info('');

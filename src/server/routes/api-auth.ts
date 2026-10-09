@@ -58,7 +58,7 @@ export function authApi(app: Hono<AppEnv>) {
     const body = z
       .object({ code: z.string(), name: z.string().trim().min(1, 'Bitte gib deinen Namen an.').max(80), email: z.string().trim().email('Bitte gib eine gültige E-Mail-Adresse an.'), password })
       .parse(await c.req.json());
-    if (body.code.replace(/\s/g, '') !== getSetupCode()) throw badRequest('Der Einrichtungscode stimmt nicht. Du findest ihn in den Logs deines Railway-Dienstes.');
+    if (body.code.replace(/\s/g, '') !== (await getSetupCode())) throw badRequest('Der Einrichtungscode stimmt nicht. Du findest ihn in den Logs deines Railway-Dienstes.');
     const [u] = await sql`
       insert into users (email, name, password_hash, role, mode, sessions_count, last_login_at)
       values (${body.email.toLowerCase()}, ${body.name}, ${await hashPassword(body.password)}, 'owner', 'studio', 1, now())
@@ -66,6 +66,7 @@ export function authApi(app: Hono<AppEnv>) {
     await createSession(c, u.id as string, false);
     c.set('user', null);
     await sql`insert into audit_log (user_id, action, ip) values (${u.id}, 'setup.owner', ${ip})`;
+    await sql`delete from settings where key = 'setup_code'`;
     return c.json({ ok: true });
   });
 

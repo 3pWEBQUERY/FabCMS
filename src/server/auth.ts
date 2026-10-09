@@ -108,12 +108,14 @@ export async function audit(
  * First-run protection: as long as no user exists, creating the owner account
  * requires a code that only appears in the deploy logs (or NOVA_SETUP_CODE).
  * This stops strangers from claiming a freshly deployed instance.
+ * The code is stored in the database so it survives redeploys and restarts.
  */
-let setupCode: string | null = null;
-export function getSetupCode(): string {
+export async function getSetupCode(): Promise<string> {
   if (env.setupCode) return env.setupCode;
-  if (!setupCode) setupCode = `${randomInt(100, 999)}-${randomInt(100, 999)}`;
-  return setupCode;
+  const fresh = `${randomInt(100, 999)}-${randomInt(100, 999)}`;
+  await sql`insert into settings (key, value) values ('setup_code', ${json(fresh)}) on conflict do nothing`;
+  const [row] = await sql`select value from settings where key = 'setup_code'`;
+  return row.value as string;
 }
 
 export async function hasUsers(): Promise<boolean> {
