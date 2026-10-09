@@ -347,6 +347,9 @@ p {
 
 .field {
   display: grid;
+  /* Next to a field with help text the row is taller; keep label and input at the top
+     so inputs in one row line up instead of stretching. */
+  align-content: start;
   gap: 0.35rem;
   min-width: 0;
 }
