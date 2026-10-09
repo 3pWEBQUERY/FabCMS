@@ -70,6 +70,23 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--step-0);line-height:1.6;font-kerning:normal;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 img,picture,video,svg{display:block;max-width:100%}
 img{height:auto}
+/* the rest of the browser defaults, in theme colours */
+html{scrollbar-color:color-mix(in srgb,var(--ink) 30%,transparent) transparent;interpolate-size:allow-keywords}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 30%,transparent);border:3px solid transparent;border-radius:11px;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:color-mix(in srgb,var(--ink) 50%,transparent)}
+.table-wrap,.npop,.gal-strip{scrollbar-width:thin}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s-6,2rem) 0}
+address{font-style:normal}
+iframe{border:0}
+mark{background:color-mix(in srgb,var(--accent) 28%,transparent);color:inherit;padding:0 .15em;border-radius:2px}
+kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;padding:.1em .4em;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--surface)}
+abbr[title]{text-decoration:underline dotted;text-decoration-color:var(--ink-2);cursor:help}
+sup,sub{line-height:0}
+pre{overflow-x:auto;padding:1rem 1.25rem;background:var(--surface);border-radius:var(--field-radius,2px);font-size:.88em;line-height:1.55}
+summary{cursor:pointer}
+[hidden]{display:none!important}
 /* a broken image shows a calm tile with its description instead of the browser's broken-image icon */
 img{position:relative}
 img::before{content:"";position:absolute;inset:0;background:var(--surface)}
@@ -305,6 +322,9 @@ video.vid{width:100%;aspect-ratio:16/9;background:#000}
 .faq summary::after{content:"+";font-family:var(--font-body);font-weight:400;font-size:1.5em;line-height:1;color:var(--accent);transition:transform .2s cubic-bezier(.2,.7,.2,1)}
 .faq details[open] summary::after{transform:rotate(45deg)}
 .faq .ans{padding:0 0 1.25rem;max-width:var(--measure);color:var(--ink-2)}
+/* answers slide open instead of jumping (where the browser supports it) */
+.faq details::details-content{block-size:0;overflow:clip;transition:block-size .32s cubic-bezier(.2,.7,.2,1),content-visibility .32s allow-discrete}
+.faq details[open]::details-content{block-size:auto}
 
 /* quotes */
 .tst{display:grid;gap:var(--s-7);grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
@@ -630,7 +650,7 @@ body.age-locked{overflow:hidden}
 .nova-empty{display:grid;place-items:center;min-height:10rem;border:1px dashed var(--line);color:var(--ink-2);font-size:var(--step-n1);text-align:center;padding:1rem}
 .html-block :where(img){max-width:100%}
 
-@media print{.site-header,.site-footer,.actions,.filters,.no-print{display:none!important}body{background:#fff;color:#000}.b{padding-block:1rem}}
+@media print{@page{margin:18mm 16mm}.site-header,.site-footer,.actions,.filters,.no-print,.skip,.nvid-bar,.nvid-big{display:none!important}body{background:#fff;color:#000}.b{padding-block:1rem}a{text-decoration-color:#999}.prose a[href^="http"]::after{content:" (" attr(href) ")";font-size:.85em;color:#555}img,figure,.card{break-inside:avoid}h2,h3{break-after:avoid}}
 `;
 
 /* ---------- Themes ---------- */

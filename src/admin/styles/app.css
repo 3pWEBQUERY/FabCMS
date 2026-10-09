@@ -2589,6 +2589,35 @@ button.list-item {
   background: var(--hover);
   color: var(--ink);
 }
+.rte-link {
+  gap: 0.25rem;
+  align-items: center;
+}
+.rte-link input {
+  flex: 1;
+  min-width: 0;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--sel);
+  border-radius: 5px;
+  background: var(--panel);
+  font-size: var(--t-s);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sel-soft);
+}
+.rte-bar .rte-ok {
+  padding: 0 0.7rem;
+  background: var(--sel);
+  color: #fff;
+}
+.rte-bar .rte-ok:hover {
+  background: var(--sel);
+  color: #fff;
+  filter: brightness(1.08);
+}
+.rte-bar .rte-txt {
+  padding: 0 0.6rem;
+}
 .rte-body {
   padding: 0.6rem 0.75rem;
   outline: none;

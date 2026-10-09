@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons';
-import { sanitizeRichText } from '../../shared/richtext';
+import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 
 /**
  * Small rich text editor for forms (the canvas edits rich text in place).
@@ -28,12 +28,63 @@ export function RichText({ value, onChange, id, minHeight = 7 }: { value: string
     document.execCommand(c, false, arg);
     emit();
   };
+  // Own link field in the toolbar instead of the browser's prompt(); the selection is kept meanwhile.
+  const [linking, setLinking] = useState(false);
+  const [href, setHref] = useState('');
+  const saved = useRef<Range | null>(null);
   const link = () => {
-    const url = prompt('Link-Adresse (z. B. /kontakt oder https://…)');
-    if (url) cmd('createLink', url);
+    const sel = document.getSelection();
+    if (!sel?.rangeCount || !ref.current?.contains(sel.anchorNode)) return ref.current?.focus();
+    saved.current = sel.getRangeAt(0).cloneRange();
+    const n = saved.current.startContainer;
+    setHref((n.nodeType === 1 ? (n as Element) : n.parentElement)?.closest('a')?.getAttribute('href') ?? '');
+    setLinking(true);
+  };
+  const finishLink = (apply: 'set' | 'remove' | null) => {
+    setLinking(false);
+    const sel = document.getSelection();
+    if (saved.current && sel) {
+      ref.current?.focus();
+      sel.removeAllRanges();
+      sel.addRange(saved.current);
+    }
+    saved.current = null;
+    const url = normalizeLinkInput(href);
+    if (apply === 'set' && url) cmd('createLink', url);
+    else if (apply) cmd('unlink');
   };
   return (
     <div className="rte">
+      {linking ? (
+        <div className="rte-bar rte-link">
+          <input
+            autoFocus
+            value={href}
+            placeholder="/kontakt oder https://…"
+            aria-label="Link-Adresse"
+            onChange={(e) => setHref(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                finishLink('set');
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                finishLink(null);
+              }
+            }}
+          />
+          <button type="button" className="rte-ok" onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink('set')}>
+            OK
+          </button>
+          <button type="button" className="rte-txt" onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink('remove')}>
+            Entfernen
+          </button>
+          <button type="button" aria-label="Abbrechen" onMouseDown={(e) => e.preventDefault()} onClick={() => finishLink(null)}>
+            <Icon name="x" size="s" />
+          </button>
+        </div>
+      ) : (
       <div className="rte-bar" role="toolbar" aria-label="Formatierung">
         <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('bold')} aria-label="Fett">
           <strong>F</strong>
@@ -57,6 +108,7 @@ export function RichText({ value, onChange, id, minHeight = 7 }: { value: string
           <Icon name="link" size="s" />
         </button>
       </div>
+      )}
       <div
         ref={ref}
         id={id}

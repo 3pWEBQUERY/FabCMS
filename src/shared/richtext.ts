@@ -90,3 +90,10 @@ export function sanitizePlain(input: unknown, multiline = false): string {
   const s = input.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
   return multiline ? s.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim() : s.replace(/\s+/g, ' ').trim();
 }
+
+/** What people type into a link field: «example.ch» → https://example.ch, «a@b.ch» → mailto:; paths, anchors, mail and phone stay. */
+export function normalizeLinkInput(raw: string): string {
+  const url = raw.trim();
+  if (!url || /^(\/|#|https?:|mailto:|tel:)/i.test(url)) return url;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url) ? `mailto:${url}` : `https://${url}`;
+}

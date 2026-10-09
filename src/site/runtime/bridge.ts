@@ -4,7 +4,7 @@
  * insert points between blocks and lets blocks be dragged, while the parent
  * window (admin) owns the data and does all saving.
  */
-import { sanitizeRichText } from '../../shared/richtext';
+import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -61,11 +61,22 @@ shadow.innerHTML = `<style>
 .rich.on{display:flex}
 .rich button{min-width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:#fff;font:600 12px/1 inherit;cursor:pointer;padding:0 6px}
 .rich button:hover{background:rgba(255,255,255,.14)}
+.rich .lnk{display:none;align-items:center;gap:4px}
+.rich.linking .fmt{display:none}
+.rich.linking .lnk{display:flex}
+.lnk input{width:240px;height:28px;border:0;border-radius:5px;padding:0 8px;background:rgba(255,255,255,.12);color:#fff;font:500 12px/1 inherit;outline:none}
+.lnk input::placeholder{color:rgba(255,255,255,.55)}
+.lnk input:focus{box-shadow:0 0 0 2px #6d8fe0}
+.lnk .ok{background:#2b59c3}
+.lnk .ok:hover{background:#3a68d4}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;padding:5px 8px;border-radius:6px;background:#1b1a17;color:#fff;font:500 11px/1.2 inherit;box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:none;z-index:2}
 </style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
-<div class="grip" title="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="rich" role="toolbar" aria-label="Formatierung">
-<button data-c="bold" title="Fett"><b>F</b></button><button data-c="italic" title="Kursiv"><i>K</i></button><button data-c="h2" title="Zwischentitel">H2</button><button data-c="h3" title="Kleiner Zwischentitel">H3</button><button data-c="p" title="Absatz">¶</button><button data-c="ul" title="Aufzählung">•</button><button data-c="quote" title="Zitat">“</button><button data-c="link" title="Link">Link</button>
+<span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
+<span class="lnk"><input type="text" inputmode="url" placeholder="/kontakt oder https://…" aria-label="Link-Adresse"><button data-l="ok" class="ok">OK</button><button data-l="rm" data-tip="Link entfernen" aria-label="Link entfernen">✕</button></span>
 </div>`;
 const ins = shadow.querySelector('.ins') as HTMLElement;
 const grip = shadow.querySelector('.grip') as HTMLElement;
@@ -313,6 +324,7 @@ grip.addEventListener('pointercancel', endDrag);
 /* ---------- rich text toolbar ---------- */
 
 d.addEventListener('selectionchange', () => {
+  if (rich.classList.contains('linking')) return; // typing the address moves the selection away on purpose
   const sel = d.getSelection();
   const node = sel?.anchorNode ? (sel.anchorNode.nodeType === 1 ? (sel.anchorNode as HTMLElement) : sel.anchorNode.parentElement) : null;
   const field = node?.closest<HTMLElement>('[data-nova-kind="rich"]');
@@ -323,9 +335,69 @@ d.addEventListener('selectionchange', () => {
   rich.classList.add('on');
 });
 
-rich.addEventListener('mousedown', (e) => e.preventDefault());
+// Own link field instead of the browser's prompt(): the toolbar turns into an address input.
+const linkInput = rich.querySelector('.lnk input') as HTMLInputElement;
+let savedRange: Range | null = null;
+const fieldOf = (r: Range | null) => {
+  const n = r?.commonAncestorContainer;
+  const el = n ? (n.nodeType === 1 ? (n as HTMLElement) : n.parentElement) : null;
+  return el?.closest<HTMLElement>('[data-nova-field]') ?? null;
+};
+const changed = (r: Range | null) => fieldOf(r)?.dispatchEvent(new Event('input', { bubbles: true }));
+function restoreSelection() {
+  const sel = d.getSelection();
+  if (!sel || !savedRange) return;
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+}
+function openLink() {
+  const sel = d.getSelection();
+  if (!sel?.rangeCount) return;
+  savedRange = sel.getRangeAt(0).cloneRange();
+  const start = savedRange.startContainer;
+  const a = (start.nodeType === 1 ? (start as HTMLElement) : start.parentElement)?.closest('a');
+  linkInput.value = a?.getAttribute('href') ?? '';
+  rich.classList.add('linking');
+  linkInput.focus();
+  linkInput.select();
+}
+function closeLink(apply: 'set' | 'remove' | null) {
+  const range = savedRange;
+  rich.classList.remove('linking');
+  restoreSelection();
+  if (apply === 'remove') d.execCommand('unlink');
+  else if (apply === 'set') {
+    const url = normalizeLinkInput(linkInput.value);
+    if (url) d.execCommand('createLink', false, url);
+    else d.execCommand('unlink');
+  }
+  if (apply) changed(range);
+  savedRange = null;
+}
+// Clicking somewhere else in the page leaves the link field without changes.
+linkInput.addEventListener('blur', () => {
+  if (!rich.classList.contains('linking')) return;
+  rich.classList.remove('linking', 'on');
+  savedRange = null;
+});
+linkInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    closeLink('set');
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeLink(null);
+  }
+});
+
+rich.addEventListener('mousedown', (e) => {
+  if (e.target !== linkInput) e.preventDefault();
+});
 rich.addEventListener('click', (e) => {
-  const c = (e.target as HTMLElement).closest('button')?.dataset.c;
+  const b = (e.target as HTMLElement).closest('button');
+  if (!b) return;
+  if (b.dataset.l) return closeLink(b.dataset.l === 'ok' ? 'set' : 'remove');
+  const c = b.dataset.c;
   if (!c) return;
   const map: Record<string, [string, string?]> = {
     bold: ['bold'],
@@ -336,10 +408,8 @@ rich.addEventListener('click', (e) => {
     ul: ['insertUnorderedList'],
     quote: ['formatBlock', 'blockquote'],
   };
-  if (c === 'link') {
-    const url = prompt('Link-Adresse, z. B. /kontakt oder https://…');
-    if (url) d.execCommand('createLink', false, url);
-  } else d.execCommand(map[c][0], false, map[c][1]);
+  if (c === 'link') return openLink();
+  d.execCommand(map[c][0], false, map[c][1]);
   d.getSelection()?.anchorNode?.parentElement?.closest('[data-nova-field]')?.dispatchEvent(new Event('input', { bubbles: true }));
 });
 
