@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
+import { localized } from './translations';
 import { sql, json } from './db';
 import { env } from './env';
 import { appSecret, getSettings } from './settings';
@@ -82,7 +83,7 @@ export async function orderableDishes(): Promise<Dish[]> {
     select id, published_data as data from entries
     where collection = 'dishes' and status = 'published' and coalesce(published_data ->> 'online', 'true') <> 'false'
     order by sort_index, published_data ->> 'title'`;
-  return rows as unknown as Dish[];
+  return localized(rows as unknown as Dish[], 'dishes');
 }
 
 function pricesOf(d: EntryData): { label: string; price: number }[] {
@@ -96,7 +97,7 @@ export async function cartLines(items: FoodCartItem[]): Promise<FoodLine[]> {
   if (!items.length) return [];
   const rows = await sql`
     select id, published_data as data from entries
-    where id = any(${items.map((i) => i.d)}::uuid[]) and collection = 'dishes' and status = 'published'`;
+    where id = any(${items.map((i) => i.d)}::uuid[]) and collection = 'dishes' and status = 'published'`.then((r) => localized(r as unknown as Dish[], 'dishes'));
   const lines: FoodLine[] = [];
   for (const i of items) {
     const r = rows.find((x) => x.id === i.d);

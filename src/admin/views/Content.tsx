@@ -6,6 +6,7 @@ import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { createAndOpen, entryUrl } from '../lib/actions';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confirm, Dialog, Select } from '../ui/kit';
+import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatPrice } from '../../shared/text';
@@ -24,6 +25,7 @@ interface Row {
   changed: boolean;
   author_name: string | null;
   sort_index: number;
+  translations?: { lang: string; status: string; changed: boolean }[];
 }
 
 export function ContentHub() {
@@ -37,10 +39,23 @@ export function ContentHub() {
     { to: '/formulare', icon: 'form', name: 'Formulare', sub: 'Felder und Einträge', show: can('forms.manage'), n: counts?.counts.unread },
     { to: '/kontakte', icon: 'people', name: 'Kontakte', sub: 'Anfragen als Pipeline', show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },
     { to: '/kueche', icon: 'dish', name: 'Küche', sub: 'Take-away und Lieferung, live', show: can('orders.manage') && mods.includes('ordering') },
-    { to: '/reservationen', icon: 'calendar', name: 'Reservationen', sub: 'Tagesplan, Anfragen, Telefonbuchungen', show: can('bookings.manage') && mods.includes('booking'), n: counts?.counts.pending_bookings },
+    {
+      to: '/reservationen',
+      icon: 'calendar',
+      name: 'Reservationen',
+      sub: 'Tagesplan, Anfragen, Telefonbuchungen',
+      show: can('bookings.manage') && mods.includes('booking'),
+      n: counts?.counts.pending_bookings,
+    },
     { to: '/newsletter', icon: 'mail', name: 'Newsletter', sub: 'Ausgaben, Abonnent:innen, Wochenrückblick', show: can('newsletter.manage') && mods.includes('newsletter') },
     { to: '/mitglieder', icon: 'key', name: 'Mitglieder', sub: 'Konten, Mitgliedschaft, geschützte Inhalte', show: can('members.manage') && mods.includes('members') },
-    { to: '/tickets', icon: 'ticket', name: 'Tickets & Anmeldungen', sub: 'Verkauf, Teilnehmerlisten, Einlass', show: can('events.manage') && (mods.includes('events') || mods.includes('courses')) },
+    {
+      to: '/tickets',
+      icon: 'ticket',
+      name: 'Tickets & Anmeldungen',
+      sub: 'Verkauf, Teilnehmerlisten, Einlass',
+      show: can('events.manage') && (mods.includes('events') || mods.includes('courses')),
+    },
     { to: '/spenden', icon: 'star', name: 'Spenden', sub: 'Eingänge, Kampagnen, Bestätigungen', show: can('donations.manage') && mods.includes('donations') },
     { to: '/bestellungen', icon: 'receipt', name: 'Bestellungen', sub: 'Shop-Bestellungen', show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
     { to: '/gutscheine', icon: 'ticket', name: 'Gutscheine', sub: 'Rabattcodes', show: can('orders.manage') && mods.includes('shop') },
@@ -95,7 +110,7 @@ export function ContentHub() {
 
 /** Up to three informative columns, chosen from the field types. */
 function columnsFor(c: CollectionDef): FieldDef[] {
-  const pick = c.fields.filter((f) => f.key !== c.title_field && ['money', 'select', 'date', 'number', 'boolean'].includes(f.type) || f.key === 'category');
+  const pick = c.fields.filter((f) => (f.key !== c.title_field && ['money', 'select', 'date', 'number', 'boolean'].includes(f.type)) || f.key === 'category');
   return pick.filter((f) => !['weight', 'comparePrice', 'digital', 'allowComments', 'consentAdult', 'consentPublish', 'soldOut', 'daily'].includes(f.key)).slice(0, 3);
 }
 
@@ -118,13 +133,29 @@ function cell(f: FieldDef, v: unknown) {
 function SortRow({ row, col, onOpen }: { row: Row; col: CollectionDef; onOpen: () => void }) {
   const controls = useDragControls();
   return (
-    <Reorder.Item value={row} dragListener={false} dragControls={controls} className="list-item" style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 5 }}>
+    <Reorder.Item
+      value={row}
+      dragListener={false}
+      dragControls={controls}
+      className="list-item"
+      style={{ listStyle: 'none' }}
+      whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 5 }}
+    >
       <span className="grip" onPointerDown={(e) => controls.start(e)} aria-label="Ziehen zum Sortieren" role="button">
         <Icon name="grip" />
       </span>
       <button className="grow" style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, minWidth: 0 }} onClick={onOpen}>
         <div className="title ellipsis">{row.title || '(ohne Titel)'}</div>
-        <div className="xsmall muted ellipsis">{columnsFor(col).map((f) => (row.fields[f.key] !== undefined && row.fields[f.key] !== null && row.fields[f.key] !== '' ? `${f.label}: ${f.type === 'money' ? formatPrice(row.fields[f.key] as number) : String(row.fields[f.key])}` : null)).filter(Boolean).join(' · ')}</div>
+        <div className="xsmall muted ellipsis">
+          {columnsFor(col)
+            .map((f) =>
+              row.fields[f.key] !== undefined && row.fields[f.key] !== null && row.fields[f.key] !== ''
+                ? `${f.label}: ${f.type === 'money' ? formatPrice(row.fields[f.key] as number) : String(row.fields[f.key])}`
+                : null,
+            )
+            .filter(Boolean)
+            .join(' · ')}
+        </div>
       </button>
       <StatusBadge status={row.status} changed={row.changed} />
     </Reorder.Item>
@@ -287,6 +318,7 @@ export function CollectionList({ collection }: { collection: string }) {
                       <td key={f.key}>{cell(f, r.fields[f.key])}</td>
                     ))}
                     <td>
+                      <LangBadges translations={r.translations} />
                       <StatusBadge status={r.status} changed={r.changed} />
                     </td>
                     <td className="muted">{formatDate(r.updated_at)}</td>
@@ -310,7 +342,13 @@ export function CollectionList({ collection }: { collection: string }) {
           </div>
         )}
       </section>
-      <Dialog open={apiOpen} onOpenChange={setApiOpen} title={`${col.name} über die API`} description="Veröffentlichte Inhalte sind ohne Token lesbar. Für Entwürfe und Änderungen brauchst du ein Token (Einstellungen → API & Webhooks)." wide>
+      <Dialog
+        open={apiOpen}
+        onOpenChange={setApiOpen}
+        title={`${col.name} über die API`}
+        description="Veröffentlichte Inhalte sind ohne Token lesbar. Für Entwürfe und Änderungen brauchst du ein Token (Einstellungen → API & Webhooks)."
+        wide
+      >
         <div className="stack">
           <pre className="code-out">{`GET ${location.origin}/api/v1/${collection}?limit=20&sort=-published_at${columns[0] ? `&filter[${columns[0].key}]=…` : ''}
 GET ${location.origin}/api/v1/${collection}/{slug}
@@ -358,7 +396,15 @@ function MenuBoard({ col }: { col: Col }) {
       const full = await api.get<{ entry: { data: Record<string, unknown>; version: number } }>(`/api/entries/${r.id}`);
       await api.put(`/api/entries/${r.id}`, { data: { ...full.entry.data, [key]: value }, baseVersion: full.entry.version });
       if (r.status === 'published') await api.post(`/api/entries/${r.id}/publish`);
-      toast(key === 'daily' ? (value ? `«${r.title}» ist auf der Tageskarte.` : `«${r.title}» ist nicht mehr auf der Tageskarte.`) : value ? `«${r.title}» als ausverkauft markiert.` : `«${r.title}» ist wieder da.`);
+      toast(
+        key === 'daily'
+          ? value
+            ? `«${r.title}» ist auf der Tageskarte.`
+            : `«${r.title}» ist nicht mehr auf der Tageskarte.`
+          : value
+            ? `«${r.title}» als ausverkauft markiert.`
+            : `«${r.title}» ist wieder da.`,
+      );
       void reload();
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
@@ -404,7 +450,18 @@ function MenuBoard({ col }: { col: Col }) {
               </>
             }
             action={
-              <button className="btn primary" onClick={() => void createAndOpen('dishes', { title: 'Älplermagronen mit Apfelmus', category: 'Hauptgänge', prices: [{ label: '', price: 2600 }], allergens: ['gluten', 'milk', 'eggs'], tags: ['vegetarian'] })}>
+              <button
+                className="btn primary"
+                onClick={() =>
+                  void createAndOpen('dishes', {
+                    title: 'Älplermagronen mit Apfelmus',
+                    category: 'Hauptgänge',
+                    prices: [{ label: '', price: 2600 }],
+                    allergens: ['gluten', 'milk', 'eggs'],
+                    tags: ['vegetarian'],
+                  })
+                }
+              >
                 Beispiel übernehmen
               </button>
             }

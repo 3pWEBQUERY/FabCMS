@@ -30,6 +30,7 @@ import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { EntryData, SiteSettings } from '../../shared/types';
 import { HOOK_EVENTS } from '../../shared/hooks';
+import { defaultLang, isLang, LANGS } from '../../shared/i18n';
 import { checkHookCode, runHook } from '../hooks';
 
 /** Settings keys and the capability needed to change them. */
@@ -101,6 +102,11 @@ export function systemApi(app: Hono<AppEnv>) {
         w.secret ||= token(24);
       }
     }
+    if (patch.languages) {
+      const main = defaultLang({ locale: patch.locale ?? (await getSettings()).locale });
+      patch.languages = [...new Set(patch.languages)].filter((l) => isLang(l) && l !== main);
+    }
+    if (patch.locale && !LANGS.some((l) => l.locale === patch.locale)) throw badRequest('Diese Sprache gibt es nicht.');
     if (patch.hooks) {
       if (!Array.isArray(patch.hooks) || patch.hooks.length > 50) throw badRequest('Höchstens 50 Hooks.');
       for (const h of patch.hooks) {

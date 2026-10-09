@@ -22,6 +22,7 @@ import { activeCollections, createEntry, publishEntry, updateEntry } from './con
 import { env } from './env';
 import { getSettings } from './settings';
 import { mediaLoader } from '../site/context';
+import { localized, localizedOne } from './translations';
 import { originalUrl, variantUrl } from '../site/picture';
 import { VARIANT_WIDTHS, effectiveSize, isImage } from './media';
 import { entryPath } from '../shared/paths';
@@ -131,7 +132,11 @@ async function loadEntry(ref: unknown, collection: string, ctx: GqlContext) {
     const by = UUID.test(ref) ? sql`id = ${ref}` : sql`slug = ${ref}`;
     ctx.entries.set(
       key,
-      sql`select * from entries where collection = ${collection} and status = 'published' and ${by} limit 1`.then(([r]) => (r ? (r as Record<string, unknown>) : null)),
+      sql`select * from entries where collection = ${collection} and status = 'published' and ${by} limit 1`.then(async ([r]) => {
+        if (!r) return null;
+        r.published_data = (await localizedOne({ id: r.id as string, data: r.published_data }, collection))!.data;
+        return r as Record<string, unknown>;
+      }),
     );
   }
   return ctx.entries.get(key)!;
@@ -306,6 +311,7 @@ export function buildSchema(cols: CollectionDef[]): GraphQLSchema {
         if (a.id && !UUID.test(a.id)) return null;
         const by = a.id ? sql`id = ${a.id}` : sql`slug = ${a.slug ?? ''}`;
         const [row] = await sql`select * from entries where collection = ${col.id} and ${by} ${drafts ? sql`` : sql`and status = 'published'`} limit 1`;
+        if (row && !drafts) row.published_data = (await localizedOne({ id: row.id as string, data: row.published_data }, col))!.data;
         return row ? { row, data: visibleData(row, drafts, ctx), col } : null;
       },
     };
@@ -339,6 +345,13 @@ export function buildSchema(cols: CollectionDef[]): GraphQLSchema {
           select *, count(*) over() as total from entries
           where collection = ${col.id} ${drafts ? sql`` : sql`and status = 'published'`} ${filters.length ? filters.reduce((x, y) => sql`${x} ${y}`) : sql``}
           order by ${order} limit ${limit} offset ${offset}`;
+        if (!drafts) {
+          const loc = await localized(
+            rows.map((r) => ({ id: r.id as string, data: r.published_data })),
+            col,
+          );
+          rows.forEach((r, i) => (r.published_data = loc[i].data));
+        }
         return { items: rows.map((row) => ({ row, data: visibleData(row, drafts, ctx), col })), total: Number(rows[0]?.total ?? 0) };
       },
     };

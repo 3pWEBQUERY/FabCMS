@@ -7,6 +7,7 @@ import { useEntryDoc } from '../lib/useEntryDoc';
 import { useSession } from '../lib/session';
 import { navigate } from '../lib/router';
 import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
+import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { Segmented, Tip } from '../ui/kit';
 import { PublishControls, SaveStatus } from '../ui/Publish';
@@ -36,8 +37,14 @@ const PANEL_TITLE: Record<Exclude<Panel, null>, string> = {
   footer: 'Fusszeile',
 };
 
+/** One editor per language: switching language mounts a fresh one (own history, own canvas). */
 export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () => void }) {
-  const doc = useEntryDoc(id);
+  const lang = useEditLang();
+  return <EditorFor key={lang ?? ''} id={id} lang={lang} onOpenPalette={onOpenPalette} />;
+}
+
+function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | null; onOpenPalette: () => void }) {
+  const doc = useEntryDoc(id, lang);
   const session = useSession();
   const toast = useToast();
   const narrow = useMediaQuery('(max-width: 900px)');
@@ -65,7 +72,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
     async (blockId: string) => {
       const seq = (renderSeq.current[blockId] ?? 0) + 1;
       renderSeq.current[blockId] = seq;
-      const r = await api.post<{ html: string }>('/api/render', { entryId: id, data: { ...doc.data, blocks: blocksRef.current }, blockId });
+      const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current }, blockId });
       if (renderSeq.current[blockId] === seq) postToCanvas(frame.current, { t: 'replace', id: blockId, html: r.html });
     },
     [id, doc.data],
@@ -73,7 +80,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
 
   const renderAll = useCallback(
     async (changed: string[] = []) => {
-      const r = await api.post<{ html: string }>('/api/render', { entryId: id, data: { ...doc.data, blocks: blocksRef.current } });
+      const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current } });
       postToCanvas(frame.current, { t: 'main', html: r.html, changed });
     },
     [id, doc.data],
@@ -189,7 +196,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
     });
     blocksRef.current = [...blocksRef.current.slice(0, index), block, ...blocksRef.current.slice(index)];
     try {
-      const r = await api.post<{ html: string }>('/api/render', { entryId: id, data: { ...doc.data, blocks: blocksRef.current }, blockId: block.id });
+      const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current }, blockId: block.id });
       postToCanvas(frame.current, { t: 'insert', index, html: r.html, id: block.id });
       setSelected(block.id);
       // Blocks that need a choice first (image, form …) open their settings right away.
@@ -224,7 +231,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
       return { ...d, blocks: list };
     });
     blocksRef.current = [...blocksRef.current.slice(0, index + 1), copy, ...blocksRef.current.slice(index + 1)];
-    const r = await api.post<{ html: string }>('/api/render', { entryId: id, data: { ...doc.data, blocks: blocksRef.current }, blockId: copy.id });
+    const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current }, blockId: copy.id });
     postToCanvas(frame.current, { t: 'insert', index: index + 1, html: r.html, id: copy.id });
     afterStructureChange();
   };
@@ -314,7 +321,7 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
       </div>
     );
 
-  const lock = selectedBlock && studio ? selectedBlock.lock ?? 'none' : 'none';
+  const lock = selectedBlock && studio ? (selectedBlock.lock ?? 'none') : 'none';
   const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) : -1;
 
   return (
@@ -329,7 +336,11 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
           <strong className="ellipsis">{doc.data?.title || '…'}</strong>
           <span className="ellipsis mono">{doc.path ?? ''}</span>
         </div>
-        <SaveStatus state={doc.saveState} error={doc.error} onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())} />
+        <SaveStatus
+          state={doc.saveState}
+          error={doc.error}
+          onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
+        />
         <div className="row hide-m" style={{ gap: 2 }}>
           <Tip label="Rückgängig" keys={`${modKey} Z`}>
             <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label="Rückgängig">
@@ -362,29 +373,36 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
               ['seo', 'seo', 'Suchmaschinen'],
               ['history', 'history', 'Verlauf'],
             ] as [Panel, string, string][]
-          ).map(([p, icon, label]) => (
-            <Tip key={p} label={label}>
-              <button className="btn ghost icon-only" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
-                <Icon name={icon} />
-              </button>
-            </Tip>
-          ))}
+          )
+            .filter(([p]) => !(lang && p === 'history'))
+            .map(([p, icon, label]) => (
+              <Tip key={p} label={label}>
+                <button className="btn ghost icon-only" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
+                  <Icon name={icon} />
+                </button>
+              </Tip>
+            ))}
         </div>
         <span className="hide-m">
           <ModeSwitch />
         </span>
-        <PublishControls
-          doc={doc}
-          onPublished={() =>
-            void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })
-          }
-        />
+        <LangSwitch doc={doc} />
+        <PublishControls doc={doc} onPublished={() => void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })} />
       </header>
 
+      {lang && (
+        <div className="editor-note">
+          <TranslationNote doc={doc} />
+        </div>
+      )}
       <div className="editor-stage">
         <div className="canvas-wrap" style={{ padding: device === 'desktop' ? 0 : '1rem 0' }}>
-          <motion.div className="canvas-frame" animate={glide} style={{ width: DEVICE_WIDTH[device], position: 'relative', transition: 'width .32s cubic-bezier(.2,.7,.2,1)', maxWidth: '100%' }}>
-            <LoadingFrame key={canvasKey} frameRef={frame} title="Seite bearbeiten" src={`/_nova/canvas/${id}`} label="Seite lädt …" />
+          <motion.div
+            className="canvas-frame"
+            animate={glide}
+            style={{ width: DEVICE_WIDTH[device], position: 'relative', transition: 'width .32s cubic-bezier(.2,.7,.2,1)', maxWidth: '100%' }}
+          >
+            <LoadingFrame key={canvasKey} frameRef={frame} title="Seite bearbeiten" src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label="Seite lädt …" />
             <div className="canvas-overlay">
               <AnimatePresence>
                 {selectedBlock && toolbarPos && !picker && (
@@ -438,11 +456,15 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
               </AnimatePresence>
               <RPopover.Root open={Boolean(picker)} onOpenChange={(o) => !o && setPicker(null)}>
                 <RPopover.Anchor asChild>
-                  <span style={{ position: 'absolute', top: picker?.rect.top ?? 0, left: picker?.rect.left ?? 0, width: picker?.rect.width ?? 0, height: picker?.rect.height ?? 0 }} />
+                  <span
+                    style={{ position: 'absolute', top: picker?.rect.top ?? 0, left: picker?.rect.left ?? 0, width: picker?.rect.width ?? 0, height: picker?.rect.height ?? 0 }}
+                  />
                 </RPopover.Anchor>
                 <RPopover.Portal>
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    {picker && <BlockPicker sections={(sectionsData?.entries ?? []).filter((s) => s.id !== id)} onPick={(type, props) => void insertBlock(type, picker.index, props)} />}
+                    {picker && (
+                      <BlockPicker sections={(sectionsData?.entries ?? []).filter((s) => s.id !== id)} onPick={(type, props) => void insertBlock(type, picker.index, props)} />
+                    )}
                   </RPopover.Content>
                 </RPopover.Portal>
               </RPopover.Root>
@@ -450,14 +472,31 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
                 {hint && ready && (
                   <motion.div
                     className="hint"
-                    style={{ position: 'absolute', left: '50%', bottom: 20, translateX: '-50%', pointerEvents: 'auto', boxShadow: 'var(--shadow-3)', background: 'var(--panel)', maxWidth: 'calc(100% - 2rem)' }}
+                    style={{
+                      position: 'absolute',
+                      left: '50%',
+                      bottom: 20,
+                      translateX: '-50%',
+                      pointerEvents: 'auto',
+                      boxShadow: 'var(--shadow-3)',
+                      background: 'var(--panel)',
+                      maxWidth: 'calc(100% - 2rem)',
+                    }}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 8 }}
                   >
                     <svg className="hint-anim" viewBox="0 0 36 36" aria-hidden="true">
                       <rect x="4" y="12" width="28" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                      <motion.rect x="8" y="16" width="1.6" height="4" fill="currentColor" animate={{ opacity: [1, 0, 1], x: [8, 8, 22] }} transition={{ duration: 2.4, repeat: Infinity }} />
+                      <motion.rect
+                        x="8"
+                        y="16"
+                        width="1.6"
+                        height="4"
+                        fill="currentColor"
+                        animate={{ opacity: [1, 0, 1], x: [8, 8, 22] }}
+                        transition={{ duration: 2.4, repeat: Infinity }}
+                      />
                     </svg>
                     <span>Klick in einen Text und schreib los. Mit «+» zwischen zwei Abschnitten fügst du neue hinzu.</span>
                     <button className="btn s ghost" onClick={dismissHint}>
@@ -495,7 +534,11 @@ export function Editor({ id, onOpenPalette }: { id: string; onOpenPalette: () =>
                 {panel === 'structure' && (
                   <div className="stack">
                     <StructurePanel blocks={doc.data.blocks ?? []} selected={selected} onSelect={(bid) => selectBlock(bid)} onReorder={reorderAll} />
-                    <button className="btn" style={{ justifySelf: 'start' }} onClick={() => setPicker({ index: blocksRef.current.length, rect: { top: 80, left: 80, width: 1, height: 1 } })}>
+                    <button
+                      className="btn"
+                      style={{ justifySelf: 'start' }}
+                      onClick={() => setPicker({ index: blocksRef.current.length, rect: { top: 80, left: 80, width: 1, height: 1 } })}
+                    >
                       <Icon name="plus" size="s" /> Block am Ende hinzufügen
                     </button>
                   </div>

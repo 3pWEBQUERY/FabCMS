@@ -2,6 +2,7 @@ import { sql } from '../server/db';
 import type { MemberLevel } from '../shared/members';
 import type { CollectionDef, MediaItem, SiteSettings } from '../shared/types';
 import type { Theme } from './themes';
+import type { Lang } from '../shared/i18n';
 
 export interface Crumb {
   label: string;
@@ -42,6 +43,12 @@ export interface RenderContext {
   csrf: string;
   /** Signed-in member of the website (Mitgliederbereich), if any. */
   member: { id: string; name: string; level: MemberLevel } | null;
+  /** Language of this page; the main language unless the visitor is under /fr/ etc. */
+  lang: Lang;
+  /** Main language of the site. */
+  mainLang: Lang;
+  /** This page in every switched-on language (main-language path in ctx.path). */
+  alternates: { lang: Lang; path: string; translated: boolean }[];
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

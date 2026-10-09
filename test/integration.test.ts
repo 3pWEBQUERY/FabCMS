@@ -122,6 +122,11 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const old = await req('GET', '/team', undefined, { cookies: new Map() });
     expect(old.status).toBe(301);
     expect(old.headers.get('location')).toBe('/unser-team');
+    // A new page that takes the old address owns it again: the redirect must not hide it.
+    const { data: again } = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Team', blocks: [] } });
+    expect(again.entry.slug).toBe('team');
+    await req('POST', `/api/entries/${again.entry.id}/publish`, {});
+    expect((await req('GET', '/team', undefined, { cookies: new Map() })).status).toBe(200);
   });
 
   it('detects concurrent edits via the version number', async () => {
@@ -927,6 +932,74 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/journal/fruehlingstour', undefined, { cookies: new Map() })).data).toContain('Romanshorn');
     // The same preview can't be imported twice.
     expect((await req('POST', '/api/import/run', { id: analysed.id, publish: true, images: false, redirects: true })).status).toBe(400);
+  });
+
+  it('serves translations under /fr with their own addresses, shared prices and hreflang', async () => {
+    const anon = { cookies: new Map() };
+    const settings = (await req('GET', '/api/settings')).data.settings;
+    const navKontakt = settings.nav.find((n: { href: string }) => n.href === '/kontakt');
+    const saved = await req('PATCH', '/api/settings', {
+      languages: ['fr', 'de', 'xx'],
+      translations: { fr: { tagline: 'Cuisine de saison', nav: navKontakt ? { [navKontakt.id]: 'Contact' } : {} } },
+    });
+    expect(saved.data.settings.languages).toEqual(['fr']);
+    const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+
+    // Untranslated: the original under /fr, French around it, but not indexed.
+    const fallback = await req('GET', '/fr/kontakt', undefined, anon);
+    expect(fallback.status).toBe(200);
+    expect(fallback.data).toContain('<html lang="fr-CH"');
+    expect(fallback.data).toContain('name="robots" content="noindex');
+    expect(fallback.data).toContain('href="/fr"');
+
+    // Translate and publish.
+    const draft = await req('PUT', `/api/entries/${page.id}?lang=fr`, { data: { ...page.data, title: 'Contact' }, slug: 'contact' });
+    expect(draft.data.entry).toMatchObject({ lang: 'fr', translated: true, status: 'draft', slug: 'contact' });
+    expect((await req('GET', '/fr/contact', undefined, anon)).status).toBe(404);
+    expect((await req('POST', `/api/entries/${page.id}/publish?lang=fr`, {})).status).toBe(200);
+    const fr = await req('GET', '/fr/contact', undefined, anon);
+    expect(fr.status).toBe(200);
+    expect(fr.data).toContain('<title>Contact ·');
+    expect(fr.data).toMatch(/<link rel="canonical" href="[^"]*\/fr\/contact">/);
+    expect(fr.data).toMatch(/hreflang="de" href="[^"]*\/kontakt"/);
+    expect(fr.data).toMatch(/hreflang="fr" href="[^"]*\/fr\/contact"/);
+    expect(fr.data).not.toContain('noindex');
+    // Links inside the French site lead to French addresses; the switcher to both.
+    expect(fr.data).toContain('href="/fr/contact"');
+    expect(fr.data).not.toMatch(/href="\/kontakt"/);
+    if (navKontakt) expect(fr.data).toContain('aria-current="page">Contact</a>');
+    expect((await req('GET', '/fr', undefined, anon)).data).toContain('Cuisine de saison');
+    expect((await req('GET', '/fr/kontakt', undefined, anon)).headers.get('location')).toBe('/fr/contact');
+    const de = await req('GET', '/kontakt', undefined, anon);
+    expect(de.data).toContain('<html lang="de-CH"');
+    expect(de.data).toMatch(/hreflang="fr" href="[^"]*\/fr\/contact"/);
+    expect((await req('GET', '/', undefined, anon)).data).not.toContain('Cuisine de saison');
+    const sitemap = (await req('GET', '/sitemap.xml', undefined, anon)).data as string;
+    expect(sitemap).toMatch(/<loc>[^<]*\/fr\/contact<\/loc>/);
+    expect(sitemap).toContain('xhtml:link rel="alternate" hreflang="fr"');
+
+    // Text is translated, prices stay shared.
+    const [dish] = await sql`select id, data from entries where collection = 'dishes' and status = 'published' order by sort_index limit 1`;
+    const price = dish.data.prices[0].price;
+    await req('PUT', `/api/entries/${dish.id}?lang=fr`, { data: { ...dish.data, title: 'Plat du jour', prices: [{ label: 'grand', price: 1 }] } });
+    await req('POST', `/api/entries/${dish.id}/publish?lang=fr`, {});
+    const [t] = await sql`select published_data from entry_translations where entry_id = ${dish.id} and lang = 'fr'`;
+    expect(t.published_data.prices[0]).toEqual({ label: 'grand' });
+    const menu = await req('GET', '/fr/karte', undefined, anon);
+    expect(menu.data).toContain('Plat du jour');
+    expect((await req('GET', '/karte', undefined, anon)).data).not.toContain('Plat du jour');
+    const gql = await req('POST', '/api/v1/graphql', { query: '{ dishes(limit: 50) { items { title prices { price } } } }' }, anon);
+    expect(JSON.stringify(gql.data)).not.toContain('Plat du jour');
+    const gqlFr = await req('POST', '/api/v1/graphql?lang=fr', { query: '{ dishes(limit: 50) { items { title prices { price } } } }' }, anon);
+    expect(gqlFr.data.data.dishes.items).toContainEqual({ title: 'Plat du jour', prices: [{ price }] });
+    expect(JSON.stringify((await req('GET', '/api/v1/dishes?limit=50&lang=fr', undefined, anon)).data)).toContain('Plat du jour');
+    expect((await req('GET', '/api/v1/pages/contact?lang=fr', undefined, anon)).status).toBe(404);
+    expect((await req('GET', '/api/v1/pages/kontakt?lang=fr', undefined, anon)).data.data.data.title).toBe('Contact');
+
+    // Languages that are switched off don't exist.
+    await req('PATCH', '/api/settings', { languages: [] });
+    expect((await req('GET', '/fr/contact', undefined, anon)).status).toBe(404);
+    expect((await req('GET', `/api/entries/${page.id}?lang=fr`)).status).toBe(404);
   });
 
   it('keeps authors out of other people’s work', async () => {

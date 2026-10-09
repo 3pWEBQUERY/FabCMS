@@ -1,4 +1,5 @@
 import { sql } from '../server/db';
+import { localized, localizedOne } from '../server/translations';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
 
 export interface PublicEntry {
@@ -42,7 +43,7 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
     where e.collection = ${c.id} and e.status = 'published' ${cat}
     order by ${order}
     limit ${o.limit ?? 100} offset ${o.offset ?? 0}`;
-  return { items: rows as unknown as PublicEntry[], total: Number(rows[0]?.total ?? 0) };
+  return { items: await localized(rows as unknown as PublicEntry[], c), total: Number(rows[0]?.total ?? 0) };
 }
 
 export async function categoriesOf(collection: string): Promise<string[]> {
@@ -63,7 +64,8 @@ export async function sectionBlocks(id: unknown, preview: boolean): Promise<{ ti
   if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return null;
   const [s] = await sql`select data, published_data from entries where id = ${id} and collection = 'sections'`;
   if (!s) return null;
-  const d = (preview ? s.data : s.published_data) as EntryData | null;
+  const raw = (preview ? s.data : s.published_data) as EntryData | null;
+  const d = raw ? ((await localizedOne({ id, data: raw }, 'sections'))?.data as EntryData) : null;
   return d ? { title: d.title, blocks: d.blocks ?? [] } : null;
 }
 

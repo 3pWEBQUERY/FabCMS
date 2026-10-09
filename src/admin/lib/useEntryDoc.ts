@@ -26,6 +26,12 @@ export interface EntryDoc {
   canRedo: boolean;
   /** Bumped when undo/redo replaced data wholesale (the canvas re-renders). */
   externalChange: number;
+  /** Language being edited; null = main language. */
+  lang: string | null;
+  /** Which translations exist (for the language switcher). */
+  translations: { lang: string; status: string; changed: boolean }[];
+  /** Status of the original while a translation is edited. */
+  original: { status: string; slug: string } | null;
 }
 
 const SAVE_DELAY = 700;
@@ -36,7 +42,10 @@ const HISTORY_LIMIT = 300;
  * the version number guards against overwriting someone else's work, and an
  * unlimited (well, 300 steps) undo history lives in memory.
  */
-export function useEntryDoc(id: string): EntryDoc {
+export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
+  const q = lang ? `?lang=${lang}` : '';
+  const [translations, setTranslations] = useState<EntryDoc['translations']>([]);
+  const [original, setOriginal] = useState<EntryDoc['original']>(null);
   const [entry, setEntry] = useState<Entry | null>(null);
   const [collection, setCollection] = useState<CollectionDef | null>(null);
   const [path, setPath] = useState<string | null>(null);
@@ -60,7 +69,16 @@ export function useEntryDoc(id: string): EntryDoc {
   const lastPush = useRef(0);
 
   const reload = useCallback(async () => {
-    const r = await api.get<{ entry: Entry; collection: CollectionDef; path: string | null; blockers: string[] }>(`/api/entries/${id}`);
+    const r = await api.get<{
+      entry: Entry;
+      collection: CollectionDef;
+      path: string | null;
+      blockers: string[];
+      translations?: EntryDoc['translations'];
+      original?: EntryDoc['original'];
+    }>(`/api/entries/${id}${q}`);
+    setTranslations(r.translations ?? []);
+    setOriginal(r.original ?? null);
     setEntry(r.entry);
     setCollection(r.collection);
     setPath(r.path);
@@ -72,7 +90,7 @@ export function useEntryDoc(id: string): EntryDoc {
     versionRef.current = r.entry.version;
     setSaveState('saved');
     setError(null);
-  }, [id]);
+  }, [id, q]);
 
   useEffect(() => {
     void reload().catch((e) => setError((e as Error).message));
@@ -87,7 +105,7 @@ export function useEntryDoc(id: string): EntryDoc {
     setSaveState('saving');
     const run = (async () => {
       try {
-        const r = await api.put<{ entry: Entry; path: string | null; blockers: string[] }>(`/api/entries/${id}`, {
+        const r = await api.put<{ entry: Entry; path: string | null; blockers: string[] }>(`/api/entries/${id}${q}`, {
           data: dataRef.current,
           slug: slugRef.current,
           baseVersion: versionRef.current,
@@ -120,7 +138,7 @@ export function useEntryDoc(id: string): EntryDoc {
     }
     if (ok) setSaveState('saved');
     return ok;
-  }, [id]);
+  }, [id, q]);
 
   const schedule = useCallback(() => {
     setSaveState('dirty');
@@ -188,7 +206,13 @@ export function useEntryDoc(id: string): EntryDoc {
         stockTouched: stockTouched.current || undefined,
       });
       if (body.length > 60_000) return false;
-      void fetch(`/api/entries/${id}`, { method: 'PUT', keepalive: true, credentials: 'same-origin', headers: { 'X-Nova': '1', 'Content-Type': 'application/json' }, body }).catch(() => {});
+      void fetch(`/api/entries/${id}${q}`, {
+        method: 'PUT',
+        keepalive: true,
+        credentials: 'same-origin',
+        headers: { 'X-Nova': '1', 'Content-Type': 'application/json' },
+        body,
+      }).catch(() => {});
       return true;
     };
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -217,9 +241,12 @@ export function useEntryDoc(id: string): EntryDoc {
     };
   }, [saveState, doSave, id]);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   return {
     entry,
@@ -246,9 +273,11 @@ export function useEntryDoc(id: string): EntryDoc {
     },
     undo: () => applyHistory(past, future),
     redo: () => applyHistory(future, past),
+    lang,
+    translations,
+    original,
     canUndo: hist.past > 0,
     canRedo: hist.future > 0,
     externalChange,
   };
 }
-

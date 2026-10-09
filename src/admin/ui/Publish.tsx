@@ -42,6 +42,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   const e = doc.entry;
   if (!e) return null;
   const canPublish = can('content.publish');
+  const q = e.lang ? `?lang=${e.lang}` : '';
   const live = e.status === 'published';
   const changed = live && JSON.stringify(e.published_data) !== JSON.stringify(doc.data);
 
@@ -49,7 +50,9 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
     setBusy(true);
     try {
       if (!(await doc.saveNow())) throw new Error(doc.error ?? 'Speichern hat nicht geklappt.');
-      const r = await api.post<{ entry: Entry; firstPublish?: boolean; review?: boolean; url?: string }>(`/api/entries/${e.id}/publish`, { at: at ? new Date(at).toISOString() : null });
+      const r = await api.post<{ entry: Entry; firstPublish?: boolean; review?: boolean; url?: string }>(`/api/entries/${e.id}/publish${q}`, {
+        at: at ? new Date(at).toISOString() : null,
+      });
       doc.setEntry(r.entry);
       if (r.review) toast('Zur Freigabe eingereicht. Die Redaktion wird informiert.');
       else if (r.entry.status === 'scheduled') toast(`Geplant für ${new Date(r.entry.publish_at!).toLocaleString('de-CH', { dateStyle: 'medium', timeStyle: 'short' })}.`);
@@ -70,15 +73,24 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   };
 
   const unpublish = async () => {
-    if (!(await confirm({ title: 'Offline nehmen?', message: 'Die Seite ist danach nicht mehr öffentlich. Der Inhalt bleibt als Entwurf erhalten.', confirm: 'Offline nehmen' }))) return;
-    const r = await api.post<{ entry: Entry }>(`/api/entries/${e.id}/unpublish`);
+    if (!(await confirm({ title: 'Offline nehmen?', message: 'Die Seite ist danach nicht mehr öffentlich. Der Inhalt bleibt als Entwurf erhalten.', confirm: 'Offline nehmen' })))
+      return;
+    const r = await api.post<{ entry: Entry }>(`/api/entries/${e.id}/unpublish${q}`);
     doc.setEntry(r.entry);
     toast('Offline genommen.');
   };
 
   const discard = async () => {
-    if (!(await confirm({ title: 'Änderungen verwerfen?', message: 'Der Entwurf wird auf die veröffentlichte Fassung zurückgesetzt. Im Verlauf bleibt alles erhalten.', confirm: 'Verwerfen', danger: true }))) return;
-    await api.post(`/api/entries/${e.id}/discard`);
+    if (
+      !(await confirm({
+        title: 'Änderungen verwerfen?',
+        message: 'Der Entwurf wird auf die veröffentlichte Fassung zurückgesetzt. Im Verlauf bleibt alles erhalten.',
+        confirm: 'Verwerfen',
+        danger: true,
+      }))
+    )
+      return;
+    await api.post(`/api/entries/${e.id}/discard${q}`);
     await doc.reload();
     toast('Auf veröffentlichte Fassung zurückgesetzt.');
   };
@@ -86,7 +98,13 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   const label = !canPublish ? 'Zur Freigabe' : live && !changed ? 'Veröffentlicht' : live ? 'Änderungen veröffentlichen' : 'Veröffentlichen';
   return (
     <div className="row" style={{ gap: 2 }}>
-      <button className={`btn ${live && !changed ? '' : 'go'}`} disabled={busy || (live && !changed) || doc.blockers.length > 0} aria-busy={busy || undefined} onClick={() => publish()} title={doc.blockers.join(' ') || undefined}>
+      <button
+        className={`btn ${live && !changed ? '' : 'go'}`}
+        disabled={busy || (live && !changed) || doc.blockers.length > 0}
+        aria-busy={busy || undefined}
+        onClick={() => publish()}
+        title={doc.blockers.join(' ') || undefined}
+      >
         <Icon name={live && !changed ? 'check' : 'publish'} size="s" />
         <span className="hide-m">{label}</span>
       </button>

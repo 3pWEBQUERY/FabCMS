@@ -11,6 +11,8 @@ import { Icon } from '../ui/icons';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
 import { validateFields } from '../../shared/fields';
+import { isTranslatable } from '../../shared/i18n';
+import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import type { CollectionDef } from '../../shared/types';
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
@@ -26,11 +28,16 @@ export function EntryRoute({ collection, id, onOpenPalette }: { collection: stri
         <Editor id={id} onOpenPalette={onOpenPalette} />
       </Suspense>
     );
-  return <EntryForm id={id} />;
+  return <EntryFormLang id={id} />;
 }
 
-function EntryForm({ id }: { id: string }) {
-  const doc = useEntryDoc(id);
+function EntryFormLang({ id }: { id: string }) {
+  const lang = useEditLang();
+  return <EntryForm key={lang ?? ''} id={id} lang={lang} />;
+}
+
+function EntryForm({ id, lang }: { id: string; lang: string | null }) {
+  const doc = useEntryDoc(id, lang);
   const { can, pro } = useSession();
   const toast = useToast();
   const [previewKey, setPreviewKey] = useState(0);
@@ -52,11 +59,17 @@ function EntryForm({ id }: { id: string }) {
   }, [doc.saveState, doc.entry?.version]);
 
   if (doc.error && !doc.entry) return <div className="page">{doc.error}</div>;
-  if (!doc.data || !doc.collection || !doc.entry) return <div className="page"><Skeleton lines={6} /></div>;
+  if (!doc.data || !doc.collection || !doc.entry)
+    return (
+      <div className="page">
+        <Skeleton lines={6} />
+      </div>
+    );
   const col = doc.collection;
   const errors = touched ? Object.fromEntries(validateFields(col.fields, doc.data).map((e) => [e.path, e.message])) : {};
   const hasPreview = Boolean(col.route) || col.id === 'dishes';
-  const previewUrl = col.route ? `/_nova/preview/${id}?v=${previewKey}` : `/karte?v=${previewKey}`;
+  const lq = lang ? `lang=${lang}&` : '';
+  const previewUrl = col.route ? `/_nova/preview/${id}?${lq}v=${previewKey}` : `${lang ? `/${lang}` : ''}/karte?v=${previewKey}`;
 
   const remove = async () => {
     if (!(await confirm({ title: `«${doc.data!.title}» löschen?`, confirm: 'Löschen', danger: true }))) return;
@@ -96,10 +109,12 @@ function EntryForm({ id }: { id: string }) {
               </button>
             </Tip>
             <StatusBadge status={doc.entry.status} />
+            <LangSwitch doc={doc} />
             <PublishControls doc={doc} />
           </>
         }
       />
+      <TranslationNote doc={doc} />
       {doc.blockers.length > 0 && (
         <div className="hint" style={{ marginBottom: '1rem', background: 'var(--edited-soft)' }} role="note">
           <Icon name="info" />
@@ -113,6 +128,7 @@ function EntryForm({ id }: { id: string }) {
               fields={col.fields}
               values={doc.data}
               errors={errors}
+              locked={lang ? (f) => (isTranslatable(f) ? null : 'Gilt für alle Sprachen – im Original ändern.') : undefined}
               onChange={(k, v) => {
                 if (k === 'stock' || k === 'variants') doc.markStockTouched();
                 doc.setData((d) => ({ ...d, [k]: v, ...(k === col.title_field ? { title: String(v ?? '') } : {}) }));
@@ -121,24 +137,38 @@ function EntryForm({ id }: { id: string }) {
           </div>
           {col.route && (
             <div className="form-section">
-              <Field label="Adresse" htmlFor="slug" help={doc.path ? `${location.origin}${doc.path} – eine Änderung leitet die alte Adresse automatisch weiter.` : undefined} keyName={pro ? 'slug' : undefined}>
+              <Field
+                label="Adresse"
+                htmlFor="slug"
+                help={doc.path ? `${location.origin}${doc.path} – eine Änderung leitet die alte Adresse automatisch weiter.` : undefined}
+                keyName={pro ? 'slug' : undefined}
+              >
                 <div className="input-affix">
-                  <span>{col.route.replace(':slug', '')}</span>
+                  <span>
+                    {lang ? `/${lang}` : ''}
+                    {col.route.replace(':slug', '')}
+                  </span>
                   <input id="slug" className="input mono" value={doc.slug} onChange={(e) => doc.setSlug(e.target.value)} />
                 </div>
               </Field>
               <Field label="Beschreibung für Google" htmlFor="seo-d" help="Leer lassen, dann erzeugt Nova sie aus dem Inhalt.">
-                <textarea id="seo-d" className="textarea" style={{ minHeight: '4rem' }} value={doc.data.seo?.description ?? ''} onChange={(e) => doc.setData((d) => ({ ...d, seo: { ...d.seo, description: e.target.value } }))} />
+                <textarea
+                  id="seo-d"
+                  className="textarea"
+                  style={{ minHeight: '4rem' }}
+                  value={doc.data.seo?.description ?? ''}
+                  onChange={(e) => doc.setData((d) => ({ ...d, seo: { ...d.seo, description: e.target.value } }))}
+                />
               </Field>
             </div>
           )}
           <div className="form-section row wrap">
-            {col.id === 'profiles' && can('content.delete') && (
+            {!lang && col.id === 'profiles' && can('content.delete') && (
               <button className="btn danger" onClick={withdraw}>
                 <Icon name="shield" size="s" /> Einwilligung widerrufen
               </button>
             )}
-            {can('content.delete') && (
+            {!lang && can('content.delete') && (
               <button className="btn ghost danger" onClick={remove}>
                 <Icon name="trash" size="s" /> Löschen
               </button>
@@ -150,7 +180,13 @@ function EntryForm({ id }: { id: string }) {
             <header>
               <Icon name="eye" size="s" />
               <span className="grow">{col.route ? 'Vorschau (Entwurf)' : 'Karte – zeigt veröffentlichte Gerichte'}</span>
-              <a className="btn ghost s icon-only" href={col.route ? `/_nova/preview/${id}` : '/karte'} target="_blank" rel="noreferrer" aria-label="In neuem Tab öffnen">
+              <a
+                className="btn ghost s icon-only"
+                href={col.route ? `/_nova/preview/${id}${lang ? `?lang=${lang}` : ''}` : `${lang ? `/${lang}` : ''}/karte`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="In neuem Tab öffnen"
+              >
                 <Icon name="external" size="s" />
               </a>
             </header>

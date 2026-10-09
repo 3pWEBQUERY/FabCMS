@@ -28,6 +28,27 @@ import { createContext, renderPage } from '../../site/render';
 import { HEADED_BLOCKS, renderBlocks } from '../../site/blocks';
 import { env } from '../env';
 import { entryPath } from '../../shared/paths';
+import type { Lang } from '../../shared/i18n';
+import {
+  deleteTranslation,
+  discardTranslation,
+  parseLang,
+  publishTranslation,
+  requestLang,
+  saveTranslation,
+  translationStatus,
+  translationView,
+  unpublishTranslation,
+} from '../translations';
+
+const withLang = <T>(lang: Lang | null, fn: () => Promise<T>) => (lang ? requestLang.run(lang, fn) : fn());
+
+/** Public address of an entry in another language. */
+async function langPath(col: { route: string | null; id: string }, slug: string, lang: Lang): Promise<string | null> {
+  const p = entryPath(col as never, slug);
+  if (!p) return null;
+  return p === '/' ? `/${lang}` : `/${lang}${p}`;
+}
 
 function saveCtx(user: AuthUser): SaveContext {
   return {
@@ -67,10 +88,11 @@ function listRow(r: Record<string, any>) {
   };
 }
 
-async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, edit: boolean) {
+async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, edit: boolean, lang: Lang | null = null) {
   const settings = await getSettings();
   const collection = await getCollection(entry.collection);
   const ctx = createContext({
+    lang: lang ?? undefined,
     settings,
     collections: await activeCollections(),
     path: entryPath(collection, entry.slug) ?? '/',
@@ -80,7 +102,11 @@ async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, 
     preview: true,
     ageOk: true,
   });
-  return { ctx, collection, renderEntry: { id: entry.id, slug: entry.slug, data, published_at: entry.published_at, updated_at: entry.updated_at, version: entry.version, author_name: null } };
+  return {
+    ctx,
+    collection,
+    renderEntry: { id: entry.id, slug: entry.slug, data, published_at: entry.published_at, updated_at: entry.updated_at, version: entry.version, author_name: null },
+  };
 }
 
 export function contentApi(app: Hono<AppEnv>) {
@@ -148,7 +174,8 @@ export function contentApi(app: Hono<AppEnv>) {
       where e.collection = ${collection} ${own} ${status} ${search}
       order by ${collection === 'pages' ? sql`e.slug = '' desc, e.slug asc` : sql`e.sort_index asc, e.updated_at desc`}
       limit ${limit} offset ${offset}`;
-    return c.json({ entries: rows.map(listRow), total: Number(rows[0]?.total ?? 0) });
+    const trs = await translationStatus(rows.map((r) => r.id as string));
+    return c.json({ entries: rows.map((r) => ({ ...listRow(r), translations: trs.get(r.id as string) ?? [] })), total: Number(rows[0]?.total ?? 0) });
   });
 
   app.get('/api/entries/review', async (c) => {
@@ -165,7 +192,20 @@ export function contentApi(app: Hono<AppEnv>) {
     const e = await getEntry(c.req.param('id'));
     assertCanEdit(user, e);
     const col = await getCollection(e.collection);
-    return c.json({ entry: e, collection: col, path: entryPath(col, e.slug), blockers: publishBlockers(col, e.data) });
+    const lang = await parseLang(c.req.query('lang'));
+    const translations = (await translationStatus([e.id])).get(e.id) ?? [];
+    if (lang) {
+      const v = await translationView(e, lang);
+      return c.json({
+        entry: v,
+        collection: col,
+        path: await langPath(col, v.slug, lang),
+        blockers: publishBlockers(col, v.data),
+        translations,
+        original: { status: e.status, slug: e.slug },
+      });
+    }
+    return c.json({ entry: e, collection: col, path: entryPath(col, e.slug), blockers: publishBlockers(col, e.data), translations });
   });
 
   app.post('/api/entries', async (c) => {
@@ -185,6 +225,12 @@ export function contentApi(app: Hono<AppEnv>) {
     const body = z
       .object({ data: z.record(z.string(), z.unknown()), slug: z.string().optional(), baseVersion: z.number().int().optional(), stockTouched: z.boolean().optional() })
       .parse(await c.req.json());
+    const lang = await parseLang(c.req.query('lang'));
+    if (lang) {
+      const v = await saveTranslation(cur, lang, body, saveCtx(user));
+      const col = await getCollection(cur.collection);
+      return c.json({ entry: v, path: await langPath(col, v.slug, lang), blockers: publishBlockers(col, v.data) });
+    }
     const e = await updateEntry(id, body, saveCtx(user));
     const col = await getCollection(e.collection);
     return c.json({ entry: e, path: entryPath(col, e.slug), blockers: publishBlockers(col, e.data) });
@@ -196,11 +242,26 @@ export function contentApi(app: Hono<AppEnv>) {
     const cur = await getEntry(id);
     assertCanEdit(user, cur);
     const body = z.object({ at: z.string().datetime({ offset: true }).nullable().optional() }).parse(await c.req.json().catch(() => ({})));
+    const lang = await parseLang(c.req.query('lang'));
+    if (lang) {
+      if (!can(user.role, 'content.publish')) throw forbidden('Übersetzungen veröffentlichen darf, wer veröffentlichen darf.');
+      const v = await publishTranslation(cur, lang);
+      await audit(c, 'translation.publish', cur.collection, id, { lang });
+      const col = await getCollection(cur.collection);
+      const path = await langPath(col, v.slug, lang);
+      return c.json({ entry: v, firstPublish: false, url: path ? (await base()) + path : null });
+    }
     if (!can(user.role, 'content.publish')) {
       const [e] = await sql`update entries set status = 'review', updated_at = now() where id = ${id} returning *`;
       await audit(c, 'entry.review', cur.collection, id);
       const where = cur.collection === 'pages' ? `/seiten/${id}` : `/inhalte/${cur.collection}/${id}`;
-      void notify({ kind: 'review', cap: 'content.publish', title: `Freigabe erbeten: ${(cur.data.title as string) || 'Ohne Titel'}`, body: `${user.name} möchte das veröffentlichen.`, href: where });
+      void notify({
+        kind: 'review',
+        cap: 'content.publish',
+        title: `Freigabe erbeten: ${(cur.data.title as string) || 'Ohne Titel'}`,
+        body: `${user.name} möchte das veröffentlichen.`,
+        href: where,
+      });
       return c.json({ entry: e, review: true });
     }
     const { entry, firstPublish } = await publishEntry(id, user.id, body.at ? new Date(body.at) : null);
@@ -212,6 +273,8 @@ export function contentApi(app: Hono<AppEnv>) {
 
   app.post('/api/entries/:id/unpublish', async (c) => {
     requireCap(c, 'content.publish');
+    const lang = await parseLang(c.req.query('lang'));
+    if (lang) return c.json({ entry: await unpublishTranslation(await getEntry(c.req.param('id')), lang) });
     const e = await unpublishEntry(c.req.param('id'));
     await audit(c, 'entry.unpublish', e.collection, e.id);
     return c.json({ entry: e });
@@ -221,8 +284,11 @@ export function contentApi(app: Hono<AppEnv>) {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
     const cur = await getEntry(c.req.param('id'));
     assertCanEdit(user, cur);
+    const lang = await parseLang(c.req.query('lang'));
+    if (lang) return c.json({ entry: await discardTranslation(cur, lang) });
     if (!cur.published_data) throw badRequest('Es gibt keine veröffentlichte Fassung, zu der man zurückkehren könnte.');
-    const [e] = await sql`update entries set data = published_data, slug = coalesce(published_slug, slug), version = version + 1, updated_at = now() where id = ${cur.id} returning *`;
+    const [e] =
+      await sql`update entries set data = published_data, slug = coalesce(published_slug, slug), version = version + 1, updated_at = now() where id = ${cur.id} returning *`;
     await audit(c, 'entry.discard', cur.collection, cur.id);
     return c.json({ entry: e });
   });
@@ -246,6 +312,17 @@ export function contentApi(app: Hono<AppEnv>) {
     }
     await deleteEntry(cur.id);
     await audit(c, 'entry.delete', cur.collection, cur.id, { title: cur.data.title });
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/entries/:id/translations/:lang', async (c) => {
+    const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const cur = await getEntry(c.req.param('id'));
+    assertCanEdit(user, cur);
+    const lang = await parseLang(c.req.param('lang'));
+    if (!lang) throw badRequest('Das Original lässt sich hier nicht löschen.');
+    await deleteTranslation(cur, lang);
+    await audit(c, 'translation.delete', cur.collection, cur.id, { lang });
     return c.json({ ok: true });
   });
 
@@ -318,8 +395,12 @@ export function contentApi(app: Hono<AppEnv>) {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
     const e = await getEntry(c.req.param('id'));
     assertCanEdit(user, e);
-    const { ctx, collection, renderEntry } = await canvasContext(c, e, e.data, true);
-    const body = await renderPage(ctx, collection, renderEntry);
+    const lang = await parseLang(c.req.query('lang'));
+    const v = lang ? await translationView(e, lang) : e;
+    const body = await withLang(lang, async () => {
+      const { ctx, collection, renderEntry } = await canvasContext(c, v, v.data, true, lang);
+      return renderPage(ctx, collection, renderEntry);
+    });
     c.header('Cache-Control', 'no-store');
     return c.html(body);
   });
@@ -328,20 +409,31 @@ export function contentApi(app: Hono<AppEnv>) {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
     const e = await getEntry(c.req.param('id'));
     assertCanEdit(user, e);
-    const { ctx, collection, renderEntry } = await canvasContext(c, e, e.data, false);
+    const lang = await parseLang(c.req.query('lang'));
+    const v = lang ? await translationView(e, lang) : e;
     c.header('Cache-Control', 'no-store');
-    return c.html(await renderPage(ctx, collection, renderEntry));
+    return c.html(
+      await withLang(lang, async () => {
+        const { ctx, collection, renderEntry } = await canvasContext(c, v, v.data, false, lang);
+        return renderPage(ctx, collection, renderEntry);
+      }),
+    );
   });
 
   /** Re-renders one block (inspector change) or the whole page (undo, reorder) from unsaved data. */
   app.post('/api/render', async (c) => {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
-    const body = z.object({ entryId: z.string(), data: z.record(z.string(), z.unknown()), blockId: z.string().optional() }).parse(await c.req.json());
+    const body = z.object({ entryId: z.string(), data: z.record(z.string(), z.unknown()), blockId: z.string().optional(), lang: z.string().optional() }).parse(await c.req.json());
     const e = await getEntry(body.entryId);
     assertCanEdit(user, e);
+    const lang = await parseLang(body.lang);
+    return withLang(lang, () => renderFor(c, e, body, lang));
+  });
+
+  async function renderFor(c: Context<AppEnv>, e: Entry, body: { data: Record<string, unknown>; blockId?: string }, lang: Lang | null) {
     const data = body.data as EntryData;
     const blocks = sanitizeBlocks(data.blocks, true, e.data.blocks ?? []);
-    const { ctx, collection, renderEntry } = await canvasContext(c, e, { ...data, blocks }, true);
+    const { ctx, collection, renderEntry } = await canvasContext(c, e, { ...data, blocks }, true, lang);
     if (body.blockId) {
       const index = blocks.findIndex((b) => b.id === body.blockId);
       if (index < 0) throw notFound('Block nicht gefunden.');
@@ -352,7 +444,7 @@ export function contentApi(app: Hono<AppEnv>) {
       return c.json({ html: html.value, needs: [...ctx.needs] });
     }
     return c.json({ html: await renderPage(ctx, collection, renderEntry) });
-  });
+  }
 
   /** Theme preview with the site's own content (setup assistant, design settings). */
   app.get('/_nova/theme-preview', async (c) => {

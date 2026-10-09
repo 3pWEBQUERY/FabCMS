@@ -30,6 +30,9 @@ import { accountLink, gate } from './members';
 import { eventCards, eventTemplate, upcoming } from './events';
 import { propertyList, propertyTemplate } from './realestate';
 import { entryAccess, mayRead, type Access } from '../shared/members';
+import { defaultLang, langInfo, localizeSettings, type Lang } from '../shared/i18n';
+import { localized } from '../server/translations';
+import { t } from './i18n';
 
 export function createContext(input: {
   settings: SiteSettings;
@@ -42,11 +45,16 @@ export function createContext(input: {
   ageOk?: boolean;
   cartCount?: number;
   member?: RenderContext['member'];
+  lang?: Lang;
+  alternates?: RenderContext['alternates'];
 }): RenderContext {
   const loader = mediaLoader();
+  const mainLang = defaultLang(input.settings);
+  const lang = input.lang ?? mainLang;
+  const settings = localizeSettings(input.settings, lang);
   return {
-    settings: input.settings,
-    theme: resolveTheme(input.settings).theme,
+    settings,
+    theme: resolveTheme(settings).theme,
     collections: input.collections,
     path: input.path,
     base: input.base.replace(/\/$/, ''),
@@ -67,7 +75,19 @@ export function createContext(input: {
     cartCount: input.cartCount ?? 0,
     csrf: '',
     member: input.member ?? null,
+    lang,
+    mainLang,
+    alternates: input.alternates ?? [],
   };
+}
+
+/** Language links: absolute, so the link rewriting for /fr/ leaves them alone. */
+function langSwitch(ctx: RenderContext): Html {
+  if (ctx.alternates.length < 2) return html``;
+  return html`<ul class="lang-switch" aria-label="${t(ctx, 'Sprache')}">${ctx.alternates.map(
+    (a) =>
+      html`<li><a href="${ctx.base}${a.path}" hreflang="${a.lang}" lang="${a.lang}"${a.lang === ctx.lang ? raw(' aria-current="true"') : ''} title="${langInfo(a.lang).native}">${a.lang.toUpperCase()}</a></li>`,
+  )}</ul>`;
 }
 
 /* ---------- Header & footer ---------- */
@@ -98,16 +118,19 @@ async function header(ctx: RenderContext): Promise<Html> {
   const cta = s.header.cta?.href ? html`<a class="btn" href="${s.header.cta.href}">${s.header.cta.label}</a>` : '';
   const account = accountLink(ctx);
   const editAttr = ctx.edit ? raw(' data-nova-global="header"') : '';
-  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="Hauptnavigation">${navList(ctx, s.nav)}${account}${cart}${cta}</nav><details class="menu-toggle"><summary aria-label="Menü"><span class="bars" aria-hidden="true"></span>Menü</summary><nav class="menu-panel" aria-label="Hauptnavigation mobil">${navList(
+  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="Hauptnavigation">${navList(ctx, s.nav)}${account}${cart}${cta}${langSwitch(ctx)}</nav><details class="menu-toggle"><summary aria-label="Menü"><span class="bars" aria-hidden="true"></span>Menü</summary><nav class="menu-panel" aria-label="Hauptnavigation mobil">${navList(
     ctx,
     s.nav,
-  )}${account}${cart ? html`<p>${cart}</p>` : ''}${cta}</nav></details></div></header>`;
+  )}${account}${cart ? html`<p>${cart}</p>` : ''}${cta}${langSwitch(ctx)}</nav></details></div></header>`;
 }
 
 async function footer(ctx: RenderContext): Promise<Html> {
   const s = ctx.settings;
   const b = s.business;
-  const legal = await sql`select slug, data ->> 'title' as title from entries where collection = 'pages' and status = 'published' and slug in ('impressum', 'datenschutz', 'agb') order by slug desc`;
+  const legal = await localized(
+    (await sql`select id, slug, published_data as data from entries where collection = 'pages' and status = 'published' and slug in ('impressum', 'datenschutz', 'agb') order by slug desc`) as unknown as { id: string; slug: string; data: EntryData }[],
+    'pages',
+  );
   const editAttr = ctx.edit ? raw(' data-nova-global="footer"') : '';
   return html`<footer class="site-footer"${editAttr}><div class="wrap"><div class="ftr"><div><p class="ftr-name">${s.name}</p>${
     s.footer.text ? html`<p>${s.footer.text}</p>` : ''
@@ -118,7 +141,7 @@ async function footer(ctx: RenderContext): Promise<Html> {
   }${s.footer.columns.map((col) => html`<div><h2>${col.title}</h2><ul>${col.links.map((l) => html`<li><a href="${l.href}">${l.label}</a></li>`)}</ul></div>`)}${
     s.social.length ? html`<div><h2>Folgen</h2><ul>${s.social.map((l) => html`<li><a href="${l.href}" rel="noopener me">${l.label}</a></li>`)}</ul></div>` : ''
   }</div><div class="ftr-bottom"><span>© ${new Date().getFullYear()} ${b.legalName || s.name}</span><ul>${legal.map(
-    (l) => html`<li><a href="/${l.slug}">${l.title}</a></li>`,
+    (l) => html`<li><a href="/${l.slug}">${l.data.title}</a></li>`,
   )}</ul></div></div></footer>`;
 }
 
@@ -152,9 +175,20 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   const runtime = s.analytics.enabled || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
   const gate = ageGate(ctx);
   const blog = ctx.collections.find((c) => c.id === 'posts');
+  // Other languages: canonical is the translated address; an untranslated page points to the original and stays out of the index.
+  const here = ctx.alternates.find((a) => a.lang === ctx.lang);
+  if (ctx.lang !== ctx.mainLang && here && meta.canonical?.startsWith(ctx.base)) {
+    if (here.translated) meta.canonical = ctx.base + here.path + meta.canonical.slice(ctx.base.length + ctx.path.length);
+    else meta.noindex = true;
+  }
+  const translated = ctx.alternates.filter((a) => a.translated);
+  const hreflang =
+    translated.length > 1 && !meta.noindex
+      ? html`${translated.map((a) => html`<link rel="alternate" hreflang="${a.lang}" href="${ctx.base}${a.path}">`)}<link rel="alternate" hreflang="x-default" href="${ctx.base}${ctx.path}">`
+      : '';
   const head = html`<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${meta.title}</title>${
     meta.description ? html`<meta name="description" content="${meta.description}">` : ''
-  }<link rel="canonical" href="${meta.canonical}">${meta.noindex || s.seo.noindex ? html`<meta name="robots" content="noindex, nofollow">` : ''}${
+  }<link rel="canonical" href="${meta.canonical}">${hreflang}${meta.noindex || s.seo.noindex ? html`<meta name="robots" content="noindex, nofollow">` : ''}${
     s.seo.adult ? html`<meta name="rating" content="adult">` : ''
   }<meta property="og:type" content="${meta.type === 'article' ? 'article' : 'website'}"><meta property="og:title" content="${meta.plainTitle}"><meta property="og:site_name" content="${s.name}"><meta property="og:url" content="${meta.canonical}"><meta property="og:locale" content="${s.locale.replace('-', '_')}">${
     meta.description ? html`<meta property="og:description" content="${meta.description}">` : ''
@@ -176,7 +210,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">Zum Inhalt springen</a>${hdr}<main id="inhalt">${crumbHtml}${main}</main>${ftr}</body></html>`;
+  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${crumbHtml}${main}</main>${ftr}</body></html>`;
 }
 
 /* ---------- Pages & entries ---------- */
@@ -197,10 +231,13 @@ async function pageCrumbs(ctx: RenderContext, slug: string, title: string): Prom
   const crumbs: Crumb[] = [{ label: 'Start', href: '/' }];
   const parents = parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'));
   if (parents.length) {
-    const rows = await sql`select slug, coalesce(published_data, data) ->> 'title' as title from entries where collection = 'pages' and slug = any(${parents})`;
+    const rows = await localized(
+      (await sql`select id, slug, coalesce(published_data, data) as data from entries where collection = 'pages' and slug = any(${parents})`) as unknown as { id: string; slug: string; data: EntryData }[],
+      'pages',
+    );
     for (const p of parents) {
       const r = rows.find((x) => x.slug === p);
-      if (r) crumbs.push({ label: r.title as string, href: `/${p}` });
+      if (r) crumbs.push({ label: r.data.title, href: `/${p}` });
     }
   }
   crumbs.push({ label: title, href: `/${slug}` });

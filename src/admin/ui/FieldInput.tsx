@@ -18,7 +18,22 @@ export function isVisible(f: FieldDef, values: Values) {
 }
 
 /** Renders a list of fields. Werkbank-only fields are hidden in the Studio. */
-export function FieldList({ fields, values, onChange, errors, skip = [] }: { fields: FieldDef[]; values: Values; onChange: (key: string, v: unknown) => void; errors?: Record<string, string>; skip?: string[] }) {
+export function FieldList({
+  fields,
+  values,
+  onChange,
+  errors,
+  skip = [],
+  locked,
+}: {
+  fields: FieldDef[];
+  values: Values;
+  onChange: (key: string, v: unknown) => void;
+  errors?: Record<string, string>;
+  skip?: string[];
+  /** Fields that can't be changed here (e.g. prices while translating). */
+  locked?: (f: FieldDef) => string | null;
+}) {
   const { pro } = useSession();
   const visible = fields.filter((f) => !skip.includes(f.key) && (pro || !f.pro) && isVisible(f, values));
   // Consecutive half-width fields share a row.
@@ -28,7 +43,18 @@ export function FieldList({ fields, values, onChange, errors, skip = [] }: { fie
     if (f.width === 'half' && last && last.length === 1 && last[0].width === 'half') last.push(f);
     else rows.push([f]);
   }
-  const input = (f: FieldDef) => <FieldInput key={f.key} field={f} value={values[f.key]} onChange={(v) => onChange(f.key, v)} error={errors?.[f.key]} />;
+  const input = (f: FieldDef) => {
+    const why = locked?.(f);
+    const el = <FieldInput key={f.key} field={f} value={values[f.key]} onChange={(v) => onChange(f.key, v)} error={errors?.[f.key]} />;
+    return why ? (
+      <fieldset key={f.key} className="locked-field" disabled title={why}>
+        {el}
+        <p className="xsmall muted">{why}</p>
+      </fieldset>
+    ) : (
+      el
+    );
+  };
   return (
     <>
       {rows.map((r) =>
@@ -78,7 +104,16 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
         />,
       );
     case 'textarea':
-      return wrap(<textarea id={id} className="textarea" value={(value as string) ?? ''} placeholder={f.placeholder} aria-invalid={Boolean(error)} onChange={(e) => onChange(e.target.value)} />);
+      return wrap(
+        <textarea
+          id={id}
+          className="textarea"
+          value={(value as string) ?? ''}
+          placeholder={f.placeholder}
+          aria-invalid={Boolean(error)}
+          onChange={(e) => onChange(e.target.value)}
+        />,
+      );
     case 'richtext':
       return wrap(<RichText id={id} value={(value as string) ?? ''} onChange={onChange} />);
     case 'number':
@@ -104,19 +139,27 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
       return (
         <div className="field">
           <Toggle checked={Boolean(value)} onChange={onChange} label={f.label} help={f.help} />
-          {keyName && <span className="field-key" style={{ justifySelf: 'start' }}>{keyName}</span>}
+          {keyName && (
+            <span className="field-key" style={{ justifySelf: 'start' }}>
+              {keyName}
+            </span>
+          )}
         </div>
       );
     case 'select':
-      return wrap(
-        <Select id={id} value={(value as string) ?? ''} onChange={onChange} options={[...(f.required ? [] : [{ value: '', label: '–' }]), ...(f.options ?? [])]} />,
-      );
+      return wrap(<Select id={id} value={(value as string) ?? ''} onChange={onChange} options={[...(f.required ? [] : [{ value: '', label: '–' }]), ...(f.options ?? [])]} />);
     case 'multiselect': {
       const v = (value as string[]) ?? [];
       return wrap(
         <div className="chips" role="group" aria-label={f.label}>
           {f.options?.map((o) => (
-            <button key={o.value} type="button" className="chip" aria-pressed={v.includes(o.value)} onClick={() => onChange(v.includes(o.value) ? v.filter((x) => x !== o.value) : [...v, o.value])}>
+            <button
+              key={o.value}
+              type="button"
+              className="chip"
+              aria-pressed={v.includes(o.value)}
+              onClick={() => onChange(v.includes(o.value) ? v.filter((x) => x !== o.value) : [...v, o.value])}
+            >
               {o.label}
             </button>
           ))}
@@ -139,13 +182,24 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
     case 'color':
       return wrap(
         <div className="row">
-          <input type="color" value={(value as string) || '#000000'} onChange={(e) => onChange(e.target.value)} style={{ width: '2.5rem', height: '2.25rem', border: 0, background: 'none' }} />
+          <input
+            type="color"
+            value={(value as string) || '#000000'}
+            onChange={(e) => onChange(e.target.value)}
+            style={{ width: '2.5rem', height: '2.25rem', border: 0, background: 'none' }}
+          />
           <input id={id} className="input mono" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} />
         </div>,
       );
     case 'location':
       return wrap(
-        <input id={id} className="input" value={(value as { address?: string })?.address ?? ''} placeholder="Strasse, PLZ Ort" onChange={(e) => onChange({ address: e.target.value })} />,
+        <input
+          id={id}
+          className="input"
+          value={(value as { address?: string })?.address ?? ''}
+          placeholder="Strasse, PLZ Ort"
+          onChange={(e) => onChange({ address: e.target.value })}
+        />,
       );
     case 'json':
       return wrap(<CodeInput id={id} value={value} onChange={onChange} raw={f.key === 'code'} />);
@@ -227,7 +281,17 @@ export function TagInput({ id, value, onChange }: { id?: string; value: string[]
   );
 }
 
-export function MediaField({ value, onChange, type, privateUpload }: { value: string | null; onChange: (v: string | null) => void; type?: 'image' | 'video' | 'file'; privateUpload?: boolean }) {
+export function MediaField({
+  value,
+  onChange,
+  type,
+  privateUpload,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  type?: 'image' | 'video' | 'file';
+  privateUpload?: boolean;
+}) {
   const m = useMedia(value);
   const [open, setOpen] = useState(false);
   return (
@@ -241,8 +305,16 @@ export function MediaField({ value, onChange, type, privateUpload }: { value: st
         )}
       </button>
       <div className="stack tight" style={{ gap: '0.3rem', minWidth: 0 }}>
-        {m && <span className="small ellipsis" style={{ maxWidth: '14rem' }}>{m.filename}</span>}
-        {m?.image && !m.alt && <span className="xsmall" style={{ color: 'var(--edited)' }}>Beschreibung fehlt – in der Mediathek ergänzen</span>}
+        {m && (
+          <span className="small ellipsis" style={{ maxWidth: '14rem' }}>
+            {m.filename}
+          </span>
+        )}
+        {m?.image && !m.alt && (
+          <span className="xsmall" style={{ color: 'var(--edited)' }}>
+            Beschreibung fehlt – in der Mediathek ergänzen
+          </span>
+        )}
         <div className="row">
           <button type="button" className="btn s" onClick={() => setOpen(true)}>
             {value ? 'Ersetzen' : 'Auswählen'}
@@ -273,7 +345,13 @@ function Thumb({ id, onRemove }: { id: string; onRemove: () => void }) {
   const m = useMedia(id);
   const controls = useDragControls();
   return (
-    <Reorder.Item value={id} dragListener={false} dragControls={controls} style={{ position: 'relative', listStyle: 'none' }} whileDrag={{ scale: 1.06, zIndex: 3, boxShadow: 'var(--shadow-3)' }}>
+    <Reorder.Item
+      value={id}
+      dragListener={false}
+      dragControls={controls}
+      style={{ position: 'relative', listStyle: 'none' }}
+      whileDrag={{ scale: 1.06, zIndex: 3, boxShadow: 'var(--shadow-3)' }}
+    >
       <div className="media-tile" style={{ width: '5rem', height: '5rem', cursor: 'grab', touchAction: 'none' }} onPointerDown={(e) => controls.start(e)}>
         {m?.thumb ? <img src={m.thumb} alt={m.alt} draggable={false} /> : <Icon name="image" />}
       </div>
@@ -341,7 +419,13 @@ function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v:
 function FormSelect({ id, value, onChange }: { id: string; value: string; onChange: (v: string | null) => void }) {
   const { data } = useApi<{ forms: { id: string; name: string }[] }>('/api/forms');
   return (
-    <Select id={id} value={value ?? ''} onChange={(v) => onChange(v || null)} placeholder="Formular wählen …" options={(data?.forms ?? []).map((f) => ({ value: f.id, label: f.name }))} />
+    <Select
+      id={id}
+      value={value ?? ''}
+      onChange={(v) => onChange(v || null)}
+      placeholder="Formular wählen …"
+      options={(data?.forms ?? []).map((f) => ({ value: f.id, label: f.name }))}
+    />
   );
 }
 
@@ -382,17 +466,46 @@ interface Item extends Values {
   _k: string;
 }
 
-function GroupItem({ field, item, index, onChange, onRemove, open, setOpen }: { field: FieldDef; item: Item; index: number; onChange: (v: Item) => void; onRemove: () => void; open: boolean; setOpen: (o: boolean) => void }) {
+function GroupItem({
+  field,
+  item,
+  index,
+  onChange,
+  onRemove,
+  open,
+  setOpen,
+}: {
+  field: FieldDef;
+  item: Item;
+  index: number;
+  onChange: (v: Item) => void;
+  onRemove: () => void;
+  open: boolean;
+  setOpen: (o: boolean) => void;
+}) {
   const controls = useDragControls();
   const titleField = field.fields?.find((f) => ['text', 'email'].includes(f.type));
   const title = (titleField && (item[titleField.key] as string)) || `${field.itemLabel ?? 'Eintrag'} ${index + 1}`;
   return (
-    <Reorder.Item value={item} dragListener={false} dragControls={controls} className="repeat-item" style={{ listStyle: 'none', position: 'relative' }} whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 5 }}>
+    <Reorder.Item
+      value={item}
+      dragListener={false}
+      dragControls={controls}
+      className="repeat-item"
+      style={{ listStyle: 'none', position: 'relative' }}
+      whileDrag={{ scale: 1.01, boxShadow: 'var(--shadow-3)', zIndex: 5 }}
+    >
       <header onPointerDown={(e) => (e.target as HTMLElement).closest('button') === null && controls.start(e)}>
         <span className="grip" aria-hidden="true">
           <Icon name="grip" size="s" />
         </span>
-        <button type="button" className="title ellipsis" style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: '0.25rem 0' }} onClick={() => setOpen(!open)} aria-expanded={open}>
+        <button
+          type="button"
+          className="title ellipsis"
+          style={{ border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', padding: '0.25rem 0' }}
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+        >
           {title}
         </button>
         <button type="button" className="btn ghost s icon-only" aria-label={`${title} entfernen`} onClick={onRemove}>

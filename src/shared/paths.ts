@@ -16,4 +16,4 @@ export function matchRoute(route: string, path: string): string | null {
 }
 
 /** Paths Nova uses itself; pages can't take them. */
-export const RESERVED_PREFIXES = ['admin', 'api', '_nova', 'media', 'warenkorb', 'kasse', 'bestellung', 'buchung', 'newsletter', 'konto', 'tickets', 'spende', 'bestellen', 'essen', 'sitemap.xml', 'robots.txt', 'feed.xml'];
+export const RESERVED_PREFIXES = ['de', 'fr', 'it', 'en', 'admin', 'api', '_nova', 'media', 'warenkorb', 'kasse', 'bestellung', 'buchung', 'newsletter', 'konto', 'tickets', 'spende', 'bestellen', 'essen', 'sitemap.xml', 'robots.txt', 'feed.xml'];

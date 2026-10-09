@@ -16,6 +16,7 @@ import { cliScript } from '../../site/assets';
 import { getSettings } from '../settings';
 import { env } from '../env';
 import { mediaLoader } from '../../site/context';
+import { localized, localizedOne, parseLang, requestLang } from '../translations';
 
 /**
  * Headless REST API. Published content is public (read without token, CORS
@@ -53,7 +54,10 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     if (c.req.method === 'OPTIONS') return c.body(null, 204);
     if (!rateLimit(`v1:${clientIp(c)}`, 300, 60_000).ok) throw new HttpError(429, 'Zu viele Anfragen.');
-    await next();
+    // ?lang=fr: published translations laid over the content (drafts stay in the main language).
+    const lang = c.req.method === 'GET' || c.req.path === '/api/v1/graphql' ? await parseLang(c.req.query('lang')) : null;
+    if (lang) await requestLang.run(lang, next);
+    else await next();
   });
 
   app.get('/api/v1', async (c) =>
@@ -154,7 +158,11 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     const rows = await sql`
       select *, count(*) over() as total from entries where ${where} ${filters.length ? filters.reduce((a, b) => sql`${a} ${b}`) : sql``}
       order by ${order} limit ${limit} offset ${offset}`;
-    return c.json({ data: rows.map((r) => shape(col, r, Boolean(drafts), Boolean(token))), meta: { total: Number(rows[0]?.total ?? 0), limit, offset } });
+    const items = drafts ? rows : await localized(rows.map((r) => ({ ...r, data: r.published_data })) as never[], col);
+    return c.json({
+      data: items.map((r: Record<string, any>) => shape(col, drafts ? r : { ...r, published_data: r.data }, Boolean(drafts), Boolean(token))),
+      meta: { total: Number(rows[0]?.total ?? 0), limit, offset },
+    });
   });
 
   app.get('/api/v1/:collection/:slug{.+}', async (c) => {
@@ -163,7 +171,8 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     const slug = c.req.param('slug') === '_home' ? '' : c.req.param('slug');
     const [e] = await sql`select * from entries where collection = ${col.id} and slug = ${slug} and status = 'published'`;
     if (!e) throw notFound();
-    return c.json({ data: shape(col, e, false, Boolean(token)) });
+    const l = await localizedOne({ id: e.id as string, data: e.published_data }, col);
+    return c.json({ data: shape(col, { ...e, published_data: l!.data }, false, Boolean(token)) });
   });
 
   /* writes */

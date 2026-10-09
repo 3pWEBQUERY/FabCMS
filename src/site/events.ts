@@ -2,6 +2,7 @@ import { html, raw, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture } from './picture';
 import { renderBlocks } from './blocks';
+import { localized } from '../server/translations';
 import { sql } from '../server/db';
 import { env } from '../server/env';
 import { availability, describeWhen, salesOpen, type Availability, type TicketEntry } from '../server/tickets';
@@ -36,7 +37,7 @@ export async function upcoming(collection: 'events' | 'courses', timeZone: strin
     where collection = ${collection} and status = 'published'
       and ${o.category ? sql`lower(published_data ->> 'category') = lower(${o.category})` : sql`true`}
     order by published_data ->> 'start' ${o.past ? sql`desc` : sql`asc`} nulls last
-    limit 500`;
+    limit 500`.then((r) => localized(r as unknown as { id: string; slug: string; data: EntryData }[], collection));
   const now = Date.now();
   // Ends count, not starts: an evening that is running is still «upcoming».
   const items = (rows as unknown as Item[]).filter((r) => {

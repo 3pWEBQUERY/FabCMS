@@ -365,6 +365,9 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
         published_at = coalesce(published_at, now()), updated_at = now()
       where id = ${id} returning *`;
       await tx`insert into revisions (entry_id, data, kind, user_id) values (${id}, ${json(e.data)}, 'publish', ${userId})`;
+      // A live entry owns its address: an older redirect from it would hide the page.
+      const own = entryPath(c, e.slug);
+      if (own) await tx`delete from redirects where from_path = ${own}`;
       // Automatic 301 when the address of a live entry changes.
       if (oldSlug !== null && oldSlug !== e.slug) {
         const from = entryPath(c, oldSlug);

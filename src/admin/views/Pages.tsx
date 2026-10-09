@@ -5,6 +5,7 @@ import { navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { PAGE_PRESETS } from '../lib/presets';
 import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, confirm, Select } from '../ui/kit';
+import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { slugify } from '../../shared/text';
@@ -18,6 +19,7 @@ interface Row {
   updated_at: string;
   changed: boolean;
   publish_at: string | null;
+  translations?: { lang: string; status: string; changed: boolean }[];
 }
 
 export function NewPageDialog({ open, onClose, pages }: { open: boolean; onClose: () => void; pages: Row[] }) {
@@ -93,7 +95,15 @@ export function PagesList() {
   const rows = useMemo(() => data?.entries ?? [], [data]);
 
   const remove = async (r: Row) => {
-    if (!(await confirm({ title: `«${r.title}» löschen?`, message: 'Die Seite und ihr Verlauf werden entfernt. Das lässt sich nicht rückgängig machen – ausser über eine Sicherung.', confirm: 'Löschen', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: `«${r.title}» löschen?`,
+        message: 'Die Seite und ihr Verlauf werden entfernt. Das lässt sich nicht rückgängig machen – ausser über eine Sicherung.',
+        confirm: 'Löschen',
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/api/entries/${r.id}`);
       toast('Seite gelöscht.');
@@ -125,7 +135,14 @@ export function PagesList() {
         {!data ? (
           <Skeleton lines={5} />
         ) : rows.length === 0 ? (
-          <Empty title="Noch keine Seiten" action={<button className="btn primary" onClick={() => setCreating(true)}>Erste Seite anlegen</button>} />
+          <Empty
+            title="Noch keine Seiten"
+            action={
+              <button className="btn primary" onClick={() => setCreating(true)}>
+                Erste Seite anlegen
+              </button>
+            }
+          />
         ) : (
           <ul className="list">
             {rows.map((r) => {
@@ -138,6 +155,7 @@ export function PagesList() {
                     <div className="xsmall muted mono ellipsis">/{r.slug}</div>
                   </Link>
                   <span className="xsmall faint hide-m">{formatDate(r.updated_at)}</span>
+                  <LangBadges translations={r.translations} />
                   <StatusBadge status={r.status} changed={r.changed} />
                   <Menu
                     trigger={

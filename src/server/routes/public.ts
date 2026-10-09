@@ -1,5 +1,7 @@
 import type { Context, Hono } from 'hono';
 import { formHooks } from '../hooks';
+import { alternates, currentLang, localized, localizedOne, localizePath, pathMap } from '../translations';
+import { defaultLang, extraLangs, langInfo } from '../../shared/i18n';
 import { getCookie, setCookie } from 'hono/cookie';
 import { createRequire } from 'node:module';
 import { createReadStream, statSync } from 'node:fs';
@@ -87,10 +89,13 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
   const cart = settings.modules.includes('shop') ? await cartItems(c) : [];
   const age = unsign(getCookie(c, AGE_COOKIE), await appSecret()) === '1';
   const member = settings.modules.includes('members') && !opts.edit && !opts.preview ? await currentMember(c) : null;
+  const path = decodeURIComponent(url.pathname);
   return createContext({
+    lang: currentLang() ?? undefined,
+    alternates: extraLangs(settings).length ? await alternates(path) : [],
     settings,
     collections: await activeCollections(),
-    path: decodeURIComponent(url.pathname),
+    path,
     base: await siteBase(settings),
     query: url.searchParams,
     edit: opts.edit,
@@ -155,7 +160,7 @@ async function resolve(path: string): Promise<Resolved | null> {
       select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.version, u.name as author_name
       from entries e left join users u on u.id = e.author_id
       where e.collection = ${collection} and e.slug = ${s} and e.status = 'published'`;
-    return e as unknown as Extract<Resolved, { kind: 'entry' }>['entry'] | undefined;
+    return localizedOne(e as unknown as Extract<Resolved, { kind: 'entry' }>['entry'] | undefined, collection);
   };
   const page = await load('pages', slug);
   if (page) return { kind: 'entry', collection: collections.find((c) => c.id === 'pages')!, entry: page };
@@ -274,6 +279,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     if (id !== 'site') {
       if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
       const [e] = await sql`select collection, published_data, version from entries where id = ${id} and status = 'published'`;
+      if (e) e.published_data = (await localizedOne({ id, data: e.published_data, collection: e.collection as string }))!.data;
       if (!e) return c.notFound();
       title = (e.published_data as EntryData).seo?.title || (e.published_data as EntryData).title;
       kicker = s.name;
@@ -821,17 +827,27 @@ export function publicRoutes(app: Hono<AppEnv>) {
       select collection, slug, updated_at, published_data -> 'seo' ->> 'noindex' as noindex
       from entries where status = 'published' order by collection, slug`;
     const urls: string[] = [];
+    // Translated pages: every language gets its own <url>, each listing all versions (hreflang).
+    const langs = extraLangs(s);
+    const maps = await Promise.all(langs.map(async (l) => ({ lang: l, map: await pathMap(l) })));
+    const main = defaultLang(s);
     for (const r of rows) {
       const col = collections.find((x) => x.id === r.collection);
       if (!col || r.noindex === 'true') continue;
       const p = entryPath(col, r.slug as string);
-      if (p) urls.push(`<url><loc>${base}${encodeURI(p)}</loc><lastmod>${new Date(r.updated_at).toISOString().slice(0, 10)}</lastmod></url>`);
+      if (!p) continue;
+      const lastmod = `<lastmod>${new Date(r.updated_at).toISOString().slice(0, 10)}</lastmod>`;
+      const versions = [{ lang: main, path: p }, ...maps.filter((m) => m.map.toLocal.has(p)).map((m) => ({ lang: m.lang, path: m.map.toLocal.get(p)! }))];
+      const links = versions.length > 1 ? versions.map((v) => `<xhtml:link rel="alternate" hreflang="${v.lang}" href="${base}${encodeURI(v.path)}"/>`).join('') : '';
+      for (const v of versions) urls.push(`<url><loc>${base}${encodeURI(v.path)}</loc>${lastmod}${links}</url>`);
     }
     for (const col of collections) {
       if (col.list_route && !rows.some((r) => r.collection === 'pages' && `/${r.slug}` === col.list_route)) urls.push(`<url><loc>${base}${col.list_route}</loc></url>`);
     }
     c.header('Content-Type', 'application/xml; charset=utf-8');
-    return c.body(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`);
+    return c.body(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls.join('')}</urlset>`,
+    );
   });
 
   app.get('/feed.xml', async (c) => {
@@ -839,14 +855,26 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const base = await siteBase(s);
     const col = (await activeCollections()).find((x) => x.id === 'posts');
     if (!col) return c.notFound();
-    const items = await sql`
-      select e.slug, e.published_data as data, e.published_at, u.name as author from entries e left join users u on u.id = e.author_id
-      where e.collection = 'posts' and e.status = 'published' order by coalesce(e.published_data ->> 'date', e.published_at::text) desc limit 30`;
+    const items = await localized(
+      (await sql`
+      select e.id, e.slug, e.published_data as data, e.published_at, u.name as author from entries e left join users u on u.id = e.author_id
+      where e.collection = 'posts' and e.status = 'published' order by coalesce(e.published_data ->> 'date', e.published_at::text) desc limit 30`) as unknown as {
+        id: string;
+        slug: string;
+        data: EntryData;
+        published_at: string;
+        author: string;
+      }[],
+      'posts',
+    );
+    const lang = currentLang();
+    const map = lang ? await pathMap(lang) : null;
+    const feedBase = lang ? base + localizePath(await pathMap(lang), lang, '/').replace(/\/$/, '') : base;
     const x = (v: unknown) => String(v ?? '').replace(/[<>&'"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[ch]!);
     const entries = items
       .map((i) => {
         const d = i.data as EntryData;
-        const link = base + entryPath(col, i.slug as string);
+        const link = lang ? base + localizePath(map!, lang, entryPath(col, i.slug)!) : base + entryPath(col, i.slug);
         const desc = (d.excerpt as string) || (entryAccess(d) === 'public' ? excerpt(blocksText(d.blocks), 300) : '');
         const date = new Date((d.date as string) || i.published_at).toUTCString();
         return `<item><title>${x(d.title)}</title><link>${x(link)}</link><guid>${x(link)}</guid><pubDate>${date}</pubDate><description>${x(desc)}</description>${d.category ? `<category>${x(d.category)}</category>` : ''}</item>`;
@@ -854,7 +882,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
       .join('');
     c.header('Content-Type', 'application/rss+xml; charset=utf-8');
     return c.body(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>${x(s.name)}</title><link>${x(base)}</link><description>${x(s.tagline || s.seo.defaultDescription)}</description><language>${x(s.locale)}</language><atom:link href="${x(base)}/feed.xml" rel="self" type="application/rss+xml"/>${entries}</channel></rss>`,
+      `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>${x(s.name)}</title><link>${x(base)}</link><description>${x(s.tagline || s.seo.defaultDescription)}</description><language>${x(lang ? langInfo(lang).locale : s.locale)}</language><atom:link href="${x(feedBase)}/feed.xml" rel="self" type="application/rss+xml"/>${entries}</channel></rss>`,
     );
   });
 
@@ -871,16 +899,39 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const q = (c.req.query('q') ?? '').trim().slice(0, 100);
     const collections = ctx.collections.filter((x) => x.id === 'pages' || x.route || x.list_route);
     let results: { title: string; href: string; text: string }[] = [];
+    const lang = currentLang();
     if (q) {
-      const rows = await sql`
-        select collection, slug, published_data as data,
+      // In another language: its translations, plus originals that have none.
+      const cfg = lang ? langInfo(lang).pg : 'german';
+      const like = '%' + q.replace(/[%_]/g, '') + '%';
+      const translatedRows = lang
+        ? await sql`
+        select e.id, e.collection, e.slug, e.published_data as data, ts_rank(to_tsvector(${cfg}::regconfig, t.published_data::text), websearch_to_tsquery(${cfg}::regconfig, ${q})) as rank
+        from entry_translations t join entries e on e.id = t.entry_id
+        where t.lang = ${lang} and t.status = 'published' and e.status = 'published' and e.collection = any(${collections.map((x) => x.id)})
+          and ((coalesce(e.published_data ->> 'access', 'public') = 'public' and to_tsvector(${cfg}::regconfig, t.published_data::text) @@ websearch_to_tsquery(${cfg}::regconfig, ${q}))
+            or t.published_data ->> 'title' ilike ${like})
+          and coalesce(e.published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
+        order by rank desc limit 30`
+        : [];
+      const mainRows = await sql`
+        select id, collection, slug, published_data as data,
                ts_rank(to_tsvector('german', published_data::text), websearch_to_tsquery('german', ${q})) as rank
         from entries
         where status = 'published' and collection = any(${collections.map((x) => x.id)})
           and ((coalesce(published_data ->> 'access', 'public') = 'public' and to_tsvector('german', published_data::text) @@ websearch_to_tsquery('german', ${q}))
             or published_data ->> 'title' ilike ${'%' + q.replace(/[%_]/g, '') + '%'})
           and coalesce(published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
+          ${lang ? sql`and not exists (select 1 from entry_translations t where t.entry_id = entries.id and t.lang = ${lang} and t.status = 'published')` : sql``}
         order by rank desc limit 30`;
+      const rows = await localized(
+        [...translatedRows, ...mainRows].sort((a, b) => Number(b.rank) - Number(a.rank)).slice(0, 30) as unknown as {
+          id: string;
+          collection: string;
+          slug: string;
+          data: EntryData;
+        }[],
+      );
       results = rows
         .map((r) => {
           const col = collections.find((x) => x.id === r.collection)!;
@@ -940,7 +991,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const cart = s.modules.includes('shop') ? (await cartItems(c)).reduce((n, i) => n + i.q, 0) : 0;
     // Members see other content (and «Mein Konto» in the header): one cached copy per level.
     const member = s.modules.includes('members') ? await currentMember(c) : null;
-    const key = `${path}?${url.searchParams}|${ageOk ? 1 : 0}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
+    const key = `${currentLang() ?? ''}|${path}?${url.searchParams}|${ageOk ? 1 : 0}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
     const send = (body: string, etag: string) => {
       const res = sendHtml(c, body, 200, etag);
       if (member) res.headers.set('Cache-Control', 'private, no-cache');

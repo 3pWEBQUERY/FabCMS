@@ -1,4 +1,5 @@
 import type { ServerHook } from './hooks';
+import type { SiteTranslation } from './i18n';
 import type { FieldDef, LinkValue } from './fields';
 
 export type Mode = 'studio' | 'werkbank';
@@ -63,6 +64,9 @@ export interface Entry {
   sort_index: number;
   created_at: string;
   updated_at: string;
+  /** Set when the editor works on a translation (the rest is the original). */
+  lang?: string;
+  translated?: boolean;
 }
 
 export interface CollectionDef {
@@ -117,6 +121,10 @@ export interface SiteSettings {
   sectors: string[];
   modules: string[];
   locale: string;
+  /** Additional website languages (the main language comes from locale). */
+  languages: string[];
+  /** Site texts per additional language. */
+  translations: Record<string, SiteTranslation>;
   timezone: string;
   baseUrl: string;
   logo: string | null;

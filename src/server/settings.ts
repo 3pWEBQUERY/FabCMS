@@ -11,6 +11,8 @@ export function defaultSettings(): SiteSettings {
     sectors: [],
     modules: [],
     locale: 'de-CH',
+    languages: [],
+    translations: {},
     timezone: 'Europe/Zurich',
     baseUrl: '',
     logo: null,

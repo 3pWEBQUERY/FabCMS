@@ -2,6 +2,7 @@ import { html, raw, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, variantUrl, originalUrl } from './picture';
 import { renderBlocks } from './blocks';
+import { localized } from '../server/translations';
 import { sql } from '../server/db';
 import { entryPath } from '../shared/paths';
 import { formatMoney } from '../shared/text';
@@ -63,7 +64,7 @@ export async function findProperties(f: Partial<PropertyFilter>, o: { limit?: nu
       ${f.maxPrice ? sql`and (${d} ->> 'price') is not null and (${d} ->> 'price')::numeric <= ${f.maxPrice}` : sql``}
       ${f.city ? sql`and (lower(${d} ->> 'city') like ${'%' + f.city.toLowerCase().replace(/[%_]/g, '') + '%'} or ${d} ->> 'zip' like ${f.city.replace(/[%_]/g, '') + '%'})` : sql``}
     order by case coalesce(${d} ->> 'status', 'available') when 'available' then 0 when 'reserved' then 1 else 2 end, published_at desc
-    limit ${o.limit ?? 200}`;
+    limit ${o.limit ?? 200}`.then((r) => localized(r as unknown as { id: string; slug: string; data: EntryData }[], 'properties'));
   return rows as unknown as Item[];
 }
 

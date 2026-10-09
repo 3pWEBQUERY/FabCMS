@@ -164,6 +164,10 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .nav .sub{position:absolute;top:100%;left:-1rem;min-width:13rem;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--line);display:none;flex-direction:column;gap:.5rem;box-shadow:0 12px 32px -16px rgb(0 0 0/.25)}
 .nav li:hover>.sub,.nav li:focus-within>.sub{display:flex}
 .cart-link{position:relative;display:inline-flex;align-items:center;gap:.35rem;text-decoration:none;font-weight:600}
+.lang-switch{list-style:none;margin:0;padding:0;display:inline-flex;gap:.15rem;font-size:var(--step--1);font-weight:600;letter-spacing:.04em}
+.lang-switch a{display:inline-block;padding:.3rem .4rem;text-decoration:none;color:var(--ink-2);background:none}
+.lang-switch a:hover{color:var(--ink)}
+.lang-switch a[aria-current]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
 .cart-count{min-width:1.4rem;height:1.4rem;padding:0 .35rem;border-radius:1rem;background:var(--accent);color:var(--accent-ink);font-size:.75rem;display:inline-grid;place-items:center}
 .menu-toggle{display:none}
 @media (max-width:52rem){
@@ -180,6 +184,8 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
  .menu-panel a{display:block;padding:.85rem 0;border-bottom:1px solid var(--line);text-decoration:none;font-family:var(--font-display);font-size:var(--step-2)}
  .menu-panel .sub a{font-size:var(--step-0);padding-left:1rem;font-family:var(--font-body)}
  .menu-panel .btn{margin-top:1.5rem}
+ .menu-panel .lang-switch{margin-top:1.5rem;font-size:var(--step-0)}
+ .menu-panel .lang-switch a{border:0;padding:.5rem .6rem;font-family:var(--font-body);font-size:var(--step-0)}
 }
 @media (min-width:52.01rem){.menu-toggle{display:none}}
 

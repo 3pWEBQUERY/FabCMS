@@ -9,8 +9,49 @@ import { adminRoutes } from './routes/admin';
 import { headlessRoutes } from './routes/headless';
 import { getSettings } from './settings';
 import { env } from './env';
+import { sql } from './db';
+import { currentLang, langOfPath, localizeHtml, localizePath, mainPath, pathMap, requestLang } from './translations';
+import { extraLangs, UNPREFIXED, type Lang } from '../shared/i18n';
 
+/**
+ * The outer layer handles languages: /fr/… is mapped to the main-language
+ * path before routing, the request runs with that language, and links and
+ * redirects in the answer are mapped back. Everything inside works with
+ * main-language paths only.
+ */
 export function createApp() {
+  const inner = buildApp();
+  const outer = new Hono();
+  outer.all('*', async (c) => {
+    const req = c.req.raw;
+    const url = new URL(req.url);
+    const headers = new Headers(req.headers);
+    let lang: Lang | null = null;
+    if (/^\/[a-z]{2}(?:\/|$)/i.test(url.pathname) && !UNPREFIXED.test(url.pathname)) {
+      const s = await getSettings();
+      const path = (decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/').toLowerCase();
+      lang = langOfPath(path, extraLangs(s));
+      if (lang) {
+        const map = await pathMap(lang);
+        if (!map.toMain.has(path)) {
+          // Old address of a translation whose slug changed.
+          const [r] = await sql`select to_path, code from redirects where from_path = ${path}`;
+          if (r) return c.redirect(String(r.to_path) + url.search, Number(r.code) === 302 ? 302 : 301);
+        }
+        const main = mainPath(map, lang, path);
+        // /fr/kontakt when the French page lives at /fr/contact: one address per page.
+        const own = map.toLocal.get(main);
+        if (own && own !== path && req.method === 'GET') return c.redirect(own + url.search, 301);
+        url.pathname = main;
+      }
+    }
+    const next = new Request(url, { method: req.method, headers, body: req.body, redirect: 'manual', signal: req.signal, duplex: 'half' } as RequestInit);
+    return lang ? requestLang.run(lang, () => inner.fetch(next, c.env)) : inner.fetch(next, c.env);
+  });
+  return outer;
+}
+
+function buildApp() {
   const app = new Hono<AppEnv>();
 
   app.use('*', async (c, next) => {
@@ -40,7 +81,7 @@ export function createApp() {
           `script-src ${scripts.join(' ')}`,
           "font-src 'self'",
           "connect-src 'self'",
-          "frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.openstreetmap.org https://challenges.cloudflare.com",
+          'frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.openstreetmap.org https://challenges.cloudflare.com',
           "media-src 'self' https:",
           // Only Nova's own admin may frame pages (canvas, previews).
           "frame-ancestors 'self'",
@@ -55,6 +96,21 @@ export function createApp() {
   const gzip = compress();
   app.use('*', (c, next) => (c.req.path === '/api/notifications/stream' ? next() : gzip(c, next)));
   app.use('*', loadUser);
+  // Other languages: links and redirect targets point to /fr/… (runs before compression).
+  app.use('*', async (c, next) => {
+    await next();
+    const lang = currentLang();
+    if (!lang) return;
+    const loc = c.res.headers.get('Location');
+    if (loc?.startsWith('/')) c.res.headers.set('Location', localizePath(await pathMap(lang), lang, loc));
+    if ((c.res.headers.get('Content-Type') ?? '').includes('text/html') && c.res.body) {
+      const res = c.res;
+      const body = await localizeHtml(await res.text(), lang);
+      const h = new Headers(res.headers);
+      h.delete('Content-Length');
+      c.res = new Response(body, { status: res.status, headers: h });
+    }
+  });
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message, details: err.details }, err.status as 400);

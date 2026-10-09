@@ -1,5 +1,6 @@
 import { Reorder, useDragControls } from 'motion/react';
 import { ImportSettings } from './Import';
+import { LanguageSettings } from './Languages';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
@@ -33,6 +34,7 @@ const SECTIONS: Section[] = [
   { id: 'website', label: 'Name, Logo & Kontakt', icon: 'globe', cap: 'settings.manage' },
   { id: 'design', label: 'Design', icon: 'style', cap: 'design.manage' },
   { id: 'navigation', label: 'Menü & Fusszeile', icon: 'nav', cap: 'settings.manage' },
+  { id: 'sprachen', label: 'Sprachen', icon: 'globe', cap: 'settings.manage' },
   { id: 'seo', label: 'Suchmaschinen', icon: 'seo', cap: 'settings.manage' },
   { id: 'rechtliches', label: 'Rechtliches', icon: 'scale', cap: 'settings.manage' },
   { id: 'domain', label: 'Domain', icon: 'globe', cap: 'settings.manage' },
@@ -97,6 +99,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'website' && <WebsiteSettings />}
           {current.id === 'design' && <DesignSettings />}
           {current.id === 'navigation' && <NavigationSettings />}
+          {current.id === 'sprachen' && <LanguageSettings />}
           {current.id === 'seo' && <SeoSettings />}
           {current.id === 'rechtliches' && <LegalSettings />}
           {current.id === 'domain' && <DomainSettings />}
