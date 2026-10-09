@@ -539,12 +539,36 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.4;cursor:not-a
 .stock.low{color:#9a3b2b}
 
 /* cart & checkout */
+table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+caption{text-align:left;font-weight:600;padding-bottom:.5rem}
+th{font-weight:600}
+.table-wrap{overflow-x:auto}
 .cart-table{width:100%;border-collapse:collapse}
+.cart-table .c-img{width:5rem}
+.cart-table tbody tr{transition:background-color .15s}
+.cart-table tbody tr:hover{background:color-mix(in srgb,var(--ink) 3%,transparent)}
+
 .cart-table td,.cart-table th{padding:1rem .5rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 .cart-table th{font-size:var(--step-n1);color:var(--ink-2);font-weight:600}
 .cart-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cart-table input{width:4.5rem;min-height:2.5rem;padding:.4rem;border:1px solid var(--ink-2);background:transparent}
 .cart-table img{width:4rem;aspect-ratio:1;object-fit:cover}
+/* narrow screens: each line becomes a small card instead of a table that scrolls sideways */
+@media (max-width:40rem){
+ .table-wrap{overflow:visible}
+ .cart-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+ .cart-table,.cart-table tbody{display:block}
+ .cart-table tbody tr{display:grid;grid-template-columns:4.5rem 1fr auto;grid-template-areas:"img name total" "img price price" "img qty rm";gap:.35rem 1rem;align-items:center;padding:1rem 0;border-bottom:1px solid var(--line)}
+ .cart-table tbody tr:hover{background:none}
+ .cart-table td{display:block;padding:0;border:0}
+ .cart-table .c-img{grid-area:img;width:auto;align-self:start}
+ .cart-table .c-name{grid-area:name;font-weight:600}
+ .cart-table .c-total{grid-area:total;font-weight:600}
+ .cart-table .c-price{grid-area:price;text-align:left;color:var(--ink-2);font-size:var(--step-n1)}
+ .cart-table .c-price::before{content:attr(data-label) " ";}
+ .cart-table .c-qty{grid-area:qty}
+ .cart-table .c-rm{grid-area:rm;justify-self:end}
+}
 .totals{margin-left:auto;max-width:24rem;display:grid;gap:.4rem;font-variant-numeric:tabular-nums;margin-top:var(--s-5)}
 .totals div{display:flex;justify-content:space-between;gap:2rem}
 .totals .grand{font-size:var(--step-2);font-weight:700;border-top:1px solid var(--ink);padding-top:.6rem;margin-top:.35rem}

@@ -449,15 +449,15 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const rows = await Promise.all(
       q.lines.map(async (l, i) => {
         const img = await ctx.media(l.image);
-        return html`<tr><td style="width:5rem">${img ? picture(img, { sizes: '4rem', maxWidth: 320, ratio: '1/1' }) : ''}</td><td><a href="${entryPath(await getCollection('products'), l.slug)}">${l.title}</a>${
+        return html`<tr><td class="c-img">${img ? picture(img, { sizes: '4rem', maxWidth: 320, ratio: '1/1' }) : ''}</td><td class="c-name"><a href="${entryPath(await getCollection('products'), l.slug)}">${l.title}</a>${
           l.variantName ? html`<br><span class="muted">${l.variantName}</span>` : ''
-        }</td><td class="num">${formatPrice(l.unit)}</td><td><label class="sr" for="q${i}">Menge</label><input id="q${i}" name="qty_${i}" type="number" min="0" max="99" value="${l.qty}" inputmode="numeric"></td><td class="num">${formatPrice(
+        }</td><td class="num c-price" data-label="Preis">${formatPrice(l.unit)}</td><td class="c-qty"><label class="sr" for="q${i}">Menge</label><input id="q${i}" name="qty_${i}" type="number" min="0" max="99" value="${l.qty}" inputmode="numeric"></td><td class="num c-total">${formatPrice(
           l.total,
-        )}</td><td><button class="btn-2" name="remove_${i}" value="1" aria-label="${l.title} entfernen">Entfernen</button></td></tr>`;
+        )}</td><td class="c-rm"><button class="btn-2" name="remove_${i}" value="1" aria-label="${l.title} entfernen">Entfernen</button></td></tr>`;
       }),
     );
     const body = q.lines.length
-      ? html`<div class="wrap" style="padding-block:var(--sp-s)"><h1 style="font-size:var(--step-5);margin-bottom:2rem">Warenkorb</h1>${q.problems.map((p) => html`<p class="form-err">${p}</p>`)}<form method="post" action="/warenkorb/update"><div style="overflow-x:auto"><table class="cart-table"><thead><tr><th><span class="sr">Bild</span></th><th>Produkt</th><th class="num">Preis</th><th>Menge</th><th class="num">Total</th><th><span class="sr">Aktion</span></th></tr></thead><tbody>${rows}</tbody></table></div><div class="actions" style="justify-content:space-between"><div class="fld" style="max-width:18rem"><label for="coupon">Gutscheincode</label><input id="coupon" name="coupon" value="${coupon}" autocomplete="off"></div><button class="btn-2">Aktualisieren</button></div></form>${
+      ? html`<div class="wrap" style="padding-block:var(--sp-s)"><h1 style="font-size:var(--step-5);margin-bottom:2rem">Warenkorb</h1>${q.problems.map((p) => html`<p class="form-err">${p}</p>`)}<form method="post" action="/warenkorb/update"><div class="table-wrap"><table class="cart-table"><thead><tr><th><span class="sr">Bild</span></th><th>Produkt</th><th class="num">Preis</th><th>Menge</th><th class="num">Total</th><th><span class="sr">Aktion</span></th></tr></thead><tbody>${rows}</tbody></table></div><div class="actions" style="justify-content:space-between"><div class="fld" style="max-width:18rem"><label for="coupon">Gutscheincode</label><input id="coupon" name="coupon" value="${coupon}" autocomplete="off"></div><button class="btn-2">Aktualisieren</button></div></form>${
           q.coupon ? html`<p class="${q.coupon.ok ? 'form-ok' : 'form-err'}">${q.coupon.ok ? `Gutschein ${q.coupon.code}: ${q.coupon.message}` : q.coupon.message}</p>` : ''
         }${totalsHtml(q)}<div class="actions" style="justify-content:flex-end"><a class="btn" href="/kasse${coupon ? `?gutschein=${encodeURIComponent(coupon)}` : ''}">Zur Kasse</a></div></div>`
       : html`<div class="wrap nf"><h1>Dein Warenkorb ist leer.</h1><p><a class="btn" href="${ctx.collections.find((x) => x.id === 'products')?.list_route ?? '/'}">Zum Laden</a></p></div>`;
