@@ -794,7 +794,8 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
 
     const page = await req('GET', `/immobilien/${flat.slug}`, undefined, { cookies: new Map() });
     expect(page.data).toContain('"@type":"RealEstateListing"');
-    expect(page.data).toMatch(/CHF.2.600\.– \/ Mt\./);
+    // Swiss grouping: ’ or ' depending on the ICU version of Node (the latter escaped in HTML).
+    expect(page.data).toMatch(/CHF.2(?:’|'|&#39;)600\.– \/ Mt\./);
     expect(page.data).not.toContain('Geheimweg'); // street only when allowed
     expect(page.data).toContain('Balkon / Terrasse');
 
