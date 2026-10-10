@@ -650,4 +650,8 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'No button shows this element yet – on the website it would stay invisible. Choose “On click” on a button.',
   },
   'Gesteuert von:': { fr: 'Commandé par :', it: 'Comandato da:', en: 'Controlled by:' },
+  'Element oder Block einfügen': { fr: 'Insérer un élément ou un bloc', it: 'Inserisci elemento o blocco', en: 'Insert element or block' },
+  'Suchen – Enter fügt das erste ein': { fr: 'Rechercher – Entrée insère le premier', it: 'Cerca – Invio inserisce il primo', en: 'Search – Enter inserts the first' },
+  'Elemente suchen': { fr: 'Rechercher des éléments', it: 'Cerca elementi', en: 'Search elements' },
+  'Nichts gefunden.': { fr: 'Rien trouvé.', it: 'Nessun risultato.', en: 'Nothing found.' },
 };

@@ -2,7 +2,7 @@
  * Editor shortcuts, read the same way in the admin and inside the canvas.
  * By physical key (`code`): with Alt, a Mac types «ç» instead of «c».
  */
-export type EditorAction = 'duplicate' | 'copy' | 'paste' | 'copy-style' | 'paste-style' | 'move-up' | 'move-down' | 'help';
+export type EditorAction = 'duplicate' | 'copy' | 'paste' | 'copy-style' | 'paste-style' | 'move-up' | 'move-down' | 'help' | 'insert';
 
 export interface KeyLike {
   key: string;
@@ -23,5 +23,7 @@ export function shortcutAction(e: KeyLike, mac: boolean): EditorAction | null {
   if (e.altKey && !mod && e.key === 'ArrowUp') return 'move-up';
   if (e.altKey && !mod && e.key === 'ArrowDown') return 'move-down';
   if (!mod && !e.altKey && e.key === '?') return 'help';
+  // «/» as in Notion: insert something right where the selection is.
+  if (!mod && !e.altKey && e.key === '/') return 'insert';
   return null;
 }

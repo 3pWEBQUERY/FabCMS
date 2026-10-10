@@ -182,37 +182,63 @@ export function ElementPicker({
   components: { id: string; title: string }[];
   onPickComponent: (c: { id: string; title: string }) => void;
 }) {
+  const [q, setQ] = useState('');
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = (...texts: string[]) => words.every((w) => texts.some((x) => x.toLowerCase().includes(w)));
+  const kinds = EL_KINDS.filter((k) => k !== 'component' && (k !== 'entrybody' || inTemplate) && hit(tl(EL_DEFS[k].label), tl(EL_DEFS[k].description), EL_DEFS[k].label));
+  const comps = components.filter((c) => hit(c.title));
+  const first = () => (kinds[0] ? onPick(kinds[0]) : comps[0] ? onPickComponent(comps[0]) : undefined);
   return (
     <div className="el-picker">
       <span className="dp-menu-head">{into ? t('In «{name}» einfügen', { name: into }) : t('Element einfügen')}</span>
-      {EL_GROUPS.map((g) => (
+      <input
+        className="input el-picker-search"
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            first();
+          }
+        }}
+        placeholder={t('Suchen – Enter fügt das erste ein')}
+        aria-label={t('Elemente suchen')}
+        autoFocus
+      />
+      {!kinds.length && !comps.length && <p className="xsmall faint el-picker-note">{t('Nichts gefunden.')}</p>}
+      {EL_GROUPS.filter((g) => kinds.some((k) => EL_DEFS[k].group === g)).map((g) => (
         <section key={g} className="el-picker-group">
           <h3 className="el-picker-title">{tl(EL_GROUP_LABELS[g])}</h3>
           <div className="el-picker-grid">
-            {EL_KINDS.filter((k) => EL_DEFS[k].group === g && k !== 'component' && (k !== 'entrybody' || inTemplate)).map((k) => (
-              <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
-                <Icon name={EL_DEFS[k].icon} />
-                <span>{tl(EL_DEFS[k].label)}</span>
-              </button>
-            ))}
+            {kinds
+              .filter((k) => EL_DEFS[k].group === g)
+              .map((k) => (
+                <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
+                  <Icon name={EL_DEFS[k].icon} />
+                  <span>{tl(EL_DEFS[k].label)}</span>
+                </button>
+              ))}
           </div>
         </section>
       ))}
-      <section className="el-picker-group">
-        <h3 className="el-picker-title">{t('Komponenten')}</h3>
-        {components.length ? (
-          <div className="el-picker-comps">
-            {components.map((c) => (
-              <button key={c.id} type="button" onClick={() => onPickComponent(c)}>
-                <Icon name="component" size="s" />
-                <span>{c.title}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="xsmall faint el-picker-note">{t('Noch keine. Wähl ein Element und speichere es mit dem Rauten-Symbol als Komponente.')}</p>
-        )}
-      </section>
+      {(!words.length || comps.length > 0) && (
+        <section className="el-picker-group">
+          <h3 className="el-picker-title">{t('Komponenten')}</h3>
+          {comps.length ? (
+            <div className="el-picker-comps">
+              {comps.map((c) => (
+                <button key={c.id} type="button" onClick={() => onPickComponent(c)}>
+                  <Icon name="component" size="s" />
+                  <span>{c.title}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="xsmall faint el-picker-note">{t('Noch keine. Wähl ein Element und speichere es mit dem Rauten-Symbol als Komponente.')}</p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

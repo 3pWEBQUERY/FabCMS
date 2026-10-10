@@ -1421,6 +1421,9 @@ describe('editor shortcuts', () => {
     expect(shortcutAction(k('d', 'KeyD', { meta: true }), true)).toBe('duplicate');
     expect(shortcutAction(k('d', 'KeyD', { ctrl: true }), false)).toBe('duplicate');
     expect(shortcutAction(k('d', 'KeyD', { ctrl: true }), true)).toBeNull();
+    // «/» inserts, as in Notion; with a modifier it is something else.
+    expect(shortcutAction(k('/', 'Slash'), false)).toBe('insert');
+    expect(shortcutAction(k('/', 'Digit7', { ctrl: true }), false)).toBeNull();
     // ⌥⌘C types «ç» on a Mac – still «copy design».
     expect(shortcutAction(k('ç', 'KeyC', { meta: true, alt: true }), true)).toBe('copy-style');
     expect(shortcutAction(k('v', 'KeyV', { ctrl: true }), false)).toBe('paste');

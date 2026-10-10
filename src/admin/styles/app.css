@@ -2438,7 +2438,7 @@ button.list-item {
   display: block;
 }
 /* drag the canvas edge to any width */
-/* on the left edge: the page's scrollbar keeps the right one */
+/* on the left edge, beside the page: its scrollbar keeps the right one */
 .canvas-size {
   position: absolute;
   top: 0;
@@ -2469,12 +2469,6 @@ button.list-item {
 }
 .canvas-size:focus-visible {
   outline: none;
-}
-.canvas-size.inside {
-  left: 0;
-}
-.canvas-size.inside::after {
-  left: 4px;
 }
 .canvas-width {
   position: absolute;
@@ -4428,6 +4422,12 @@ button.list-item {
   display: grid;
   margin: 0 -1rem;
 }
+/* search at the top of the element picker */
+.el-picker-search {
+  width: 100%;
+  margin: 0 0 0.35rem;
+}
+
 /* element interactions in the inspector */
 .ia-box {
   padding-top: 0.75rem;

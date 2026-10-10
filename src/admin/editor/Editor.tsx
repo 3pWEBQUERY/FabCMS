@@ -401,7 +401,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           else if (m.key === 'palette') onOpenPalette();
           else if (m.key === 'save') void doc.saveNow();
           else if (m.key === 'mode') void session.setMode(session.mode === 'studio' ? 'werkbank' : 'studio');
-          else if (['duplicate', 'copy', 'paste', 'copy-style', 'paste-style', 'move-up', 'move-down', 'help'].includes(m.key)) runAction(m.key as EditorAction);
+          else if (['duplicate', 'copy', 'paste', 'copy-style', 'paste-style', 'move-up', 'move-down', 'help', 'insert'].includes(m.key)) runAction(m.key as EditorAction);
           else if (m.key === 'delete' && selected && multi.length > 1) removeElements(selected, multi);
           else if (m.key === 'delete' && selectedEl && selected) removeElement(selected, selectedEl);
           else if (m.key === 'delete' && selected) void removeBlock(selected);
@@ -784,6 +784,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const runAction = (a: EditorAction) => {
     if (a === 'help') return setHelp(true);
     if (a === 'paste') return pasteClipboard();
+    if (a === 'insert') {
+      // In a free layout an element next to (or into) the selection, elsewhere a block below it.
+      if (selectedBlock?.type === 'layout' && !(studio && (selectedBlock.lock ?? 'none') !== 'none'))
+        return setElPicker(elRect ?? rect ?? { top: 80, left: 80, width: 1, height: 1 });
+      const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) + 1 : blocksRef.current.length;
+      return setPicker({ index, rect: rect ?? { top: 80, left: 80, width: 1, height: 1 } });
+    }
     if (!selectedBlock) return;
     if (a === 'copy') copySelection();
     else if (a === 'copy-style') copyStyle();
@@ -1206,7 +1213,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         </div>
       )}
       <div className="editor-stage">
-        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? 0 : '1rem 0' }}>
+        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? '0 0 0 14px' : '1rem 0' }}>
           <motion.div
             ref={frameBox}
             className="canvas-frame"
@@ -1219,7 +1226,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             }}
           >
             <div
-              className={`canvas-size hide-m${device === 'desktop' && customWidth === null ? ' inside' : ''}`}
+              className="canvas-size hide-m"
               role="slider"
               tabIndex={0}
               aria-label={t('Breite der Vorschau')}

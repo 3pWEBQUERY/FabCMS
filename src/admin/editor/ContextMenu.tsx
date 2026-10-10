@@ -101,6 +101,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
       t('Blöcke und Elemente'),
       [
         [t('Übergeordnetes Element wählen'), 'Esc'],
+        [t('Element oder Block einfügen'), '/'],
         [t('Duplizieren'), KEYS.duplicate],
         [t('Kopieren – auch für eine andere Seite'), KEYS.copy],
         [t('Einfügen'), KEYS.paste],
