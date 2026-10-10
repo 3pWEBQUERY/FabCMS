@@ -293,4 +293,13 @@ export const account: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Ti abbiamo inviato un’e-mail. Un clic sul link al suo interno e sei di nuovo iscritto.',
     en: 'We’ve sent you an email. One click on the link in it and you’re back in.',
   },
+  'Rechnung offen': { fr: 'Facture ouverte', it: 'Fattura aperta', en: 'Invoice open' },
+  Bezahlt: { fr: 'Payée', it: 'Pagato', en: 'Paid' },
+  Erstattet: { fr: 'Remboursée', it: 'Rimborsato', en: 'Refunded' },
+  Bestellungen: { fr: 'Commandes', it: 'Ordini', en: 'Orders' },
+  'Rechnungen und Downloads findest du in der jeweiligen Bestellung.': {
+    fr: 'Tu trouves les factures et téléchargements dans chaque commande.',
+    it: 'Fatture e download si trovano nel rispettivo ordine.',
+    en: 'Invoices and downloads are in each order.',
+  },
 };

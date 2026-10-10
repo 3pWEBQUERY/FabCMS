@@ -30,7 +30,7 @@ import type { Entry } from '../src/shared/types';
 import { outbox } from '../src/server/mail';
 import { foodMail } from '../src/server/ordering';
 import { tr } from '../src/site/i18n';
-import { totpCode } from '../src/server/lib/crypto';
+import { hashPassword, totpCode } from '../src/server/lib/crypto';
 import { resetRateLimits } from '../src/server/lib/ratelimit';
 import { env } from '../src/server/env';
 import { handleStripeEvent } from '../src/server/shop';
@@ -3151,6 +3151,41 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('PATCH', '/api/settings', { shop: { reviews: false } });
     expect((await req('GET', '/laden', undefined, anon)).data).not.toContain('card-stars');
     await req('DELETE', `/api/entries/${p.id}`);
+  });
+
+  it("lists a member's shop orders in the account – only under a confirmed address", async () => {
+    const { settings } = (await req('GET', '/api/settings')).data;
+    const modules = settings.modules as string[];
+    await req('PATCH', '/api/settings', { modules: [...new Set([...modules, 'shop', 'members'])] });
+    const [kai] = await sql`
+      insert into members (email, name, password_hash, email_verified_at) values ('kai@example.ch', 'Kai Frei', ${await hashPassword('ein langes passwort')}, now())
+      returning id`;
+    const order = (n: string, email: string, status: string, payment: string) =>
+      sql`insert into orders (number, token, status, email, customer, items, subtotal, total, payment_method, created_at)
+        values (${n}, ${'tok-' + n}, ${status}, ${email}, '{}', '[]', 4200, 4200, ${payment}, now() - interval '1 day')`;
+    await order('T-KAI1', 'KAI@example.ch', 'paid', 'stripe');
+    await order('T-KAI2', 'kai@example.ch', 'pending', 'invoice');
+    await order('T-ANDERE', 'jemand@example.ch', 'paid', 'stripe');
+    const kaiC = new Map<string, string>();
+    await req('POST', '/konto/anmelden', undefined, { cookies: kaiC, form: { email: 'kai@example.ch', password: 'ein langes passwort', weiter: '/konto' } });
+    const page = (await req('GET', '/konto', undefined, { cookies: kaiC })).data as string;
+    expect(page).toContain('<a href="/bestellung/tok-T-KAI1">T-KAI1</a>');
+    expect(page).toContain('T-KAI2');
+    expect(page).toContain('Bezahlt');
+    expect(page).toContain('Rechnung offen');
+    expect(page).not.toContain('T-ANDERE');
+    // The checkout knows who is ordering.
+    const [prod] = await sql`select id from entries where collection = 'products' and status = 'published' and published_data ->> 'title' like 'Kaffee%'`;
+    await req('POST', '/warenkorb/add', undefined, { cookies: kaiC, form: { product: prod.id, qty: '1' } });
+    const kasse = (await req('GET', '/kasse', undefined, { cookies: kaiC })).data as string;
+    expect(kasse).toContain('value="kai@example.ch"');
+    expect(kasse).toContain('value="Kai Frei"');
+    // An address not (or no longer) confirmed shows nothing.
+    await sql`update members set email_verified_at = null where id = ${kai.id}`;
+    expect((await req('GET', '/konto', undefined, { cookies: kaiC })).data).not.toContain('T-KAI1');
+    await sql`delete from orders where number like 'T-KAI%' or number = 'T-ANDERE'`;
+    await sql`delete from members where id = ${kai.id}`;
+    await req('PATCH', '/api/settings', { modules });
   });
 
   it('asks people of a role for a second factor before anything else', async () => {

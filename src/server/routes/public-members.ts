@@ -9,6 +9,7 @@ import { env } from '../env';
 import { clientIp, HttpError } from '../lib/http';
 import { rateLimit } from '../lib/ratelimit';
 import { verifyPassword } from '../lib/crypto';
+import { formatMoney } from '../../shared/text';
 import { recordGoal } from '../analytics';
 import {
   billingPortalUrl,
@@ -372,6 +373,21 @@ export function membersPublicRoutes(app: Hono<AppEnv>) {
     // Coming back from Stripe: the webhook may still be on its way.
     const message = q.ok === 'abo' || q.abo ? MESSAGES.abo : (MESSAGES[q.ok ?? ''] ?? null);
     const next = q.weiter ? safeNext(q.weiter) : null;
+    // Shop orders under the account's address – only once that address is confirmed as theirs.
+    const orders =
+      s.modules.includes('shop') && m.email_verified_at
+        ? await sql`
+            select number, token, status, payment_method, total, currency, created_at from orders
+            where lower(email) = ${m.email.toLowerCase()} order by created_at desc limit 20`
+        : [];
+    const orderState = (o: Record<string, unknown>) =>
+      ({
+        pending: o.payment_method === 'invoice' ? T('Rechnung offen') : T('Zahlung offen'),
+        paid: T('Bezahlt'),
+        fulfilled: T('Erledigt'),
+        cancelled: T('Storniert'),
+        refunded: T('Erstattet'),
+      })[o.status as string] ?? '';
     return page(
       c,
       'Mein Konto',
@@ -393,6 +409,33 @@ export function membersPublicRoutes(app: Hono<AppEnv>) {
               : ''}
           </div>
         </section>
+        ${orders.length
+          ? html`<section class="acct-sec">
+              <h2>${T('Bestellungen')}</h2>
+              <table class="cart-table acct-orders">
+                <thead>
+                  <tr>
+                    <th scope="col">${T('Bestellung')}</th>
+                    <th scope="col">${T('Datum')}</th>
+                    <th scope="col">${T('Status')}</th>
+                    <th scope="col" class="num">${T('Total')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${orders.map(
+                    (o) =>
+                      html`<tr>
+                        <td><a href="/bestellung/${o.token}">${o.number}</a></td>
+                        <td>${new Date(o.created_at as string).toLocaleDateString(L(), { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                        <td>${orderState(o)}</td>
+                        <td class="num">${formatMoney(o.total as number, o.currency as string)}</td>
+                      </tr>`,
+                  )}
+                </tbody>
+              </table>
+              <p class="hint">${T('Rechnungen und Downloads findest du in der jeweiligen Bestellung.')}</p>
+            </section>`
+          : ''}
         <section class="acct-sec">
           <h2>${T('Angaben')}</h2>
           <form class="nform" method="post" action="/konto/profil">

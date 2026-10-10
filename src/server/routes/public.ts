@@ -743,6 +743,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
     if (!q.lines.length) return c.redirect('/warenkorb', 303);
     const pay = paymentOptions(s);
     const error = c.req.query('fehler');
+    // Signed in on the website: name and address are filled in already.
+    const member = s.modules.includes('members') ? await currentMember(c) : null;
     const legal = await sql`select slug from entries where collection = 'pages' and slug = 'agb' and status = 'published'`;
     const body = html`<div class="wrap" style="padding-block:var(--sp-s)">
       <h1 style="font-size:var(--step-5);margin-bottom:2rem">${t(ctx, 'Kasse')}</h1>
@@ -753,8 +755,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
           <fieldset>
             <legend>${t(ctx, 'Kontakt')}</legend>
             <div class="two-col">
-              <div class="fld"><label for="k-name">${t(ctx, 'Vor- und Nachname')}</label><input id="k-name" name="name" required autocomplete="name" /></div>
-              <div class="fld"><label for="k-mail">${t(ctx, 'E-Mail')}</label><input id="k-mail" name="email" type="email" required autocomplete="email" /></div>
+              <div class="fld"><label for="k-name">${t(ctx, 'Vor- und Nachname')}</label><input id="k-name" name="name" required autocomplete="name" value="${member?.name ?? ''}" /></div>
+              <div class="fld"><label for="k-mail">${t(ctx, 'E-Mail')}</label><input id="k-mail" name="email" type="email" required autocomplete="email" value="${member?.email ?? ''}" /></div>
             </div>
             ${s.shop.cartReminders.enabled
               ? html`<div class="fld check" data-cart-remind hidden>
