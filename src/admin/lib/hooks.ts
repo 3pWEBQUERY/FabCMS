@@ -75,6 +75,8 @@ export function useMediaQuery(q: string) {
 }
 
 export const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Touch screens: a focused search field would open the keyboard over the list people want to browse. */
+export const touchScreen = () => matchMedia('(pointer: coarse)').matches;
 
 export function formatDate(iso: string | null | undefined, withTime = false) {
   if (!iso) return '–';

@@ -108,7 +108,7 @@ a:focus-visible{border-radius:2px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 button,input,select,textarea{font:inherit;color:inherit;accent-color:var(--accent)}
 p{margin:0 0 1em}
-h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);line-height:var(--display-leading);margin:0;text-wrap:balance;font-variation-settings:var(--display-axes,normal)}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);line-height:var(--display-leading);margin:0;text-wrap:balance;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;min-width:0;font-variation-settings:var(--display-axes,normal)}
 .skip{position:absolute;left:-9999px;top:0}.skip:focus{left:1rem;top:1rem;z-index:100;background:var(--ink);color:var(--bg);padding:.6rem 1rem}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .wrap{width:min(100% - 2*var(--gutter),var(--max));margin-inline:auto}
@@ -153,7 +153,7 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .site-header{position:relative;z-index:20;background:var(--bg);border-bottom:1px solid var(--header-rule,transparent)}
 .site-header.sticky{position:sticky;top:0}
 .hdr{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;min-height:4.25rem}
-.brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;font-family:var(--font-display);font-weight:var(--brand-weight,var(--display-weight));font-size:var(--brand-size,var(--step-1));letter-spacing:var(--display-tracking);line-height:1}
+.brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;font-family:var(--font-display);font-weight:var(--brand-weight,var(--display-weight));font-size:var(--brand-size,var(--step-1));letter-spacing:var(--display-tracking);line-height:1;padding-block:.5rem;margin-block:-.5rem}
 .brand img{height:2.25rem;width:auto}
 .nav{display:flex;align-items:center;gap:var(--nav-gap,1.75rem)}
 .nav ul{list-style:none;margin:0;padding:0;display:flex;gap:var(--nav-gap,1.75rem)}
@@ -195,7 +195,7 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .crumbs{font-size:var(--step-n1);color:var(--ink-2);padding-top:1.25rem}
 .crumbs ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem}
 .crumbs li+li::before{content:"/";margin-right:.4rem;color:var(--line)}
-.crumbs a{text-decoration:none}
+.crumbs a{text-decoration:none;display:inline-block;padding-block:.6rem;margin-block:-.6rem}
 
 /* footer */
 .site-footer{margin-top:var(--sp-m);padding-block:var(--sp-s) 2rem;border-top:1px solid var(--line);font-size:var(--step-n1);color:var(--ink-2)}
@@ -636,7 +636,7 @@ input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.4;cursor:not-a
 .re-gallery picture,.re-gallery img{width:100%;height:100%;object-fit:cover}
 .re-gallery .re-hero>*,.re-gallery .re-hero img{aspect-ratio:auto!important;height:100%}
 @media (max-width:48rem){.re-gallery .re-hero>*,.re-gallery .re-hero img{aspect-ratio:3/2!important}}
-@media (max-width:48rem){.re-gallery{grid-template-columns:1fr 1fr}.re-gallery .re-hero{grid-column:1/-1;grid-row:auto}}
+@media (max-width:48rem){.re-gallery{grid-template-columns:1fr 1fr;grid-auto-rows:auto}.re-gallery .re-hero{grid-column:1/-1;grid-row:auto}.re-gallery a:not(.re-hero){aspect-ratio:3/2}}
 .re-layout{display:grid;grid-template-columns:minmax(0,1fr) 22rem;gap:var(--s-7);align-items:start;padding-bottom:var(--s-6)}
 @media (max-width:62rem){.re-layout{grid-template-columns:1fr}}
 .re-main{display:grid;gap:1.25rem}
@@ -860,7 +860,7 @@ a.bk-chip:hover,a.bk-day:hover,a.bk-service:hover{border-color:var(--ink)}
 .comment time{font-size:var(--step-n1);color:var(--ink-2)}
 
 /* product */
-.pdp{display:grid;gap:var(--s-7);padding-top:var(--s-6)}
+.pdp{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-7);padding-top:var(--s-6)}
 @media (min-width:56rem){.pdp{grid-template-columns:minmax(0,7fr) minmax(0,5fr);align-items:start}.pdp-info{position:sticky;top:6rem}}
 .pdp-gal{display:grid;gap:.75rem}
 .pdp-gal img{width:100%;aspect-ratio:4/5;object-fit:cover}

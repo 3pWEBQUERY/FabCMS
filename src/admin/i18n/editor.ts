@@ -240,6 +240,7 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   Moderation: { fr: 'Modération', it: 'Moderazione', en: 'Moderation' },
   'Nach oben': { fr: 'Vers le haut', it: 'Sposta su', en: 'Move up' },
   'Nach unten': { fr: 'Vers le bas', it: 'Sposta giù', en: 'Move down' },
+  'Block darunter einfügen': { fr: 'Insérer un bloc en dessous', it: 'Inserisci un blocco sotto', en: 'Insert block below' },
   'Name & Logo ändern': { fr: 'Modifier le nom & le logo', it: 'Modifica nome & logo', en: 'Change name & logo' },
   Nein: { fr: 'Non', it: 'No', en: 'No' },
   'Neu: {label}': { fr: 'Nouveau : {label}', it: 'Nuovo: {label}', en: 'New: {label}' },

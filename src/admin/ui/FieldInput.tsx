@@ -4,7 +4,7 @@ import type { FieldDef, LinkValue } from '../../shared/fields';
 import { defaultsFor } from '../../shared/fields';
 import { shortId } from '../../shared/text';
 import { useSession } from '../lib/session';
-import { useApi } from '../lib/hooks';
+import { touchScreen, useApi } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon, SiteIcon } from './icons';
 import { DateInput, DateTimeInput, Field, Popover, Select, SuggestInput, Toggle } from './kit';
@@ -612,7 +612,14 @@ function IconInput({ id, value, onChange }: { id: string; value: string; onChang
           </button>
         }
       >
-        <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Suchen, z. B. Kaffee oder Velo')} aria-label={t('Symbol suchen')} />
+        <input
+          className="input"
+          autoFocus={!touchScreen()}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('Suchen, z. B. Kaffee oder Velo')}
+          aria-label={t('Symbol suchen')}
+        />
         <div className="icon-grid-wrap">
           {ICON_GROUPS.map((g) => {
             const list = hits.filter(([, d]) => d.group === g.id);

@@ -693,12 +693,23 @@ input[type='radio']:disabled {
 /* segmented control */
 .seg {
   display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   padding: 2px;
   border-radius: var(--r-m);
   background: var(--sunken);
   gap: 2px;
 }
+.seg::-webkit-scrollbar {
+  display: none;
+}
+/* The control scrolls, so the focus ring is drawn inside the button. */
+.seg button:focus-visible {
+  outline-offset: -2px;
+}
 .seg button {
+  flex: none;
   border: 0;
   background: transparent;
   height: 1.875rem;
@@ -999,7 +1010,10 @@ kbd {
 @media (max-width: 760px) {
   .levels,
   .cmdk-trigger .cmdk-label,
-  .topbar .hide-m {
+  .topbar .hide-m,
+  .list-item .hide-m,
+  .repeat-item .hide-m,
+  .wizard-foot .hide-m {
     display: none;
   }
   .cmdk-trigger {
@@ -1923,9 +1937,10 @@ button.list-item {
   border-radius: 5px;
   z-index: 0;
 }
-.bars-h .bar-row > span {
+.bars-h .bar-row > span:not(.bar-fill) {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 /* ---------- Settings layout ---------- */
@@ -1988,8 +2003,12 @@ button.list-item {
 }
 .form-section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.1rem;
   padding: 1.5rem;
+}
+.form-section p code {
+  overflow-wrap: anywhere;
 }
 .form-section + .form-section {
   border-top: 1px solid var(--line);
@@ -2316,6 +2335,12 @@ button.list-item {
   box-shadow: var(--shadow-3);
   z-index: 5;
 }
+@media (max-width: 420px) {
+  .block-toolbar .name,
+  .block-toolbar .sep {
+    display: none;
+  }
+}
 .block-toolbar .btn {
   height: 1.875rem;
   border: 0;
@@ -2390,8 +2415,31 @@ button.list-item {
     box-shadow: var(--shadow-3);
     z-index: 10;
   }
-  .editor-bar .hide-m {
+  .editor-bar .hide-m,
+  .editor-bar .editor-title {
     display: none;
+  }
+  /* Panels scroll sideways so Veröffentlichen always stays on screen. */
+  .editor-bar {
+    gap: 0.25rem;
+  }
+  .editor-tools {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .editor-tools::-webkit-scrollbar {
+    display: none;
+  }
+  .editor-tools {
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  }
+  .editor-bar .lang-btn > svg:first-child {
+    display: none;
+  }
+  .editor-tools > * {
+    flex: none;
   }
 }
 .picker {

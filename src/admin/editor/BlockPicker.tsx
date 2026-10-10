@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BLOCKS, BLOCK_CATEGORIES } from '../../shared/blocks';
 import { useSession } from '../lib/session';
+import { touchScreen } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon } from '../ui/icons';
 
@@ -37,7 +38,7 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
       <div className="picker-head">
         <input
           className="input"
-          autoFocus
+          autoFocus={!touchScreen()}
           placeholder={t('Block suchen – z. B. «Bild», «Preise», «Karte»')}
           value={q}
           onChange={(e) => {

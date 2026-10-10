@@ -138,10 +138,10 @@ export const views: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Pick everything that fits – up to four. Nova puts together pages, forms and modules from that.',
   },
   Sparten: { fr: 'Secteurs', it: 'Settori', en: 'Sectors' },
-  'Reservation & Termine, Events und Kurse folgen mit Version 1.0.': {
-    fr: 'Réservations & rendez-vous, événements et cours arrivent avec la version 1.0.',
-    it: 'Prenotazioni & appuntamenti, eventi e corsi arrivano con la versione 1.0.',
-    en: 'Bookings & appointments, events and courses arrive with version 1.0.',
+  'Mehrere Sparten lassen sich kombinieren. Module schaltest du später unter «Einstellungen → Module» dazu oder ab.': {
+    fr: 'Plusieurs secteurs peuvent être combinés. Vous activez ou désactivez les modules plus tard sous «Paramètres → Modules».',
+    it: 'Puoi combinare più settori. I moduli li attivi o disattivi più tardi in «Impostazioni → Moduli».',
+    en: 'Several sectors can be combined. You can switch modules on or off later under “Settings → Modules”.',
   },
   'Wie heisst dein Projekt?': { fr: 'Comment s’appelle votre projet ?', it: 'Come si chiama il tuo progetto?', en: 'What’s your project called?' },
   'So steht es oben auf der Website. Ändern kannst du es jederzeit.': {

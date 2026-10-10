@@ -413,7 +413,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             ]}
           />
         </div>
-        <div className="row" style={{ gap: 2 }}>
+        <div className="row editor-tools" style={{ gap: 2 }}>
           <Tip label={t('Kommentare')}>
             <button
               className="btn ghost icon-only badge-host"
@@ -501,6 +501,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                             aria-label={t('Nach unten')}
                           >
                             <Icon name="arrowDown" size="s" />
+                          </button>
+                        </Tip>
+                        <Tip label={t('Block darunter einfügen')}>
+                          <button
+                            className="btn icon-only"
+                            onClick={() => setPicker({ index: index + 1, rect: { top: toolbarPos.top, left: toolbarPos.left, width: 1, height: 36 } })}
+                            aria-label={t('Block darunter einfügen')}
+                          >
+                            <Icon name="plus" size="s" />
                           </button>
                         </Tip>
                         <Tip label={t('Kommentieren')}>

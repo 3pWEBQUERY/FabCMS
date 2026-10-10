@@ -57,7 +57,17 @@ export function Dialog({
             <RDialog.Overlay asChild forceMount>
               <motion.div className="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }} />
             </RDialog.Overlay>
-            <RDialog.Content asChild forceMount aria-describedby={description ? undefined : undefined}>
+            <RDialog.Content
+              asChild
+              forceMount
+              onOpenAutoFocus={(e) => {
+                // Touch: focusing the first field would push the keyboard over the dialog before anyone has read it.
+                if (window.matchMedia('(pointer: coarse)').matches) {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement).focus();
+                }
+              }}
+            >
               <motion.div
                 className={`dialog ${wide ? 'wide' : ''}`}
                 style={{ transformOrigin: `${origin.x - window.innerWidth / 2}px ${origin.y}px` }}

@@ -158,7 +158,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 ))}
               </div>
               <p className="small faint" style={{ marginTop: '1rem' }}>
-                {t('Reservation & Termine, Events und Kurse folgen mit Version 1.0.')}
+                {t('Mehrere Sparten lassen sich kombinieren. Module schaltest du später unter «Einstellungen → Module» dazu oder ab.')}
               </p>
             </>
           )}
