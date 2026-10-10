@@ -98,6 +98,16 @@ shadow.innerHTML = `<style>
 .guide{position:absolute;display:none;background:#e8408a;pointer-events:none}
 .guide.on{display:block}
 .gv{width:1px}.gh{height:1px}
+.pz{position:absolute;display:none;touch-action:none}
+.pz.on{display:block}
+.pz-t,.pz-b{cursor:ns-resize}.pz-l,.pz-r{cursor:ew-resize}
+.pz:hover,.pz.drag{background:repeating-linear-gradient(45deg,rgba(43,89,195,.2) 0 4px,rgba(43,89,195,.06) 4px 8px)}
+.pz::after{content:"";position:absolute;background:#2b59c3;border-radius:2px;opacity:.4;transition:opacity .12s}
+.pz-t::after,.pz-b::after{left:50%;width:24px;height:3px;margin-left:-12px}
+.pz-t::after{bottom:0}.pz-b::after{top:0}
+.pz-l::after,.pz-r::after{top:50%;width:3px;height:24px;margin-top:-12px}
+.pz-l::after{right:0}.pz-r::after{left:0}
+.pz:hover::after,.pz.drag::after{opacity:1}
 .epos{position:absolute;display:none;padding:3px 6px;border-radius:4px;background:#1b1a17;color:#fff;font:600 11px/1 system-ui,sans-serif;pointer-events:none;white-space:nowrap}
 .epos.on{display:block}
 .rich{position:absolute;display:none;gap:1px;padding:3px;background:#1b1a17;border-radius:8px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
@@ -118,6 +128,7 @@ shadow.innerHTML = `<style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
 <div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
 <div class="rich" role="toolbar" aria-label="Formatierung">
 <span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
@@ -307,7 +318,105 @@ function selectEl(id: string | null, notify: boolean) {
   } else post({ t: 'select-el', block: selected, el: null });
 }
 
+/* ---------- padding: drag the inner edges of what is selected ---------- */
+
+const pads = [...shadow.querySelectorAll<HTMLElement>('.pz')];
+type Side = 't' | 'r' | 'b' | 'l';
+const SIDES: Side[] = ['t', 'r', 'b', 'l'];
+const PAD_KEY = { t: 'pt', r: 'pr', b: 'pb', l: 'pl' } as const;
+const PAD_CSS = { t: 'padding-top', r: 'padding-right', b: 'padding-bottom', l: 'padding-left' } as const;
+const OPPOSITE = { t: 'b', b: 't', l: 'r', r: 'l' } as const;
+let padDrag: { el: HTMLElement; side: Side; x: number; y: number; start: Record<Side, number>; now: Record<Side, number>; moved: boolean } | null = null;
+
+const paddingOf = (el: HTMLElement): Record<Side, number> => {
+  const cs = getComputedStyle(el);
+  return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+};
+
+/** The selected element, else the selected block – unless its layout is locked or it is too small to grab. */
+function padTarget(): HTMLElement | null {
+  const el = selectedEl ? elEl(selectedEl) : selected ? blockEl(selected) : null;
+  const block = el?.closest<HTMLElement>('[data-nova-block]');
+  if (!el || !block || lockOf(block) !== 'none' || elDrag || free) return null;
+  const r = el.getBoundingClientRect();
+  return r.width >= 48 && r.height >= 32 ? el : null;
+}
+
+/** The four padding areas over the target, at least a few pixels to grab even when there is none. */
+function placePads() {
+  const el = padDrag?.el ?? padTarget();
+  if (!el) return pads.forEach((p) => p.classList.remove('on'));
+  const r = el.getBoundingClientRect();
+  const v = paddingOf(el);
+  const grab = (n: number, max: number) => Math.min(Math.max(n, 8), max / 2);
+  for (const p of pads) {
+    const side = p.dataset.side as Side;
+    const th = grab(v[side], side === 't' || side === 'b' ? r.height : r.width);
+    const box =
+      side === 't' ? [r.left, r.top, r.width, th]
+      : side === 'b' ? [r.left, r.bottom - th, r.width, th]
+      : side === 'l' ? [r.left, r.top + grab(v.t, r.height), th, r.height - grab(v.t, r.height) - grab(v.b, r.height)]
+      : [r.right - th, r.top + grab(v.t, r.height), th, r.height - grab(v.t, r.height) - grab(v.b, r.height)];
+    Object.assign(p.style, { left: `${box[0]}px`, top: `${box[1] + scrollY}px`, width: `${box[2]}px`, height: `${Math.max(0, box[3])}px` });
+    p.classList.add('on');
+  }
+}
+
+for (const p of pads) {
+  p.addEventListener('pointerdown', (e) => {
+    const el = padTarget();
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    p.setPointerCapture(e.pointerId);
+    const start = paddingOf(el);
+    padDrag = { el, side: p.dataset.side as Side, x: e.clientX, y: e.clientY, start, now: { ...start }, moved: false };
+    p.classList.add('drag');
+  });
+  p.addEventListener('pointermove', (e) => {
+    if (!padDrag) return;
+    const { el, side, start } = padDrag;
+    // Pulling the inner edge towards the middle makes more room.
+    const delta = side === 't' ? e.clientY - padDrag.y : side === 'b' ? padDrag.y - e.clientY : side === 'l' ? e.clientX - padDrag.x : padDrag.x - e.clientX;
+    if (!padDrag.moved && Math.abs(delta) < 2) return;
+    padDrag.moved = true;
+    const raw = Math.max(0, start[side] + delta);
+    // Steps of 4 px; with Ctrl/⌘ to the pixel. Shift: all four sides, Alt: the opposite one too – as in the design panel.
+    const value = e.metaKey || e.ctrlKey ? Math.round(raw) : Math.round(raw / 4) * 4;
+    const sides: Side[] = e.shiftKey ? SIDES : e.altKey ? [side, OPPOSITE[side]] : [side];
+    padDrag.now = { ...start };
+    for (const x of sides) padDrag.now[x] = value;
+    el.setAttribute('data-nova-pad', '');
+    for (const x of SIDES) el.style.setProperty(PAD_CSS[x], `${padDrag.now[x]}px`);
+    epos.textContent = sides.length === 4 ? `${value} px ringsum` : `${value} px`;
+    epos.style.top = `${e.clientY + scrollY + 14}px`;
+    epos.style.left = `${e.clientX + 14}px`;
+    epos.classList.add('on');
+    placePads();
+    sendRect();
+  });
+  const end = () => {
+    if (!padDrag) return;
+    const { el, start, now, moved } = padDrag;
+    padDrag = null;
+    p.classList.remove('drag');
+    epos.classList.remove('on');
+    if (moved) {
+      const values: Record<string, string> = {};
+      for (const x of SIDES) if (now[x] !== start[x]) values[PAD_KEY[x]] = `${now[x]}px`;
+      const block = el.closest<HTMLElement>('[data-nova-block]');
+      if (Object.keys(values).length) post({ t: 'pad', block: block?.dataset.novaBlock, el: el === block ? null : el.dataset.novaEl ?? null, values });
+      afterDrag = true;
+      setTimeout(() => (afterDrag = false), 0);
+    }
+    placePads();
+  };
+  p.addEventListener('pointerup', end);
+  p.addEventListener('pointercancel', end);
+}
+
 function placeEgrip() {
+  placePads();
   const el = selectedEl ? elEl(selectedEl) : null;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
   // Locked blocks keep their layout in the Studio.
@@ -600,6 +709,7 @@ function select(id: string | null, notify: boolean) {
   selected = id;
   const el = id ? blockEl(id) : null;
   if (el) el.setAttribute('data-nova-selected', '');
+  placePads();
   if (notify) post(el ? { t: 'select', id, rect: rectOf(el), lock: el.dataset.novaLock ?? 'none', type: el.dataset.novaType } : { t: 'deselect' });
 }
 
@@ -1325,6 +1435,13 @@ addEventListener('message', (e) => {
       // Design changes show at once; the server's HTML for the block follows a moment later.
       const tag = d.querySelector<HTMLStyleElement>(`style[data-nova-design="${CSS.escape(m.id)}"]`);
       if (tag && tag.textContent !== m.css) tag.textContent = m.css;
+      // Padding dragged on the canvas now comes from the design too.
+      const host = blockEl(m.id);
+      if (host) for (const x of [host, ...host.querySelectorAll<HTMLElement>('[data-nova-pad]')]) {
+        if (!x.hasAttribute('data-nova-pad')) continue;
+        for (const side of SIDES) x.style.removeProperty(PAD_CSS[side]);
+        x.removeAttribute('data-nova-pad');
+      }
       // Positions set by dragging now come from the design.
       blockEl(m.id)
         ?.querySelectorAll<HTMLElement>('[data-nova-free]')

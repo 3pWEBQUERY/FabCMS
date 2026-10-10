@@ -305,6 +305,23 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           changeElement(m.block, { ...info.el, design });
           break;
         }
+        case 'pad': {
+          // Padding dragged on the canvas: for the screen size being designed.
+          const b = blocksRef.current.find((x) => x.id === m.block);
+          if (!b) break;
+          if (!session.pro && b.lock && b.lock !== 'none') break;
+          const apply = (from: Design | undefined) => {
+            let design: Design = from ?? {};
+            for (const [k, v] of Object.entries((m.values ?? {}) as Record<string, unknown>))
+              if ((k === 'pt' || k === 'pr' || k === 'pb' || k === 'pl') && typeof v === 'string' && /^\d{1,4}px$/.test(v)) design = setDesign(design, device, k, v);
+            return design;
+          };
+          if (m.el) {
+            const info = findEl(elsOf(b), m.el);
+            if (info) changeElement(b.id, { ...info.el, design: apply(info.el.design) });
+          } else changeBlock({ ...b, style: { ...b.style, design: apply(b.style?.design) } });
+          break;
+        }
         case 'el-pos-many': {
           // Several elements moved or aligned together: one change, one step to undo.
           const b = blocksRef.current.find((x) => x.id === m.block);
