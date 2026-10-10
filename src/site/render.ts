@@ -5,7 +5,7 @@ import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
 import { renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, entryTemplate, sampleEntry, type PublicEntry } from './data';
 import {
   articleLd,
   breadcrumbLd,
@@ -321,12 +321,72 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     noindex: Boolean(e.data.seo?.noindex),
     publishedAt: c.id === 'posts' ? ((e.data.date as string) || e.published_at) : null,
   };
+  let main: Html;
+  let crumbs: Crumb[];
+  // A page template of its own (designed in the free layout). The entry's own editor keeps Nova's
+  // view, where its blocks can be edited in place; the preview and the website show the template.
+  const tpl = !ctx.edit && c.route && c.id !== 'pages' ? await entryTemplate(c.id, ctx.preview) : null;
+  if (tpl?.blocks.length) {
+    const access = entryAccess(e.data);
+    const locked = !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
+    crumbs = [...listCrumbs(ctx, c), { label: e.data.title, href: path }];
+    let full = false;
+    ctx.entry = { e, c, open: !locked };
+    ctx.entryView = async (mode) => {
+      if (mode !== 'default') return locked ? gate(ctx, access) : renderBlocks(e.data.blocks ?? [], ctx);
+      full = true;
+      return (await builtInView(ctx, c, e, image)).main;
+    };
+    main = await renderBlocks(tpl.blocks, ctx);
+    // Search engines still learn it is an article, also when the template leaves out Nova's view.
+    if (c.id === 'posts' && !full) {
+      const ld = articleLd(ctx, c, { ...e, author_name: e.author_name ?? null }, image);
+      ctx.jsonLd.push(access === 'public' ? ld : { ...ld, isAccessibleForFree: false });
+    }
+  } else if (c.id === 'sections' && e.data.kind === 'template') {
+    // Designing a template: its blocks, bound to a sample entry (templateContext).
+    crumbs = [];
+    main = e.data.blocks?.length
+      ? await renderBlocks(e.data.blocks, ctx)
+      : html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Diese Vorlage ist noch leer. Füg oben das erste freie Layout hinzu.</div></div>`;
+  } else ({ main, crumbs } = await builtInView(ctx, c, e, image));
+  return documentHtml(ctx, meta, main, crumbs);
+}
+
+const listCrumbs = (ctx: RenderContext, c: CollectionDef): Crumb[] =>
+  c.list_route ? [{ label: t(ctx, 'Startseite'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Startseite'), href: '/' }];
+
+/**
+ * While a template is designed, its elements show the newest published entry
+ * of its type, and «Inhalt des Eintrags» that entry's content.
+ */
+export async function templateContext(ctx: RenderContext, data: EntryData): Promise<void> {
+  if (data.kind !== 'template' || typeof data.template_for !== 'string') return;
+  const c = ctx.collections.find((x) => x.id === data.template_for);
+  if (!c) return;
+  const sample = await sampleEntry(c.id);
+  if (!sample) {
+    ctx.entryView = async () => html`<div class="el-empty">Hier erscheint der Inhalt jedes Eintrags. Veröffentliche einen, um ihn zu sehen.</div>`;
+    return;
+  }
+  ctx.entry = { e: sample, c, open: true };
+  ctx.entryView = async (mode) => {
+    // The sample is only looked at here – edited it is in its own editor.
+    const view: RenderContext = { ...ctx, edit: false, entry: undefined, entryView: undefined };
+    const e = { ...sample, version: 0 };
+    return mode === 'default' ? (await builtInView(view, c, e, await pageImage(e.data, view, e.id, 0))).main : renderBlocks(sample.data.blocks ?? [], view);
+  };
+}
+
+/** Nova's own view of an entry: the page without a template, and «Inhalt des Eintrags» in its full form. */
+async function builtInView(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null): Promise<{ main: Html; crumbs: Crumb[] }> {
+  const path = entryPath(c, e.slug) ?? ctx.path;
   // Members-only content: everyone else gets title, excerpt and an invitation.
   const access = entryAccess(e.data);
   const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
   let main: Html;
   let crumbs: Crumb[] = [];
-  const listCrumb = c.list_route ? [{ label: t(ctx, 'Startseite'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Startseite'), href: '/' }];
+  const listCrumb = listCrumbs(ctx, c);
   // Own fields on a built-in type: shown below Nova's template (own types show all fields in genericTemplate).
   const own = c.builtin && !locked && TEMPLATED.has(c.id) ? await fieldParts(ctx, c.custom_fields ?? [], e.data) : [];
   const ownFields = own.length ? html`<section class="b sp-m own-fields"><div class="wrap" style="display:grid;gap:1.25rem;max-width:var(--measure);margin-inline:auto">${own}</div></section>` : html``;
@@ -368,7 +428,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       main = locked ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}` : await genericTemplate(ctx, c, e);
   }
   if (c.id !== 'posts') main = html`${main}${ownFields}`;
-  return documentHtml(ctx, meta, main, crumbs);
+  return { main, crumbs };
 }
 
 async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null, locked: Access | null, ownFields: Html): Promise<Html> {

@@ -1,5 +1,5 @@
 import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
-import type { RenderContext } from './context';
+import type { BoundEntry, RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
@@ -7,9 +7,9 @@ import { motionAttrs } from '../shared/motion';
 import { applyOverrides, BOX_TAGS, componentEls, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
-import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
+import type { Block, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { publishedEntries, categoriesOf, getForm, sectionBlocks, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -810,7 +810,8 @@ const R: Record<string, Renderer> = {
   async layout(b, ctx) {
     const p = b.props as P;
     const els = (p.els as El[]) ?? [];
-    const inner = await renderEls(els, ctx, { path: 'els', edit: ctx.edit });
+    // On a template page its elements are bound to the page's entry.
+    const inner = await renderEls(els, ctx, { path: 'els', edit: ctx.edit, entry: ctx.entry });
     const empty = ctx.edit && !els.length ? html`<div class="el-empty">${'Leeres Layout – füg über «+» das erste Element hinzu.'}</div>` : '';
     return html`<div class="${p.width === 'full' ? 'lay lay-full' : 'wrap lay'}">${inner}${empty}</div>`;
   },
@@ -833,7 +834,9 @@ const R: Record<string, Renderer> = {
 interface ElRender {
   path: string;
   edit: boolean;
-  entry?: { e: PublicEntry; c: CollectionDef; open: boolean };
+  entry?: BoundEntry;
+  /** One copy of a CMS list's template (all but the first in the editor are ghosts). */
+  list?: boolean;
   /** A repeat only for the eye (the second run of a marquee): no id, no handles. */
   copy?: boolean;
   /** Extra attributes for this one element (a tab's panel). */
@@ -861,7 +864,7 @@ function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'bo
   const handles = rc.edit && !rc.copy;
   // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
   return raw(
-    `${!rc.copy && (rc.edit || !rc.entry) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
+    `${!rc.copy && (rc.edit || !rc.list) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
       motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
     }${rc.extra ?? ''}`,
   );
@@ -931,7 +934,7 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     case 'image': {
       const b = val('image');
       const m = await ctx.media(b.set ? b.value : p.image);
-      if (!m) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Bild wählen</span></figure>` : html``;
+      if (!m) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>${b.set ? 'Bild aus dem Eintrag – hier noch leer' : 'Bild wählen'}</span></figure>` : html``;
       const pic = picture(m, { sizes: '(min-width: 64rem) 50vw, 100vw', alt: p.alt || undefined });
       const href = hrefOf();
       return href ? html`<a class="${cls()}" href="${href}"${attrs}>${pic}</a>` : html`<figure class="${cls()}"${attrs}>${pic}</figure>`;
@@ -1010,6 +1013,11 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       return renderList(el, ctx, rc, attrs, cls());
     case 'component':
       return renderComponent(el, ctx, rc, attrs, cls());
+    case 'entrybody': {
+      if (!ctx.entryView || rc.list || rc.copy)
+        return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;
+      return html`<div class="${cls()}"${attrs}>${await ctx.entryView(p.show === 'default' ? 'default' : 'blocks')}</div>`;
+    }
   }
   return html``;
 }
@@ -1042,6 +1050,7 @@ async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: 
     edit: false,
     copy: true,
     entry: rc.entry,
+    list: rc.list,
     over: handles ? `${rc.path}.props.overrides` : undefined,
     depth,
   });
@@ -1078,7 +1087,7 @@ async function renderAccordion(el: El, ctx: RenderContext, rc: ElRender, attrs: 
     );
     faq.push({ q: elementsText([c.children[0]]), a: elementsText(c.children.slice(1)) });
   }
-  if (p.faq !== false && !rc.edit && !rc.entry && !rc.copy && faq.some((f) => f.q && f.a))
+  if (p.faq !== false && !rc.edit && !rc.list && !rc.copy && faq.some((f) => f.q && f.a))
     ctx.jsonLd.push({
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
@@ -1092,7 +1101,7 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
   const p = el.props as P;
   const c = ctx.collections.find((x) => x.id === p.collection);
   const template = listTemplate(el);
-  if (!c || !template || rc.entry) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
+  if (!c || !template || rc.list) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
   const sort = { newest: ['published_at', 'desc'], oldest: ['published_at', 'asc'], title: ['title', 'asc'], order: ['sort', 'asc'] }[String(p.sort)] ?? ['published_at', 'desc'];
   const { items } = await publishedEntries(c, { limit: Math.min(48, Math.max(1, Number(p.limit) || 3)), sortField: sort[0], sortDir: sort[1] as 'asc' | 'desc', category: p.category || undefined });
   if (!items.length) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Noch keine veröffentlichten Einträge in «${c.name}».</div>` : html``;
@@ -1100,7 +1109,7 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
   for (let i = 0; i < items.length; i++) {
     const e = items[i];
     const open = entryAccess(e.data) === 'public' || mayRead(entryAccess(e.data), ctx.member?.level ?? null);
-    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open } });
+    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true });
     out.push(rc.edit && i > 0 ? html`<div class="el-ghost" data-nova-ghost>${item}</div>` : item);
   }
   return html`<div class="${cls}"${attrs}>${out}</div>`;

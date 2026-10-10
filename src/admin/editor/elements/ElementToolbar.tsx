@@ -133,11 +133,14 @@ export function ElementToolbar({
 export function ElementPicker({
   onPick,
   into,
+  inTemplate,
   components,
   onPickComponent,
 }: {
   onPick: (kind: ElKind) => void;
   into: string | null;
+  /** Page templates also offer «Inhalt des Eintrags». */
+  inTemplate: boolean;
   components: { id: string; title: string }[];
   onPickComponent: (c: { id: string; title: string }) => void;
 }) {
@@ -148,7 +151,7 @@ export function ElementPicker({
         <section key={g} className="el-picker-group">
           <h3 className="el-picker-title">{tl(EL_GROUP_LABELS[g])}</h3>
           <div className="el-picker-grid">
-            {EL_KINDS.filter((k) => EL_DEFS[k].group === g && k !== 'component').map((k) => (
+            {EL_KINDS.filter((k) => EL_DEFS[k].group === g && k !== 'component' && (k !== 'entrybody' || inTemplate)).map((k) => (
               <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
                 <Icon name={EL_DEFS[k].icon} />
                 <span>{tl(EL_DEFS[k].label)}</span>

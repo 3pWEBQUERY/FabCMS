@@ -69,6 +69,27 @@ export async function sectionBlocks(id: unknown, preview: boolean): Promise<{ ti
   return d ? { title: d.title, blocks: d.blocks ?? [] } : null;
 }
 
+/** The page template of a content type: the most recently changed «sections» entry of kind «template» for it. */
+export async function entryTemplate(collection: string, preview: boolean): Promise<{ id: string; title: string; blocks: Block[] } | null> {
+  const col = preview ? sql`data` : sql`published_data`;
+  const [s] = await sql`
+    select id from entries
+    where collection = 'sections' and ${col} ->> 'kind' = 'template' and ${col} ->> 'template_for' = ${collection}
+    order by updated_at desc limit 1`;
+  if (!s) return null;
+  const t = await sectionBlocks(s.id as string, preview);
+  return t ? { id: s.id as string, ...t } : null;
+}
+
+/** An entry to show while a template is designed: the newest published one of its type. */
+export async function sampleEntry(collection: string): Promise<PublicEntry | null> {
+  const [e] = await sql`
+    select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, null as author_name
+    from entries e where e.collection = ${collection} and e.status = 'published' and e.published_data is not null
+    order by e.published_at desc nulls last limit 1`;
+  return e ? ((await localizedOne(e as unknown as PublicEntry, collection)) as PublicEntry) : null;
+}
+
 export async function approvedComments(entryId: string) {
   return sql`select id, name, body, created_at from comments where entry_id = ${entryId} and status = 'approved' order by created_at`;
 }

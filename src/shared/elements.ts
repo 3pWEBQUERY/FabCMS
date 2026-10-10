@@ -7,6 +7,7 @@
  * (sanitizeEls) and every value is escaped again when it is rendered.
  */
 import type { FieldDef } from './fields';
+import type { CollectionDef } from './types';
 import { designCss, designImages, type CompileOptions, type Design, type StyleProps } from './design';
 import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
@@ -29,6 +30,7 @@ export const EL_KINDS = [
   'marquee',
   'list',
   'component',
+  'entrybody',
 ] as const;
 export type ElKind = (typeof EL_KINDS)[number];
 
@@ -328,6 +330,26 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     ],
     defaults: { speed: 'medium', direction: 'left', pause: true },
   },
+  entrybody: {
+    kind: 'entrybody',
+    group: 'cms',
+    label: 'Inhalt des Eintrags',
+    description: 'Nur in Seitenvorlagen: der eigene Inhalt jedes Eintrags – seine Blöcke oder Novas ganze Ansicht mit Kaufen, Tickets und Kommentaren.',
+    icon: 'page',
+    fields: [
+      {
+        key: 'show',
+        type: 'select',
+        label: 'Was erscheint',
+        options: [
+          { value: 'blocks', label: 'Die Blöcke des Eintrags' },
+          { value: 'default', label: 'Novas ganze Ansicht (Kaufen, Tickets, Kommentare …)' },
+        ],
+        default: 'blocks',
+      },
+    ],
+    defaults: { show: 'blocks' },
+  },
   component: {
     kind: 'component',
     group: 'cms',
@@ -572,6 +594,37 @@ export function componentEls(blocks: { type: string; props: Record<string, unkno
   return (lay?.props.els as El[] | undefined) ?? [];
 }
 
+/** Types whose page brings more than text: buying, booking, tickets – a template keeps Nova's view of them. */
+const TRANSACTIONAL = new Set(['products', 'events', 'courses', 'properties', 'profiles']);
+
+/**
+ * The first draft of a page template: title, short text and picture bound to
+ * the entry's fields, then its own content.
+ */
+export function templateStarter(c: CollectionDef): El[] {
+  if (TRANSACTIONAL.has(c.id)) return [createEl('entrybody', { show: 'default' })];
+  const lead = c.fields.find((f) => ['excerpt', 'intro', 'summary', 'teaser'].includes(f.key) && ['text', 'textarea', 'richtext'].includes(f.type));
+  const pic = c.fields.find((f) => f.type === 'image') ?? c.fields.find((f) => f.type === 'images');
+  const date = c.fields.some((f) => f.key === 'date');
+  return [
+    createEl(
+      'box',
+      { tag: 'header' },
+      {
+        name: 'Kopf',
+        design: { desktop: { gap: '$s-4', maxWidth: '48rem', ml: 'auto', mr: 'auto', textAlign: 'center', align: 'center' } },
+        children: [
+          ...(date ? [createEl('text', { html: '<p>Datum</p>' }, { bind: { html: 'date' }, design: { desktop: { color: '$ink-2', fontSize: '$step-n1' } } })] : []),
+          createEl('heading', { text: 'Titel des Eintrags', level: '1' }, { bind: { text: 'title' } }),
+          ...(lead ? [createEl('text', { html: '<p>Kurzfassung</p>' }, { bind: { html: `field:${lead.key}` }, design: { desktop: { fontSize: '$step-2' } } })] : []),
+        ],
+      },
+    ),
+    ...(pic ? [createEl('image', {}, { bind: { image: `field:${pic.key}` }, design: { desktop: { aspect: '16/9', radius: '$s-4' } } })] : []),
+    createEl('entrybody', { show: 'blocks' }),
+  ];
+}
+
 const MAX_ELS = 300;
 const MAX_DEPTH = 8;
 const ID = /^[\w-]{1,24}$/;
@@ -626,6 +679,8 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       };
     case 'marquee':
       return { speed: one(p.speed, MARQUEE_SPEEDS, 'medium'), direction: p.direction === 'right' ? 'right' : 'left', pause: p.pause !== false };
+    case 'entrybody':
+      return { show: p.show === 'default' ? 'default' : 'blocks' };
     case 'component':
       return { ref: typeof p.ref === 'string' && UUID.test(p.ref) ? p.ref : null, overrides: cleanOverrides(p.overrides) };
     case 'list':

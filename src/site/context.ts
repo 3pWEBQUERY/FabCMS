@@ -1,6 +1,7 @@
 import { sql } from '../server/db';
 import type { MemberLevel } from '../shared/members';
-import type { CollectionDef, MediaItem, SiteSettings } from '../shared/types';
+import type { CollectionDef, EntryData, MediaItem, SiteSettings } from '../shared/types';
+import type { Html } from './html';
 import type { Theme } from './themes';
 import type { Lang } from '../shared/i18n';
 
@@ -9,7 +10,18 @@ export interface Crumb {
   href: string;
 }
 
+/** An entry elements are bound to: the one a template page shows, or each one of a CMS list. */
+export interface BoundEntry {
+  e: { id: string; slug: string; data: EntryData; published_at: string | null };
+  c: CollectionDef;
+  /** Members-only entries the visitor may not read show only what their paywall shows. */
+  open: boolean;
+}
+
 export interface RenderContext {
+  /** On a page drawn from a template: its entry, and its own content («Inhalt des Eintrags»). */
+  entry?: BoundEntry;
+  entryView?: (mode: 'blocks' | 'default') => Promise<Html>;
   /** Level for item headings (cards, menu sections): 2 under the page title, 3 under a section heading. */
   hl?: number;
   settings: SiteSettings;

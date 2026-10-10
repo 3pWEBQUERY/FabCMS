@@ -163,7 +163,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const { data: collectionsData } = useApi<{ collections: CollectionDef[] }>('/api/collections');
   const collections = collectionsData?.collections ?? [];
   const listAncestor = selectedElInfo ? [...selectedElInfo.ancestors].reverse().find((a) => a.kind === 'list') : null;
-  const listSource = listAncestor ? (collections.find((c) => c.id === listAncestor.props.collection) ?? null) : null;
+  // A page template binds to its content type; inside a CMS list the list's type wins.
+  const docData = (doc.data ?? {}) as Record<string, unknown>;
+  const templateFor = doc.collection?.id === 'sections' && docData.kind === 'template' ? (collections.find((c) => c.id === docData.template_for) ?? null) : null;
+  const listSource = listAncestor ? (collections.find((c) => c.id === listAncestor.props.collection) ?? null) : templateFor;
   const backTo = doc.collection?.id === 'pages' || !doc.collection ? '/seiten' : `/inhalte/${doc.collection.id}`;
 
   /* ---------- rendering into the canvas ---------- */
@@ -1015,6 +1018,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
                     <ElementPicker
                       onPick={insertElement}
+                      inTemplate={Boolean(templateFor)}
                       components={components}
                       onPickComponent={(c) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }))}
                       into={selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null}

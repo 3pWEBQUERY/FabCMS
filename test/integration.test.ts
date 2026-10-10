@@ -2278,4 +2278,72 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const list = await req('GET', '/api/entries?collection=sections&limit=200');
     expect(list.data.entries.find((e: { id: string }) => e.id === ref).fields.kind).toBe('component');
   });
+
+  it('draws entry pages from a page template – bound to each entry, paywall kept, the entry editor untouched', async () => {
+    const make = async (title: string, extra: Record<string, unknown>) => {
+      const r = await req('POST', '/api/entries', { collection: 'posts', data: { title, ...extra } });
+      await req('POST', `/api/entries/${r.data.entry.id}/publish`, {});
+      return r.data.entry;
+    };
+    const text = (body: string) => ({ id: Math.random().toString(36).slice(2, 10), type: 'text', props: { heading: '', body } });
+    const open = await make('Vorlage <offen>', { excerpt: 'Kurz und gut.', blocks: [text('<p>Der ganze Bericht.</p>')] });
+    const closed = await make('Vorlage geschlossen', { excerpt: 'Nur ein Blick.', access: 'members', blocks: [text('<p>Geheimes Rezept.</p>')] });
+    const els = [
+      {
+        id: 'th',
+        kind: 'box',
+        props: { tag: 'header' },
+        children: [
+          { id: 'tt', kind: 'heading', props: { text: 'Platzhalter', level: '1' }, bind: { text: 'title' } },
+          { id: 'tx', kind: 'text', props: { html: '<p>x</p>' }, bind: { html: 'field:excerpt' } },
+        ],
+      },
+      { id: 'tb', kind: 'entrybody', props: { show: 'blocks' } },
+    ];
+    const tpl = await req('POST', '/api/entries', {
+      collection: 'sections',
+      data: { title: 'Beitragsseite', kind: 'template', template_for: 'posts', blocks: [{ id: 'tl', type: 'layout', props: { els } }] },
+    });
+    expect(tpl.data.entry.data.template_for).toBe('posts');
+    const page = async (slug: string) => (await req('GET', `/journal/${slug}`, undefined, { cookies: new Map() })).data as string;
+    // Not published yet: the website keeps Nova's view.
+    expect(await page(open.slug)).not.toContain('class="el el-heading e-tt"');
+    await req('POST', `/api/entries/${tpl.data.entry.id}/publish`, {});
+    try {
+      const html = await page(open.slug);
+      expect(html).toContain('<h1 class="el el-heading e-tt" id="e-tt">Vorlage &lt;offen&gt;</h1>');
+      expect(html).toContain('<p>Kurz und gut.</p>');
+      expect(html).toContain('Der ganze Bericht.');
+      expect(html).not.toContain('Platzhalter');
+      expect(html.match(/<h1/g)?.length).toBe(1);
+      // Still an article for search engines.
+      expect(html).toContain('"@type":"BlogPosting"');
+      // Members-only: title and short text, then the invitation instead of the content.
+      const gated = await page(closed.slug);
+      expect(gated).toContain('>Vorlage geschlossen</h1>');
+      expect(gated).toContain('Nur ein Blick.');
+      expect(gated).toContain('Weiterlesen mit deinem Konto');
+      expect(gated).not.toContain('Geheimes Rezept');
+      // The entry's own editor keeps Nova's view, where its blocks are edited in place.
+      const canvas = await req('POST', '/api/render', { entryId: open.id, data: open.data });
+      expect(canvas.data.html).not.toContain('e-tt');
+      expect(canvas.data.html).toContain('data-nova-block=');
+      // Designing the template shows the newest published entry of its type.
+      const design = await req('POST', '/api/render', { entryId: tpl.data.entry.id, data: tpl.data.entry.data, blockId: 'tl' });
+      expect(design.data.html).toContain('data-nova-el="tt"');
+      expect(design.data.html).toContain('>Vorlage geschlossen</h1>');
+      expect(design.data.html).toContain('Geheimes Rezept');
+      // «Nova's whole view» keeps everything the type brings (here: the article with its own head).
+      const full = structuredClone(tpl.data.entry.data);
+      full.blocks[0].props.els[1].props.show = 'default';
+      await req('PUT', `/api/entries/${tpl.data.entry.id}`, { data: full, version: tpl.data.entry.version + 1 });
+      await req('POST', `/api/entries/${tpl.data.entry.id}/publish`, {});
+      const whole = await page(open.slug);
+      expect(whole).toContain('class="wrap art-head"');
+      expect(whole.match(/"@type":"BlogPosting"/g)?.length).toBe(1);
+    } finally {
+      await req('DELETE', `/api/entries/${tpl.data.entry.id}`);
+    }
+    expect(await page(open.slug)).not.toContain('e-tt');
+  });
 });

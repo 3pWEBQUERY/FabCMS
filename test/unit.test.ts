@@ -48,6 +48,8 @@ import {
   newItem,
   removeEl,
   sanitizeEls,
+  templateStarter,
+  walkEls,
   type El,
 } from '../src/shared/elements';
 import { execFileSync } from 'node:child_process';
@@ -1312,6 +1314,21 @@ describe('free layout', () => {
       ]),
     ).toBe(master);
     expect(componentEls(undefined)).toEqual([]);
+  });
+
+  it('starts page templates bound to the fields of their type', () => {
+    const posts = BUILTIN_COLLECTIONS.find((c) => c.id === 'posts')!;
+    const els = templateStarter(posts);
+    const binds: Record<string, string>[] = [];
+    walkEls(els, (el) => el.bind && binds.push(el.bind));
+    expect(binds).toContainEqual({ text: 'title' });
+    expect(binds).toContainEqual({ html: 'field:excerpt' });
+    expect(binds).toContainEqual({ image: 'field:cover' });
+    expect(els[els.length - 1]).toMatchObject({ kind: 'entrybody', props: { show: 'blocks' } });
+    expect(sanitizeEls(els)).toHaveLength(els.length);
+    // Buying, booking, tickets: Nova's own view stays, the template goes around it.
+    expect(templateStarter(BUILTIN_COLLECTIONS.find((c) => c.id === 'products')!)).toMatchObject([{ kind: 'entrybody', props: { show: 'default' } }]);
+    expect(sanitizeEls([{ kind: 'entrybody', props: { show: 'all' } }])[0].props).toEqual({ show: 'blocks' });
   });
 
   it('starts entry containers filled and adds entries like the last one', () => {

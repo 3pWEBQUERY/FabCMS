@@ -655,4 +655,36 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'I componenti si inseriscono nel layout libero; testi e immagini si adattano per ogni punto.',
     en: 'Components go into the free layout; texts and pictures can be adjusted per place.',
   },
+  /* page templates */
+  'Vorlage für {name}': { fr: 'Modèle pour {name}', it: 'Modello per {name}', en: 'Template for {name}' },
+  'So sehen die Seiten aller Einträge aus – frei gestaltet, mit ihren Feldern verbunden.': {
+    fr: 'L’apparence des pages de toutes les entrées – conçue librement, reliée à leurs champs.',
+    it: 'L’aspetto delle pagine di tutte le voci – progettato liberamente, collegato ai loro campi.',
+    en: 'How the pages of all entries look – freely designed, connected to their fields.',
+  },
+  Seitenvorlage: { fr: 'Modèle de page', it: 'Modello di pagina', en: 'Page template' },
+  'Inhalt des Eintrags': { fr: 'Contenu de l’entrée', it: 'Contenuto della voce', en: 'Entry content' },
+  'Nur in Seitenvorlagen: der eigene Inhalt jedes Eintrags – seine Blöcke oder Novas ganze Ansicht mit Kaufen, Tickets und Kommentaren.': {
+    fr: 'Seulement dans les modèles de page : le contenu propre de chaque entrée – ses blocs ou la vue complète de Nova avec achat, billets et commentaires.',
+    it: 'Solo nei modelli di pagina: il contenuto di ogni voce – i suoi blocchi o la vista completa di Nova con acquisto, biglietti e commenti.',
+    en: 'Only in page templates: each entry’s own content – its blocks or Nova’s full view with buying, tickets and comments.',
+  },
+  'Was erscheint': { fr: 'Ce qui apparaît', it: 'Cosa compare', en: 'What appears' },
+  'Die Blöcke des Eintrags': { fr: 'Les blocs de l’entrée', it: 'I blocchi della voce', en: 'The entry’s blocks' },
+  'Novas ganze Ansicht (Kaufen, Tickets, Kommentare …)': {
+    fr: 'La vue complète de Nova (achat, billets, commentaires …)',
+    it: 'La vista completa di Nova (acquisto, biglietti, commenti …)',
+    en: 'Nova’s full view (buying, tickets, comments …)',
+  },
+  'Seitenvorlage – so sehen alle Einträge eines Inhaltstyps aus': {
+    fr: 'Modèle de page – l’apparence de toutes les entrées d’un type de contenu',
+    it: 'Modello di pagina – l’aspetto di tutte le voci di un tipo di contenuto',
+    en: 'Page template – how all entries of a content type look',
+  },
+  'Für Inhaltstyp': { fr: 'Pour le type de contenu', it: 'Per il tipo di contenuto', en: 'For content type' },
+  'Die Kennung, z. B. «posts». Pro Inhaltstyp gilt die zuletzt geänderte Vorlage.': {
+    fr: 'L’identifiant, p. ex. «posts». Par type de contenu, le modèle modifié en dernier s’applique.',
+    it: 'L’identificativo, p. es. «posts». Per ogni tipo di contenuto vale il modello modificato per ultimo.',
+    en: 'The identifier, e.g. “posts”. For each content type the most recently changed template applies.',
+  },
 };

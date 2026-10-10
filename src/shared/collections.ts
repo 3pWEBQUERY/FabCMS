@@ -431,9 +431,17 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
         options: [
           { value: 'section', label: 'Sektion – ein ganzer Abschnitt' },
           { value: 'component', label: 'Komponente – ein Element im freien Layout' },
+          { value: 'template', label: 'Seitenvorlage – so sehen alle Einträge eines Inhaltstyps aus' },
         ],
         default: 'section',
         help: 'Komponenten setzt du im freien Layout ein; Texte und Bilder lassen sich pro Stelle anpassen.',
+      },
+      {
+        key: 'template_for',
+        type: 'text',
+        label: 'Für Inhaltstyp',
+        help: 'Die Kennung, z. B. «posts». Pro Inhaltstyp gilt die zuletzt geänderte Vorlage.',
+        showIf: { field: 'kind', equals: ['template'] },
       },
     ],
     route: null,

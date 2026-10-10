@@ -10,7 +10,8 @@ import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confir
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
-import { formatPrice } from '../../shared/text';
+import { formatPrice, shortId } from '../../shared/text';
+import { templateStarter } from '../../shared/elements';
 import type { CollectionDef, EntryStatus } from '../../shared/types';
 import type { FieldDef } from '../../shared/fields';
 
@@ -211,6 +212,28 @@ export function CollectionList({ collection }: { collection: string }) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
+  /** The page template of this type: opens the one there is, or starts one bound to its fields. */
+  const openTemplate = async () => {
+    try {
+      const list = await api.get<{ entries: { id: string; fields?: { kind?: string; template_for?: string } }[] }>('/api/entries?collection=sections&limit=500');
+      const found = list.entries.find((x) => x.fields?.kind === 'template' && x.fields.template_for === collection);
+      if (found) return navigate(entryUrl('sections', found.id));
+      const els = templateStarter(col);
+      const full = els.length === 1 && els[0].kind === 'entrybody';
+      const r = await api.post<{ entry: { id: string } }>('/api/entries', {
+        collection: 'sections',
+        data: {
+          title: t('Vorlage für {name}', { name: tl(col.name) }),
+          kind: 'template',
+          template_for: collection,
+          blocks: [{ id: shortId(8), type: 'layout', props: { width: full ? 'full' : 'content', els }, style: {} }],
+        },
+      });
+      navigate(entryUrl('sections', r.entry.id));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
   const remove = async (r: Row) => {
     if (!(await confirm({ title: t('«{name}» löschen?', { name: r.title }), confirm: t('Löschen'), danger: true }))) return;
     await api.del(`/api/entries/${r.id}`);
@@ -231,6 +254,11 @@ export function CollectionList({ collection }: { collection: string }) {
             {pro && (
               <button className="btn" onClick={() => setApiOpen(true)}>
                 <Icon name="code" size="s" /> API
+              </button>
+            )}
+            {col.route && can('content.edit') && (
+              <button className="btn" onClick={() => void openTemplate()} title={t('So sehen die Seiten aller Einträge aus – frei gestaltet, mit ihren Feldern verbunden.')}>
+                <Icon name="layout" size="s" /> {t('Seitenvorlage')}
               </button>
             )}
             {(can('content.edit') || (collection === 'posts' && can('content.edit.own'))) && (

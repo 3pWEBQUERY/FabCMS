@@ -25,7 +25,7 @@ import { badRequest, forbidden, notFound } from '../lib/http';
 import { can } from '../../shared/roles';
 import type { Entry, EntryData } from '../../shared/types';
 import { getSettings, bumpGeneration } from '../settings';
-import { createContext, renderPage } from '../../site/render';
+import { createContext, renderPage, templateContext } from '../../site/render';
 import { HEADED_BLOCKS, renderBlocks } from '../../site/blocks';
 import { env } from '../env';
 import { entryPath } from '../../shared/paths';
@@ -103,6 +103,8 @@ async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, 
     preview: true,
     ageOk: true,
   });
+  // A page template shows a real entry of its type while it is designed.
+  if (collection.id === 'sections') await templateContext(ctx, data);
   return {
     ctx,
     collection,

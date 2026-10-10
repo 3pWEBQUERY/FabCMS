@@ -171,6 +171,8 @@ h1.el-heading{font-size:var(--step-7)}h2.el-heading{font-size:var(--step-5)}h3.e
 .el-divider{width:100%;border:0;border-top:1px solid var(--line);margin:0}
 .el-list{display:grid;gap:var(--s-5)}
 .el-component{display:flex;flex-direction:column;gap:var(--s-4)}
+.wrap.lay .el-entrybody .wrap{width:100%}
+.el-entrybody>.b:first-child{padding-top:0}
 /* interactive elements: counter, accordion, tabs, slider, marquee (runtime in site/runtime/widgets.ts) */
 .el-counter{display:inline-flex;align-items:baseline;gap:.06em;max-width:max-content;font-family:var(--font-display);font-weight:var(--display-weight);font-size:var(--step-7);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .cnt-fix{font-size:.55em}
