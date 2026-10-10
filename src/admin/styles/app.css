@@ -1355,9 +1355,10 @@ button.list-item {
 .toasts {
   position: fixed;
   z-index: 95;
-  left: 50%;
+  /* Full width, toasts centred inside: at left 50% the container only had the right half of the screen and wrapped early on phones. */
+  left: 1rem;
+  right: 1rem;
   bottom: 1.25rem;
-  translate: -50% 0;
   display: grid;
   gap: 0.5rem;
   justify-items: center;
@@ -1370,7 +1371,7 @@ button.list-item {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  max-width: min(32rem, calc(100vw - 2rem));
+  max-width: min(32rem, 100%);
   padding: 0.6rem 0.45rem 0.6rem 0.85rem;
   border-radius: var(--r-l);
   background: var(--ink);
