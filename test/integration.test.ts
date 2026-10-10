@@ -2278,6 +2278,19 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(ed).toContain('data-nova-field="els.0.props.overrides.kh.text"');
     expect(ed).not.toContain('data-nova-el="kh"');
     expect(ed).toContain('Diese Komponente gibt es nicht mehr');
+    // Variants: the original keeps only designs of its own elements, each place picks one.
+    const withVariants = structuredClone((await req('GET', `/api/entries/${ref}`)).data.entry);
+    withVariants.data.blocks[0].props.variants = [{ id: 'hell', name: 'Hell', designs: { kc: { desktop: { bg: '$bg' } }, fremd: { desktop: { bg: 'red' } } } }];
+    const savedV = await req('PUT', `/api/entries/${ref}`, { data: withVariants.data, version: withVariants.version });
+    expect(savedV.data.entry.data.blocks[0].props.variants).toEqual([{ id: 'hell', name: 'Hell', designs: { kc: { desktop: { bg: '$bg' } } } }]);
+    await req('POST', `/api/entries/${ref}/publish`, {});
+    const pv = structuredClone((await req('GET', `/api/entries/${page.data.entry.id}`)).data.entry);
+    pv.data.blocks[0].props.els[1].props.variant = 'hell';
+    await req('PUT', `/api/entries/${page.data.entry.id}`, { data: pv.data, version: pv.version });
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    html = await get();
+    expect(html).toContain('<div class="el el-component e-i2 v-hell" id="e-i2">');
+    expect(html).toContain('.v-hell :is(#e-kc,.e-kc){background-color:var(--bg)');
     // Sections still list as sections – a component is not offered as a block.
     const list = await req('GET', '/api/entries?collection=sections&limit=200');
     expect(list.data.entries.find((e: { id: string }) => e.id === ref).fields.kind).toBe('component');

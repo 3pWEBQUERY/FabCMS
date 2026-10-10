@@ -4,7 +4,7 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
-import { applyOverrides, BOX_TAGS, componentEls, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { applyOverrides, BOX_TAGS, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
@@ -1033,17 +1033,20 @@ async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: 
   const depth = (rc.depth ?? 0) + 1;
   const src = depth <= 3 && typeof p.ref === 'string' ? await sectionBlocks(p.ref, ctx.preview) : null;
   const master = src ? componentEls(src.blocks) : [];
+  const variants = src ? componentVariants(src.blocks) : [];
+  const variant = variants.find((v) => v.id === p.variant);
   if (!master.length) return handles ? html`<div class="${cls} el-empty"${attrs}>Diese Komponente gibt es nicht mehr oder sie ist leer.</div>` : html``;
   // Its design once per page – the class reaches every place (in the editor each block brings its own).
   let css = '';
   if (ctx.edit || !ctx.components.has(p.ref)) {
     ctx.components.add(p.ref);
     const images = new Map<string, string>();
-    for (const id of new Set(elementImages(master))) {
+    for (const id of new Set([...elementImages(master), ...variantImages(variants)])) {
       const m = await ctx.media(id);
       if (m) images.set(id, variantUrl(m, 1920, 'webp'));
     }
-    css = elementsCss(master, { image: (id) => images.get(id) ?? null }).replace(/</g, '');
+    const opts = { image: (id: string) => images.get(id) ?? null };
+    css = (elementsCss(master, opts) + variantsCss(variants, opts)).replace(/</g, '');
   }
   const inner = await renderEls(applyOverrides(master, p.overrides as Overrides), ctx, {
     path: 'els',
@@ -1054,7 +1057,9 @@ async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: 
     over: handles ? `${rc.path}.props.overrides` : undefined,
     depth,
   });
-  return html`<div class="${cls}"${attrs}${handles ? raw(` data-nova-section="${p.ref}" data-nova-component="${esc(src!.title)}"`) : ''}>${
+  return html`<div class="${cls}${variant ? ` v-${variant.id}` : ''}"${attrs}${
+    handles ? raw(` data-nova-section="${p.ref}" data-nova-component="${esc(variant ? `${src!.title} · ${variant.name}` : src!.title)}"`) : ''
+  }>${
     css ? html`<style data-nova-comp>${raw(css)}</style>` : ''
   }${inner}</div>`;
 }
@@ -1140,7 +1145,7 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
   const out: Html[] = [];
   // Background images in the design: looked up once, before the blocks render.
   const images = new Map<string, string>();
-  for (const id of new Set(blocks.flatMap((b) => [...designImages(b.style?.design), ...(b.type === 'layout' ? elementImages(((b.props as P).els as El[]) ?? []) : [])]))) {
+  for (const id of new Set(blocks.flatMap((b) => [...designImages(b.style?.design), ...(b.type === 'layout' ? [...elementImages(((b.props as P).els as El[]) ?? []), ...variantImages((b.props as P).variants as Variant[] | undefined)] : [])]))) {
     const m = await c.media(id);
     if (m) images.set(id, variantUrl(m, 1920, 'webp'));
   }
@@ -1183,7 +1188,8 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
   // The editor swaps this style element while someone drags a value, before the server answers.
   const opts = { image: (m: string) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined };
-  const look = blockCss(`#${id}`, s, opts) + (b.type === 'layout' ? elementsCss(((b.props as P).els as El[]) ?? [], opts) : '');
+  const look =
+    blockCss(`#${id}`, s, opts) + (b.type === 'layout' ? elementsCss(((b.props as P).els as El[]) ?? [], opts) + variantsCss((b.props as P).variants as Variant[] | undefined, opts) : '');
   const motion = motionAttrs(s.motion);
   if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';

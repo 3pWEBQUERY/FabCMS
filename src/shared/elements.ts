@@ -65,6 +65,16 @@ export interface El {
 export const OVERRIDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'alt', 'href'], button: ['label', 'href'] };
 export type Overrides = Record<string, Record<string, unknown>>;
 
+/**
+ * A variant of a component (e.g. «Dunkel», «Klein»): only how its elements look
+ * differs – per element the design that departs from the standard.
+ */
+export interface Variant {
+  id: string;
+  name: string;
+  designs: Record<string, Design>;
+}
+
 /** What each kind can take from an entry. */
 export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
 export const LIST_SORTS = ['newest', 'oldest', 'title', 'order'] as const;
@@ -595,6 +605,41 @@ export function componentEls(blocks: { type: string; props: Record<string, unkno
   return (lay?.props.els as El[] | undefined) ?? [];
 }
 
+/** Its variants. */
+export function componentVariants(blocks: { type: string; props: Record<string, unknown> }[] | undefined): Variant[] {
+  const lay = blocks?.find((b) => b.type === 'layout');
+  return (lay?.props.variants as Variant[] | undefined) ?? [];
+}
+
+/** Variants as stored: a dozen at most, named, designs only for elements the component has. */
+export function sanitizeVariants(input: unknown, els: El[]): Variant[] {
+  if (!Array.isArray(input)) return [];
+  const known = new Set<string>();
+  walkEls(els, (el) => known.add(el.id));
+  const seen = new Set<string>();
+  const out: Variant[] = [];
+  for (const raw of input.slice(0, 12)) {
+    if (!isObj(raw) || typeof raw.id !== 'string' || !ID.test(raw.id) || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const designs: Record<string, Design> = {};
+    if (isObj(raw.designs)) for (const [id, d] of Object.entries(raw.designs)) if (known.has(id) && isObj(d)) designs[id] = d as Design;
+    out.push({ id: raw.id, name: plain(raw.name, 40) || 'Variante', designs });
+  }
+  return out;
+}
+
+/** A variant's look, for the places that chose it (class `v-<id>` on the place). */
+export function variantsCss(variants: Variant[] | undefined, opts: CompileOptions & { forceHover?: string } = {}): string {
+  const out: string[] = [];
+  for (const v of variants ?? []) {
+    if (!ID.test(v.id)) continue;
+    for (const [id, d] of Object.entries(v.designs ?? {})) if (ID.test(id)) out.push(designCss(`.v-${v.id} :is(#e-${id},.e-${id})`, d, opts));
+  }
+  return out.join('');
+}
+
+export const variantImages = (variants: Variant[] | undefined): string[] => (variants ?? []).flatMap((v) => Object.values(v.designs ?? {}).flatMap((d) => designImages(d)));
+
 /** Types whose page brings more than text: buying, booking, tickets – a template keeps Nova's view of them. */
 const TRANSACTIONAL = new Set(['products', 'events', 'courses', 'properties', 'profiles']);
 
@@ -683,7 +728,11 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
     case 'entrybody':
       return { show: p.show === 'default' ? 'default' : 'blocks' };
     case 'component':
-      return { ref: typeof p.ref === 'string' && UUID.test(p.ref) ? p.ref : null, overrides: cleanOverrides(p.overrides) };
+      return {
+        ref: typeof p.ref === 'string' && UUID.test(p.ref) ? p.ref : null,
+        overrides: cleanOverrides(p.overrides),
+        variant: typeof p.variant === 'string' && ID.test(p.variant) ? p.variant : null,
+      };
     case 'list':
       return {
         collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',

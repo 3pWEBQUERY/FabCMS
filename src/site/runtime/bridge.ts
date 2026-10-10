@@ -213,6 +213,17 @@ d.addEventListener('paste', (e) => {
 
 /* ---------- elements of the free layout ---------- */
 
+/** A component's original shows the variant being designed (class `v-<id>` on its layout). */
+const variantOf = new Map<string, string | null>();
+function applyVariants() {
+  for (const [id, v] of variantOf) {
+    const lay = blockEl(id)?.querySelector<HTMLElement>('.lay');
+    if (!lay) continue;
+    [...lay.classList].filter((c) => c.startsWith('v-')).forEach((c) => lay.classList.remove(c));
+    if (v) lay.classList.add(`v-${v}`);
+  }
+}
+
 /** Open questions, the shown tab and where a slider stands survive the block being drawn anew. */
 type WidgetState = { open: Map<string, boolean>; tabs: Map<string, number>; scroll: Map<string, number> };
 function widgetState(block: HTMLElement): WidgetState {
@@ -763,6 +774,7 @@ addEventListener('message', (e) => {
       setupMotion(next.parentElement ?? main, true);
       setupWidgets(next, true);
       restoreWidgets(next, state);
+      applyVariants();
       if (selectedEl) {
         const sel = elEl(selectedEl);
         sel?.setAttribute('data-nova-el-selected', '');
@@ -835,6 +847,7 @@ addEventListener('message', (e) => {
       setupFields(main);
       setupMotion(main, true);
       setupWidgets(main, true);
+      applyVariants();
       scrollTo(0, y);
       for (const id of (m.changed as string[]) ?? []) {
         const el = blockEl(id);
@@ -937,6 +950,12 @@ addEventListener('message', (e) => {
     case 'motion-play': {
       const el = blockEl(m.id);
       if (el) replay(el);
+      break;
+    }
+    case 'variant': {
+      variantOf.set(m.id, m.variant ?? null);
+      applyVariants();
+      sendRect();
       break;
     }
     case 'hover-state': {

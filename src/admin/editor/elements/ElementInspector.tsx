@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isEmptyDesign, type DesignBp, type DesignState } from '../../../shared/design';
+import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
 import { BINDABLE, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
@@ -9,7 +9,7 @@ import { FieldList } from '../../ui/FieldInput';
 import { Field, Segmented, Select } from '../../ui/kit';
 import { DesignPanel } from '../design/DesignPanel';
 import { MotionPanel } from '../design/MotionPanel';
-import { ComponentInspector } from './Components';
+import { ComponentInspector, VariantBar, type VariantControls } from './Components';
 import { ItemsEditor } from './ItemsEditor';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
@@ -28,6 +28,7 @@ export function ElementInspector({
   locked,
   onOpenComponent,
   onDetach,
+  variants,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -47,6 +48,8 @@ export function ElementInspector({
   /** Components: open the original, or turn this place into its own elements. */
   onOpenComponent: (id: string) => void;
   onDetach: (master: El[]) => void;
+  /** In a component's original: its variants, and the design of this element in the active one. */
+  variants?: VariantControls & { design: Design | undefined; onDesign: (d: Design | undefined) => void };
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
@@ -103,10 +106,12 @@ export function ElementInspector({
           </Field>
         </div>
       )}
+      {tab === 'style' && variants && <VariantBar v={variants} locked={locked} />}
       {tab === 'style' && (
         <DesignPanel
-          design={el.design}
-          onChange={(d) => onChange({ ...el, design: isEmptyDesign(d) ? undefined : d })}
+          key={variants?.active ?? 'standard'}
+          design={variants?.active ? variants.design : el.design}
+          onChange={(d) => (variants?.active ? variants.onDesign(isEmptyDesign(d) ? undefined : d) : onChange({ ...el, design: isEmptyDesign(d) ? undefined : d }))}
           target="element"
           kind={el.kind}
           bp={device}

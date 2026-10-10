@@ -370,12 +370,13 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       const ld = articleLd(ctx, c, { ...e, author_name: e.author_name ?? null }, image);
       ctx.jsonLd.push(access === 'public' ? ld : { ...ld, isAccessibleForFree: false });
     }
-  } else if (c.id === 'sections' && e.data.kind === 'template') {
-    // Designing a template: its blocks, bound to a sample entry (templateContext).
+  } else if (c.id === 'sections') {
+    // Sections, components and templates are pieces of other pages: only their blocks (a template's
+    // bound to a sample entry, see templateContext) – their name and kind are internal.
     crumbs = [];
     main = e.data.blocks?.length
       ? await renderBlocks(e.data.blocks, ctx)
-      : html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Diese Vorlage ist noch leer. Füg oben das erste freie Layout hinzu.</div></div>`;
+      : html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Hier ist noch nichts. Füg oben den ersten Block hinzu.</div></div>`;
   } else ({ main, crumbs } = await builtInView(ctx, c, e, image));
   return documentHtml(ctx, meta, main, crumbs);
 }

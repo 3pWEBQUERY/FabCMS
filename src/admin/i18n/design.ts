@@ -692,4 +692,25 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Se il modello ha un proprio titolo principale, il titolo nella vista di Nova diventa un sottotitolo.',
     en: 'If the template has its own main heading, the title in Nova’s view becomes a subheading.',
   },
+  /* component variants */
+  'Variante {n}': { fr: 'Variante {n}', it: 'Variante {n}', en: 'Variant {n}' },
+  'Wie die Komponente an dieser Stelle aussieht. Varianten gestaltest du im Original.': {
+    fr: 'L’apparence du composant à cet endroit. Les variantes se conçoivent dans l’original.',
+    it: 'L’aspetto del componente in questo punto. Le varianti si progettano nell’originale.',
+    en: 'How the component looks at this place. Variants are designed in the original.',
+  },
+  Standard: { fr: 'Standard', it: 'Standard', en: 'Default' },
+  'Variante hinzufügen': { fr: 'Ajouter une variante', it: 'Aggiungi variante', en: 'Add variant' },
+  'Name der Variante': { fr: 'Nom de la variante', it: 'Nome della variante', en: 'Variant name' },
+  'Variante löschen': { fr: 'Supprimer la variante', it: 'Elimina variante', en: 'Delete variant' },
+  'Was du jetzt im Design änderst, gilt nur für «{name}». Alles andere kommt vom Standard.': {
+    fr: 'Ce que vous modifiez maintenant dans le design ne vaut que pour «{name}». Tout le reste vient du standard.',
+    it: 'Ciò che modifichi ora nel design vale solo per «{name}». Tutto il resto viene dallo standard.',
+    en: 'What you change in the design now applies only to “{name}”. Everything else comes from the default.',
+  },
+  'Varianten zeigen dieselbe Komponente anders – hell und dunkel, gross und klein. Gewählt wird pro Stelle.': {
+    fr: 'Les variantes montrent le même composant autrement – clair et sombre, grand et petit. Le choix se fait à chaque endroit.',
+    it: 'Le varianti mostrano lo stesso componente in modo diverso – chiaro e scuro, grande e piccolo. Si sceglie per ogni punto.',
+    en: 'Variants show the same component differently – light and dark, large and small. Chosen per place.',
+  },
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { applyOverrides, componentEls, elementsText, OVERRIDABLE, walkEls, type El, type Overrides } from '../../../shared/elements';
+import { applyOverrides, componentEls, componentVariants, elementsText, OVERRIDABLE, walkEls, type El, type Overrides, type Variant } from '../../../shared/elements';
 import type { FieldDef } from '../../../shared/fields';
 import type { Block } from '../../../shared/types';
 import { stripHtml } from '../../../shared/text';
@@ -8,7 +8,7 @@ import { useApi } from '../../lib/hooks';
 import { t } from '../../lib/i18n';
 import { FieldList } from '../../ui/FieldInput';
 import { Icon } from '../../ui/icons';
-import { Dialog, Field } from '../../ui/kit';
+import { Dialog, Field, Select } from '../../ui/kit';
 import { elLabel } from './ElementToolbar';
 
 /** Originals already loaded in this session, by component id. */
@@ -117,6 +117,7 @@ export function ComponentInspector({
   if (!ref || error) return <p className="small muted">{t('Diese Komponente gibt es nicht mehr. Entferne sie oder setz eine andere ein.')}</p>;
   if (!data) return <p className="small muted">{t('Lädt …')}</p>;
   const master = componentEls(data.entry.data.blocks);
+  const variants = componentVariants(data.entry.data.blocks);
 
   // One field per text, picture and link of the original; the original's value shows as a hint.
   const fields: FieldDef[] = [];
@@ -168,6 +169,15 @@ export function ComponentInspector({
           </button>
         )}
       </div>
+      {variants.length > 0 && (
+        <Field label={t('Variante')} help={t('Wie die Komponente an dieser Stelle aussieht. Varianten gestaltest du im Original.')}>
+          <Select
+            value={typeof el.props.variant === 'string' ? el.props.variant : ''}
+            onChange={(v) => onChange({ ...el, props: { ...el.props, variant: v || null } })}
+            options={[{ value: '', label: t('Standard') }, ...variants.map((v) => ({ value: v.id, label: v.name }))]}
+          />
+        </Field>
+      )}
       <div className="items-head">
         <span className="section-title">{t('Anpassungen an dieser Stelle')}</span>
         {count > 0 && !locked && (
@@ -192,4 +202,66 @@ function findProp(els: El[], id: string, prop: string): unknown {
     if (x.id === id) v = x.props[prop];
   });
   return v;
+}
+
+export interface VariantControls {
+  list: Variant[];
+  active: string | null;
+  onActive: (id: string | null) => void;
+  onAdd: () => void;
+  onRename: (id: string, name: string) => void;
+  onRemove: (id: string) => void;
+}
+
+/**
+ * In a component's original: the variants as chips – choose one to design it,
+ * add, rename, remove. Only what differs from the standard is kept.
+ */
+export function VariantBar({ v, locked }: { v: VariantControls; locked: boolean }) {
+  const active = v.list.find((x) => x.id === v.active) ?? null;
+  return (
+    <div className="var-bar">
+      <div className="items-head">
+        <span className="section-title">{t('Varianten')}</span>
+      </div>
+      <div className="var-chips" role="group" aria-label={t('Varianten')}>
+        <button type="button" aria-pressed={!active} onClick={() => v.onActive(null)}>
+          {t('Standard')}
+        </button>
+        {v.list.map((x) => (
+          <button key={x.id} type="button" aria-pressed={x.id === v.active} onClick={() => v.onActive(x.id)}>
+            <Icon name="component" size="s" />
+            {x.name}
+          </button>
+        ))}
+        {!locked && v.list.length < 12 && (
+          <button type="button" className="var-add" onClick={v.onAdd} aria-label={t('Variante hinzufügen')}>
+            <Icon name="plus" size="s" />
+          </button>
+        )}
+      </div>
+      {active && (
+        <div className="var-edit">
+          <input
+            className="input"
+            value={active.name}
+            maxLength={40}
+            aria-label={t('Name der Variante')}
+            disabled={locked}
+            onChange={(e) => v.onRename(active.id, e.target.value)}
+          />
+          {!locked && (
+            <button type="button" className="btn ghost s icon-only" onClick={() => v.onRemove(active.id)} aria-label={t('Variante löschen')}>
+              <Icon name="trash" size="s" />
+            </button>
+          )}
+        </div>
+      )}
+      <p className="xsmall faint">
+        {active
+          ? t('Was du jetzt im Design änderst, gilt nur für «{name}». Alles andere kommt vom Standard.', { name: active.name })
+          : t('Varianten zeigen dieselbe Komponente anders – hell und dunkel, gross und klein. Gewählt wird pro Stelle.')}
+      </p>
+    </div>
+  );
 }

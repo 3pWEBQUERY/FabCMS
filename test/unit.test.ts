@@ -48,7 +48,9 @@ import {
   newItem,
   removeEl,
   sanitizeEls,
+  sanitizeVariants,
   templateStarter,
+  variantsCss,
   walkEls,
   type El,
 } from '../src/shared/elements';
@@ -1314,6 +1316,31 @@ describe('free layout', () => {
       ]),
     ).toBe(master);
     expect(componentEls(undefined)).toEqual([]);
+  });
+
+  it("keeps component variants to designs of the component's own elements", () => {
+    const els: El[] = [{ id: 'card', kind: 'box', props: {}, children: [{ id: 'h', kind: 'heading', props: { text: 'A', level: '3' } }] }];
+    const vs = sanitizeVariants(
+      [
+        { id: 'dark', name: '  Dunkel ', designs: { card: { desktop: { bg: '$inv-bg' } }, ghost: { desktop: { bg: 'red' } }, h: 'nope' } },
+        { id: 'dark', name: 'Doppelt', designs: {} },
+        { id: 'x"><', name: 'Böse', designs: {} },
+        { id: 'small', designs: { h: { mobile: { fontSize: '$step-2' } } } },
+        ...Array.from({ length: 20 }, (_, i) => ({ id: `v${i}`, name: `V${i}`, designs: {} })),
+      ],
+      els,
+    );
+    expect(vs.slice(0, 2)).toEqual([
+      { id: 'dark', name: 'Dunkel', designs: { card: { desktop: { bg: '$inv-bg' } } } },
+      { id: 'small', name: 'Variante', designs: { h: { mobile: { fontSize: '$step-2' } } } },
+    ]);
+    expect(vs.length).toBeLessThanOrEqual(12);
+    // A variant's look applies inside the places that chose it.
+    const css = variantsCss(vs.slice(0, 2));
+    expect(css).toContain('.v-dark :is(#e-card,.e-card){background-color:var(--inv-bg)');
+    expect(css).toContain('@media (max-width:40rem){.v-small :is(#e-h,.e-h){font-size:var(--step-2)}}');
+    expect(sanitizeEls([{ kind: 'component', props: { variant: 'dark' } }])[0].props.variant).toBe('dark');
+    expect(sanitizeEls([{ kind: 'component', props: { variant: '"><x' } }])[0].props.variant).toBeNull();
   });
 
   it('starts page templates bound to the fields of their type', () => {

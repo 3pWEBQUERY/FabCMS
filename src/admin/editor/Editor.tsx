@@ -42,8 +42,11 @@ import {
   newItem,
   removeEl,
   updateEl,
+  variantImages,
+  variantsCss,
   type El,
   type ElKind,
+  type Variant,
 } from '../../shared/elements';
 import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
@@ -154,6 +157,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const components = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'component' && s.id !== id);
   const sections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind !== 'component' && s.id !== id);
   const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
+  // In a component's original: the variant being designed.
+  const [variant, setVariant] = useState<string | null>(null);
 
   const studio = session.mode !== 'werkbank';
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
@@ -361,12 +366,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const before = blocksRef.current.find((x) => x.id === b.id);
     doc.setData((d) => updateBlock(d, b.id, () => b));
     // Design shows on the canvas right away; the server's render confirms it a moment later.
-    const look = (x: Block | undefined) => JSON.stringify([x?.style?.design, x?.style?.motion, x?.type === 'layout' ? x.props.els : null]);
+    const look = (x: Block | undefined) => JSON.stringify([x?.style?.design, x?.style?.motion, x?.type === 'layout' ? [x.props.els, x.props.variants] : null]);
     if (look(before) !== look(b)) {
       const els = b.type === 'layout' ? elsOf(b) : [];
-      void mediaUrls([...designImages(b.style?.design), ...elementImages(els)]).then((urls) => {
+      const variants = b.type === 'layout' ? (b.props.variants as Variant[] | undefined) : undefined;
+      void mediaUrls([...designImages(b.style?.design), ...elementImages(els), ...variantImages(variants)]).then((urls) => {
         const opts = { image: (m: string) => urls.get(m) ?? null, forceHover: 'nova-hover' };
-        postToCanvas(frame.current, { t: 'design', id: b.id, css: blockCss(`#${blockDomId(b)}`, b.style, opts) + elementsCss(els, opts) });
+        postToCanvas(frame.current, { t: 'design', id: b.id, css: blockCss(`#${blockDomId(b)}`, b.style, opts) + elementsCss(els, opts) + variantsCss(variants, opts) });
       });
     }
     // A new entrance plays as soon as the block is back from the server.
@@ -621,6 +627,43 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   };
 
   /* ---------- components: one original, many places ---------- */
+
+  /** The variants of a component's original, and the active one's design of an element. */
+  const variantControls = (b: Block, el: El) => {
+    const list = (b.props.variants as Variant[] | undefined) ?? [];
+    const active = list.some((v) => v.id === variant) ? variant : null;
+    const setList = (next: Variant[]) => changeBlock({ ...b, props: { ...b.props, variants: next } });
+    const choose = (id: string | null) => {
+      setVariant(id);
+      postToCanvas(frame.current, { t: 'variant', id: b.id, variant: id });
+    };
+    return {
+      list,
+      active,
+      onActive: choose,
+      onAdd: () => {
+        const v: Variant = { id: `v${shortId(6)}`, name: t('Variante {n}', { n: list.length + 1 }), designs: {} };
+        setList([...list, v]);
+        choose(v.id);
+      },
+      onRename: (id: string, name: string) => setList(list.map((v) => (v.id === id ? { ...v, name } : v))),
+      onRemove: (id: string) => {
+        setList(list.filter((v) => v.id !== id));
+        if (active === id) choose(null);
+      },
+      design: active ? list.find((v) => v.id === active)?.designs[el.id] : undefined,
+      onDesign: (d: Design | undefined) =>
+        setList(
+          list.map((v) => {
+            if (v.id !== active) return v;
+            const designs = { ...v.designs };
+            if (d) designs[el.id] = d;
+            else delete designs[el.id];
+            return { ...v, designs };
+          }),
+        ),
+    };
+  };
 
   const componentName = (at: { block: string; el: string }) => {
     const b = blocksRef.current.find((x) => x.id === at.block);
@@ -1120,6 +1163,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
                       onOpenComponent={openComponent}
                       onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
+                      variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
                     />
                   </TokenColors.Provider>
                 )}
