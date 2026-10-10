@@ -214,4 +214,14 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Mehr dazu': { fr: 'En savoir plus', it: 'Maggiori informazioni', en: 'More about this' },
   'Nein, danke': { fr: 'Non, merci', it: 'No, grazie', en: 'No, thanks' },
   Einverstanden: { fr: 'D’accord', it: 'Va bene', en: 'Agree' },
+  // Shared draft preview
+  'Vorschau nicht mehr verfügbar': { fr: 'Aperçu plus disponible', it: 'Anteprima non più disponibile', en: 'Preview no longer available' },
+  'Diese Vorschau ist nicht mehr verfügbar.': { fr: 'Cet aperçu n’est plus disponible.', it: 'Questa anteprima non è più disponibile.', en: 'This preview is no longer available.' },
+  'Der Link ist abgelaufen oder wurde zurückgezogen. Frag die Person, die ihn dir geschickt hat, nach einem neuen.': {
+    fr: 'Le lien a expiré ou a été retiré. Demandez-en un nouveau à la personne qui vous l’a envoyé.',
+    it: 'Il link è scaduto o è stato ritirato. Chiedine uno nuovo alla persona che te l’ha inviato.',
+    en: 'The link has expired or was withdrawn. Ask the person who sent it to you for a new one.',
+  },
+  'Vorschau – noch nicht veröffentlicht.': { fr: 'Aperçu – pas encore publié.', it: 'Anteprima – non ancora pubblicata.', en: 'Preview – not published yet.' },
+  'Link gültig bis {date}.': { fr: 'Lien valable jusqu’au {date}.', it: 'Link valido fino al {date}.', en: 'Link valid until {date}.' },
 };

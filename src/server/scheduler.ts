@@ -63,6 +63,7 @@ export function startScheduler() {
     await sql`delete from audit_log where created_at < now() - interval '2 years'`;
     await sql`delete from notifications where created_at < now() - interval '90 days'`;
     await sql`delete from webhook_deliveries where created_at < now() - interval '14 days'`;
+    await sql`delete from preview_links where expires_at < now() - interval '30 days'`;
     await purgeTrash();
   });
   // Opening hours ("jetzt geöffnet") change with the clock.

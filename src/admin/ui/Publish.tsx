@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { DateTimeInput, Dialog, Menu, confirm } from './kit';
+import { ShareLinks } from './ShareLinks';
 import { isoDay } from '../../shared/dates';
 import { Icon } from './icons';
 import { useToast } from './toast';
@@ -41,6 +42,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   const [busy, setBusy] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [expiryOpen, setExpiryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [until, setUntil] = useState('');
   const [when, setWhen] = useState(() => {
     const d = new Date(Date.now() + 86_400_000);
@@ -147,7 +149,7 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
         <Icon name={live && !changed ? 'check' : 'publish'} size="s" />
         <span className="hide-m">{label}</span>
       </button>
-      {canPublish && (
+      {(canPublish || doc.path) && (
         <Menu
           trigger={
             <button className="btn icon-only" aria-label={t('Weitere Optionen zum Veröffentlichen')}>
@@ -155,18 +157,26 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
             </button>
           }
           items={[
-            { label: t('Später veröffentlichen …'), icon: 'calendar', onSelect: () => setScheduleOpen(true), hidden: doc.blockers.length > 0 },
+            {
+              label: t('Vorschau teilen …'),
+              icon: 'link',
+              // The link shows what is saved – so save first.
+              onSelect: () => void doc.saveNow().then(() => setShareOpen(true)),
+              hidden: !doc.path,
+            },
+            { label: t('Später veröffentlichen …'), icon: 'calendar', onSelect: () => setScheduleOpen(true), hidden: !canPublish || doc.blockers.length > 0 },
             {
               label: expires ? t('Läuft ab: {when}', { when: fmt(expires) }) : t('Ablaufdatum …'),
               icon: 'clock',
               onSelect: openExpiry,
-              hidden: Boolean(e.lang),
+              hidden: !canPublish || Boolean(e.lang),
             },
-            { label: t('Änderungen verwerfen'), icon: 'undo', onSelect: discard, hidden: !changed },
-            { label: t('Offline nehmen'), icon: 'eyeOff', onSelect: unpublish, hidden: !live },
+            { label: t('Änderungen verwerfen'), icon: 'undo', onSelect: discard, hidden: !canPublish || !changed },
+            { label: t('Offline nehmen'), icon: 'eyeOff', onSelect: unpublish, hidden: !canPublish || !live },
           ]}
         />
       )}
+      <ShareLinks entryId={e.id} lang={e.lang ?? null} open={shareOpen} onClose={() => setShareOpen(false)} />
       <Dialog
         open={expiryOpen}
         onOpenChange={setExpiryOpen}

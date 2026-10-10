@@ -1366,4 +1366,10 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   'Der Ordner braucht einen Namen.': { fr: 'Le dossier a besoin d’un nom.', it: 'La cartella ha bisogno di un nome.', en: 'The folder needs a name.' },
   'Diesen Ordner gibt es schon.': { fr: 'Ce dossier existe déjà.', it: 'Questa cartella esiste già.', en: 'This folder already exists.' },
   'Diesen Ordner gibt es nicht.': { fr: 'Ce dossier n’existe pas.', it: 'Questa cartella non esiste.', en: 'This folder doesn’t exist.' },
+  'Dieser Inhalt hat keine eigene Seite, die man zeigen könnte.': {
+    fr: 'Ce contenu n’a pas de page propre à montrer.',
+    it: 'Questo contenuto non ha una pagina propria da mostrare.',
+    en: 'This content has no page of its own to show.',
+  },
+  'Diesen Vorschau-Link gibt es nicht mehr.': { fr: 'Ce lien d’aperçu n’existe plus.', it: 'Questo link di anteprima non esiste più.', en: 'This preview link no longer exists.' },
 };

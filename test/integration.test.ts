@@ -2548,7 +2548,8 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Webhook-Seite', blocks: [] } })).data.entry;
       await flush();
       expect(of('posts', 'entry.created').map((g) => g.body.data.id)).toEqual([post.id]);
-      expect(of('any', 'entry.created').map((g) => g.body.data.id)).toEqual([post.id, page.id]);
+      // Delivered side by side: the order may vary.
+      expect(of('any', 'entry.created').map((g) => g.body.data.id).sort()).toEqual([post.id, page.id].sort());
       expect(of('posts', 'entry.created')[0].body.data).toMatchObject({ collection: 'posts', title: 'Webhook-Beitrag', status: 'draft', path: `/journal/${post.slug}` });
       // Signed with the hook's secret over the exact body.
       const g = of('posts', 'entry.created')[0];
@@ -2593,6 +2594,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+
+  it('shows a draft through a shared link: latest state, never indexed, runs out and can be withdrawn', async () => {
+    const e = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Geheimer Entwurf' } })).data.entry;
+    const made = await req('POST', `/api/entries/${e.id}/preview-links`, { days: 7, note: 'Frau Meier' });
+    expect(made.data.link).toMatchObject({ note: 'Frau Meier', uses: 0 });
+    const url = made.data.link.url as string;
+    expect(url).toMatch(/^\/_nova\/vorschau\/[\w-]{24}$/);
+    const anon = new Map<string, string>();
+    // Not public yet – but the link shows it, with a note on top and kept out of search engines.
+    expect((await req('GET', `/journal/${e.slug}`, undefined, { cookies: anon })).status).toBe(404);
+    const seen = await req('GET', url, undefined, { cookies: anon });
+    expect(seen.status).toBe(200);
+    expect(seen.data).toContain('Geheimer Entwurf');
+    expect(seen.data).toContain('Vorschau – noch nicht veröffentlicht.');
+    expect(seen.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    expect(seen.headers.get('cache-control')).toBe('no-store');
+    // Always the latest saved draft.
+    await req('PUT', `/api/entries/${e.id}`, { data: { ...e.data, title: 'Neuer Titel im Entwurf' } });
+    expect((await req('GET', url, undefined, { cookies: anon })).data).toContain('Neuer Titel im Entwurf');
+    const list = await req('GET', `/api/entries/${e.id}/preview-links`);
+    expect(list.data.links[0]).toMatchObject({ uses: 2, note: 'Frau Meier' });
+    // Expired and withdrawn links show a note, nothing of the draft.
+    await sql`update preview_links set expires_at = now() - interval '1 minute' where id = ${made.data.link.id}`;
+    const gone = await req('GET', url, undefined, { cookies: anon });
+    expect(gone.status).toBe(410);
+    expect(gone.data).not.toContain('Neuer Titel im Entwurf');
+    expect((await req('GET', `/api/entries/${e.id}/preview-links`)).data.links).toHaveLength(0);
+    const second = (await req('POST', `/api/entries/${e.id}/preview-links`, { days: 1 })).data.link;
+    expect((await req('DELETE', `/api/preview-links/${second.id}`)).status).toBe(200);
+    expect((await req('GET', second.url, undefined, { cookies: anon })).status).toBe(410);
+    expect((await req('GET', '/_nova/vorschau/erfunden', undefined, { cookies: anon })).status).toBe(410);
+    // Limits: at most 90 days; only for content with a page; others' entries stay out of reach for authors.
+    expect((await req('POST', `/api/entries/${e.id}/preview-links`, { days: 365 })).status).toBe(400);
+    const sec = (await req('POST', '/api/entries', { collection: 'sections', data: { title: 'Baustein' } })).data.entry;
+    expect((await req('POST', `/api/entries/${sec.id}/preview-links`, { days: 1 })).status).toBe(400);
+    const bo = await req('POST', '/api/users', { email: 'bo@example.ch', name: 'Bo', role: 'author' });
+    const boC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'bo@example.ch', password: bo.data.temporaryPassword }, { cookies: boC });
+    expect((await req('POST', `/api/entries/${e.id}/preview-links`, { days: 1 }, { cookies: boC })).status).toBe(403);
+    for (const id of [e.id, sec.id]) await req('DELETE', `/api/entries/${id}`);
   });
 
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {

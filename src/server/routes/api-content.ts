@@ -44,7 +44,7 @@ import {
   unpublishTranslation,
 } from '../translations';
 
-const withLang = <T>(lang: Lang | null, fn: () => Promise<T>) => (lang ? requestLang.run(lang, fn) : fn());
+export const withLang = <T>(lang: Lang | null, fn: () => Promise<T>) => (lang ? requestLang.run(lang, fn) : fn());
 
 /** Public address of an entry in another language. */
 async function langPath(col: { route: string | null; id: string }, slug: string, lang: Lang): Promise<string | null> {
@@ -92,7 +92,7 @@ export function listRow(r: Record<string, any>) {
   };
 }
 
-async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, edit: boolean, lang: Lang | null = null) {
+export async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, edit: boolean, lang: Lang | null = null) {
   const settings = await getSettings();
   const collection = await getCollection(entry.collection);
   const ctx = createContext({
