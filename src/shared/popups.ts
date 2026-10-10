@@ -94,3 +94,81 @@ export function popupShowsOn(conf: PopupConf, path: string, now: Date, timeZone:
   if (until !== null && until <= now.getTime()) return false;
   return popupOnPath(conf, path);
 }
+
+/** Pop-ups running now or still to come, with their settings; ended and empty ones are gone for good. */
+export function runningPopups<T extends { id: string; data: Record<string, unknown> }>(list: T[], now: number, timeZone: string) {
+  return list
+    .map((p) => {
+      const conf = popupConf(p.data);
+      return { ...p, conf, win: popupWindow(conf, timeZone) };
+    })
+    .filter((p) => Array.isArray(p.data.blocks) && p.data.blocks.length > 0 && (p.win.until === null || p.win.until > now));
+}
+
+/* ---------- A/B test: pop-ups that take turns ---------- */
+
+/**
+ * Pop-ups linked with «Im Wechsel mit» form a group; a group of two or more
+ * is a test. Links count both ways and chain (A–B, B–C is one test of three).
+ * Returns each tested pop-up's group, its members sorted – the first one
+ * names the group.
+ */
+export function abGroups(list: { id: string; ab?: unknown }[]): Map<string, string[]> {
+  const ids = new Set(list.map((p) => p.id));
+  const parent = new Map<string, string>();
+  const root = (id: string): string => {
+    let r = id;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    return r;
+  };
+  for (const p of list) {
+    const other = typeof p.ab === 'string' ? p.ab : '';
+    if (!ids.has(other) || other === p.id) continue;
+    const [a, b] = [root(p.id), root(other)];
+    if (a !== b) parent.set(a < b ? b : a, a < b ? a : b);
+  }
+  const members = new Map<string, string[]>();
+  for (const id of ids) members.set(root(id), [...(members.get(root(id)) ?? []), id]);
+  const out = new Map<string, string[]>();
+  for (const group of members.values()) if (group.length > 1) for (const id of group) out.set(id, [...group].sort());
+  return out;
+}
+
+export interface AbVariant {
+  id: string;
+  shown: number;
+  clicked: number;
+}
+
+/** Below this many views per pop-up, nobody is named a winner. */
+export const AB_MIN_SHOWN = 100;
+
+// Two-sided 95 %, split over the comparisons of the leader with each other pop-up (Bonferroni).
+const Z_95 = [1.96, 2.241, 2.394, 2.498, 2.576, 2.638, 2.69, 2.734, 2.773];
+
+export interface AbVerdict {
+  /** The pop-up clicked most often (by rate), or null while there is no difference at all. */
+  leader: string | null;
+  /** The lead is not chance: at 95 % against every other pop-up. */
+  sure: boolean;
+  /** Some pop-up has not been shown often enough to tell. */
+  needMore: boolean;
+}
+
+/** Which pop-up of a test does better, and whether that is more than chance (two-proportion z-test). */
+export function abVerdict(variants: AbVariant[]): AbVerdict {
+  const rate = (v: AbVariant) => (v.shown ? v.clicked / v.shown : 0);
+  const needMore = variants.length < 2 || variants.some((v) => v.shown < AB_MIN_SHOWN);
+  const sorted = [...variants].sort((a, b) => rate(b) - rate(a));
+  const best = sorted[0];
+  if (!best || sorted.length < 2 || rate(best) === rate(sorted[1])) return { leader: null, sure: false, needMore };
+  const crit = Z_95[Math.min(sorted.length - 2, Z_95.length - 1)];
+  const sure =
+    !needMore &&
+    sorted.slice(1).every((v) => {
+      const pooled = (best.clicked + v.clicked) / (best.shown + v.shown);
+      const se = Math.sqrt(pooled * (1 - pooled) * (1 / best.shown + 1 / v.shown));
+      return se > 0 && (rate(best) - rate(v)) / se >= crit;
+    });
+  return { leader: best.id, sure, needMore };
+}

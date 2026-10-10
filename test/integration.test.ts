@@ -3319,6 +3319,57 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${card.id}`);
   });
 
+  it('runs A/B tests of pop-ups: one group across pages, counted from when all run, a winner only beyond chance', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const mk = async (title: string, extra: Record<string, unknown> = {}) =>
+      (
+        await req('POST', '/api/entries', {
+          collection: 'sections',
+          data: { title, kind: 'popup', blocks: [{ id: Math.random().toString(36).slice(2, 10), type: 'text', props: { heading: title, body: '<p>Hallo.</p>' } }], ...extra },
+        })
+      ).data.entry;
+    const a = await mk('Rabatt 10 %');
+    // B only shows on another page, links back to A; an ended pop-up and a draft link to A as well.
+    const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Aktion' }, slug: 'ab-aktion' })).data.entry;
+    const b = await mk('Gratis-Versand', { popup_ab: a.id, popup_paths: '/ab-aktion' });
+    const ended = await mk('Vorbei', { popup_ab: a.id, popup_until: '2020-01-01T00:00' });
+    const draft = await mk('Entwurf', { popup_ab: a.id });
+    for (const e of [a, b, ended, page]) await req('POST', `/api/entries/${e.id}/publish`, {});
+
+    const group = [a.id, b.id].sort();
+    const home = (await req('GET', '/', undefined, anon)).data as string;
+    const dialog = home.match(new RegExp(`<dialog [^>]*data-pop="${a.id}"[^>]*>`))?.[0] ?? '';
+    // A is on the page with its whole group – B too, though it belongs to other pages; nothing ended or unpublished.
+    expect(dialog).toContain(`data-pop-ab="${group[0]}"`);
+    expect(dialog).toContain(`data-pop-ab-all="${group.join(' ')}"`);
+    expect(home).not.toContain(`data-pop="${b.id}"`);
+    for (const e of [ended, draft]) expect(home).not.toContain(e.id);
+
+    // A ran alone for a week first: only the days on which both ran count.
+    const day = (n: number) => sql`current_date - ${n}::int`;
+    await sql`insert into popup_stats (popup_id, day, shown, clicked, closed) values
+      (${a.id}, ${day(10)}, 500, 100, 300), (${a.id}, ${day(3)}, 150, 9, 100), (${a.id}, ${day(1)}, 100, 6, 70),
+      (${b.id}, ${day(3)}, 150, 30, 90), (${b.id}, ${day(1)}, 100, 20, 60)`;
+    const ab = (await req('GET', `/api/popups/${a.id}/stats`)).data.ab;
+    expect(ab.since).toBe((await sql`select to_char(current_date - 3, 'YYYY-MM-DD') as d`)[0].d);
+    expect(Object.fromEntries(ab.variants.map((v: { title: string; shown: number; clicked: number }) => [v.title, [v.shown, v.clicked]]))).toEqual({
+      'Rabatt 10 %': [250, 15],
+      'Gratis-Versand': [250, 50],
+    });
+    // 6 % against 20 % on 250 views each: not chance.
+    expect(ab.verdict).toEqual({ leader: b.id, sure: true, needMore: false });
+    // B's view of the same test.
+    expect((await req('GET', `/api/popups/${b.id}/stats`)).data.ab.variants.map((v: { id: string }) => v.id)).toEqual(group);
+
+    // Ending the test: the loser goes offline and the group is gone, on the site and in the numbers.
+    await req('POST', `/api/entries/${a.id}/unpublish`, {});
+    expect((await req('GET', `/api/popups/${b.id}/stats`)).data.ab).toBeNull();
+    const other = (await req('GET', '/ab-aktion', undefined, anon)).data as string;
+    expect(other).toContain(`data-pop="${b.id}"`);
+    expect(other).not.toContain('data-pop-ab');
+    for (const e of [a, b, ended, draft, page]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

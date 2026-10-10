@@ -749,7 +749,31 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
       return null;
     }
   };
-  const key = (p: HTMLDialogElement) => `nova-pop:${p.dataset.pop}`;
+  // In an A/B test the group counts as one pop-up: seen once is seen, whichever it was.
+  const key = (p: HTMLDialogElement) => (p.dataset.popAb ? `nova-pop:ab:${p.dataset.popAb}` : `nova-pop:${p.dataset.pop}`);
+  // A/B test: each browser draws one pop-up of the group and keeps to it, also on pages where it doesn't appear.
+  const drawn = new Map<string, string | null>();
+  const mine = (p: HTMLDialogElement) => {
+    const group = p.dataset.popAb;
+    if (!group) return true;
+    if (!drawn.has(group)) {
+      const all = (p.dataset.popAbAll ?? '').split(' ').filter(Boolean);
+      const slot = `nova-ab:${group}`;
+      let pick: string | null = null;
+      try {
+        pick = localStorage.getItem(slot);
+        if (!pick || !all.includes(pick)) {
+          pick = all[Math.floor(Math.random() * all.length)] ?? null;
+          if (pick) localStorage.setItem(slot, pick);
+        }
+      } catch {
+        /* without storage the draw is made again on the next page */
+        pick ??= all[Math.floor(Math.random() * all.length)] ?? null;
+      }
+      drawn.set(group, pick);
+    }
+    return drawn.get(group) === p.dataset.pop;
+  };
   // How it does: shown, clicked (a link or button in it), closed without a click.
   const count = (p: HTMLDialogElement, e: 'show' | 'click' | 'close') => {
     const body = JSON.stringify({ id: p.dataset.pop, e });
@@ -830,7 +854,7 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
   d.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') pops.forEach((p) => p.open && !p.matches(':modal') && p.close());
   });
-  for (const p of pops.filter(due)) {
+  for (const p of pops.filter(mine).filter(due)) {
     const trigger = p.dataset.popTrigger;
     if (trigger === 'scroll') {
       const share = Number(p.dataset.popScroll || 50) / 100;

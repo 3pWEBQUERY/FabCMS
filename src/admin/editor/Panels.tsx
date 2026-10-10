@@ -6,7 +6,7 @@ import { useSession } from '../lib/session';
 import { adminLang, t, tl, tm } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { getMedia } from '../ui/MediaPicker';
-import { Field, Segmented, Toggle, confirm } from '../ui/kit';
+import { Field, Segmented, Select, Toggle, confirm } from '../ui/kit';
 import { FieldList, MediaField } from '../ui/FieldInput';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
@@ -16,6 +16,7 @@ import { excerpt, relativeTime } from '../../shared/text';
 import type { Block, CollectionDef, EntryData } from '../../shared/types';
 import type { EntryDoc } from '../lib/useEntryDoc';
 import { countEls, type El } from '../../shared/elements';
+import { AB_MIN_SHOWN } from '../../shared/popups';
 import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
 import { GlobalContrast } from './design/contrast';
@@ -161,7 +162,12 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
           {Boolean(col.custom_fields?.length) && <FieldList fields={col.custom_fields!} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v }))} />}
         </>
       ) : (
-        <FieldList fields={col.fields} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v, ...(k === col.title_field ? { title: String(v ?? '') } : {}) }))} />
+        <FieldList
+          fields={col.fields}
+          skip={['popup_ab']}
+          values={data}
+          onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v, ...(k === col.title_field ? { title: String(v ?? '') } : {}) }))}
+        />
       )}
       {!isHome && col.route !== null && (
         <Field label={t('Adresse')} htmlFor="pg-slug" keyName={pro ? 'slug' : undefined} help={t('Ändern ist sicher: Die alte Adresse leitet Nova automatisch weiter.')}>
@@ -176,40 +182,162 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
           <Icon name="external" size="s" /> {t('Live-Seite öffnen')}
         </a>
       )}
-      {col.id === 'sections' && data.kind === 'popup' && doc.entry && <PopupStats id={doc.entry.id} />}
+      {col.id === 'sections' && data.kind === 'popup' && doc.entry && <PopupStats doc={doc} id={doc.entry.id} />}
     </div>
   );
 }
 
-/** How a pop-up did over the last 30 days. */
-function PopupStats({ id }: { id: string }) {
-  const { data } = useApi<{ shown: number; clicked: number; closed: number }>(`/api/popups/${id}/stats`);
-  if (!data) return null;
-  const rate = data.shown ? Math.round((data.clicked / data.shown) * 100) : 0;
+interface AbTestResult {
+  variants: { id: string; title: string; shown: number; clicked: number; closed: number }[];
+  since: string | null;
+  verdict: { leader: string | null; sure: boolean; needMore: boolean };
+}
+
+const clickRate = (v: { shown: number; clicked: number }) => (v.shown ? Math.round((v.clicked / v.shown) * 1000) / 10 : 0);
+
+/** How a pop-up did over the last 30 days, and the A/B test it takes part in. */
+function PopupStats({ doc, id }: { doc: EntryDoc; id: string }) {
+  const { data, reload } = useApi<{ shown: number; clicked: number; closed: number; ab: AbTestResult | null }>(`/api/popups/${id}/stats`);
+  const rate = data?.shown ? Math.round((data.clicked / data.shown) * 100) : 0;
   return (
-    <section className="stack tight" aria-labelledby="pop-stats-h">
-      <h3 id="pop-stats-h" className="section-title">
-        {t('Wirkung in den letzten 30 Tagen')}
+    <>
+      <AbChoice id={id} value={(doc.data?.popup_ab as string | undefined) ?? ''} onChange={(v) => doc.setData((d) => ({ ...d, popup_ab: v }))} />
+      {data?.ab && <AbResults ab={data.ab} self={id} doc={doc} onEnded={() => void reload()} />}
+      {data && (
+        <section className="stack tight" aria-labelledby="pop-stats-h">
+          <h3 id="pop-stats-h" className="section-title">
+            {t('Wirkung in den letzten 30 Tagen')}
+          </h3>
+          {data.shown ? (
+            <div className="kpis compact">
+              <div className="kpi">
+                <span className="label">{t('Gezeigt')}</span>
+                <span className="value">{data.shown.toLocaleString(adminLang())}</span>
+              </div>
+              <div className="kpi">
+                <span className="label">{t('Geklickt')}</span>
+                <span className="value">{data.clicked.toLocaleString(adminLang())}</span>
+                <span className="delta">{t('{n} %', { n: rate })}</span>
+              </div>
+              <div className="kpi">
+                <span className="label">{t('Geschlossen')}</span>
+                <span className="value">{data.closed.toLocaleString(adminLang())}</span>
+                <span className="delta">{t('ohne Klick')}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="small muted">{t('Noch nicht gezeigt. Gezählt wird, sobald das Pop-up veröffentlicht ist – ohne Cookie und ohne Angaben zu den Besuchern.')}</p>
+          )}
+        </section>
+      )}
+    </>
+  );
+}
+
+/** «Im Wechsel mit»: only other pop-ups to choose from. */
+function AbChoice({ id, value, onChange }: { id: string; value: string; onChange: (v: string | null) => void }) {
+  const { data } = useApi<{ entries: { id: string; title: string; fields: EntryData }[] }>('/api/entries?collection=sections&limit=500');
+  const others = (data?.entries ?? []).filter((e) => e.id !== id && e.fields?.kind === 'popup');
+  // Links count both ways: another pop-up may already have chosen this one.
+  const chosenBy = others.filter((e) => e.fields.popup_ab === id);
+  const name = (e: { title: string }) => e.title || t('(ohne Titel)');
+  return (
+    <Field
+      label={t('A/B-Test: im Wechsel mit')}
+      htmlFor="pop-ab"
+      help={
+        !value && chosenBy.length
+          ? t('«{title}» ist schon mit diesem Pop-up verbunden – der Test läuft, sobald beide veröffentlicht sind. Beenden lässt er sich dort.', {
+              title: chosenBy.map(name).join(', '),
+            })
+          : others.length
+            ? t('Jede Person bekommt per Zufall eines der Pop-ups und sieht immer dasselbe. Nova zählt, welches öfter geklickt wird. Gilt, sobald beide veröffentlicht sind.')
+            : t('Leg zuerst ein zweites Pop-up an – am einfachsten dieses duplizieren und ändern.')
+      }
+    >
+      <Select
+        id="pop-ab"
+        value={value}
+        onChange={(v) => onChange(v || null)}
+        options={[{ value: '', label: t('Kein Test') }, ...others.map((e) => ({ value: e.id, label: name(e) }))]}
+      />
+    </Field>
+  );
+}
+
+function AbResults({ ab, self, doc, onEnded }: { ab: AbTestResult; self: string; doc: EntryDoc; onEnded: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const { leader, sure, needMore } = ab.verdict;
+  const name = (v: { id: string; title: string }) => v.title || t('(ohne Titel)');
+  const winner = ab.variants.find((v) => v.id === leader);
+  // Ends the test: the others go offline, the winner stays as it is.
+  const keepWinner = async () => {
+    if (
+      !winner ||
+      !(await confirm({
+        title: t('Nur «{title}» behalten?', { title: name(winner) }),
+        message: t('Die anderen Pop-ups des Tests werden offline genommen. Du kannst sie jederzeit wieder veröffentlichen.'),
+        confirm: t('Test beenden'),
+      }))
+    )
+      return;
+    setBusy(true);
+    try {
+      for (const v of ab.variants) if (v.id !== winner.id) await api.post(`/api/entries/${v.id}/unpublish`, {});
+      if (winner.id !== self) await doc.reload();
+      toast(t('Test beendet: «{title}» bleibt.', { title: name(winner) }));
+      onEnded();
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="stack tight" aria-labelledby="pop-ab-h">
+      <h3 id="pop-ab-h" className="section-title">
+        {t('A/B-Test')}
       </h3>
-      {data.shown ? (
-        <div className="kpis compact">
-          <div className="kpi">
-            <span className="label">{t('Gezeigt')}</span>
-            <span className="value">{data.shown.toLocaleString(adminLang())}</span>
-          </div>
-          <div className="kpi">
-            <span className="label">{t('Geklickt')}</span>
-            <span className="value">{data.clicked.toLocaleString(adminLang())}</span>
-            <span className="delta">{t('{n} %', { n: rate })}</span>
-          </div>
-          <div className="kpi">
-            <span className="label">{t('Geschlossen')}</span>
-            <span className="value">{data.closed.toLocaleString(adminLang())}</span>
-            <span className="delta">{t('ohne Klick')}</span>
-          </div>
-        </div>
-      ) : (
-        <p className="small muted">{t('Noch nicht gezeigt. Gezählt wird, sobald das Pop-up veröffentlicht ist – ohne Cookie und ohne Angaben zu den Besuchern.')}</p>
+      <div className="table-wrap">
+        <table className="table compact">
+          <thead>
+            <tr>
+              <th scope="col">{t('Pop-up')}</th>
+              <th scope="col" className="num">
+                {t('Gezeigt')}
+              </th>
+              <th scope="col" className="num">
+                {t('Klickrate')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {ab.variants.map((v) => (
+              <tr key={v.id}>
+                <td>
+                  {name(v)} {v.id === self && <span className="faint">({t('dieses')})</span>}{' '}
+                  {v.id === leader && <span className={`badge ${sure ? 'ok' : ''}`}>{sure ? t('Gewinner') : t('vorne')}</span>}
+                </td>
+                <td className="num">{v.shown.toLocaleString(adminLang())}</td>
+                <td className="num">{t('{n} %', { n: clickRate(v).toLocaleString(adminLang()) })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted">
+        {needMore
+          ? t('Noch zu wenig Daten: Jedes Pop-up braucht mindestens {n} Aufrufe, bevor Nova einen Gewinner nennt.', { n: AB_MIN_SHOWN })
+          : sure && winner
+            ? t('«{title}» wird öfter geklickt – mit 95 % Sicherheit kein Zufall.', { title: name(winner) })
+            : t('Bisher kein klarer Unterschied. Der Test läuft weiter.')}
+        {ab.since && <> {t('Gezählt seit {date}, als alle Pop-ups des Tests liefen.', { date: formatDate(ab.since) })}</>}
+      </p>
+      {sure && winner && (
+        <button type="button" className="btn" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => void keepWinner()}>
+          {t('Test beenden, «{title}» behalten', { title: name(winner) })}
+        </button>
       )}
     </section>
   );

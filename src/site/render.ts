@@ -6,7 +6,7 @@ import { mobileNav, themeCss, resolveTheme } from './themes';
 import { ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
-import { popupConf, popupOnPath, popupWindow } from '../shared/popups';
+import { abGroups, popupConf, popupOnPath, runningPopups } from '../shared/popups';
 import { starText, summarize, type Review } from '../shared/reviews';
 import {
   articleLd,
@@ -266,13 +266,14 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
 async function popups(ctx: RenderContext): Promise<Html> {
   const now = ctx.now.getTime();
   const out: Html[] = [];
-  for (const p of await livePopups()) {
-    const conf = popupConf(p.data);
-    const win = popupWindow(conf, ctx.settings.timezone);
-    if (!p.data.blocks?.length || !popupOnPath(conf, ctx.path) || (win.until !== null && win.until <= now)) continue;
+  // Ended ones are gone for good; one that only starts later still counts – the browser waits for it.
+  const running = runningPopups(await livePopups(), now, ctx.settings.timezone);
+  const groups = abGroups(running.map((p) => ({ id: p.id, ab: p.data.popup_ab })));
+  for (const { conf, win, ...p } of running) {
+    if (!popupOnPath(conf, ctx.path)) continue;
     // Its blocks as on any page – but never the page's main heading, and without section numbers.
     const sub: RenderContext = { ...ctx, h1: true, blockIndex: 1, depth: 0, jsonLd: [], theme: { ...ctx.theme, numbered: false } };
-    const body = await renderBlocks(p.data.blocks, sub);
+    const body = await renderBlocks(p.data.blocks ?? [], sub);
     const attrs = [
       `data-pop="${esc(p.id)}"`,
       `data-pop-trigger="${conf.trigger}"`,
@@ -282,6 +283,8 @@ async function popups(ctx: RenderContext): Promise<Html> {
       `data-pop-days="${conf.days}"`,
       win.from !== null ? `data-pop-from="${win.from}"` : '',
       win.until !== null ? `data-pop-until="${win.until}"` : '',
+      // A/B test: the browser keeps to one pop-up of the group – all of them listed, also those for other pages.
+      groups.has(p.id) ? `data-pop-ab="${esc(groups.get(p.id)![0])}" data-pop-ab-all="${esc(groups.get(p.id)!.join(' '))}"` : '',
     ].filter(Boolean).join(' ');
     out.push(html`<dialog class="pop pop-${conf.position} pop-${conf.size}" ${raw(attrs)} aria-label="${p.title}"><button type="button" class="pop-x" data-pop-close aria-label="${t(ctx, 'Schliessen')}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button><div class="pop-body">${body}</div></dialog>`);
   }

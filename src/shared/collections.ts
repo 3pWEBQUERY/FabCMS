@@ -539,6 +539,8 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
       { key: 'popup_skip', type: 'textarea', label: 'Nicht auf diesen Seiten', help: 'Gleich wie oben, z. B. /kontakt.', showIf: { field: 'kind', equals: ['popup'] } },
       { key: 'popup_from', type: 'datetime', label: 'Zeigen ab', showIf: { field: 'kind', equals: ['popup'] } },
       { key: 'popup_until', type: 'datetime', label: 'Zeigen bis', showIf: { field: 'kind', equals: ['popup'] } },
+      // Chosen in the pop-up's own panel (only other pop-ups), so not listed with the fields.
+      { key: 'popup_ab', type: 'relation', collection: 'sections', label: 'A/B-Test: im Wechsel mit', showIf: { field: 'kind', equals: ['popup'] } },
     ],
     route: null,
     list_route: null,

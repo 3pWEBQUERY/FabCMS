@@ -84,7 +84,7 @@ import { pickTemplate, templateSeed } from '../src/server/seed';
 import { SECTORS } from '../src/shared/collections';
 import { THEMES } from '../src/site/themes';
 import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
-import { pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
+import { abGroups, abVerdict, AB_MIN_SHOWN, pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
 import { starText, summarize } from '../src/shared/reviews';
 import { crossedLimit, lowStock, stockLimit } from '../src/shared/stock';
 import { giftCardApplies, giftCardCode, normalizeCode } from '../src/shared/giftcards';
@@ -1722,5 +1722,42 @@ describe('gift cards', () => {
     expect(giftCardApplies(1120, 5370)).toBe(1120);
     expect(giftCardApplies(0, 100)).toBe(0);
     expect(giftCardApplies(500, -1)).toBe(0);
+  });
+});
+
+describe('pop-up A/B tests', () => {
+  it('groups linked pop-ups both ways and in chains, named by their first id', () => {
+    const groups = abGroups([
+      { id: 'c', ab: 'b' },
+      { id: 'b', ab: null },
+      { id: 'a', ab: 'b' },
+      { id: 'd', ab: 'd' },
+      { id: 'e', ab: 'gone' },
+      { id: 'f', ab: 'g' },
+      { id: 'g', ab: 'f' },
+    ]);
+    expect(groups.get('a')).toEqual(['a', 'b', 'c']);
+    expect(groups.get('c')).toEqual(['a', 'b', 'c']);
+    expect(groups.get('f')).toEqual(['f', 'g']);
+    // Linked to itself, to nothing that is live, or not at all: no test.
+    for (const id of ['d', 'e', 'x']) expect(groups.has(id)).toBe(false);
+  });
+
+  it('names a winner only with enough views and a difference beyond chance', () => {
+    const v = (id: string, shown: number, clicked: number) => ({ id, shown, clicked });
+    // A clear lead, but too few views to say.
+    expect(abVerdict([v('a', 40, 20), v('b', 40, 2)])).toEqual({ leader: 'a', sure: false, needMore: true });
+    // 12 % against 8 % on 1000 views each: z ≈ 2.98.
+    expect(abVerdict([v('a', 1000, 80), v('b', 1000, 120)])).toEqual({ leader: 'b', sure: true, needMore: false });
+    // 10 % against 9 %: could be chance.
+    expect(abVerdict([v('a', 1000, 100), v('b', 1000, 90)])).toEqual({ leader: 'a', sure: false, needMore: false });
+    // Three pop-ups: the leader has to beat each by more (z ≈ 2.12 is enough for two, not for three).
+    expect(abVerdict([v('a', 1500, 150), v('b', 1500, 117)]).sure).toBe(true);
+    expect(abVerdict([v('a', 1500, 150), v('b', 1500, 117), v('c', 1500, 60)]).sure).toBe(false);
+    // The same rate, nothing clicked at all, or a test of one: no leader.
+    expect(abVerdict([v('a', 500, 50), v('b', 500, 50)]).leader).toBeNull();
+    expect(abVerdict([v('a', 500, 0), v('b', 500, 0)])).toEqual({ leader: null, sure: false, needMore: false });
+    expect(abVerdict([v('a', 500, 20)])).toEqual({ leader: null, sure: false, needMore: true });
+    expect(AB_MIN_SHOWN).toBe(100);
   });
 });
