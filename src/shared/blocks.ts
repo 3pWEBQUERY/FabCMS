@@ -265,6 +265,7 @@ export const BLOCKS: BlockDef[] = [
         label: 'Punkte',
         itemLabel: 'Punkt',
         fields: [
+          { key: 'icon', type: 'icon', label: 'Symbol', help: 'Statt der Nummer, oder über dem Titel.' },
           { key: 'title', type: 'text', label: 'Titel', required: true },
           { key: 'text', type: 'textarea', label: 'Beschreibung' },
           { key: 'meta', type: 'text', label: 'Rechts daneben', help: 'Zum Beispiel ein Preis oder eine Dauer: «45 Min · 68.–»' },
@@ -848,6 +849,7 @@ export const BLOCKS: BlockDef[] = [
         max: 12,
         fields: [
           { key: 'image', type: 'image', label: 'Bild' },
+          { key: 'icon', type: 'icon', label: 'Symbol', help: 'Erscheint, wenn kein Bild gewählt ist.' },
           { key: 'title', type: 'text', label: 'Titel', required: true },
           { key: 'text', type: 'textarea', label: 'Text' },
           link('link', 'Link'),

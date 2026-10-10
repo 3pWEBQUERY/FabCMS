@@ -7,7 +7,8 @@ import { useSession } from '../lib/session';
 import { useApi } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon } from './icons';
-import { DateInput, DateTimeInput, Field, Select, SuggestInput, Toggle } from './kit';
+import { DateInput, DateTimeInput, Field, Popover, Select, SuggestInput, Toggle } from './kit';
+import { ICON_GROUPS, SITE_ICONS, type IconDef } from '../../shared/icon-set';
 import { RichText } from './RichText';
 import { AiRewrite } from './Ai';
 import type { SlotKind } from '../../shared/text-slots';
@@ -192,6 +193,8 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
       return wrap(<FormSelect id={id} value={(value as string) ?? ''} onChange={onChange} />);
     case 'relation':
       return wrap(<RelationSelect id={id} collection={f.collection ?? 'pages'} value={(value as string) ?? ''} onChange={onChange} />);
+    case 'icon':
+      return wrap(<IconInput id={id} value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} />);
     case 'color':
       return wrap(
         <div className="row">
@@ -580,6 +583,71 @@ export function GroupInput({ field, value, onChange }: { field: FieldDef; value:
         >
           <Icon name="plus" size="s" />
           {field.itemLabel ? t('{name} hinzufügen', { name: tl(field.itemLabel) }) : t('Eintrag hinzufügen')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One of Nova's website icons: search by word, grouped like a shop shelf. */
+function IconInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const words = q.trim().toLowerCase();
+  const hits = (Object.entries(SITE_ICONS) as [string, IconDef][]).filter(([name, d]) => !words || name.includes(words) || d.label.toLowerCase().includes(words));
+  const current = SITE_ICONS[value];
+  return (
+    <div className="row">
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setQ('');
+        }}
+        className="icon-pop"
+        trigger={
+          <button id={id} type="button" className="btn icon-pick" aria-haspopup="dialog">
+            {current ? <Icon name={value} /> : <span className="icon-pick-empty" aria-hidden="true" />}
+            <span>{current ? current.label.split(',')[0] : t('Symbol wählen')}</span>
+          </button>
+        }
+      >
+        <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Suchen, z. B. Kaffee oder Velo')} aria-label={t('Symbol suchen')} />
+        <div className="icon-grid-wrap">
+          {ICON_GROUPS.map((g) => {
+            const list = hits.filter(([, d]) => d.group === g.id);
+            if (!list.length) return null;
+            return (
+              <section key={g.id}>
+                <h3 className="xsmall muted">{tl(g.label)}</h3>
+                <div className="icon-grid" role="listbox" aria-label={tl(g.label)}>
+                  {list.map(([name, d]) => (
+                    <button
+                      key={name}
+                      type="button"
+                      role="option"
+                      aria-selected={name === value}
+                      className="icon-cell"
+                      title={d.label}
+                      aria-label={d.label.split(',')[0]}
+                      onClick={() => {
+                        onChange(name);
+                        setOpen(false);
+                      }}
+                    >
+                      <Icon name={name} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          {!hits.length && <p className="small muted">{t('Kein Symbol passt zu «{q}».', { q })}</p>}
+        </div>
+      </Popover>
+      {current && (
+        <button type="button" className="btn ghost s" onClick={() => onChange('')}>
+          {t('Entfernen')}
         </button>
       )}
     </div>

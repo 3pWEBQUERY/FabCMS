@@ -660,4 +660,8 @@ export const shell: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Ambiente di anteprima «{name}» – database proprio, bloccato per i motori di ricerca. Ciò che modifichi qui sparisce con l’ambiente.',
     en: 'Preview environment “{name}” – its own database, blocked for search engines. What you change here goes away with the environment.',
   },
+  'Symbol wählen': { fr: 'Choisir une icône', it: 'Scegli un’icona', en: 'Choose an icon' },
+  'Suchen, z. B. Kaffee oder Velo': { fr: 'Chercher, p. ex. Kaffee ou Velo', it: 'Cerca, p. es. Kaffee o Velo', en: 'Search, e.g. Kaffee or Velo' },
+  'Symbol suchen': { fr: 'Chercher une icône', it: 'Cerca un’icona', en: 'Search icons' },
+  'Kein Symbol passt zu «{q}».': { fr: 'Aucune icône ne correspond à « {q} ».', it: 'Nessuna icona corrisponde a «{q}».', en: 'No icon matches “{q}”.' },
 };

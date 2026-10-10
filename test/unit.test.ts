@@ -36,6 +36,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { entrySlots, getAt, setAt, slotKey } from '../src/shared/text-slots';
 import type { FieldDef } from '../src/shared/fields';
+import { ICON_GROUPS, SITE_ICONS, siteIconSvg } from '../src/shared/icon-set';
 import { plannedSizes } from '../src/server/video';
 import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
@@ -834,5 +835,25 @@ describe('upload checks', () => {
     expect(() => checkStructure(zip({ 'ordner/start.vbs': 'x' }), '.zip')).toThrow(/start\.vbs/);
     expect(() => checkStructure(Buffer.from('MZ\x90\x00rest', 'latin1'), '.txt')).toThrow(/Programmdateien/);
     expect(zipEntries(zip({ 'a/b.txt': 'x', 'c.txt': 'y' })).sort()).toEqual(['a/b.txt', 'c.txt']);
+  });
+});
+
+describe('website icons', () => {
+  it('are drawn only with plain shapes, have search words and a group', () => {
+    const groups = new Set(ICON_GROUPS.map((g) => g.id));
+    for (const [name, d] of Object.entries(SITE_ICONS)) {
+      expect(d.svg, name).toMatch(/^(<(path|circle|rect|ellipse) [^<>]*\/>)+$/);
+      expect(d.label.split(',').length, name).toBeGreaterThan(1);
+      expect(groups.has(d.group), name).toBe(true);
+    }
+    expect(Object.keys(SITE_ICONS).length).toBeGreaterThanOrEqual(130);
+  });
+
+  it('only accepts icons that exist and renders them decoratively', () => {
+    const f = [{ key: 'icon', type: 'icon', label: 'Symbol' }] as FieldDef[];
+    expect(validateFields(f, { icon: 'cup' })).toEqual([]);
+    expect(validateFields(f, { icon: '<script>' })[0].message).toContain('gibt es nicht');
+    expect(siteIconSvg('cup')).toContain('aria-hidden="true"');
+    expect(siteIconSvg('nope')).toBe('');
   });
 });

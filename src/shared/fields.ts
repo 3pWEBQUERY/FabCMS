@@ -1,3 +1,4 @@
+import { isSiteIcon } from './icon-set';
 /**
  * Field definitions are the single source of truth for every form in Nova.
  * A content type (collection) or a block declares its fields once; the
@@ -23,6 +24,7 @@ export type FieldType =
   | 'relation'
   | 'location'
   | 'color'
+  | 'icon'
   | 'url'
   | 'email'
   | 'json'
@@ -86,21 +88,13 @@ export interface FieldError {
   message: string;
 }
 
-const isEmpty = (v: unknown) =>
-  v === undefined ||
-  v === null ||
-  v === '' ||
-  (Array.isArray(v) && v.length === 0);
+const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
 /**
  * Validates data against field definitions. Returns human messages that can be
  * shown as-is in the Studio ("Bitte gib einen Titel ein.").
  */
-export function validateFields(
-  fields: FieldDef[],
-  data: Record<string, unknown>,
-  prefix = '',
-): FieldError[] {
+export function validateFields(fields: FieldDef[], data: Record<string, unknown>, prefix = ''): FieldError[] {
   const errors: FieldError[] = [];
   for (const f of fields) {
     const v = data?.[f.key];
@@ -120,41 +114,34 @@ export function validateFields(
         if (typeof v !== 'number' || Number.isNaN(v)) {
           errors.push({ path, message: `«${f.label}» muss eine Zahl sein.` });
         } else {
-          if (f.min !== undefined && v < f.min)
-            errors.push({ path, message: `«${f.label}» muss mindestens ${f.min} sein.` });
-          if (f.max !== undefined && v > f.max)
-            errors.push({ path, message: `«${f.label}» darf höchstens ${f.max} sein.` });
+          if (f.min !== undefined && v < f.min) errors.push({ path, message: `«${f.label}» muss mindestens ${f.min} sein.` });
+          if (f.max !== undefined && v > f.max) errors.push({ path, message: `«${f.label}» darf höchstens ${f.max} sein.` });
         }
         break;
       case 'email':
-        if (typeof v !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
-          errors.push({ path, message: `«${f.label}» ist keine gültige E-Mail-Adresse.` });
+        if (typeof v !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errors.push({ path, message: `«${f.label}» ist keine gültige E-Mail-Adresse.` });
         break;
       case 'url':
-        if (typeof v !== 'string' || !/^(https?:\/\/|\/|#|mailto:|tel:)/.test(v))
-          errors.push({ path, message: `«${f.label}» muss mit https://, / oder # beginnen.` });
+        if (typeof v !== 'string' || !/^(https?:\/\/|\/|#|mailto:|tel:)/.test(v)) errors.push({ path, message: `«${f.label}» muss mit https://, / oder # beginnen.` });
         break;
       case 'text':
       case 'textarea':
         if (typeof v !== 'string') errors.push({ path, message: `«${f.label}» muss Text sein.` });
-        else if (f.maxLength && v.length > f.maxLength)
-          errors.push({ path, message: `«${f.label}» ist ${v.length - f.maxLength} Zeichen zu lang.` });
+        else if (f.maxLength && v.length > f.maxLength) errors.push({ path, message: `«${f.label}» ist ${v.length - f.maxLength} Zeichen zu lang.` });
+        break;
+      case 'icon':
+        if (!isSiteIcon(v)) errors.push({ path, message: `«${f.label}»: dieses Symbol gibt es nicht.` });
         break;
       case 'select':
-        if (f.options && !f.options.some((o) => o.value === v))
-          errors.push({ path, message: `«${f.label}»: ungültige Auswahl.` });
+        if (f.options && !f.options.some((o) => o.value === v)) errors.push({ path, message: `«${f.label}»: ungültige Auswahl.` });
         break;
       case 'group':
         if (!Array.isArray(v)) {
           errors.push({ path, message: `«${f.label}» hat ein ungültiges Format.` });
         } else {
-          if (f.min !== undefined && v.length < f.min)
-            errors.push({ path, message: `«${f.label}» braucht mindestens ${f.min} Einträge.` });
-          if (f.max !== undefined && v.length > f.max)
-            errors.push({ path, message: `«${f.label}» erlaubt höchstens ${f.max} Einträge.` });
-          v.forEach((item, i) =>
-            errors.push(...validateFields(f.fields ?? [], item as Record<string, unknown>, `${path}.${i}.`)),
-          );
+          if (f.min !== undefined && v.length < f.min) errors.push({ path, message: `«${f.label}» braucht mindestens ${f.min} Einträge.` });
+          if (f.max !== undefined && v.length > f.max) errors.push({ path, message: `«${f.label}» erlaubt höchstens ${f.max} Einträge.` });
+          v.forEach((item, i) => errors.push(...validateFields(f.fields ?? [], item as Record<string, unknown>, `${path}.${i}.`)));
         }
         break;
       default:
@@ -169,8 +156,7 @@ export function defaultsFor(fields: FieldDef[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
     if (f.default !== undefined) out[f.key] = structuredClone(f.default);
-    else if (f.type === 'group' || f.type === 'images' || f.type === 'tags' || f.type === 'multiselect' || f.type === 'blocks')
-      out[f.key] = [];
+    else if (f.type === 'group' || f.type === 'images' || f.type === 'tags' || f.type === 'multiselect' || f.type === 'blocks') out[f.key] = [];
     else if (f.type === 'boolean') out[f.key] = false;
   }
   return out;
@@ -194,6 +180,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   relation: 'Verknüpfung',
   location: 'Ort',
   color: 'Farbe',
+  icon: 'Symbol',
   url: 'Link',
   email: 'E-Mail',
   json: 'JSON',

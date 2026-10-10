@@ -158,6 +158,7 @@ export function buildSchema(cols: CollectionDef[]): GraphQLSchema {
       case 'datetime':
       case 'select':
       case 'color':
+      case 'icon':
       case 'url':
       case 'email':
         return { type: GraphQLString, resolve: str };

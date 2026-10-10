@@ -4044,3 +4044,53 @@ button.list-item {
   color: var(--ink);
   border-bottom: 1px solid color-mix(in oklab, var(--edited) 30%, var(--line));
 }
+
+/* icon picker */
+.icon-pick {
+  gap: 0.5rem;
+}
+.icon-pick-empty {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--r-s);
+}
+.icon-pop {
+  width: min(22rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+}
+.icon-grid-wrap {
+  max-height: 18rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+.icon-grid-wrap h3 {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  gap: 0.25rem;
+}
+.icon-cell {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-m);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.icon-cell:hover {
+  background: var(--hover);
+}
+.icon-cell[aria-selected='true'] {
+  border-color: var(--sel);
+  background: var(--sel-soft);
+  color: var(--sel);
+}

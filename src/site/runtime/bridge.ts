@@ -28,7 +28,7 @@ style.textContent = `
 [data-nova-field]{cursor:text;border-radius:2px;outline:1px dashed transparent;outline-offset:3px;transition:outline-color .12s}
 [data-nova-field]:hover{outline-color:color-mix(in srgb,currentColor 35%,transparent)}
 [data-nova-field]:focus{outline:1.5px solid #2b59c3;outline-offset:3px}
-[data-nova-field]:empty::before{content:attr(data-placeholder);opacity:.4;pointer-events:none}
+[data-nova-field]:empty::before{content:attr(data-placeholder);opacity:.4;pointer-events:none;white-space:nowrap}
 [data-nova-global]{cursor:pointer}
 [data-nova-global]:hover{outline:1px dashed rgba(43,89,195,.45);outline-offset:-1px}
 .nova-section-ref{position:relative}

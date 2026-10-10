@@ -2,6 +2,7 @@ import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
+import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
 import type { LinkValue } from '../shared/fields';
 import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
@@ -395,7 +396,7 @@ const R: Record<string, Renderer> = {
     const items = (p.items as P[]) ?? [];
     return html`<div class="wrap">${heading(ctx, p, 'heading', 'intro')}<ol class="lst lst-${style}">${items.map(
       (it, i) =>
-        html`<li><div>${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
+        html`<li${it.icon ? raw(' class="has-ico"') : ''}>${it.icon ? html`<span class="lst-ico">${raw(siteIconSvg(it.icon))}</span>` : ''}<div>${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
           style === 'rows' ? '' : it.text || ctx.edit ? html`<p${field(ctx.edit, `items.${i}.text`, 'multi')}>${lines(it.text)}</p>` : ''
         }${style === 'columns' && it.meta ? html`<span class="meta">${it.meta}</span>` : ''}</div>${
           style === 'rows'
@@ -455,7 +456,8 @@ const R: Record<string, Renderer> = {
     const cols = await Promise.all(
       items.map(async (it, i) => {
         const img = await ctx.media(it.image);
-        return html`<div class="col">${img ? html`<div class="ph">${picture(img, { sizes, maxWidth: 960, ratio: '3/2' })}</div>` : ''}${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
+        const icon = !img && it.icon ? html`<span class="col-ico">${raw(siteIconSvg(it.icon))}</span>` : '';
+        return html`<div class="col">${img ? html`<div class="ph">${picture(img, { sizes, maxWidth: 960, ratio: '3/2' })}</div>` : icon}${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
           it.text || ctx.edit ? html`<p${field(ctx.edit, `items.${i}.text`, 'multi')}>${lines(it.text)}</p>` : ''
         }${it.link?.href ? btn(it.link, false, ctx.edit, `items.${i}.link`) : ''}</div>`;
       }),

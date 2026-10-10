@@ -1,4 +1,5 @@
 import type { ReactNode, SVGProps } from 'react';
+import { SITE_ICONS } from '../../shared/icon-set';
 
 /**
  * Nova's own icon set: 20×20 grid, 1.5 px stroke, round caps and joins,
@@ -557,8 +558,12 @@ const P: Record<string, ReactNode> = {
 export type IconName = keyof typeof P;
 
 export function Icon({ name, size, className, ...rest }: { name: string; size?: 's' | 'm' } & SVGProps<SVGSVGElement>) {
+  const cls = ['icon', size === 's' ? 's' : '', className].filter(Boolean).join(' ');
+  // The website set (shared/icon-set.ts) is drawn on the same grid – fixed markup, never user input.
+  if (!P[name] && SITE_ICONS[name])
+    return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={cls} {...rest} dangerouslySetInnerHTML={{ __html: SITE_ICONS[name].svg }} />;
   return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={['icon', size === 's' ? 's' : '', className].filter(Boolean).join(' ')} {...rest}>
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={cls} {...rest}>
       {P[name] ?? P.page}
     </svg>
   );

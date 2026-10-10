@@ -1231,4 +1231,5 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Scegli prima la proprietà per questo sito.',
     en: 'First choose the property for this website.',
   },
+  '«{label}»: dieses Symbol gibt es nicht.': { fr: '«{label}» : cette icône n’existe pas.', it: '«{label}»: questa icona non esiste.', en: '“{label}”: this icon doesn’t exist.' },
 };
