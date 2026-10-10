@@ -4,7 +4,25 @@ import { slugify, shortId } from '../shared/text';
 import type { Block, NavItem, SiteSettings } from '../shared/types';
 import { b, f, chf, contactForm, contactPage, type Seed } from './seed-kit';
 import { architecture, boutique, cafe, coaching, expertBlog, farmShop, fineDining, photography, productLaunch, travelBlog } from './seed-templates';
-import { templatesFor } from '../shared/templates';
+import {
+  animalShelter,
+  bandClub,
+  barber,
+  beauty,
+  bedAndBreakfast,
+  broker,
+  cooperative,
+  dentist,
+  escortAgency,
+  footballClub,
+  foundation,
+  gardener,
+  holidayFlat,
+  massageStudio,
+  painter,
+  psychotherapy,
+} from './seed-templates-2';
+import { TEMPLATES, templatesFor } from '../shared/templates';
 import { bumpGeneration, getSettings, updateSettings } from './settings';
 
 /**
@@ -1054,12 +1072,36 @@ const TEMPLATE_SEEDS: Partial<Record<string, (name: string) => Seed>> = {
   produkt: productLaunch,
   fotografie: photography,
   architektur: architecture,
+  maler: painter,
+  gartenbau: gardener,
+  kosmetik: beauty,
+  barber,
+  psychotherapie: psychotherapy,
+  zahnarzt: dentist,
+  ferienwohnung: holidayFlat,
+  bnb: bedAndBreakfast,
+  musikverein: bandClub,
+  fussball: footballClub,
+  tierheim: animalShelter,
+  stiftung: foundation,
+  makler: broker,
+  genossenschaft: cooperative,
+  massage: massageStudio,
+  begleitagentur: escortAgency,
 };
 
 /** The template a setup uses for its first Sparte: the requested one if it belongs there, else the Sparte's first. */
 export function pickTemplate(sectors: string[], template?: string) {
   const own = templatesFor(sectors[0] ?? '');
   return own.find((t) => t.id === template) ?? own[0];
+}
+
+/** The starter content of one template (for checks and previews). */
+export function templateSeed(id: string, siteName: string): Seed | null {
+  const def = TEMPLATES.find((t) => t.id === id);
+  if (!def) return null;
+  const make = TEMPLATE_SEEDS[id] ?? (templatesFor(def.sector)[0]?.id === id ? SEEDS[def.sector] : undefined);
+  return make ? make(siteName) : null;
 }
 
 /** Replaces form placeholders («@form:key») with real IDs. */

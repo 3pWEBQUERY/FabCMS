@@ -44,7 +44,8 @@ import { deflateSync } from 'node:zlib';
 import { TEMPLATES, templatesFor } from '../src/shared/templates';
 import { htmlClasses, pruneCss, requiredClasses, scriptWords } from '../src/site/css-prune';
 import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-verify';
-import { pickTemplate } from '../src/server/seed';
+import { pickTemplate, templateSeed } from '../src/server/seed';
+import { SECTORS } from '../src/shared/collections';
 import { THEMES } from '../src/site/themes';
 
 describe('rich text sanitizer', () => {
@@ -682,8 +683,8 @@ describe('age check with the e-ID', () => {
 });
 
 describe('starter templates', () => {
-  it('offers three templates in two existing styles for every P0 Sparte', () => {
-    for (const sector of ['restaurant', 'shop', 'blog', 'landing', 'portfolio']) {
+  it('offers three templates in two existing styles for every Sparte', () => {
+    for (const sector of SECTORS.map((x) => x.id)) {
       const list = templatesFor(sector);
       expect(list).toHaveLength(3);
       for (const x of list) {
@@ -694,10 +695,33 @@ describe('starter templates', () => {
     expect(new Set(TEMPLATES.map((x) => x.id)).size).toBe(TEMPLATES.length);
   });
 
+  it('builds every template from known blocks, its own forms and existing icons', () => {
+    const blockTypes = new Set(BLOCKS.map((x) => x.type));
+    for (const def of TEMPLATES) {
+      const seed = templateSeed(def.id, 'Test')!;
+      expect(seed, def.id).toBeTruthy();
+      const forms = new Set(seed.forms.map((x) => x.key));
+      const blocks = [...seed.home, ...seed.pages.flatMap((p) => p.blocks), ...seed.entries.flatMap((e) => (e.data.blocks as typeof seed.home | undefined) ?? [])];
+      for (const bl of blocks) {
+        expect(blockTypes.has(bl.type), `${def.id}: ${bl.type}`).toBe(true);
+        const form = bl.props.form;
+        if (typeof form === 'string') expect(forms.has(form.replace('@form:', '')), `${def.id}: ${form}`).toBe(true);
+        for (const item of (bl.props.items as { icon?: string }[] | undefined) ?? []) if (item.icon) expect(SITE_ICONS[item.icon], `${def.id}: ${item.icon}`).toBeTruthy();
+      }
+      // Every page in the menu exists – as a page of the template or as a list of one of the Sparte's modules.
+      const slugs = new Set(['', ...seed.pages.map((p) => p.slug)]);
+      for (const n of seed.nav) {
+        const path = n.href.replace(/^\//, '').replace(/#.*$/, '');
+        if (!slugs.has(path)) expect(['journal', 'events', 'arbeiten', 'immobilien', 'profile', 'karte', 'bestellen', 'laden', 'kurse'], `${def.id}: ${n.href}`).toContain(path);
+      }
+    }
+  });
+
   it('only uses a template of the first Sparte', () => {
     expect(pickTemplate(['shop', 'restaurant'], 'cafe')?.id).toBe('manufaktur');
     expect(pickTemplate(['shop'], 'boutique')?.id).toBe('boutique');
-    expect(pickTemplate(['club'], 'boutique')).toBeUndefined();
+    expect(pickTemplate(['club'], 'boutique')?.id).toBe('sportverein');
+    expect(pickTemplate(['gibt-es-nicht'])).toBeUndefined();
   });
 
   it('has French, Italian and English for every template name and description', () => {
