@@ -30,6 +30,7 @@ import { blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } f
 import { blockLookCss, savedStyleImages, stylesUsed, type SavedStyle } from '../../shared/styles';
 import type { SiteSettings } from '../../shared/types';
 import { SavedStyles } from './design/SavedStyles';
+import { uploadFiles, type MediaRow } from '../ui/MediaPicker';
 import { TokenColors } from './design/controls';
 import { ContrastNow, ContrastPanel, worstFirst } from './design/contrast';
 import type { ContrastIssue } from '../../shared/contrast';
@@ -89,6 +90,16 @@ function readTokenColors(frame: HTMLIFrameElement | null): Record<string, string
 
 /** Background image URLs for the live preview (the server renders the same ones). */
 const mediaUrlCache = new Map<string, string>();
+/** What the canvas sends when pictures are dropped on it. */
+interface DroppedFiles {
+  files: File[];
+  block: string;
+  el: string | null;
+  mode: 'replace' | 'into' | 'after' | 'block';
+  /** On a free canvas: where they were let go, in percent. */
+  at: { left: number; top: number } | null;
+}
+
 /** How many elements in a tree use a saved style. */
 function countUse(els: El[], id: string): number {
   let n = 0;
@@ -321,6 +332,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           changeElement(m.block, { ...info.el, design });
           break;
         }
+        case 'drop-files':
+          void dropFiles(m as unknown as DroppedFiles);
+          break;
         case 'pad': {
           // Padding dragged on the canvas: for the screen size being designed.
           const b = blocksRef.current.find((x) => x.id === m.block);
@@ -604,6 +618,78 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     setSelectedEl(elId);
     setElPicker(null);
     postToCanvas(frame.current, { t: 'select-el', block: selected, el: elId, scroll: true });
+  };
+
+  // A file let go beside the canvas would open in place of the editor.
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
+    };
+    addEventListener('dragover', stop);
+    addEventListener('drop', stop);
+    return () => {
+      removeEventListener('dragover', stop);
+      removeEventListener('drop', stop);
+    };
+  }, []);
+
+  /** Pictures dragged from the computer onto the canvas: uploaded to the media library, then placed where they were let go. */
+  const dropFiles = async ({ files, block, el, mode, at }: DroppedFiles) => {
+    const images = files.filter((f) => f.type.startsWith('image/'));
+    if (images.length < files.length)
+      toast(images.length ? t('Nur Bilder kommen auf die Seite – andere Dateien wurden ausgelassen.') : t('Hierhin lassen sich nur Bilder ziehen.'), {
+        kind: images.length ? 'info' : 'bad',
+      });
+    const b = blocksRef.current.find((x) => x.id === block);
+    if (!images.length || !b) return;
+    let media: MediaRow[];
+    try {
+      toast(images.length > 1 ? t('{n} Bilder werden hochgeladen …', { n: images.length }) : t('Bild wird hochgeladen …'));
+      media = await uploadFiles(images);
+    } catch (e) {
+      return toast((e as Error).message, { kind: 'bad' });
+    }
+    const current = blocksRef.current.find((x) => x.id === block);
+    if (!current || !media.length) return;
+    const fresh = media.map((m, i) => {
+      const img = createEl('image', { image: m.id, alt: '' });
+      if (!at) return img;
+      // Several pictures on a free canvas: a little apart, each where it can still be seen.
+      const pos = (n: number) => `${Math.round(Math.min(90, n) * 10) / 10}%`;
+      return { ...img, design: { desktop: { left: pos(at.left + i * 4), top: pos(at.top + i * 4), width: '30%' } } };
+    });
+    if (mode === 'block' || current.type !== 'layout') {
+      const index = blocksRef.current.findIndex((x) => x.id === block) + 1;
+      void insertBlock('layout', index, { els: fresh });
+      return;
+    }
+    const info = el ? findEl(elsOf(current), el) : null;
+    // All in one change: one step to undo.
+    const insertAll = (els: El[], parent: string | null, index: number, list: El[]) => list.reduce((acc, x, i) => insertEl(acc, parent, index + i, x), els);
+    if (mode === 'replace' && info) {
+      changeEls(
+        current.id,
+        (els) =>
+          insertAll(
+            updateEl(els, info.el.id, (x) => ({ ...x, props: { ...x.props, image: media[0].id } })),
+            info.parent?.id ?? null,
+            info.index + 1,
+            fresh.slice(1),
+          ),
+        info.el.id,
+      );
+      return;
+    }
+    changeEls(
+      current.id,
+      (els) =>
+        !info
+          ? insertAll(els, null, els.length, fresh)
+          : mode === 'into'
+            ? insertAll(els, info.el.id, info.el.children?.length ?? 0, fresh)
+            : insertAll(els, info.parent?.id ?? null, info.index + 1, fresh),
+      fresh[0].id,
+    );
   };
 
   /** New element: into the selected container, after the selected element, or at the end. */

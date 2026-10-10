@@ -607,4 +607,16 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   '{n} px': { fr: '{n} px', it: '{n} px', en: '{n} px' },
   'Ziehen für jede Breite dazwischen': { fr: 'Glisser pour toute largeur intermédiaire', it: 'Trascina per qualsiasi larghezza intermedia', en: 'Drag for any width in between' },
   'Zurück zur festen Breite': { fr: 'Revenir à la largeur fixe', it: 'Torna alla larghezza fissa', en: 'Back to the fixed width' },
+  'Nur Bilder kommen auf die Seite – andere Dateien wurden ausgelassen.': {
+    fr: 'Seules les images vont sur la page – les autres fichiers ont été ignorés.',
+    it: 'Solo le immagini finiscono nella pagina – gli altri file sono stati ignorati.',
+    en: 'Only images go on the page – other files were left out.',
+  },
+  'Hierhin lassen sich nur Bilder ziehen.': {
+    fr: 'Seules des images peuvent être déposées ici.',
+    it: 'Qui si possono trascinare solo immagini.',
+    en: 'Only images can be dropped here.',
+  },
+  '{n} Bilder werden hochgeladen …': { fr: 'Envoi de {n} images …', it: 'Caricamento di {n} immagini …', en: 'Uploading {n} images …' },
+  'Bild wird hochgeladen …': { fr: "Envoi de l'image …", it: "Caricamento dell'immagine …", en: 'Uploading image …' },
 };

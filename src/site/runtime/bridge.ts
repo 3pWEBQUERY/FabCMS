@@ -318,6 +318,53 @@ function selectEl(id: string | null, notify: boolean) {
   } else post({ t: 'select-el', block: selected, el: null });
 }
 
+/* ---------- image files dropped from the computer ---------- */
+
+type DropMode = 'replace' | 'into' | 'after' | 'block';
+const hasFiles = (e: DragEvent) => Boolean(e.dataTransfer && [...e.dataTransfer.types].includes('Files'));
+/** Where dropped pictures go: onto a picture replaces it, into a container or free canvas, else after the element or block. */
+function dropPlace(e: DragEvent): { block: HTMLElement; el: HTMLElement | null; mode: DropMode; box: DOMRect } | null {
+  const t = e.target instanceof Element ? e.target : null;
+  const block = t?.closest<HTMLElement>('[data-nova-block]');
+  if (!block || lockOf(block) !== 'none') return null;
+  const el = t!.closest<HTMLElement>('[data-nova-el]');
+  if (!el || !block.contains(el)) return { block, el: null, mode: block.dataset.novaType === 'layout' ? 'into' : 'block', box: block.getBoundingClientRect() };
+  const kind = el.dataset.novaKindEl;
+  const mode: DropMode = kind === 'image' ? 'replace' : kind === 'box' || kind === 'canvas' ? 'into' : 'after';
+  return { block, el, mode, box: el.getBoundingClientRect() };
+}
+d.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  // A file dropped anywhere else would open in the canvas instead of the page.
+  e.preventDefault();
+  const place = dropPlace(e);
+  e.dataTransfer!.dropEffect = place ? 'copy' : 'none';
+  if (!place) return edropBox.classList.remove('on');
+  Object.assign(edropBox.style, { top: `${place.box.top + scrollY}px`, left: `${place.box.left}px`, width: `${place.box.width}px`, height: `${place.box.height}px` });
+  edropBox.classList.add('on');
+});
+d.addEventListener('dragleave', (e) => {
+  if (!e.relatedTarget) edropBox.classList.remove('on');
+});
+d.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  edropBox.classList.remove('on');
+  const place = dropPlace(e);
+  const files = [...(e.dataTransfer?.files ?? [])].slice(0, 12);
+  if (!place || !files.length) return;
+  // On a free canvas the picture lands where it was let go, in percent like everything there.
+  const canvas = place.mode === 'into' && place.el?.dataset.novaKindEl === 'canvas' ? place.box : null;
+  post({
+    t: 'drop-files',
+    files,
+    block: place.block.dataset.novaBlock,
+    el: place.el?.dataset.novaEl ?? null,
+    mode: place.mode,
+    at: canvas ? { left: ((e.clientX - canvas.left) / canvas.width) * 100, top: ((e.clientY - canvas.top) / canvas.height) * 100 } : null,
+  });
+});
+
 /* ---------- padding: drag the inner edges of what is selected ---------- */
 
 const pads = [...shadow.querySelectorAll<HTMLElement>('.pz')];
