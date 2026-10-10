@@ -1380,4 +1380,7 @@ export const labels: Record<string, { fr: string; it: string; en: string }> = {
   'Unterwegs & Zugang': { fr: 'Déplacements & accès', it: 'In viaggio & accesso', en: 'Travel & access' },
   Alltag: { fr: 'Quotidien', it: 'Quotidiano', en: 'Everyday' },
   'Natur & Jahreszeiten': { fr: 'Nature & saisons', it: 'Natura & stagioni', en: 'Nature & seasons' },
+  'Sport & Freizeit': { fr: 'Sport & loisirs', it: 'Sport & tempo libero', en: 'Sport & leisure' },
+  'Kultur & Bildung': { fr: 'Culture & formation', it: 'Cultura & formazione', en: 'Culture & learning' },
+  'Büro & Finanzen': { fr: 'Bureau & finances', it: 'Ufficio & finanze', en: 'Office & finance' },
 };

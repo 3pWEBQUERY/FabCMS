@@ -874,7 +874,8 @@ describe('website icons', () => {
       expect(d.label.split(',').length, name).toBeGreaterThan(1);
       expect(groups.has(d.group), name).toBe(true);
     }
-    expect(Object.keys(SITE_ICONS).length).toBeGreaterThanOrEqual(130);
+    expect(Object.keys(SITE_ICONS).length).toBeGreaterThanOrEqual(300);
+    for (const g of groups) expect(Object.values(SITE_ICONS).filter((d) => d.group === g).length, g).toBeGreaterThanOrEqual(10);
   });
 
   it('only accepts icons that exist and renders them decoratively', () => {

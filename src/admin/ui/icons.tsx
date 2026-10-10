@@ -560,8 +560,7 @@ export type IconName = keyof typeof P;
 export function Icon({ name, size, className, ...rest }: { name: string; size?: 's' | 'm' } & SVGProps<SVGSVGElement>) {
   const cls = ['icon', size === 's' ? 's' : '', className].filter(Boolean).join(' ');
   // The website set (shared/icon-set.ts) is drawn on the same grid – fixed markup, never user input.
-  if (!P[name] && SITE_ICONS[name])
-    return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={cls} {...rest} dangerouslySetInnerHTML={{ __html: SITE_ICONS[name].svg }} />;
+  if (!P[name] && SITE_ICONS[name]) return <SiteIcon name={name} className={cls} {...rest} />;
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={cls} {...rest}>
       {P[name] ?? P.page}
@@ -576,4 +575,9 @@ export function NovaMark({ size = 22 }: { size?: number }) {
       <path d="M10 22V10l12 12V10" fill="none" stroke="var(--bg)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+/** A website icon exactly as the site renders it – some names (menu, pin …) mean something else in the admin set. */
+export function SiteIcon({ name, className = 'icon', ...rest }: { name: string } & SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className={className} {...rest} dangerouslySetInnerHTML={{ __html: SITE_ICONS[name]?.svg ?? '' }} />;
 }

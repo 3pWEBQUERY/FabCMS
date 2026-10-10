@@ -6,7 +6,7 @@ import { shortId } from '../../shared/text';
 import { useSession } from '../lib/session';
 import { useApi } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
-import { Icon } from './icons';
+import { Icon, SiteIcon } from './icons';
 import { DateInput, DateTimeInput, Field, Popover, Select, SuggestInput, Toggle } from './kit';
 import { ICON_GROUPS, SITE_ICONS, type IconDef } from '../../shared/icon-set';
 import { RichText } from './RichText';
@@ -607,7 +607,7 @@ function IconInput({ id, value, onChange }: { id: string; value: string; onChang
         className="icon-pop"
         trigger={
           <button id={id} type="button" className="btn icon-pick" aria-haspopup="dialog">
-            {current ? <Icon name={value} /> : <span className="icon-pick-empty" aria-hidden="true" />}
+            {current ? <SiteIcon name={value} /> : <span className="icon-pick-empty" aria-hidden="true" />}
             <span>{current ? current.label.split(',')[0] : t('Symbol wählen')}</span>
           </button>
         }
@@ -635,7 +635,7 @@ function IconInput({ id, value, onChange }: { id: string; value: string; onChang
                         setOpen(false);
                       }}
                     >
-                      <Icon name={name} />
+                      <SiteIcon name={name} />
                     </button>
                   ))}
                 </div>

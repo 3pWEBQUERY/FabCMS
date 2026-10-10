@@ -1,3 +1,5 @@
+import { EXTRA_ICONS } from './icons-extra';
+
 /**
  * Nova's icons for website content (Raster, Aufzählung …): same grid as the
  * admin set – 20 × 20, 1.5 px stroke, round caps and joins, 2 px safe area –
@@ -12,7 +14,7 @@ export interface IconDef {
   group: IconGroup;
   svg: string;
 }
-export type IconGroup = 'essen' | 'handwerk' | 'pflege' | 'gesundheit' | 'laden' | 'unterwegs' | 'alltag' | 'natur';
+export type IconGroup = 'essen' | 'handwerk' | 'pflege' | 'gesundheit' | 'laden' | 'unterwegs' | 'sport' | 'kultur' | 'buero' | 'alltag' | 'natur';
 
 export const ICON_GROUPS: { id: IconGroup; label: string }[] = [
   { id: 'essen', label: 'Essen & Trinken' },
@@ -21,6 +23,9 @@ export const ICON_GROUPS: { id: IconGroup; label: string }[] = [
   { id: 'gesundheit', label: 'Gesundheit' },
   { id: 'laden', label: 'Laden & Versand' },
   { id: 'unterwegs', label: 'Unterwegs & Zugang' },
+  { id: 'sport', label: 'Sport & Freizeit' },
+  { id: 'kultur', label: 'Kultur & Bildung' },
+  { id: 'buero', label: 'Büro & Finanzen' },
   { id: 'alltag', label: 'Alltag' },
   { id: 'natur', label: 'Natur & Jahreszeiten' },
 ];
@@ -532,6 +537,7 @@ export const SITE_ICONS: Record<string, IconDef> = {
       c(15.5, 8.75, 1.3),
   },
   moon: { label: 'Mond, Abend, Nacht, Spät', group: 'natur', svg: p('M15.75 12.25A6.75 6.75 0 0 1 7.75 3a6.75 6.75 0 1 0 8 9.25z') },
+  ...EXTRA_ICONS,
 };
 
 export const isSiteIcon = (v: unknown): v is string => typeof v === 'string' && Object.hasOwn(SITE_ICONS, v);
