@@ -47,7 +47,11 @@ export function ElementToolbar({
 }) {
   const siblings = found.parent ? (found.parent.children?.length ?? 1) : null;
   const items = ITEM_CONTAINERS.includes(found.el.kind);
-  const insertLabel = items ? addItemLabel(found.el.kind) : found.el.kind === 'box' || found.el.kind === 'list' ? t('Element hineinlegen') : t('Element danach einfügen');
+  const insertLabel = items
+    ? addItemLabel(found.el.kind)
+    : found.el.kind === 'box' || found.el.kind === 'list' || found.el.kind === 'canvas'
+      ? t('Element hineinlegen')
+      : t('Element danach einfügen');
   // Stays inside the canvas: shifts left when the element sits far right.
   const ref = useRef<HTMLDivElement>(null);
   const [x, setX] = useState(left);

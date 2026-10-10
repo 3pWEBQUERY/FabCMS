@@ -8,7 +8,7 @@
  */
 import type { FieldDef } from './fields';
 import type { CollectionDef } from './types';
-import { designCss, designImages, type CompileOptions, type Design, type StyleProps } from './design';
+import { cssColor, designCss, designImages, type CompileOptions, type Design, type StyleProps } from './design';
 import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
@@ -31,11 +31,13 @@ export const EL_KINDS = [
   'list',
   'component',
   'entrybody',
+  'canvas',
+  'shape',
 ] as const;
 export type ElKind = (typeof EL_KINDS)[number];
 
 /** Kinds that hold other elements. */
-export const CONTAINERS: readonly ElKind[] = ['box', 'list', 'accordion', 'tabs', 'slider', 'marquee'];
+export const CONTAINERS: readonly ElKind[] = ['box', 'list', 'accordion', 'tabs', 'slider', 'marquee', 'canvas'];
 /** Containers made of entries (questions, tabs, slides …): «+» adds one more like the last. */
 export const ITEM_CONTAINERS: readonly ElKind[] = ['accordion', 'tabs', 'slider', 'marquee'];
 export const isContainer = (kind: ElKind) => CONTAINERS.includes(kind);
@@ -94,6 +96,22 @@ export const BOX_TAGS = ['div', 'section', 'article', 'header', 'footer', 'figur
 export const BUTTON_VARIANTS = ['primary', 'secondary', 'link'] as const;
 export const SPACER_SIZES = ['s', 'm', 'l', 'xl'] as const;
 export const TAB_STYLES = ['line', 'pill'] as const;
+
+/** Vector shapes, drawn on a 100×100 grid; line shapes only have a stroke. */
+export const SHAPES = {
+  rect: { label: 'Rechteck', d: 'M0 0H100V100H0Z' },
+  circle: { label: 'Kreis', d: 'M50 0A50 50 0 1 1 49.99 0Z' },
+  triangle: { label: 'Dreieck', d: 'M50 2 98 98H2Z' },
+  star: { label: 'Stern', d: 'M50 2 61.8 35.6 97.6 35.6 68.5 56.9 79.4 90.4 50 69.8 20.6 90.4 31.5 56.9 2.4 35.6 38.2 35.6Z' },
+  blob: { label: 'Klecks', d: 'M53 3C73 4 93 18 96 40C99 62 86 84 64 94C42 104 14 94 5 72C-4 50 6 22 24 11C33 5 43 2 53 3Z' },
+  arch: { label: 'Bogen', d: 'M0 100V50A50 50 0 0 1 100 50V100Z' },
+  ring: { label: 'Ring', d: 'M50 4A46 46 0 1 1 49.99 4Z', line: true },
+  line: { label: 'Linie', d: 'M0 50H100', line: true },
+  arrow: { label: 'Pfeil', d: 'M2 50H96M78 32 96 50 78 68', line: true },
+  wave: { label: 'Welle', d: 'M0 50C12.5 20 25 20 37.5 50S62.5 80 75 50 87.5 20 100 50', line: true },
+} as const satisfies Record<string, { label: string; d: string; line?: boolean }>;
+export type ShapeKind = keyof typeof SHAPES;
+export const SHAPE_KINDS = Object.keys(SHAPES) as ShapeKind[];
 export const MARQUEE_SPEEDS = ['slow', 'medium', 'fast'] as const;
 
 export const EL_DEFS: Record<ElKind, ElDef> = {
@@ -340,6 +358,24 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     ],
     defaults: { speed: 'medium', direction: 'left', pause: true },
   },
+  canvas: {
+    kind: 'canvas',
+    group: 'basic',
+    label: 'Freie Fläche',
+    description: 'Elemente frei platzieren wie in Figma – ziehen, überlappen, drehen. Positionen in Prozent, pro Bildschirmgrösse.',
+    icon: 'canvas',
+    fields: [],
+    defaults: {},
+  },
+  shape: {
+    kind: 'shape',
+    group: 'media',
+    label: 'Form',
+    description: 'Rechteck, Kreis, Stern, Klecks, Welle … in jeder Farbe, als Fläche oder Linie.',
+    icon: 'shape',
+    fields: [],
+    defaults: { shape: 'blob', fill: '$accent', stroke: '', strokeWidth: 0 },
+  },
   entrybody: {
     kind: 'entrybody',
     group: 'cms',
@@ -401,6 +437,8 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
 export function createEl(kind: ElKind, props: Record<string, unknown> = {}, extra: Partial<El> = {}): El {
   if (kind === 'list' && !extra.children) return createList(props, extra);
   const el: El = { id: shortId(8), kind, props: { ...structuredClone(EL_DEFS[kind].defaults), ...props }, ...(isContainer(kind) ? { children: [] } : {}), ...extra };
+  if (kind === 'canvas' && !extra.design) el.design = { desktop: { aspect: '16/9' }, mobile: { aspect: '4/5' } };
+  if (kind === 'shape' && !extra.design) el.design = { desktop: { aspect: '1/1', width: '160px' } };
   // Entry containers start with something to see.
   if ((ITEM_CONTAINERS as readonly string[]).includes(kind) && !extra.children) el.children = STARTERS[kind as keyof typeof STARTERS]();
   return el;
@@ -479,6 +517,16 @@ function createList(props: Record<string, unknown>, extra: Partial<El>): El {
     children: [card],
     ...extra,
   };
+}
+
+/**
+ * Where a new element lands on a free canvas: a little offset from the last
+ * one, in percent of the canvas so it scales with it.
+ */
+export function canvasPlacement(el: El, siblings: number): El {
+  const at = 8 + (siblings % 6) * 6;
+  const width = el.kind === 'shape' ? '18%' : el.kind === 'heading' || el.kind === 'text' ? '40%' : '30%';
+  return { ...el, design: { ...el.design, desktop: { ...el.design?.desktop, left: `${at}%`, top: `${at}%`, width } } };
 }
 
 /** The template every entry of a list is drawn with. */
@@ -727,6 +775,15 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { speed: one(p.speed, MARQUEE_SPEEDS, 'medium'), direction: p.direction === 'right' ? 'right' : 'left', pause: p.pause !== false };
     case 'entrybody':
       return { show: p.show === 'default' ? 'default' : 'blocks' };
+    case 'canvas':
+      return {};
+    case 'shape':
+      return {
+        shape: one(p.shape, SHAPE_KINDS, 'blob'),
+        fill: typeof p.fill === 'string' && cssColor(p.fill) ? p.fill : '',
+        stroke: typeof p.stroke === 'string' && cssColor(p.stroke) ? p.stroke : '',
+        strokeWidth: typeof p.strokeWidth === 'number' ? Math.min(40, Math.max(0, Math.round(p.strokeWidth * 2) / 2)) : 0,
+      };
     case 'component':
       return {
         ref: typeof p.ref === 'string' && UUID.test(p.ref) ? p.ref : null,
@@ -791,6 +848,12 @@ function ownVars(el: El): string {
   const n = (v: unknown, min: number, max: number, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback);
   if (el.kind === 'icon' && typeof el.props.size === 'number') return `--isz:${n(el.props.size, 12, 240, 40)}px`;
   if (el.kind === 'slider') return `--per-d:${Math.round(n(el.props.perView, 1, 4, 1))}`;
+  if (el.kind === 'shape') {
+    const fill = cssColor(el.props.fill);
+    const stroke = cssColor(el.props.stroke);
+    const sw = n(el.props.strokeWidth, 0, 40, 0);
+    return [fill && `--fill:${fill}`, stroke && `--stroke:${stroke}`, sw > 0 && `--sw:${sw}px`].filter(Boolean).join(';');
+  }
   return '';
 }
 
@@ -954,6 +1017,43 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     label: 'Laufband',
     description: 'Ein Band mit Stichworten oder Logos, das endlos durchläuft.',
     els: () => [createEl('marquee')],
+  },
+  {
+    id: 'collage',
+    label: 'Collage',
+    description: 'Bild, Formen und Titel frei übereinander – auf einer freien Fläche.',
+    els: () => [
+      createEl(
+        'canvas',
+        {},
+        {
+          design: { desktop: { aspect: '16/9' }, mobile: { aspect: '3/4' } },
+          children: [
+            createEl(
+              'shape',
+              { shape: 'blob', fill: '$accent/30' },
+              { design: { desktop: { left: '46%', top: '4%', width: '44%', aspect: '1/1' }, mobile: { left: '20%', top: '2%', width: '80%' } } },
+            ),
+            createEl(
+              'image',
+              {},
+              { design: { desktop: { left: '52%', top: '14%', width: '36%', aspect: '4/5', radius: '$s-4', rotate: 3 }, mobile: { left: '30%', top: '8%', width: '62%' } } },
+            ),
+            createEl(
+              'heading',
+              { text: 'Frisch. Lokal. Mit Liebe.', level: '2' },
+              { design: { desktop: { left: '4%', top: '22%', width: '46%', fontSize: '$step-7' }, mobile: { left: '4%', top: '60%', width: '92%', fontSize: '$step-5' } } },
+            ),
+            createEl(
+              'shape',
+              { shape: 'wave', fill: '$accent', strokeWidth: 4 },
+              { design: { desktop: { left: '4%', top: '64%', width: '18%', aspect: '4/1' }, mobile: { left: '4%', top: '84%', width: '36%' } } },
+            ),
+            createEl('button', { label: 'Mehr erfahren' }, { design: { desktop: { left: '4%', top: '76%' }, mobile: { left: '4%', top: '91%' } } }),
+          ],
+        },
+      ),
+    ],
   },
   {
     id: 'cover',

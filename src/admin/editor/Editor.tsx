@@ -26,7 +26,7 @@ import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block, CollectionDef } from '../../shared/types';
-import { blockCss, blockDomId, COLOR_TOKENS, designImages, type DesignState } from '../../shared/design';
+import { blockCss, blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
 import {
   cloneEl,
@@ -42,6 +42,7 @@ import {
   newItem,
   removeEl,
   updateEl,
+  canvasPlacement,
   variantImages,
   variantsCss,
   type El,
@@ -265,8 +266,18 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           ctxAt.current = Date.now();
           break;
         case 'el-move':
-          changeEls(m.block, (els) => moveEl(els, m.el, m.parent ?? null, m.index), m.el);
+          changeEls(m.block, (els) => onCanvasPlace(moveEl(els, m.el, m.parent ?? null, m.index), m.el), m.el);
           break;
+        case 'el-pos': {
+          // Dragged on a free canvas: the place for the screen size being designed.
+          const b = blocksRef.current.find((x) => x.id === m.block);
+          const info = b && findEl(elsOf(b), m.el);
+          if (!info) break;
+          let design: Design = info.el.design ?? {};
+          for (const k of ['left', 'top', 'width'] as const) if (typeof m[k] === 'string') design = setDesign(design, device, k, m[k]);
+          changeElement(m.block, { ...info.el, design });
+          break;
+        }
         case 'edit':
           lastLocal.current[m.id] = Date.now();
           doc.setData((d) => updateBlock(d, m.id, (b) => ({ ...b, props: setIn(b.props, m.path, m.value) })));
@@ -491,6 +502,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
   };
 
+  /** An element arriving on a free canvas without a place of its own gets one. */
+  const onCanvasPlace = (els: El[], elId: string): El[] => {
+    const info = findEl(els, elId);
+    if (!info || info.parent?.kind !== 'canvas' || info.el.design?.desktop?.left !== undefined) return els;
+    return updateEl(els, elId, (x) => canvasPlacement(x, info.index));
+  };
+
   /** Puts an element where the selection says; outside a free layout it brings its own. */
   const placeElement = (el: El, after = false) => {
     if (!selectedBlock || selectedBlock.type !== 'layout') {
@@ -502,13 +520,18 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     changeEls(
       selectedBlock.id,
       (els) =>
-        !info
-          ? insertEl(els, null, els.length, el)
-          : info.el.kind === 'list' && info.el.children?.[0] && !after
-            ? insertEl(els, info.el.children[0].id, info.el.children[0].children?.length ?? 0, el)
-            : (info.el.kind === 'box' || ITEM_CONTAINERS.includes(info.el.kind)) && !after
-              ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
-              : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
+        onCanvasPlace(
+          !info
+            ? insertEl(els, null, els.length, el)
+            : info.el.kind === 'list' && info.el.children?.[0] && !after
+              ? insertEl(els, info.el.children[0].id, info.el.children[0].children?.length ?? 0, el)
+              : info.el.kind === 'canvas' && !after
+                ? insertEl(els, info.el.id, info.el.children?.length ?? 0, canvasPlacement(el, info.el.children?.length ?? 0))
+                : (info.el.kind === 'box' || ITEM_CONTAINERS.includes(info.el.kind)) && !after
+                  ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
+                  : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
+          el.id,
+        ),
       el.id,
     );
     setElPicker(null);
@@ -1200,7 +1223,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           postToCanvas(frame.current, { t: 'select-el', block: bid, el: elId, scroll: true });
                         },
                         onHoverEl: (elId) => postToCanvas(frame.current, { t: 'hover-el', el: elId }),
-                        onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => moveEl(els, elId, parent, index), elId),
+                        onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => onCanvasPlace(moveEl(els, elId, parent, index), elId), elId),
                       }}
                     />
                     <button

@@ -4,7 +4,7 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
-import { applyOverrides, BOX_TAGS, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { applyOverrides, BOX_TAGS, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
@@ -1013,6 +1013,20 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       return renderList(el, ctx, rc, attrs, cls());
     case 'component':
       return renderComponent(el, ctx, rc, attrs, cls());
+    case 'canvas': {
+      const kids = el.children ?? [];
+      const inner = kids.length
+        ? await renderEls(kids, ctx, { ...rc, path: `${path}.children` })
+        : handles
+          ? html`<div class="el-empty">Freie Fläche – füg über «+» Elemente hinzu und zieh sie an ihren Platz.</div>`
+          : html``;
+      return html`<div class="${cls()}"${attrs}${handles ? raw(` data-nova-box="${el.id}"`) : ''}>${inner}</div>`;
+    }
+    case 'shape': {
+      const key = (Object.keys(SHAPES) as (keyof typeof SHAPES)[]).includes(p.shape) ? (p.shape as keyof typeof SHAPES) : 'blob';
+      const shape: { d: string; line?: boolean } = SHAPES[key];
+      return html`<div class="${cls(`sh-${key}${shape.line ? ' sh-line' : ''}`)}"${attrs} aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${shape.d}" vector-effect="non-scaling-stroke"/></svg></div>`;
+    }
     case 'entrybody': {
       if (!ctx.entryView || rc.list || rc.copy)
         return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;

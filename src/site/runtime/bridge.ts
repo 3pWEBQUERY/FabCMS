@@ -89,6 +89,13 @@ shadow.innerHTML = `<style>
 .edrop.on{display:block}
 .edrop-box{position:absolute;display:none;border:2px dashed rgba(43,89,195,.7);border-radius:4px;pointer-events:none}
 .edrop-box.on{display:block}
+.eresize{position:absolute;display:none;width:12px;height:12px;border:2px solid #2b59c3;border-radius:3px;background:#fff;cursor:nwse-resize;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.eresize.on{display:block}
+.guide{position:absolute;display:none;background:#e8408a;pointer-events:none}
+.guide.on{display:block}
+.gv{width:1px}.gh{height:1px}
+.epos{position:absolute;display:none;padding:3px 6px;border-radius:4px;background:#1b1a17;color:#fff;font:600 11px/1 system-ui,sans-serif;pointer-events:none;white-space:nowrap}
+.epos.on{display:block}
 .rich{position:absolute;display:none;gap:1px;padding:3px;background:#1b1a17;border-radius:8px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
 .rich.on{display:flex}
 .rich button{min-width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:#fff;font:600 12px/1 inherit;cursor:pointer;padding:0 6px}
@@ -107,7 +114,7 @@ shadow.innerHTML = `<style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
 <div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
-<div class="edrop"></div><div class="edrop-box"></div>
+<div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
 <div class="rich" role="toolbar" aria-label="Formatierung">
 <span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
 <span class="lnk"><input type="text" inputmode="url" placeholder="/kontakt oder https://…" aria-label="Link-Adresse"><button data-l="ok" class="ok">OK</button><button data-l="rm" data-tip="Link entfernen" aria-label="Link entfernen">✕</button></span>
@@ -118,6 +125,10 @@ const rich = shadow.querySelector('.rich') as HTMLElement;
 const egrip = shadow.querySelector('.egrip') as HTMLElement;
 const edrop = shadow.querySelector('.edrop') as HTMLElement;
 const edropBox = shadow.querySelector('.edrop-box') as HTMLElement;
+const eresize = shadow.querySelector('.eresize') as HTMLElement;
+const guideV = shadow.querySelector('.gv') as HTMLElement;
+const guideH = shadow.querySelector('.gh') as HTMLElement;
+const epos = shadow.querySelector('.epos') as HTMLElement;
 
 // The page's own blocks: directly in <main> on pages, inside the article (posts, products …) or a template on entries.
 const blocksHost = () => main.querySelector<HTMLElement>('[data-nova-blocks]') ?? main;
@@ -187,6 +198,8 @@ d.addEventListener('keydown', (e) => {
       const parent = elEl(selectedEl)?.parentElement?.closest<HTMLElement>('[data-nova-el]');
       selectEl(parent?.dataset.novaEl ?? null, true);
     } else select(null, true);
+  } else if (!field && !(t instanceof HTMLInputElement) && e.key.startsWith('Arrow') && nudge(e)) {
+    e.preventDefault();
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && !field && selected && !(t instanceof HTMLInputElement)) {
     post({ t: 'key', key: 'delete' });
   } else if (!field && !(t instanceof HTMLInputElement) && !(t instanceof HTMLTextAreaElement)) {
@@ -271,8 +284,11 @@ function placeEgrip() {
   const el = selectedEl ? elEl(selectedEl) : null;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
   // Locked blocks keep their layout in the Studio.
+  eresize.classList.toggle('on', Boolean(el && block && lockOf(block) === 'none' && onCanvas(el)));
   if (!el || !block || lockOf(block) !== 'none') return egrip.classList.remove('on');
   const r = el.getBoundingClientRect();
+  eresize.style.top = `${r.bottom + scrollY - 6}px`;
+  eresize.style.left = `${r.right - 6}px`;
   // Beside the element when there is room, so it never covers the first letters.
   egrip.style.top = `${r.top + scrollY + 2}px`;
   egrip.style.left = `${r.left > 30 ? r.left - 26 : r.left + 4}px`;
@@ -340,6 +356,8 @@ egrip.addEventListener('pointerdown', (e) => {
   const el = selectedEl ? elEl(selectedEl) : null;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
   if (!el || !block) return;
+  // On a free canvas the grip moves the element to any place, not through the tree.
+  if (onCanvas(el)) return startFree(e, el, 'move');
   e.preventDefault();
   egrip.setPointerCapture(e.pointerId);
   elDrag = { el, block, target: null };
@@ -373,6 +391,124 @@ function endElDrag() {
 }
 egrip.addEventListener('pointerup', endElDrag);
 egrip.addEventListener('pointercancel', endElDrag);
+
+/* ---------- free canvas: move, resize and nudge elements – in percent of the canvas ---------- */
+
+function onCanvas(el: HTMLElement | null): boolean {
+  return Boolean(el?.parentElement?.matches('[data-nova-kind-el="canvas"]'));
+}
+const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
+let free: { el: HTMLElement; canvas: DOMRect; x: number; y: number; left: number; top: number; width: number; height: number; mode: 'move' | 'size'; moved: boolean } | null = null;
+
+function startFree(e: PointerEvent, el: HTMLElement, mode: 'move' | 'size') {
+  e.preventDefault();
+  const cr = el.parentElement!.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  free = {
+    el,
+    canvas: cr,
+    x: e.clientX,
+    y: e.clientY,
+    left: ((r.left - cr.left) / cr.width) * 100,
+    top: ((r.top - cr.top) / cr.height) * 100,
+    width: (r.width / cr.width) * 100,
+    height: (r.height / cr.height) * 100,
+    mode,
+    moved: false,
+  };
+  addEventListener('pointermove', moveFree);
+  addEventListener('pointerup', endFree, { once: true });
+  addEventListener('pointercancel', endFree, { once: true });
+}
+
+function moveFree(e: PointerEvent) {
+  if (!free) return;
+  const { el, canvas: cr } = free;
+  const dx = ((e.clientX - free.x) / cr.width) * 100;
+  const dy = ((e.clientY - free.y) / cr.height) * 100;
+  if (!free.moved && Math.abs(e.clientX - free.x) + Math.abs(e.clientY - free.y) < 3) return;
+  free.moved = true;
+  el.setAttribute('data-nova-free', '');
+  if (free.mode === 'size') {
+    const w = Math.max(2, free.width + dx);
+    el.style.width = pct(w);
+    epos.textContent = `${pct(w)} breit`;
+  } else {
+    let left = free.left + dx;
+    let top = free.top + dy;
+    // Snaps to the middle and the edges of the canvas; Alt moves freely.
+    const snapX = !e.altKey && Math.abs(left + free.width / 2 - 50) < 1.2;
+    const snapY = !e.altKey && Math.abs(top + free.height / 2 - 50) < 1.6;
+    if (snapX) left = 50 - free.width / 2;
+    if (snapY) top = 50 - free.height / 2;
+    if (!e.altKey && Math.abs(left) < 1) left = 0;
+    if (!e.altKey && Math.abs(top) < 1) top = 0;
+    el.style.left = pct(left);
+    el.style.top = pct(top);
+    Object.assign(guideV.style, { left: `${cr.left + cr.width / 2}px`, top: `${cr.top + scrollY}px`, height: `${cr.height}px` });
+    Object.assign(guideH.style, { top: `${cr.top + cr.height / 2 + scrollY}px`, left: `${cr.left}px`, width: `${cr.width}px` });
+    guideV.classList.toggle('on', snapX);
+    guideH.classList.toggle('on', snapY);
+    epos.textContent = `${pct(left)} · ${pct(top)}`;
+  }
+  const r = el.getBoundingClientRect();
+  Object.assign(epos.style, { top: `${r.bottom + scrollY + 8}px`, left: `${r.left}px` });
+  epos.classList.add('on');
+  placeEgrip();
+}
+
+function endFree() {
+  removeEventListener('pointermove', moveFree);
+  guideV.classList.remove('on');
+  guideH.classList.remove('on');
+  epos.classList.remove('on');
+  if (!free) return;
+  const { el, moved, mode } = free;
+  free = null;
+  if (!moved) return;
+  const block = el.closest<HTMLElement>('[data-nova-block]');
+  post(
+    mode === 'size'
+      ? { t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, width: el.style.width }
+      : { t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, left: el.style.left, top: el.style.top },
+  );
+}
+
+eresize.addEventListener('pointerdown', (e) => {
+  const el = selectedEl ? elEl(selectedEl) : null;
+  if (el && onCanvas(el)) startFree(e, el, 'size');
+});
+
+// The selected element itself can be dragged too – but its text stays for writing.
+d.addEventListener(
+  'pointerdown',
+  (e) => {
+    const t = e.target as HTMLElement;
+    const el = selectedEl ? elEl(selectedEl) : null;
+    if (!el || e.button !== 0 || !onCanvas(el) || !el.contains(t) || t.closest('[data-nova-field]')) return;
+    const block = el.closest<HTMLElement>('[data-nova-block]');
+    if (block && lockOf(block) === 'none') startFree(e, el, 'move');
+  },
+  true,
+);
+
+/** Arrow keys move a canvas element by half a percent, with Shift by five. */
+function nudge(e: KeyboardEvent): boolean {
+  const el = selectedEl ? elEl(selectedEl) : null;
+  if (!el || !onCanvas(el) || e.altKey || e.metaKey || e.ctrlKey) return false;
+  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!dir) return false;
+  const cr = el.parentElement!.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const step = e.shiftKey ? 5 : 0.5;
+  el.style.left = pct(((r.left - cr.left) / cr.width) * 100 + dir[0] * step);
+  el.style.top = pct(((r.top - cr.top) / cr.height) * 100 + dir[1] * step);
+  el.setAttribute('data-nova-free', '');
+  placeEgrip();
+  const block = el.closest<HTMLElement>('[data-nova-block]');
+  post({ t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, left: el.style.left, top: el.style.top });
+  return true;
+}
 
 function select(id: string | null, notify: boolean) {
   if (selected) blockEl(selected)?.removeAttribute('data-nova-selected');
@@ -924,6 +1060,16 @@ addEventListener('message', (e) => {
       // Design changes show at once; the server's HTML for the block follows a moment later.
       const tag = d.querySelector<HTMLStyleElement>(`style[data-nova-design="${CSS.escape(m.id)}"]`);
       if (tag && tag.textContent !== m.css) tag.textContent = m.css;
+      // Positions set by dragging now come from the design.
+      blockEl(m.id)
+        ?.querySelectorAll<HTMLElement>('[data-nova-free]')
+        .forEach((x) => {
+          x.style.removeProperty('left');
+          x.style.removeProperty('top');
+          x.style.removeProperty('width');
+          x.removeAttribute('data-nova-free');
+        });
+      placeEgrip();
       sendRect();
       break;
     }

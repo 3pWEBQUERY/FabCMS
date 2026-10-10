@@ -33,6 +33,7 @@ import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
 import {
   applyOverrides,
+  canvasPlacement,
   cloneEl,
   componentEls,
   createEl,
@@ -1341,6 +1342,24 @@ describe('free layout', () => {
     expect(css).toContain('@media (max-width:40rem){.v-small :is(#e-h,.e-h){font-size:var(--step-2)}}');
     expect(sanitizeEls([{ kind: 'component', props: { variant: 'dark' } }])[0].props.variant).toBe('dark');
     expect(sanitizeEls([{ kind: 'component', props: { variant: '"><x' } }])[0].props.variant).toBeNull();
+  });
+
+  it('draws shapes in safe colours and places new elements on a free canvas', () => {
+    const [shape, line] = sanitizeEls([
+      { id: 's1', kind: 'shape', props: { shape: 'heart', fill: 'url(javascript:x)', stroke: '$ink/40', strokeWidth: 99 } },
+      { id: 's2', kind: 'shape', props: { shape: 'wave', fill: '#e8408a', strokeWidth: 2.3 } },
+    ]);
+    expect(shape.props).toEqual({ shape: 'blob', fill: '', stroke: '$ink/40', strokeWidth: 40 });
+    expect(line.props).toEqual({ shape: 'wave', fill: '#e8408a', stroke: '', strokeWidth: 2.5 });
+    const css = elementsCss([shape, line]);
+    expect(css).toContain(':is(#e-s1,.e-s1){--stroke:color-mix(in srgb,var(--ink) 40%,transparent);--sw:40px}');
+    expect(css).toContain(':is(#e-s2,.e-s2){--fill:#e8408a;--sw:2.5px}');
+    // Each new element lands a little further in, in percent of the canvas.
+    expect(canvasPlacement(createEl('heading'), 0).design!.desktop).toMatchObject({ left: '8%', top: '8%', width: '40%' });
+    expect(canvasPlacement(createEl('shape'), 2).design!.desktop).toMatchObject({ left: '20%', top: '20%', width: '18%', aspect: '1/1' });
+    const canvas = createEl('canvas');
+    expect(canvas.children).toEqual([]);
+    expect(canvas.design).toEqual({ desktop: { aspect: '16/9' }, mobile: { aspect: '4/5' } });
   });
 
   it('starts page templates bound to the fields of their type', () => {

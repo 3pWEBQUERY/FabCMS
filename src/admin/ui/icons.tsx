@@ -725,6 +725,19 @@ const P: Record<string, ReactNode> = {
       <path d="M3.5 3.5l13 13" />
     </>
   ),
+  canvas: (
+    <>
+      <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="1.75" />
+      <circle cx="7.25" cy="8.25" r="2" />
+      <path d="m10.5 13.5 2.25-3.5 2.25 3.5z" />
+    </>
+  ),
+  shape: (
+    <>
+      <circle cx="7.5" cy="7.5" r="4.25" />
+      <path d="M10.5 10.5h6.75v6.75H10.5z" />
+    </>
+  ),
   counter: (
     <>
       <path d="M3.75 7.25 5.75 5.5v9" />

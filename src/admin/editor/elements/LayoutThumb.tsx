@@ -99,6 +99,17 @@ export function LayoutThumb({ id }: { id: string }) {
             <path d="M40 34h20M56 31l4 3-4 3" className="plus" />
           </>
         );
+      case 'collage':
+        return (
+          <>
+            <path d="M58 6c10 0 22 6 24 16s-4 22-14 24-24-2-26-12 6-28 16-28z" className="acc" opacity="0.35" />
+            <rect x="56" y="12" width="22" height="30" rx="3" className="img" transform="rotate(4 67 27)" />
+            {line(8, 20, 40)}
+            {line(8, 27, 32)}
+            <path d="M8 38c3-3 6-3 9 0s6 3 9 0" className="plus" />
+            <rect x="8" y="44" width="16" height="6" rx="3" className="acc" />
+          </>
+        );
       case 'cover':
         return (
           <>

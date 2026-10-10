@@ -2296,6 +2296,44 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(list.data.entries.find((e: { id: string }) => e.id === ref).fields.kind).toBe('component');
   });
 
+  it('places elements freely on a canvas and draws shapes as vectors', async () => {
+    const els = [
+      {
+        id: 'cv',
+        kind: 'canvas',
+        props: {},
+        design: { desktop: { aspect: '16/9' }, mobile: { aspect: '3/4' } },
+        children: [
+          {
+            id: 'sh',
+            kind: 'shape',
+            props: { shape: 'star', fill: '$accent/50' },
+            design: { desktop: { left: '40%', top: '10%', width: '30%', rotate: 12 }, mobile: { left: '5%' } },
+          },
+          { id: 'wv', kind: 'shape', props: { shape: 'wave', fill: '#123456', strokeWidth: 4 } },
+          { id: 'ct', kind: 'heading', props: { text: 'Frei', level: '2' }, design: { desktop: { left: '5%', top: '60%' } } },
+        ],
+      },
+    ];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Fläche', blocks: [{ id: 'lay5', type: 'layout', props: { els } }] } });
+    expect(page.status).toBe(200);
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(html).toContain('<div class="el el-canvas e-cv" id="e-cv">');
+    expect(html).toMatch(
+      /<div class="el el-shape e-sh sh-star" id="e-sh" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M50 2 [^"]+" vector-effect="non-scaling-stroke"\/><\/svg><\/div>/,
+    );
+    expect(html).toContain('class="el el-shape e-wv sh-wave sh-line"');
+    // Places in percent, per screen size; colours as variables.
+    expect(html).toContain(':is(#e-sh,.e-sh){width:30%;top:10%;left:40%;transform:rotate(12deg)}');
+    expect(html).toContain('@media (max-width:40rem){:is(#e-sh,.e-sh){left:5%}}');
+    expect(html).toContain(':is(#e-sh,.e-sh){--fill:color-mix(in srgb,var(--accent) 50%,transparent)}');
+    expect(html).toContain('.el-canvas>.el{position:absolute');
+    // In the editor the canvas takes elements dropped into it.
+    const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay5' });
+    expect(canvas.data.html).toContain('data-nova-kind-el="canvas" data-nova-box="cv"');
+  });
+
   it('draws entry pages from a page template – bound to each entry, paywall kept, the entry editor untouched', async () => {
     const make = async (title: string, extra: Record<string, unknown>) => {
       const r = await req('POST', '/api/entries', { collection: 'posts', data: { title, ...extra } });

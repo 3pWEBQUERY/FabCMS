@@ -171,6 +171,13 @@ h1.el-heading{font-size:var(--step-7)}h2.el-heading{font-size:var(--step-5)}h3.e
 .el-divider{width:100%;border:0;border-top:1px solid var(--line);margin:0}
 .el-list{display:grid;gap:var(--s-5)}
 .el-component{display:flex;flex-direction:column;gap:var(--s-4)}
+.el-canvas{position:relative;display:block;min-height:12rem}
+.el-canvas>.el{position:absolute;margin:0}
+.el-canvas>.el-empty{position:absolute;inset:1rem}
+.el-shape{display:block;width:160px;aspect-ratio:1}
+.el-shape svg{display:block;width:100%;height:100%;overflow:visible}
+.el-shape path{fill:var(--fill,var(--accent));stroke:var(--stroke,none);stroke-width:var(--sw,0)}
+.el-shape.sh-line path{fill:none;stroke:var(--fill,var(--accent));stroke-width:var(--sw,3px);stroke-linecap:round;stroke-linejoin:round}
 .wrap.lay .el-entrybody .wrap{width:100%}
 .el-entrybody>.b:first-child{padding-top:0}
 /* interactive elements: counter, accordion, tabs, slider, marquee (runtime in site/runtime/widgets.ts) */

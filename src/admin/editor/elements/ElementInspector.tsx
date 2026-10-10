@@ -11,6 +11,7 @@ import { DesignPanel } from '../design/DesignPanel';
 import { MotionPanel } from '../design/MotionPanel';
 import { ComponentInspector, VariantBar, type VariantControls } from './Components';
 import { ItemsEditor } from './ItemsEditor';
+import { ShapeControls } from './ShapeControls';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -53,7 +54,7 @@ export function ElementInspector({
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
-  const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
+  const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && el.kind !== 'shape' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
   return (
     <div className="stack">
       <p className="small muted">{tl(def.description)}</p>
@@ -70,6 +71,7 @@ export function ElementInspector({
       {tab === 'content' && el.kind === 'component' && <ComponentInspector el={el} onChange={onChange} onOpen={onOpenComponent} onDetach={onDetach} locked={locked} />}
       {tab === 'content' && el.kind !== 'component' && (
         <div className="stack">
+          {el.kind === 'shape' && <ShapeControls el={el} onChange={onChange} locked={locked} />}
           {source && BINDABLE[el.kind] && (
             <div className="bind-box">
               <span className="section-title">{t('Inhalt aus «{name}»', { name: tl(source.name) })}</span>

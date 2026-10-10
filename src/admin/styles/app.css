@@ -5808,6 +5808,49 @@ body.scrubbing.v * {
   }
 }
 
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.shape-grid button {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 550 0.66rem / 1.1 var(--font);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.shape-grid button[aria-checked='true'] {
+  border-color: var(--sel);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--sel);
+}
+.shape-grid svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.shape-grid path {
+  fill: var(--sel);
+}
+.shape-grid path.line {
+  fill: none;
+  stroke: var(--sel);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.shape-grid span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- entries of accordion, tabs, slider, marquee ---------- */
 
 .items-ed {

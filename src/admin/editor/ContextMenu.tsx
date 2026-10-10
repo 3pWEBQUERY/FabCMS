@@ -115,6 +115,8 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
         [t('Design einfügen'), KEYS.pasteStyle],
         [t('Wert in Zehnerschritten ändern'), '⇧ ↑ / ⇧ ↓'],
         [t('Wert ziehen: alle Seiten'), `⇧ + ${t('Ziehen')}`],
+        [t('Auf der freien Fläche verschieben'), '← ↑ → ↓ / ⇧'],
+        [t('Ohne Einrasten ziehen'), `${isMac ? '⌥' : 'Alt'} + ${t('Ziehen')}`],
       ],
     ],
   ];
