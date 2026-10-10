@@ -5,7 +5,8 @@ import { sql, json } from './db';
 import { env } from './env';
 import { sha256, token } from './lib/crypto';
 import { clientIp, forbidden, HttpError } from './lib/http';
-import { can, type Capability } from '../shared/roles';
+import { can, modesOf, type Capability } from '../shared/roles';
+import { ensureRoles } from './roles';
 import type { Mode, Role, User } from '../shared/types';
 import { getSettings } from './settings';
 
@@ -60,7 +61,8 @@ export const loadUser: MiddlewareHandler<AppEnv> = async (c, next) => {
       c.set('pending2fa', { sessionId: row.session_id, userId: row.id });
     } else if (row && row.role !== 'member') {
       const settings = await getSettings();
-      const allowed = (settings.roleModes[row.role as Role] ?? ['studio']) as Mode[];
+      await ensureRoles();
+      const allowed = modesOf(row.role as Role, settings.roleModes);
       const { password_hash: _p, totp_secret: _t, pending_2fa: _pd, last_seen_at, ...user } = row;
       c.set('user', { ...(user as unknown as User), session_id: row.session_id, allowed_modes: allowed });
       // Touch at most every 10 minutes and extend the sliding expiry.

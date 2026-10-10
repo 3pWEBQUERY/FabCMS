@@ -1324,4 +1324,38 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: '«{label}»: «{value}» non è un colore come #1a2b3c.',
     en: '“{label}”: “{value}” is not a colour like #1a2b3c.',
   },
+  /* ---------- own roles ---------- */
+  'Die Rolle braucht einen Namen.': { fr: 'Le rôle a besoin d’un nom.', it: 'Il ruolo ha bisogno di un nome.', en: 'The role needs a name.' },
+  'Die direkte Datenbank-Abfrage bleibt der Inhaberin oder dem Inhaber vorbehalten.': {
+    fr: 'L’interrogation directe de la base de données reste réservée au propriétaire.',
+    it: 'L’interrogazione diretta del database resta riservata al titolare.',
+    en: 'Querying the database directly stays reserved for the owner.',
+  },
+  'Du kannst nur Rechte vergeben, die du selbst hast.': {
+    fr: 'Vous ne pouvez accorder que les droits que vous avez vous-même.',
+    it: 'Puoi assegnare solo i diritti che hai tu stesso.',
+    en: 'You can only grant rights you have yourself.',
+  },
+  'Unbekanntes Recht.': { fr: 'Droit inconnu.', it: 'Diritto sconosciuto.', en: 'Unknown right.' },
+  'Diese Rolle gibt es nicht.': { fr: 'Ce rôle n’existe pas.', it: 'Questo ruolo non esiste.', en: 'This role doesn’t exist.' },
+  'Diese Rolle hat noch Personen – wähle, welche Rolle sie stattdessen bekommen.': {
+    fr: 'Des personnes ont encore ce rôle – choisissez lequel elles reçoivent à la place.',
+    it: 'Ci sono ancora persone con questo ruolo – scegli quale ruolo ricevono al suo posto.',
+    en: 'People still have this role – choose which role they get instead.',
+  },
+  'Inhaber werden bestehende Personen – füge sie zuerst mit einer anderen Rolle hinzu.': {
+    fr: 'Seules des personnes existantes deviennent propriétaires – ajoutez-les d’abord avec un autre rôle.',
+    it: 'Diventano titolari solo persone esistenti – aggiungile prima con un altro ruolo.',
+    en: 'Only existing people become owners – add them with another role first.',
+  },
+  'Deine eigene Rolle ändert jemand anderes.': {
+    fr: 'Votre propre rôle doit être modifié par quelqu’un d’autre.',
+    it: 'Il tuo ruolo lo cambia qualcun altro.',
+    en: 'Someone else changes your own role.',
+  },
+  'Admins ernennen nur Inhaber und Admins.': {
+    fr: 'Seuls les propriétaires et les admins nomment des admins.',
+    it: 'Solo titolari e admin nominano admin.',
+    en: 'Only owners and admins appoint admins.',
+  },
 };

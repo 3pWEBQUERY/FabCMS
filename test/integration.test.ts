@@ -2509,6 +2509,51 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [plan, live]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
+    expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
+    expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);
+    const shop = (await req('POST', '/api/roles', { name: 'Shop-Team', help: 'Bestellungen', caps: ['orders.view', 'orders.manage', 'media.upload'] })).data.role;
+    expect(shop).toMatchObject({ id: 'shop-team', werkbank: false });
+    const sara = await req('POST', '/api/users', { email: 'sara@example.ch', name: 'Sara', role: 'shop-team' });
+    expect(sara.status).toBe(200);
+    const saraC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'sara@example.ch', password: sara.data.temporaryPassword }, { cookies: saraC });
+    const me = await req('GET', '/api/session', undefined, { cookies: saraC });
+    expect(me.data.caps.sort()).toEqual(['media.upload', 'orders.manage', 'orders.view']);
+    expect(me.data.user).toMatchObject({ role: 'shop-team', role_name: 'Shop-Team', allowed_modes: ['studio'] });
+    expect((await req('GET', '/api/orders', undefined, { cookies: saraC })).status).toBe(200);
+    expect((await req('GET', '/api/entries?collection=pages', undefined, { cookies: saraC })).status).toBe(403);
+    // A right ticked in the matrix counts from the next request on.
+    await req('PUT', `/api/roles/${shop.id}`, { caps: [...shop.caps, 'content.edit.own'], werkbank: true });
+    expect((await req('GET', '/api/entries?collection=posts', undefined, { cookies: saraC })).status).toBe(200);
+    expect((await req('GET', '/api/session', undefined, { cookies: saraC })).data.user.allowed_modes).toEqual(['studio', 'werkbank']);
+
+    // Someone who manages the team but not the shop can't give out shop rights, nor reach people with more rights.
+    const hr = (await req('POST', '/api/roles', { name: 'Personal', caps: ['users.manage'] })).data.role;
+    const ute = await req('POST', '/api/users', { email: 'ute@example.ch', name: 'Ute', role: hr.id });
+    const uteC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'ute@example.ch', password: ute.data.temporaryPassword }, { cookies: uteC });
+    expect((await req('POST', '/api/roles', { name: 'Hintertür', caps: ['content.edit'] }, { cookies: uteC })).status).toBe(403);
+    expect((await req('PUT', `/api/roles/${hr.id}`, { caps: ['users.manage', 'settings.manage'] }, { cookies: uteC })).status).toBe(403);
+    expect((await req('POST', '/api/users', { email: 'neu@example.ch', name: 'Neu', role: 'editor' }, { cookies: uteC })).status).toBe(403);
+    expect((await req('POST', '/api/users', { email: 'neu@example.ch', name: 'Neu', role: 'shop-team' }, { cookies: uteC })).status).toBe(403);
+    expect((await req('PATCH', `/api/users/${sara.data.user.id}`, { role: 'author' }, { cookies: uteC })).status).toBe(403);
+    expect((await req('POST', `/api/users/${sara.data.user.id}/reset`, {}, { cookies: uteC })).status).toBe(403);
+    expect((await req('PATCH', `/api/users/${ute.data.user.id}`, { role: 'admin' }, { cookies: uteC })).status).toBe(400);
+    expect((await req('POST', '/api/users', { email: 'nora@example.ch', name: 'Nora', role: 'member' }, { cookies: uteC })).status).toBe(200);
+    expect((await req('POST', '/api/users', { email: 'x@example.ch', name: 'X', role: 'gibts-nicht' })).status).toBe(400);
+
+    const list = await req('GET', '/api/roles');
+    expect(list.data.roles.find((r: { id: string }) => r.id === 'shop-team')).toMatchObject({ builtin: false, users: 1, editable: true });
+    expect(list.data.capabilities.length).toBeGreaterThan(20);
+    // Deleting needs a new home for the people who have it.
+    expect((await req('DELETE', `/api/roles/${shop.id}`)).status).toBe(400);
+    expect((await req('DELETE', `/api/roles/${shop.id}?moveTo=author`)).data.moved).toBe(1);
+    expect((await req('GET', '/api/session', undefined, { cookies: saraC })).data.user.role).toBe('author');
+    expect((await req('DELETE', `/api/roles/${hr.id}?moveTo=member`)).status).toBe(200);
+    expect((await req('GET', '/api/session', undefined, { cookies: uteC })).data.user).toBeNull();
+  });
+
   it('edits one cell of the data view and round-trips a type through CSV', async () => {
     const p = (await req('POST', '/api/entries', { collection: 'products', data: { title: 'Bergkäse', price: 1200, sku: 'BK-1', stock: 5 } })).data.entry;
     // One cell: text in, checked like the editor, the fresh row back.

@@ -5,7 +5,9 @@ import type { Design } from './design';
 import type { Motion } from './motion';
 
 export type Mode = 'studio' | 'werkbank';
-export type Role = 'owner' | 'admin' | 'editor' | 'author' | 'member';
+export type BuiltinRole = 'owner' | 'admin' | 'editor' | 'author' | 'member';
+/** A built-in role or the id of a role defined in the Werkbank. */
+export type Role = BuiltinRole | (string & {});
 export type EntryStatus = 'draft' | 'review' | 'scheduled' | 'published';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
@@ -271,7 +273,7 @@ export interface SiteSettings {
   };
   blog: { comments: boolean; perPage: number };
   menu: { showAllergens: boolean; dailyTitle: string };
-  roleModes: Record<Role, Mode[]>;
+  roleModes: Record<BuiltinRole, Mode[]>;
   webhooks: Webhook[];
   hooks: ServerHook[];
   /** CSS of installed extensions, by extension id. */

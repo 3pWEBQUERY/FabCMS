@@ -13,7 +13,8 @@ import { getSettings } from './settings';
 import { parseLang, requestLang, saveTranslation, translationView } from './translations';
 import { applyData, toData } from '../shared/collab-doc';
 import { entryPath } from '../shared/paths';
-import { can } from '../shared/roles';
+import { can, modesOf } from '../shared/roles';
+import { ensureRoles } from './roles';
 import type { Lang } from '../shared/i18n';
 import type { Entry, EntryData, Role } from '../shared/types';
 
@@ -284,7 +285,8 @@ async function personFor(req: IncomingMessage): Promise<Person | null> {
   if (!row || row.pending_2fa || row.role === 'member') return null;
   const role = row.role as Role;
   const settings = await getSettings();
-  const werkbank = row.mode === 'werkbank' && (settings.roleModes[role] ?? []).includes('werkbank');
+  await ensureRoles();
+  const werkbank = row.mode === 'werkbank' && modesOf(role, settings.roleModes).includes('werkbank');
   return { id: row.id as string, name: row.name as string, role, canCode: can(role, 'dev') && werkbank, studioOnly: !werkbank || !can(role, 'dev') };
 }
 

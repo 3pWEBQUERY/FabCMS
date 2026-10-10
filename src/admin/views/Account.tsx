@@ -8,7 +8,7 @@ import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/brow
 import { relativeTime } from '../../shared/text';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
-import { ROLE_LABELS } from '../../shared/roles';
+import { ROLE_LABELS, isBuiltinRole } from '../../shared/roles';
 
 export function Account() {
   const { user, updateUser } = useSession();
@@ -39,7 +39,7 @@ export function Account() {
 
   return (
     <div className="page narrow">
-      <PageHead title={t('Mein Konto')} sub={`${user.email} · ${tl(ROLE_LABELS[user.role].name)}`} />
+      <PageHead title={t('Mein Konto')} sub={`${user.email} · ${isBuiltinRole(user.role) ? tl(ROLE_LABELS[user.role].name) : (user.role_name ?? user.role)}`} />
       <div className="stack loose">
         <section className="card form-section">
           <Field label={t('Name')} htmlFor="a-name">

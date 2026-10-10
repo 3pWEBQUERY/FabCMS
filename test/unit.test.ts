@@ -17,6 +17,7 @@ import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { orderSlots, foodTotals } from '../src/shared/ordering';
 import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv, sniffDelimiter } from '../src/server/importer/parse';
 import { cellText, matchColumns, parseCell, tableFields } from '../src/shared/datatable';
+import { CAP_INFO, DEFAULT_ROLE_MODES, can, capsOf, modesOf, setCustomRoles } from '../src/shared/roles';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { generateSdk } from '../src/server/sdk';
@@ -1473,5 +1474,22 @@ describe('data view cells', () => {
       ['id', 'title'],
       ['1', 'Brot; frisch'],
     ]);
+  });
+});
+
+describe('own roles', () => {
+  it('checks built-in and own roles the same way, and lists every right once', () => {
+    setCustomRoles([{ id: 'shop-team', name: 'Shop-Team', help: '', caps: ['orders.view'], werkbank: true }]);
+    expect(can('shop-team', 'orders.view')).toBe(true);
+    expect(can('shop-team', 'content.edit')).toBe(false);
+    expect(can('editor', 'content.edit')).toBe(true);
+    expect(capsOf('gibts-nicht')).toEqual([]);
+    expect(modesOf('shop-team', DEFAULT_ROLE_MODES)).toEqual(['studio', 'werkbank']);
+    expect(modesOf('author', DEFAULT_ROLE_MODES)).toEqual(['studio']);
+    setCustomRoles([]);
+    expect(can('shop-team', 'orders.view')).toBe(false);
+    const caps = CAP_INFO.map((c) => c.cap);
+    expect(new Set(caps).size).toBe(caps.length);
+    expect(caps.sort()).toEqual([...capsOf('owner')].sort());
   });
 });

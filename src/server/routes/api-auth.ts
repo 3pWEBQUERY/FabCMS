@@ -20,7 +20,8 @@ import { rateLimit } from '../lib/ratelimit';
 import { getSettings } from '../settings';
 import { sendMail } from '../mail';
 import { env } from '../env';
-import { ROLE_CAPS, type Capability } from '../../shared/roles';
+import { capsOf, customRole } from '../../shared/roles';
+import { assertAssignable, assertOutranks } from '../roles';
 import type { Role, User } from '../../shared/types';
 
 const PUBLIC_USER = sql`id, email, name, role, mode, ui_lang, totp_enabled, sessions_count, seen_hints, created_at, last_login_at`;
@@ -46,8 +47,8 @@ export function authApi(app: Hono<AppEnv>) {
       });
     const { session_id: _sid, ...publicFields } = user;
     return c.json({
-      user: publicFields,
-      caps: ROLE_CAPS[user.role] as Capability[],
+      user: { ...publicFields, role_name: customRole(user.role)?.name ?? null },
+      caps: capsOf(user.role),
       setupRequired: false,
       site: { name: settings.name, setupDone: settings.setupDone },
     });
@@ -240,9 +241,11 @@ export function authApi(app: Hono<AppEnv>) {
   app.post('/api/users', async (c) => {
     const me = requireCap(c, 'users.manage');
     const body = z
-      .object({ email: z.string().trim().email('Bitte gib eine gültige E-Mail-Adresse an.'), name: z.string().trim().min(1).max(80), role: z.enum(['admin', 'editor', 'author', 'member']) })
+      .object({ email: z.string().trim().email('Bitte gib eine gültige E-Mail-Adresse an.'), name: z.string().trim().min(1).max(80), role: z.string().min(1).max(40) })
       .parse(await c.req.json());
+    if (body.role === 'owner') throw badRequest('Inhaber werden bestehende Personen – füge sie zuerst mit einer anderen Rolle hinzu.');
     if (body.role === 'admin' && me.role !== 'owner') throw forbidden('Nur die Inhaberin oder der Inhaber kann Admins hinzufügen.');
+    await assertAssignable(me.role, body.role);
     const [exists] = await sql`select 1 from users where lower(email) = lower(${body.email})`;
     if (exists) throw badRequest('Diese E-Mail-Adresse hat schon ein Konto.');
     const temp = token(9);
@@ -264,10 +267,14 @@ export function authApi(app: Hono<AppEnv>) {
   app.patch('/api/users/:id', async (c) => {
     const me = requireCap(c, 'users.manage');
     const id = c.req.param('id');
-    const body = z.object({ role: z.enum(['owner', 'admin', 'editor', 'author', 'member']).optional(), name: z.string().trim().min(1).max(80).optional() }).parse(await c.req.json());
+    const body = z.object({ role: z.string().min(1).max(40).optional(), name: z.string().trim().min(1).max(80).optional() }).parse(await c.req.json());
     const [target] = await sql`select role from users where id = ${id}`;
     if (!target) throw notFound();
-    if (body.role) {
+    if (body.role && body.role !== target.role) {
+      if (id === me.id && me.role !== 'owner') throw badRequest('Deine eigene Rolle ändert jemand anderes.');
+      assertOutranks(me.role, target.role as Role);
+      if (body.role === 'admin' && !['owner', 'admin'].includes(me.role)) throw forbidden('Admins ernennen nur Inhaber und Admins.');
+      await assertAssignable(me.role, body.role);
       if ((target.role === 'owner' || body.role === 'owner') && me.role !== 'owner') throw forbidden('Nur die Inhaberin oder der Inhaber kann diese Rolle ändern.');
       if (target.role === 'owner' && body.role !== 'owner') {
         const [{ n }] = await sql`select count(*)::int as n from users where role = 'owner'`;
@@ -286,7 +293,7 @@ export function authApi(app: Hono<AppEnv>) {
     const id = c.req.param('id');
     const [target] = await sql`select role from users where id = ${id}`;
     if (!target) throw notFound();
-    if (target.role === 'owner' && requireUser(c).role !== 'owner') throw forbidden();
+    assertOutranks(requireUser(c).role, target.role as Role);
     const temp = token(9);
     await sql`update users set password_hash = ${await hashPassword(temp)}, totp_enabled = false, totp_secret = null where id = ${id}`;
     await sql`delete from sessions where user_id = ${id}`;
@@ -300,7 +307,7 @@ export function authApi(app: Hono<AppEnv>) {
     if (id === me.id) throw badRequest('Du kannst dein eigenes Konto nicht löschen.');
     const [target] = await sql`select role from users where id = ${id}`;
     if (!target) throw notFound();
-    if (target.role === 'owner' && me.role !== 'owner') throw forbidden();
+    assertOutranks(me.role, target.role as Role);
     await sql`delete from users where id = ${id}`;
     await audit(c, 'user.delete', 'user', id);
     return c.json({ ok: true });

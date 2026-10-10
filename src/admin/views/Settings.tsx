@@ -16,6 +16,7 @@ import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
+import { RightsMatrix, roleName, useRoles } from './Roles';
 import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
@@ -1280,9 +1281,12 @@ function TeamSettings() {
   const { user: me, pro } = useSession();
   const toast = useToast();
   const { data, reload } = useApi<{ users: User[] }>('/api/users');
+  const { data: roles, reload: reloadRoles } = useRoles();
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const [invite, setInvite] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: 'editor' as Role });
+  const roleList = roles?.roles ?? ROLE_ORDER.map((id) => ({ id, builtin: true, name: ROLE_LABELS[id].name, help: ROLE_LABELS[id].help, caps: [], werkbank: false, users: 0 }));
+  const roleOf = (id: string) => roleList.find((r) => r.id === id);
   const [secret, setSecret] = useState<{ email: string; password: string; mailed: boolean } | null>(null);
   const create = async () => {
     try {
@@ -1299,6 +1303,7 @@ function TeamSettings() {
     try {
       await api.patch(`/api/users/${u.id}`, { role });
       void reload();
+      void reloadRoles();
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
@@ -1337,7 +1342,7 @@ function TeamSettings() {
                     value={u.role}
                     disabled={u.id === me.id}
                     onChange={(v) => void changeRole(u, v as Role)}
-                    options={ROLE_ORDER.map((r) => ({ value: r, label: tl(ROLE_LABELS[r].name) }))}
+                    options={roleList.map((r) => ({ value: r.id, label: roleName(r) }))}
                   />
                   {u.id !== me.id && (
                     <Menu
@@ -1389,29 +1394,39 @@ function TeamSettings() {
             </ul>
           )}
         </section>
-        <section className="card card-pad stack tight">
-          <h2 className="section-title">{t('Was die Rollen dürfen')}</h2>
-          <dl className="small" style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.35rem 1rem' }}>
-            {ROLE_ORDER.map((r) => (
-              <div key={r} style={{ display: 'contents' }}>
-                <dt style={{ fontWeight: 600 }}>{tl(ROLE_LABELS[r].name)}</dt>
-                <dd style={{ margin: 0 }} className="muted">
-                  {tl(ROLE_LABELS[r].help)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        {pro && roles ? (
+          <RightsMatrix
+            data={roles}
+            onChange={() => {
+              void reloadRoles();
+              void reload();
+            }}
+          />
+        ) : (
+          <section className="card card-pad stack tight">
+            <h2 className="section-title">{t('Was die Rollen dürfen')}</h2>
+            <dl className="small" style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.35rem 1rem' }}>
+              {roleList.map((r) => (
+                <div key={r.id} style={{ display: 'contents' }}>
+                  <dt style={{ fontWeight: 600 }}>{roleName(r)}</dt>
+                  <dd style={{ margin: 0 }} className="muted">
+                    {r.builtin ? tl(r.help) : r.help || t('Eigene Rolle')}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
         {pro && draft && (
           <section className="card">
             <div className="card-head">
               <h2>{t('Welche Rolle sieht welchen Modus')}</h2>
             </div>
             <div className="form-section">
-              {(['editor', 'author'] as Role[]).map((r) => (
+              {(['editor', 'author'] as const).map((r) => (
                 <Toggle
                   key={r}
-                  checked={draft.roleModes[r].includes('werkbank')}
+                  checked={draft.roleModes[r as 'editor' | 'author'].includes('werkbank')}
                   onChange={(v) => set('roleModes', { ...draft.roleModes, [r]: v ? ['studio', 'werkbank'] : ['studio'] })}
                   label={t('{role} darf die Werkbank nutzen', { role: tl(ROLE_LABELS[r].name) })}
                   help={r === 'editor' ? t('Aus: Redaktion arbeitet nur im Studio und sieht keinen Code.') : undefined}
@@ -1432,13 +1447,22 @@ function TeamSettings() {
               <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </Field>
           </div>
-          <Field label={t('Rolle')} help={tl(ROLE_LABELS[form.role].help)}>
-            <Segmented
-              label={t('Rolle')}
-              value={form.role}
-              onChange={(r) => setForm({ ...form, role: r })}
-              options={(['admin', 'editor', 'author'] as Role[]).map((r) => ({ value: r, label: tl(ROLE_LABELS[r].name) }))}
-            />
+          <Field label={t('Rolle')} help={roleOf(form.role) && (roleOf(form.role)!.builtin ? tl(roleOf(form.role)!.help) : roleOf(form.role)!.help)}>
+            {roleList.some((r) => !r.builtin) ? (
+              <Select
+                label={t('Rolle')}
+                value={form.role}
+                onChange={(r) => setForm({ ...form, role: r })}
+                options={roleList.filter((r) => r.id !== 'owner' && r.id !== 'member').map((r) => ({ value: r.id, label: roleName(r) }))}
+              />
+            ) : (
+              <Segmented
+                label={t('Rolle')}
+                value={form.role}
+                onChange={(r) => setForm({ ...form, role: r })}
+                options={(['admin', 'editor', 'author'] as const).map((r) => ({ value: r, label: tl(ROLE_LABELS[r].name) }))}
+              />
+            )}
           </Field>
         </div>
         <div className="dialog-actions">

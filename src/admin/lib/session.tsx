@@ -6,6 +6,8 @@ import type { Mode, SiteSettings, User } from '../../shared/types';
 
 export interface SessionUser extends User {
   allowed_modes: Mode[];
+  /** Name of a role made in the Werkbank (built-in roles have their label in the interface). */
+  role_name?: string | null;
 }
 
 export interface ThemeInfo {
