@@ -2,7 +2,7 @@ import { statsConfig, type StatsConfig } from '../shared/stats-services';
 import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
-import { themeCss, resolveTheme } from './themes';
+import { mobileNav, themeCss, resolveTheme } from './themes';
 import { renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, type PublicEntry } from './data';
@@ -20,7 +20,7 @@ import {
   type PageMeta,
 } from './seo';
 import { entryPath } from '../shared/paths';
-import { formatPrice, readingTime } from '../shared/text';
+import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { DAYS } from '../shared/hours';
 import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
@@ -124,7 +124,17 @@ async function header(ctx: RenderContext): Promise<Html> {
   const cta = s.header.cta?.href ? html`<a class="btn" href="${s.header.cta.href}">${s.header.cta.label}</a>` : '';
   const account = accountLink(ctx);
   const editAttr = ctx.edit ? raw(' data-nova-global="header"') : '';
-  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}><div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${navList(ctx, s.nav)}${account}${cart}${cta}${langSwitch(ctx)}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${navList(
+  // Room the full menu needs, roughly: long menus switch to the menu button on wider screens already.
+  const words = [...s.nav.map((i) => i.label), account.value ? stripHtml(account.value) : '', cart ? t(ctx, 'Warenkorb') : '', s.header.cta?.href ? s.header.cta.label : ''].filter(Boolean);
+  const langs = ctx.alternates.length > 1 ? ctx.alternates.length : 0;
+  const ownRow = ctx.theme.header !== 'bar';
+  const need = words.join('').length * 10.5 + (words.length + langs) * 32 + langs * 24 + (cta ? 48 : 0) + (ownRow ? 0 : logo ? 200 : s.name.length * 17) + 80;
+  const rem = Math.ceil(need / 16);
+  const early =
+    rem > 52
+      ? html`<style>${raw(`@media (min-width:52.01rem) and (max-width:${rem}rem){${mobileNav('.site-header ')}${(ctx.theme.collapsedHeader ?? '').replace(/(^|\})\.hdr/g, '$1.site-header .hdr')}}`)}</style>`
+      : '';
+  return html`<header class="${cx('site-header', s.header.sticky && 'sticky')}"${editAttr}>${early}<div class="wrap hdr">${brand}<nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${navList(ctx, s.nav)}${account}${cart}${cta}${langSwitch(ctx)}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${navList(
     ctx,
     s.nav,
   )}${account}${cart ? html`<p>${cart}</p>` : ''}${cta}${langSwitch(ctx)}</nav></details></div></header>`;

@@ -44,6 +44,8 @@ export interface Theme {
   numbered: boolean;
   /** Titles or eyebrows in the italic display cut – loaded early with the others. */
   italicDisplay?: boolean;
+  /** Extra header rules while the menu is collapsed into its button (selectors start with .hdr). */
+  collapsedHeader?: string;
 }
 
 /* ---------- Fluid modular scale (1.2 on phones → 1.25 on wide screens) ---------- */
@@ -62,6 +64,30 @@ for (let i = -2; i <= 8; i++) {
   steps.push(`--step-${i < 0 ? `n${-i}` : i}:${fluid(min, max)}`);
 }
 const SCALE = steps.join(';');
+
+/**
+ * The header on small screens: menu button and panel instead of the row of
+ * links. Long menus switch earlier – the header adds the same rules with its
+ * own breakpoint (site/render.ts).
+ */
+export const mobileNav = (p: string) =>
+  [
+    `${p}.menu-toggle{display:block}`,
+    `${p}.menu-toggle>summary{list-style:none;cursor:pointer;min-height:2.75rem;display:flex;align-items:center;gap:.5rem;font-weight:600}`,
+    `${p}.menu-toggle>summary::-webkit-details-marker{display:none}`,
+    `${p}.menu-toggle>summary .bars{width:1.25rem;height:.75rem;border-block:2px solid currentColor;position:relative}`,
+    `${p}.menu-toggle>summary .bars::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid currentColor;transform:translateY(-50%)}`,
+    `${p}.menu-toggle[open]>summary .bars{border-color:transparent}`,
+    `${p}.menu-toggle[open]>summary .bars::after{border-top-color:currentColor}`,
+    `${p}.nav.desktop{display:none}`,
+    `${p}.menu-panel{position:absolute;left:0;right:0;top:100%;background:var(--bg);border-bottom:1px solid var(--line);padding:1rem var(--gutter) 2rem}`,
+    `${p}.menu-panel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}`,
+    `${p}.menu-panel a{display:block;padding:.85rem 0;border-bottom:1px solid var(--line);text-decoration:none;font-family:var(--font-display);font-size:var(--step-2)}`,
+    `${p}.menu-panel .sub a{font-size:var(--step-0);padding-left:1rem;font-family:var(--font-body)}`,
+    `${p}.menu-panel .btn{margin-top:1.5rem}`,
+    `${p}.menu-panel .lang-switch{margin-top:1.5rem;font-size:var(--step-0)}`,
+    `${p}.menu-panel .lang-switch a{border:0;padding:.5rem .6rem;font-family:var(--font-body);font-size:var(--step-0)}`,
+  ].join('');
 
 /* ---------- Base CSS shared by all themes ---------- */
 
@@ -193,23 +219,7 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .lang-switch a[aria-current]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
 .cart-count{min-width:1.4rem;height:1.4rem;padding:0 .35rem;border-radius:1rem;background:var(--accent);color:var(--accent-ink);font-size:.75rem;display:inline-grid;place-items:center}
 .menu-toggle{display:none}
-@media (max-width:52rem){
- .menu-toggle{display:block}
- .menu-toggle>summary{list-style:none;cursor:pointer;min-height:2.75rem;display:flex;align-items:center;gap:.5rem;font-weight:600}
- .menu-toggle>summary::-webkit-details-marker{display:none}
- .menu-toggle>summary .bars{width:1.25rem;height:.75rem;border-block:2px solid currentColor;position:relative}
- .menu-toggle>summary .bars::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid currentColor;transform:translateY(-50%)}
- .menu-toggle[open]>summary .bars{border-color:transparent}
- .menu-toggle[open]>summary .bars::after{border-top-color:currentColor}
- .nav.desktop{display:none}
- .menu-panel{position:absolute;left:0;right:0;top:100%;background:var(--bg);border-bottom:1px solid var(--line);padding:1rem var(--gutter) 2rem}
- .menu-panel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
- .menu-panel a{display:block;padding:.85rem 0;border-bottom:1px solid var(--line);text-decoration:none;font-family:var(--font-display);font-size:var(--step-2)}
- .menu-panel .sub a{font-size:var(--step-0);padding-left:1rem;font-family:var(--font-body)}
- .menu-panel .btn{margin-top:1.5rem}
- .menu-panel .lang-switch{margin-top:1.5rem;font-size:var(--step-0)}
- .menu-panel .lang-switch a{border:0;padding:.5rem .6rem;font-family:var(--font-body);font-size:var(--step-0)}
-}
+@media (max-width:52rem){${mobileNav('')}}
 @media (min-width:52.01rem){.menu-toggle{display:none}}
 
 /* breadcrumbs */
@@ -1120,6 +1130,7 @@ export const THEMES: Theme[] = [
     description: 'Zeitungskopf, Initialen, ruhige Lesetypografie. Für Blogs, Magazine, Praxen und Vereine.',
     pair: 'feuilleton',
     header: 'masthead',
+    collapsedHeader: '.hdr{flex-direction:row;justify-content:space-between;padding:.75rem 0}.hdr .brand{font-size:var(--step-3)}',
     ornament: '⁂',
     numbered: false,
     css: FEUILLETON_CSS,
