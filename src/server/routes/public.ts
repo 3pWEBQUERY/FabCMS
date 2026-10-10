@@ -23,6 +23,7 @@ import { recordGoal, recordHit } from '../analytics';
 import { emit } from '../events';
 import { recordMissing } from '../notfound';
 import { recordPopup, type PopupEvent } from '../popups';
+import { cartOrdered, dropCart, forgetCart, rememberCart, restoreCart } from '../cart-reminders';
 import { sendMail } from '../mail';
 import { cachedOgImage } from '../og';
 import {
@@ -738,6 +739,11 @@ export function publicRoutes(app: Hono<AppEnv>) {
               <div class="fld"><label for="k-name">${t(ctx, 'Vor- und Nachname')}</label><input id="k-name" name="name" required autocomplete="name" /></div>
               <div class="fld"><label for="k-mail">${t(ctx, 'E-Mail')}</label><input id="k-mail" name="email" type="email" required autocomplete="email" /></div>
             </div>
+            ${s.shop.cartReminders.enabled
+              ? html`<div class="fld check" data-cart-remind hidden>
+                  <input type="checkbox" id="k-remind" /><label for="k-remind">${t(ctx, 'Falls ich nicht fertig bestelle, darf mich {site} einmal per E-Mail an meinen Warenkorb erinnern.', { site: s.name })}</label>
+                </div>`
+              : ''}
             <div class="two-col">
               <div class="fld">
                 <label for="k-tel">${t(ctx, 'Telefon')} <span class="muted">${t(ctx, '(optional)')}</span></label
@@ -819,6 +825,30 @@ export function publicRoutes(app: Hono<AppEnv>) {
     return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Kasse'), body }));
   });
 
+  /* a cart left at the checkout: remembered only when the box there is ticked */
+  app.post('/_nova/cart-remind', async (c) => {
+    if (!rateLimit(`cart-remind:${clientIp(c)}`, 10, 60 * 60_000).ok) return c.body(null, 204);
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown; name?: unknown; on?: unknown } | null;
+    const email = typeof body?.email === 'string' ? body.email : '';
+    if (body?.on === true) await rememberCart({ email, name: typeof body.name === 'string' ? body.name : '', items: await cartItems(c) });
+    else if (email) await forgetCart(email);
+    return c.body(null, 204);
+  });
+
+  app.get('/warenkorb/zurueck/:token', async (c) => {
+    const items = await restoreCart(c.req.param('token'));
+    if (!items) return c.redirect('/warenkorb', 303);
+    await saveCart(c, items);
+    return c.redirect('/kasse', 303);
+  });
+
+  app.get('/warenkorb/vergessen/:token', async (c) => {
+    await dropCart(c.req.param('token'));
+    const ctx = await ctxFor(c);
+    const body = html`<div class="wrap" style="padding-block:var(--sp-s);max-width:40rem"><h1 style="font-size:var(--step-4)">${t(ctx, 'Erledigt')}</h1><p>${t(ctx, 'Wir haben deinen Warenkorb und deine E-Mail-Adresse gelöscht. Es kommt keine Erinnerung mehr.')}</p><p><a class="btn" href="/">${t(ctx, 'Zur Startseite')}</a></p></div>`;
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Erledigt'), body }));
+  });
+
   app.post('/kasse', async (c) => {
     const body = await c.req.parseBody();
     const items = await cartItems(c);
@@ -841,6 +871,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     try {
       const order = await createOrder(items, input);
       await saveCart(c, []);
+      await cartOrdered(input.email).catch(() => {});
       if (input.payment === 'stripe') return c.redirect(await stripeCheckoutUrl(order.id), 303);
       void sendOrderMails(order.id);
       return c.redirect(`/bestellung/${order.token}`, 303);

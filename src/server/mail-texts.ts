@@ -46,6 +46,7 @@ export function sampleMail(kind: MailKind, s: SiteSettings): Mail {
       donation: T('Danke für deine Spende an {name}', { name: s.name }),
       newsletter: T('Bitte bestätige: Newsletter von {name}', { name: s.name }),
       member: T('Bitte bestätige dein Konto bei {name}', { name: s.name }),
+      cart: T('{site}: Dein Warenkorb wartet', { site: s.name }),
     }[kind.id] ?? s.name;
   return {
     to: '',

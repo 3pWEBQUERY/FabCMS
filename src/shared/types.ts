@@ -216,6 +216,8 @@ export interface SiteSettings {
     notifyEmail: string;
     /** Customers rate products with stars and a text; shown after approval. */
     reviews: boolean;
+    /** One mail for a cart left at the checkout – only for those who tick the box there. */
+    cartReminders: { enabled: boolean; hours: number };
   };
   booking: {
     /** «table» asks for the number of people; «appointment» for a service and optionally a person. */

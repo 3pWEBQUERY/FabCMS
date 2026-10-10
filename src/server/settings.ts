@@ -75,6 +75,7 @@ export function defaultSettings(): SiteSettings {
       orderPrefix: 'B-',
       notifyEmail: '',
       reviews: false,
+      cartReminders: { enabled: false, hours: 4 },
     },
     booking: {
       mode: 'table',

@@ -101,6 +101,12 @@ export function datenschutz(s: SiteSettings): string {
             'Online-Zahlungen wickelt Stripe Payments Europe Ltd. (Irland) ab. Zahlungsdaten wie Kartennummern erhalten wir nicht. Es gilt die Datenschutzerklärung von Stripe: <a href="https://stripe.com/ch/privacy">stripe.com/ch/privacy</a>.',
           )
         : '',
+      s.shop.cartReminders?.enabled
+        ? p(
+            'Setzt du an der Kasse das Häkchen für eine Erinnerung, speichern wir deine E-Mail-Adresse, deinen Namen und den Warenkorb, um dich einmal per E-Mail daran zu erinnern, falls du die Bestellung nicht abschliesst. Über den Link in dieser E-Mail löschst du die Angaben sofort; sonst löschen wir sie nach 14 Tagen.',
+          )
+        : '',
+      s.shop.reviews ? p('Bei Bewertungen speichern wir Name, Sterne, Text und E-Mail-Adresse. Veröffentlicht werden nur Name, Sterne und Text.') : '',
     );
   if (m.has('blog') && s.blog.comments)
     parts.push(h('Kommentare'), p('Bei Kommentaren speichern wir Name, Kommentartext und – falls angegeben – die E-Mail-Adresse. Die E-Mail-Adresse wird nicht veröffentlicht.'));

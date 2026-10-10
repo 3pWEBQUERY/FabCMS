@@ -59,6 +59,14 @@ export const MAIL_KINDS: MailKind[] = [
     module: 'events',
     sample: ['Konzert im Park', 'Ticket A7K2-9QX4'],
   },
+  {
+    id: 'cart',
+    label: 'Erinnerung an den Warenkorb',
+    when: 'Einige Stunden nach einer nicht abgeschlossenen Bestellung – nur wenn die Person darum gebeten hat.',
+    vars: ['name'],
+    module: 'shop',
+    sample: ['1 × Bergkäse 250 g  12.50', 'Bestellung abschliessen: https://…'],
+  },
   { id: 'donation', label: 'Spendenbestätigung', when: 'Nach jeder Spende.', vars: ['name', 'amount'], module: 'donations', sample: ['Betrag: 50.–'] },
   {
     id: 'newsletter',

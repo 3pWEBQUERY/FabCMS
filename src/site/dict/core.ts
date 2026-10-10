@@ -251,4 +251,27 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Le recensioni vengono verificate prima della pubblicazione.',
     en: 'Reviews are checked before they are published.',
   },
+  Hallo: { fr: 'Bonjour', it: 'Ciao', en: 'Hello' },
+  'Du hast etwas in den Warenkorb gelegt, aber die Bestellung nicht abgeschlossen. Es liegt noch für dich bereit:': {
+    fr: 'Tu as mis quelque chose dans ton panier sans terminer la commande. Tout t’attend encore :',
+    it: 'Hai messo qualcosa nel carrello senza completare l’ordine. È ancora lì per te:',
+    en: 'You put something in your cart but didn’t finish the order. It’s still waiting for you:',
+  },
+  'Bestellung abschliessen: {url}': { fr: 'Terminer la commande : {url}', it: 'Completa l’ordine: {url}', en: 'Complete your order: {url}' },
+  'Diese Erinnerung kommt nur einmal. Möchtest du, dass wir deinen Warenkorb sofort vergessen, genügt ein Klick: {url}': {
+    fr: 'Ce rappel n’est envoyé qu’une fois. Pour que nous oubliions ton panier tout de suite, un clic suffit : {url}',
+    it: 'Questo promemoria arriva una sola volta. Se vuoi che dimentichiamo subito il tuo carrello, basta un clic: {url}',
+    en: 'This reminder comes only once. If you’d like us to forget your cart right away, one click is enough: {url}',
+  },
+  '{site}: Dein Warenkorb wartet': { fr: '{site} : ton panier t’attend', it: '{site}: il tuo carrello ti aspetta', en: '{site}: your cart is waiting' },
+  'Falls ich nicht fertig bestelle, darf mich {site} einmal per E-Mail an meinen Warenkorb erinnern.': {
+    fr: 'Si je ne termine pas ma commande, {site} peut me rappeler mon panier une fois par e-mail.',
+    it: 'Se non completo l’ordine, {site} può ricordarmi il carrello una volta via e-mail.',
+    en: 'If I don’t finish ordering, {site} may remind me of my cart once by email.',
+  },
+  'Wir haben deinen Warenkorb und deine E-Mail-Adresse gelöscht. Es kommt keine Erinnerung mehr.': {
+    fr: 'Nous avons supprimé ton panier et ton adresse e-mail. Tu ne recevras plus de rappel.',
+    it: 'Abbiamo cancellato il tuo carrello e il tuo indirizzo e-mail. Non riceverai altri promemoria.',
+    en: 'We’ve deleted your cart and your email address. No more reminders will come.',
+  },
 };

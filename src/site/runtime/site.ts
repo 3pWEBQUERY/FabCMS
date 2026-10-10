@@ -857,6 +857,32 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
   }
 }
 
+/* ---------- checkout: «remind me» sends the address as soon as it is ticked (the box needs JavaScript) ---------- */
+const remind = d.querySelector<HTMLElement>('[data-cart-remind]');
+if (remind) {
+  remind.hidden = false;
+  const box = remind.querySelector('input') as HTMLInputElement;
+  const mail = d.getElementById('k-mail') as HTMLInputElement | null;
+  const name = d.getElementById('k-name') as HTMLInputElement | null;
+  const send = (body: { email: string; name?: string; on: boolean }) =>
+    fetch('/_nova/cart-remind', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).catch(() => {});
+  let kept = '';
+  const sync = () => {
+    const email = mail?.value.trim() ?? '';
+    const on = box.checked && email !== '' && Boolean(mail?.checkValidity());
+    const key = on ? `${email}\n${name?.value.trim() ?? ''}` : '';
+    if (key === kept) return;
+    // A corrected or withdrawn address is forgotten before the new one is kept.
+    const before = kept.split('\n')[0];
+    kept = key;
+    if (before && (!on || before !== email)) void send({ email: before, on: false });
+    if (on) void send({ email, name: name?.value.trim() ?? '', on: true });
+  };
+  box.addEventListener('change', sync);
+  mail?.addEventListener('change', sync);
+  name?.addEventListener('change', sync);
+}
+
 /* ---------- buttons: busy state while a normal form submits, no double orders ---------- */
 d.addEventListener('submit', (e) => {
   if (e.defaultPrevented) return; // async forms above handle themselves

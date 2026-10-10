@@ -21,6 +21,7 @@ import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
 import { syncBuiltinCollections, invalidateCollections, unpublishDue } from '../src/server/content';
 import { deliveriesIdle, settleNow } from '../src/server/events';
+import { cleanCartReminders, sendCartReminders } from '../src/server/cart-reminders';
 import { createHmac } from 'node:crypto';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
@@ -2920,6 +2921,77 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/laden/bergtee', undefined, anon)).data).not.toContain('id="bewertungen"');
     await sql`delete from orders where number = 'T-REV'`;
     await req('DELETE', `/api/entries/${p.id}`);
+  });
+
+  it('reminds once about a cart left at the checkout, only when asked, and forgets on request', async () => {
+    const [kaffee] = await sql`select id from entries where collection = 'products' and status = 'published' and published_data ->> 'title' like 'Kaffee%'`;
+    const cart = new Map<string, string>();
+    await req('POST', '/warenkorb/add', undefined, { cookies: cart, form: { product: kaffee.id, qty: '1' } });
+    const ask = (body: Record<string, unknown>, cookies = cart) => req('POST', '/_nova/cart-remind', body, { cookies });
+    const rows = (email: string) => sql`select * from cart_reminders where lower(email) = ${email}`;
+    // Off: no box at the checkout and nothing kept.
+    expect((await req('GET', '/kasse', undefined, { cookies: cart })).data).not.toContain('data-cart-remind');
+    await ask({ email: 'mia@example.ch', on: true });
+    expect(await rows('mia@example.ch')).toHaveLength(0);
+
+    await req('PATCH', '/api/settings', { shop: { cartReminders: { enabled: true, hours: 2 } } });
+    expect((await req('GET', '/kasse', undefined, { cookies: cart })).data).toContain('data-cart-remind');
+    await ask({ email: 'Mia@Example.ch', name: 'Mia Meier', on: true });
+    await ask({ email: 'mia@example.ch', name: 'Mia Meier', on: true });
+    const [kept] = await rows('mia@example.ch');
+    expect(kept).toMatchObject({ name: 'Mia Meier', items: [{ p: kaffee.id, v: null, q: 1 }] });
+    expect(await rows('mia@example.ch')).toHaveLength(1);
+    // An empty cart or an unticked box keeps nothing.
+    await ask({ email: 'leer@example.ch', on: true }, new Map());
+    expect(await rows('leer@example.ch')).toHaveLength(0);
+    await ask({ email: 'weg@example.ch', on: true });
+    await ask({ email: 'weg@example.ch', on: false });
+    expect(await rows('weg@example.ch')).toHaveLength(0);
+
+    // Not before its time; then exactly once.
+    expect(await sendCartReminders()).toBe(0);
+    await sql`update cart_reminders set remind_at = now() - interval '1 minute'`;
+    const before = outbox.length;
+    expect(await sendCartReminders()).toBe(1);
+    expect(await sendCartReminders()).toBe(0);
+    const mail = outbox.slice(before).find((m) => m.to === 'mia@example.ch')!;
+    expect(mail.subject).toContain('Dein Warenkorb wartet');
+    expect(mail.text).toMatch(/^Hallo Mia\n/);
+    expect(mail.text).toContain(`/warenkorb/zurueck/${kept.token}`);
+    expect(mail.html).toContain('Kaffee');
+    // The same address can't be made to receive another one this week.
+    await ask({ email: 'mia@example.ch', on: true });
+    expect(await rows('mia@example.ch')).toHaveLength(1);
+
+    // Back from the mail on another device: the cart is there.
+    const elsewhere = new Map<string, string>();
+    const back = await req('GET', `/warenkorb/zurueck/${kept.token}`, undefined, { cookies: elsewhere });
+    expect(back.headers.get('location')).toBe('/kasse');
+    expect((await req('GET', '/warenkorb', undefined, { cookies: elsewhere })).data).toContain('Kaffee');
+    expect((await req('GET', '/warenkorb/zurueck/erfunden', undefined, { cookies: new Map() })).headers.get('location')).toBe('/warenkorb');
+
+    // Ordering stops a waiting reminder and counts for a sent one.
+    await ask({ email: 'ben@example.ch', name: 'Ben', on: true });
+    await req('POST', '/kasse', undefined, {
+      cookies: cart,
+      form: { name: 'Ben', email: 'ben@example.ch', street: 'Weg 2', zip: '8000', city: 'Zürich', country: 'CH', shippingMethod: 'ship', payment: 'invoice', acceptTerms: '1' },
+    });
+    expect((await rows('ben@example.ch'))[0].ordered_at).not.toBeNull();
+    await sql`update cart_reminders set remind_at = now() - interval '1 minute'`;
+    expect(await sendCartReminders()).toBe(0);
+    expect((await req('GET', '/api/shop/cart-reminders')).data).toMatchObject({ sent: 1, ordered: 0, waiting: 0 });
+
+    // «Forget me» removes it at once; after 14 days the rest is wiped anyway.
+    expect((await req('GET', `/warenkorb/vergessen/${kept.token}`, undefined, { cookies: new Map() })).status).toBe(200);
+    expect(await rows('mia@example.ch')).toHaveLength(0);
+    await sql`update cart_reminders set created_at = now() - interval '15 days'`;
+    await cleanCartReminders();
+    expect(await sql`select 1 from cart_reminders where email <> '' or items <> '[]'`).toHaveLength(0);
+    // The privacy policy says what happens.
+    const legal = await req('POST', '/api/legal/generate', {});
+    const ds = legal.data.pages.find((x: { slug: string }) => x.slug === 'datenschutz');
+    expect(JSON.stringify((await req('GET', `/api/entries/${ds.id}`)).data.entry.data)).toContain('einmal per E-Mail daran zu erinnern');
+    await req('PATCH', '/api/settings', { shop: { cartReminders: { enabled: false, hours: 4 } } });
   });
 
   it('asks people of a role for a second factor before anything else', async () => {

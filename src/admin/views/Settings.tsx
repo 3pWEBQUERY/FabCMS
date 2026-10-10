@@ -1220,6 +1220,32 @@ function ShopSettings() {
             help={t('Wer mit derselben E-Mail-Adresse das Produkt gekauft hat, bekommt den Hinweis «Kauf bestätigt».')}
           />
         </Section>
+        <Section
+          title={t('Vergessene Warenkörbe')}
+          sub={t('Wer an der Kasse das Häkchen setzt, bekommt eine einzige Erinnerung, falls die Bestellung nicht abgeschlossen wird. Ohne Häkchen wird nichts gespeichert.')}
+        >
+          <Toggle
+            checked={sh.cartReminders.enabled}
+            onChange={(v) => setS({ cartReminders: { ...sh.cartReminders, enabled: v } })}
+            label={t('Erinnerung an der Kasse anbieten')}
+            help={t('Name, Adresse und Warenkorb werden nach 14 Tagen gelöscht. Den Text der Mail passt du unter «E-Mails» an.')}
+          />
+          {sh.cartReminders.enabled && (
+            <Field label={t('Erinnern nach Stunden')} htmlFor="cr-hours">
+              <input
+                id="cr-hours"
+                className="input num"
+                type="number"
+                min={1}
+                max={72}
+                style={{ maxWidth: '7rem' }}
+                value={sh.cartReminders.hours}
+                onChange={(e) => setS({ cartReminders: { ...sh.cartReminders, hours: Math.min(72, Math.max(1, Number(e.target.value) || 4)) } })}
+              />
+            </Field>
+          )}
+          <CartReminderCounts />
+        </Section>
         <Section title={t('Bestellungen')}>
           <div className="grid-2">
             <Field label={t('Benachrichtigung an')} help={t('Leer = Kontakt-E-Mail')}>
@@ -1234,6 +1260,13 @@ function ShopSettings() {
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
   );
+}
+
+/** What the reminders did in the last 90 days. */
+function CartReminderCounts() {
+  const { data } = useApi<{ sent: number; ordered: number; waiting: number }>('/api/shop/cart-reminders');
+  if (!data || (!data.sent && !data.waiting)) return null;
+  return <p className="small muted">{t('Letzte 90 Tage: {sent} Erinnerungen verschickt, danach {ordered} Bestellungen, {waiting} warten noch.', data)}</p>;
 }
 
 /* ---------- modules ---------- */

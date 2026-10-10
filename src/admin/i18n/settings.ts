@@ -1576,4 +1576,28 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Chi ha acquistato il prodotto con lo stesso indirizzo e-mail riceve la dicitura «Acquisto verificato».',
     en: 'Anyone who bought the product with the same email address gets the «Verified purchase» label.',
   },
+  'Vergessene Warenkörbe': { fr: 'Paniers oubliés', it: 'Carrelli dimenticati', en: 'Abandoned carts' },
+  'Wer an der Kasse das Häkchen setzt, bekommt eine einzige Erinnerung, falls die Bestellung nicht abgeschlossen wird. Ohne Häkchen wird nichts gespeichert.': {
+    fr: 'Qui coche la case à la caisse reçoit un seul rappel si la commande n’est pas terminée. Sans coche, rien n’est enregistré.',
+    it: 'Chi spunta la casella alla cassa riceve un unico promemoria se l’ordine non viene completato. Senza spunta non si salva nulla.',
+    en: 'Anyone who ticks the box at checkout gets a single reminder if the order isn’t finished. Without the tick, nothing is stored.',
+  },
+  'Erinnerung an der Kasse anbieten': { fr: 'Proposer un rappel à la caisse', it: 'Offri un promemoria alla cassa', en: 'Offer a reminder at checkout' },
+  'Name, Adresse und Warenkorb werden nach 14 Tagen gelöscht. Den Text der Mail passt du unter «E-Mails» an.': {
+    fr: 'Le nom, l’adresse et le panier sont supprimés après 14 jours. Tu adaptes le texte du mail sous «E-mails».',
+    it: 'Nome, indirizzo e carrello vengono cancellati dopo 14 giorni. Il testo della mail si adatta in «E-mail».',
+    en: 'Name, address and cart are deleted after 14 days. Adjust the mail text under «Emails».',
+  },
+  'Erinnern nach Stunden': { fr: 'Rappeler après heures', it: 'Ricorda dopo ore', en: 'Remind after hours' },
+  'Letzte 90 Tage: {sent} Erinnerungen verschickt, danach {ordered} Bestellungen, {waiting} warten noch.': {
+    fr: '90 derniers jours : {sent} rappels envoyés, ensuite {ordered} commandes, {waiting} en attente.',
+    it: 'Ultimi 90 giorni: {sent} promemoria inviati, poi {ordered} ordini, {waiting} ancora in attesa.',
+    en: 'Last 90 days: {sent} reminders sent, {ordered} orders afterwards, {waiting} still waiting.',
+  },
+  'Erinnerung an den Warenkorb': { fr: 'Rappel du panier', it: 'Promemoria del carrello', en: 'Cart reminder' },
+  'Einige Stunden nach einer nicht abgeschlossenen Bestellung – nur wenn die Person darum gebeten hat.': {
+    fr: 'Quelques heures après une commande non terminée – seulement si la personne l’a demandé.',
+    it: 'Alcune ore dopo un ordine non completato – solo se la persona lo ha chiesto.',
+    en: 'A few hours after an unfinished order – only if the person asked for it.',
+  },
 };
