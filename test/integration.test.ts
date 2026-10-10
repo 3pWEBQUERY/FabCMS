@@ -1347,7 +1347,8 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       return (await r.json()).media[0];
     };
     const media = await upload('Rundgang.mp4');
-    expect(media.video.status).toBe('queued');
+    // The queue may already have picked it up by the time the answer is read.
+    expect(['queued', 'working']).toContain(media.video.status);
     await videoQueueIdle();
 
     const [row] = await sql`select video from media where id = ${media.id}`;
@@ -1392,7 +1393,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await sql`select video from media where id = ${small.id}`)[0].video).toMatchObject({ status: 'ready', renditions: [] });
 
     // Again on request; deleting removes the web versions too.
-    expect((await req('POST', `/api/media/${media.id}/video`)).data.media.video.status).toBe('queued');
+    expect(['queued', 'working']).toContain((await req('POST', `/api/media/${media.id}/video`)).data.media.video.status);
     await videoQueueIdle();
     expect((await sql`select video ->> 'status' as s from media where id = ${media.id}`)[0].s).toBe('ready');
     expect((await req('DELETE', `/api/media/${media.id}`)).status).toBe(200);
