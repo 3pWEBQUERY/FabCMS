@@ -28,7 +28,8 @@ import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
-import { blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
+import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
+import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1086,5 +1087,26 @@ describe('visual design', () => {
     expect(isEmptyDesign(setDesign(setDesign(d, 'tablet', 'pt', undefined), 'desktop', 'pt', undefined))).toBe(false);
     expect(blockDomId({ id: 'abc', style: { anchor: 'preise' } })).toBe('preise');
     expect(blockDomId({ id: 'abc', style: { anchor: 'x"><script>' } })).toBe('b-abc');
+  });
+});
+
+describe('animations', () => {
+  it('turns only known effects and plain numbers into attributes and variables', () => {
+    expect(motionAttrs({ enter: 'up', stagger: 90, repeat: true, scroll: 'parallax', scrollStrength: 400, itemHover: 'lift' })).toBe(
+      'data-anim="up" data-anim-items="90" data-anim-repeat data-scroll="parallax" data-scroll-k="100" data-hover="lift"',
+    );
+    expect(motionAttrs({ enter: 'up" onload="alert(1)' as never, scroll: 'x' as never, itemHover: '<b>' as never })).toBe('');
+    expect(motionVars({ enter: 'fade', duration: 99999, delay: -5, easing: 'spring' })).toBe(
+      '--anim-dur:4000ms;--anim-delay:0ms;--anim-dist:32px;--anim-ease:cubic-bezier(.34,1.56,.64,1)',
+    );
+    expect(motionVars({ scroll: 'fade' })).toBe('');
+    expect(blockCss('#b-x', { motion: { enter: 'zoom' } })).toBe('#b-x{--anim-dur:700ms;--anim-delay:0ms;--anim-dist:32px;--anim-ease:cubic-bezier(.2,.7,.2,1)}');
+  });
+
+  it('only hides content while JavaScript runs and motion is welcome, with a fallback', () => {
+    const hide = MOTION_CSS.split('\n').find((l) => l.includes('opacity:0'))!;
+    expect(MOTION_CSS).toContain('@media (prefers-reduced-motion:no-preference){\nbody:not([data-nova-edit]) [data-anim]:not(.anim-ready)');
+    expect(hide).toContain('body:not([data-nova-edit])');
+    expect(MOTION_CSS).toContain('animation:nova-show 0s 4s forwards');
   });
 });

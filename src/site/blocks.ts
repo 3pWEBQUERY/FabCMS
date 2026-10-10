@@ -2,7 +2,8 @@ import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
-import { blockDomId, designCss, designImages } from '../shared/design';
+import { blockCss, blockDomId, designImages } from '../shared/design';
+import { motionAttrs } from '../shared/motion';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
@@ -877,10 +878,12 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
   const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
   // The editor swaps this style element while someone drags a value, before the server answers.
-  const look = designCss(`#${id}`, s.design, { image: (m) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined });
+  const look = blockCss(`#${id}`, s, { image: (m) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined });
+  const motion = motionAttrs(s.motion);
+  if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';
   const editAttrs = ctx.edit ? raw(` data-nova-block="${esc(b.id)}" data-nova-type="${esc(b.type)}" data-nova-lock="${esc(b.lock ?? 'none')}"`) : '';
-  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}>${css}${design}${inner}</section>`;
+  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}${raw(motion ? ` ${motion}` : '')}>${css}${design}${inner}</section>`;
 }
 
 /** Werkbank CSS per block: `&` refers to the block; plain rules are prefixed with it. */

@@ -1,3 +1,4 @@
+import { setupMotion } from './motion';
 /**
  * The only JavaScript public pages load (a few KB). Everything works without
  * it; this file only enhances: analytics beacon, two-click embeds, lightbox,
@@ -233,6 +234,10 @@ if (statsEl) {
     else if (stored === null && !gpc) show();
   }
 }
+
+/* ---------- animations (shared/motion.ts); the editor plays them through its bridge ---------- */
+
+if (!d.body.hasAttribute('data-nova-edit')) setupMotion(d);
 
 /* ---------- before/after ---------- */
 // Pointer and touch move the line directly; the (invisible) range input is there for keyboard and screen readers.

@@ -11,6 +11,8 @@
  * A colour token can carry an opacity: `$accent/40`.
  */
 
+import { motionVars, type Motion } from './motion';
+
 export type DesignBp = 'desktop' | 'tablet' | 'mobile';
 export type DesignState = 'normal' | 'hover';
 export const DESIGN_BPS: DesignBp[] = ['desktop', 'tablet', 'mobile'];
@@ -382,6 +384,12 @@ export function designCss(selector: string, d: Design | undefined, opts: Compile
 
 /** The id a block's section carries in the page – its anchor if that is a valid id. */
 export const blockDomId = (b: { id: string; style?: { anchor?: string } }) => (b.style?.anchor && /^[A-Za-z][\w-]{0,63}$/.test(b.style.anchor) ? b.style.anchor : `b-${b.id}`);
+
+/** Everything a block's style element holds: its design and the timing of its animation. */
+export function blockCss(selector: string, style: { design?: Design; motion?: Motion } | undefined, opts: CompileOptions & { forceHover?: string } = {}): string {
+  const vars = motionVars(style?.motion);
+  return designCss(selector, style?.design, opts) + (vars ? `${selector}{${vars}}` : '');
+}
 
 /** Media ids used as background images (so the renderer can look them up first). */
 export function designImages(d: Design | undefined): string[] {

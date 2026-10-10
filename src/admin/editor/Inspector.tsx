@@ -8,6 +8,8 @@ import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import { isEmptyDesign, type DesignBp, type DesignState } from '../../shared/design';
 import { DesignPanel } from './design/DesignPanel';
+import { MotionPanel } from './design/MotionPanel';
+import { hasMotion } from '../../shared/motion';
 
 const tones = (): { value: NonNullable<BlockStyle['tone']>; label: string }[] => [
   { value: 'default', label: t('Normal') },
@@ -30,6 +32,7 @@ export function Inspector({
   onDevice,
   designState,
   onDesignState,
+  onPlay,
 }: {
   block: Block;
   onChange: (b: Block) => void;
@@ -37,10 +40,11 @@ export function Inspector({
   onDevice: (d: DesignBp) => void;
   designState: DesignState;
   onDesignState: (s: DesignState) => void;
+  onPlay: () => void;
 }) {
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
-  const [tab, setTab] = useState<'content' | 'style' | 'code'>('content');
+  const [tab, setTab] = useState<'content' | 'style' | 'motion' | 'code'>('content');
   const lock = pro ? 'none' : (block.lock ?? 'none');
   useEffect(() => {
     if (!pro && tab === 'code') setTab('content');
@@ -69,6 +73,7 @@ export function Inspector({
         options={[
           { value: 'content', label: t('Inhalt') },
           ...(lock === 'none' ? [{ value: 'style' as const, label: t('Design') }] : []),
+          ...(lock === 'none' ? [{ value: 'motion' as const, label: t('Animation') }] : []),
           ...(pro ? [{ value: 'code' as const, label: t('Code') }] : []),
         ]}
       />
@@ -165,6 +170,7 @@ export function Inspector({
           }
         />
       )}
+      {tab === 'motion' && <MotionPanel motion={style.motion} onChange={(m) => setStyle({ motion: hasMotion(m) ? m : undefined })} onPlay={onPlay} target="block" />}
       {tab === 'code' && <CodeTab block={block} onChange={onChange} />}
     </div>
   );

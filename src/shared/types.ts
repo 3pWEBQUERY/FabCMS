@@ -2,6 +2,7 @@ import type { ServerHook } from './hooks';
 import type { SiteTranslation } from './i18n';
 import type { FieldDef, LinkValue } from './fields';
 import type { Design } from './design';
+import type { Motion } from './motion';
 
 export type Mode = 'studio' | 'werkbank';
 export type Role = 'owner' | 'admin' | 'editor' | 'author' | 'member';
@@ -21,6 +22,8 @@ export interface BlockStyle {
   css?: string;
   /** Visual design per breakpoint and hover (shared/design.ts). */
   design?: Design;
+  /** Entrance, scroll and hover animations (shared/motion.ts). */
+  motion?: Motion;
 }
 
 /**

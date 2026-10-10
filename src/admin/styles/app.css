@@ -5141,3 +5141,385 @@ body.scrubbing.v * {
 .dp-ctl > .dp-inh-grad {
   flex-basis: 100%;
 }
+
+/* ---------- animation panel: effect tiles that show what they do ---------- */
+
+.mp-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.mp-tile {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.35rem 0.35rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 550 0.6875rem / 1.2 var(--font);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    background-color 0.12s;
+}
+.mp-tile:hover {
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+.mp-tile.on {
+  border-color: var(--sel);
+  background: var(--sel-soft);
+  color: var(--ink);
+}
+.mp-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 2.6rem;
+  border-radius: 6px;
+  background: var(--sunken);
+  overflow: hidden;
+  perspective: 120px;
+}
+.mp-card {
+  grid-area: 1 / 1;
+  width: 1.5rem;
+  height: 1.1rem;
+  border-radius: 3px;
+  background: var(--sel);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--sel) 35%, transparent);
+}
+.mp-card.ghost {
+  width: 2.4rem;
+  height: 0.35rem;
+  margin-top: 1.6rem;
+  border-radius: 2px;
+  background: var(--line-2);
+  box-shadow: none;
+}
+.mp-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-enter-none .mp-card,
+.mp-scroll-none .mp-card,
+.mp-hover-none .mp-card {
+  background: var(--line-2);
+  box-shadow: none;
+}
+.mp-tile:hover .mp-card,
+.mp-tile.on .mp-card {
+  animation-duration: 1.6s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.mp-tile:hover .mp-enter-fade .mp-card,
+.mp-tile.on .mp-enter-fade .mp-card {
+  animation-name: mp-fade;
+}
+.mp-tile:hover .mp-enter-up .mp-card,
+.mp-tile.on .mp-enter-up .mp-card {
+  animation-name: mp-up;
+}
+.mp-tile:hover .mp-enter-down .mp-card,
+.mp-tile.on .mp-enter-down .mp-card {
+  animation-name: mp-down;
+}
+.mp-tile:hover .mp-enter-left .mp-card,
+.mp-tile.on .mp-enter-left .mp-card {
+  animation-name: mp-left;
+}
+.mp-tile:hover .mp-enter-right .mp-card,
+.mp-tile.on .mp-enter-right .mp-card {
+  animation-name: mp-right;
+}
+.mp-tile:hover .mp-enter-zoom .mp-card,
+.mp-tile.on .mp-enter-zoom .mp-card {
+  animation-name: mp-zoom;
+}
+.mp-tile:hover .mp-enter-zoom-out .mp-card,
+.mp-tile.on .mp-enter-zoom-out .mp-card {
+  animation-name: mp-zoom-out;
+}
+.mp-tile:hover .mp-enter-blur .mp-card,
+.mp-tile.on .mp-enter-blur .mp-card {
+  animation-name: mp-blur;
+}
+.mp-tile:hover .mp-enter-flip .mp-card,
+.mp-tile.on .mp-enter-flip .mp-card {
+  animation-name: mp-flip;
+}
+.mp-tile:hover .mp-enter-tilt .mp-card,
+.mp-tile.on .mp-enter-tilt .mp-card {
+  animation-name: mp-tilt;
+}
+.mp-tile:hover .mp-enter-reveal .mp-card,
+.mp-tile.on .mp-enter-reveal .mp-card {
+  animation-name: mp-reveal;
+}
+.mp-tile:hover .mp-scroll-parallax .mp-card,
+.mp-tile.on .mp-scroll-parallax .mp-card {
+  animation-name: mp-par;
+}
+.mp-tile:hover .mp-scroll-parallax .mp-card.ghost,
+.mp-tile.on .mp-scroll-parallax .mp-card.ghost {
+  animation-name: mp-par-ghost;
+}
+.mp-tile:hover .mp-scroll-fade .mp-card,
+.mp-tile.on .mp-scroll-fade .mp-card {
+  animation-name: mp-sfade;
+}
+.mp-tile:hover .mp-scroll-zoom .mp-card,
+.mp-tile.on .mp-scroll-zoom .mp-card {
+  animation-name: mp-szoom;
+}
+.mp-tile:hover .mp-scroll-slide .mp-card,
+.mp-tile.on .mp-scroll-slide .mp-card {
+  animation-name: mp-slide;
+}
+.mp-tile .mp-card.ghost {
+  animation-name: none !important;
+}
+.mp-tile:hover .mp-scroll-parallax .mp-card.ghost,
+.mp-tile.on .mp-scroll-parallax .mp-card.ghost {
+  animation-name: mp-par-ghost !important;
+}
+.mp-hover-lift .mp-card,
+.mp-hover-grow .mp-card,
+.mp-hover-glow .mp-card,
+.mp-hover-tilt .mp-card {
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.3s;
+}
+.mp-tile:hover .mp-hover-lift .mp-card {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px -4px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.mp-tile:hover .mp-hover-grow .mp-card {
+  transform: scale(1.25);
+}
+.mp-tile:hover .mp-hover-glow .mp-card {
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--sel) 70%, transparent);
+}
+.mp-tile:hover .mp-hover-tilt .mp-card {
+  transform: rotateY(28deg) rotateX(-12deg);
+}
+@keyframes mp-fade {
+  0%,
+  12% {
+    opacity: 0;
+  }
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes mp-up {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-down {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-left {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-right {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-zoom {
+  0%,
+  12% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-zoom-out {
+  0%,
+  12% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-blur {
+  0%,
+  12% {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translateY(4px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+@keyframes mp-flip {
+  0%,
+  12% {
+    opacity: 0;
+    transform: rotateX(75deg) translateY(6px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-tilt {
+  0%,
+  12% {
+    opacity: 0;
+    transform: rotate(-14deg) translateY(8px);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-reveal {
+  0%,
+  12% {
+    clip-path: inset(0 0 100% 0);
+  }
+  60%,
+  100% {
+    clip-path: inset(0);
+  }
+}
+@keyframes mp-par {
+  0% {
+    transform: translateY(14px);
+  }
+  100% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes mp-par-ghost {
+  0% {
+    transform: translateY(6px);
+  }
+  100% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes mp-sfade {
+  0%,
+  30% {
+    opacity: 1;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+@keyframes mp-szoom {
+  0% {
+    transform: scale(0.6) translateY(10px);
+  }
+  70%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes mp-slide {
+  0% {
+    transform: translateX(-14px);
+  }
+  100% {
+    transform: translateX(14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-tile .mp-card {
+    animation: none !important;
+  }
+}
+.mp-curve {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.mp-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.mp-switch > span {
+  display: grid;
+  gap: 0.1rem;
+  font-size: var(--t-s);
+}
+.mp-play {
+  justify-self: start;
+}
+.mp-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.mp-range input {
+  flex: 1;
+  accent-color: var(--sel);
+}
+.mp-range .mono {
+  min-width: 1.75rem;
+  text-align: right;
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}

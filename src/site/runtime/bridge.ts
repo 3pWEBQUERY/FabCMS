@@ -5,6 +5,7 @@
  * window (admin) owns the data and does all saving.
  */
 import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
+import { replay, setupMotion } from './motion';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -522,6 +523,7 @@ addEventListener('message', (e) => {
       if (old.classList.contains('nova-hover')) next.classList.add('nova-hover');
       old.replaceWith(next);
       setupFields(next);
+      setupMotion(next.parentElement ?? main, true);
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
       paintComments();
       paintPeers();
@@ -538,6 +540,7 @@ addEventListener('message', (e) => {
       } else list[m.index].before(next);
       main.querySelector(':scope > .wrap > .nova-empty')?.parentElement?.remove();
       setupFields(next);
+      setupMotion(main, true);
       select(m.id, true);
       next.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
       animateIn(next);
@@ -585,6 +588,7 @@ addEventListener('message', (e) => {
       if (hdr) d.querySelector('[data-nova-global="header"]')?.replaceWith(hdr);
       if (ftr) d.querySelector('[data-nova-global="footer"]')?.replaceWith(ftr);
       setupFields(main);
+      setupMotion(main, true);
       scrollTo(0, y);
       for (const id of (m.changed as string[]) ?? []) {
         const el = blockEl(id);
@@ -663,6 +667,11 @@ addEventListener('message', (e) => {
       sendRect();
       break;
     }
+    case 'motion-play': {
+      const el = blockEl(m.id);
+      if (el) replay(el);
+      break;
+    }
     case 'hover-state': {
       // While hover is being designed, the selected block shows its hover look without the mouse.
       d.querySelectorAll('.nova-hover').forEach((x) => x.classList.remove('nova-hover'));
@@ -673,4 +682,5 @@ addEventListener('message', (e) => {
   }
 });
 
+setupMotion(main, true);
 post({ t: 'ready', blocks: blocks().map((b) => b.dataset.novaBlock) });

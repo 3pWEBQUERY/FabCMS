@@ -691,6 +691,13 @@ const P: Record<string, ReactNode> = {
       <path d="M3.25 6V3.25H6M14 3.25h2.75V6M16.75 14v2.75H14M6 16.75H3.25V14" />
     </>
   ),
+  play: <path d="M6.5 4.25v11.5L15.75 10z" />,
+  scroll: (
+    <>
+      <rect x="6" y="2.75" width="8" height="12" rx="4" />
+      <path d="M10 5.75v2.5M7.75 17.25 10 19l2.25-1.75" />
+    </>
+  ),
   cornerTL: <path d="M5 15V9.5A4.5 4.5 0 0 1 9.5 5H15" />,
   cornerTR: <path d="M5 5h5.5A4.5 4.5 0 0 1 15 9.5V15" />,
   cornerBL: <path d="M5 5v5.5A4.5 4.5 0 0 0 9.5 15H15" />,

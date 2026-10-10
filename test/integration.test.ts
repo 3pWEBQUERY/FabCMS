@@ -2051,5 +2051,22 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(css).not.toContain('nova-hover');
     const preview = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'dsg1' });
     expect(preview.data.html).toContain('#b-dsg1.nova-hover{');
+    // No animation, no animation code on the page.
+    expect(html).not.toContain('data-anim');
+    expect(html).not.toContain('nova-show');
+  });
+
+  it('animates blocks on the page – with a way out when JavaScript is missing', async () => {
+    const page = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: { title: 'Bewegt', blocks: [{ id: 'mot1', type: 'text', props: { heading: 'Hallo', body: '<p>Text</p>' }, style: { motion: { enter: 'up', stagger: 80, duration: 900, itemHover: 'lift' } } }] },
+    });
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(html).toContain('data-anim="up" data-anim-items="80" data-hover="lift"');
+    expect(html).toContain('#b-mot1{--anim-dur:900ms');
+    expect(html).toContain('animation:nova-show 0s 4s forwards');
+    expect(html).toContain('<noscript><style>[data-anim]>*{opacity:1!important');
+    expect(html).toContain('/_nova/site.js');
   });
 });

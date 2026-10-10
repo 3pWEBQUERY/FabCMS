@@ -29,6 +29,7 @@ import { siteIconSvg } from '../shared/icon-set';
 import { sql } from '../server/db';
 import { runtimeScript, runtimeVersion } from './assets';
 import { htmlClasses, pruneCss, scriptWords } from './css-prune';
+import { MOTION_CSS } from '../shared/motion';
 import { accountLink, gate } from './members';
 import { eventCards, eventTemplate, upcoming } from './events';
 import { propertyList, propertyTemplate } from './realestate';
@@ -220,6 +221,8 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   }<meta name="theme-color" content="${palette.bg}">${
     favicon ? html`<link rel="icon" href="${variantUrl(favicon, 160, 'webp')}" type="image/webp">` : html`<link rel="icon" href="/_nova/favicon.svg" type="image/svg+xml">`
   }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${preload.map((href) => html`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(STYLE_MARK)}</style>${
+    ctx.needs.has('motion') ? raw('<noscript><style>[data-anim]>*{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important;animation:none!important}</style></noscript>') : ''
+  }${
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${
     stats ? html`<script type="application/json" id="nova-stats">${raw(JSON.stringify(stats).replace(/</g, '\\u003c'))}</script>` : ''
@@ -236,10 +239,13 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
   // Only the rules this page can use – not in the editor or previews, and not when own scripts may add classes.
   const lean = ctx.edit || ctx.preview || s.security.allowCustomScripts ? css : parts.fixed + pruneCss(parts.nova, htmlClasses(doc, new Set(await scriptClasses()))) + parts.own;
-  return doc.replace(STYLE_MARK, () => lean);
+  // Animations bring their own rules (classes set by the runtime, never pruned); the editor may add some at any time.
+  const motion = ctx.needs.has('motion') || ctx.edit ? minifyCss(MOTION_CSS) : '';
+  return doc.replace(STYLE_MARK, () => lean + motion);
 }
 
 const STYLE_MARK = '/*nova-css*/';
+const minifyCss = (css: string) => css.replace(/\n+/g, '');
 let scriptWordsOnce: Promise<Set<string>> | null = null;
 /** Classes the site's scripts may add later: every word in their code. */
 const scriptClasses = () =>

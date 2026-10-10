@@ -25,7 +25,7 @@ import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block } from '../../shared/types';
-import { blockDomId, COLOR_TOKENS, designCss, designImages, type DesignState } from '../../shared/design';
+import { blockCss, blockDomId, COLOR_TOKENS, designImages, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
 
 /** The theme's colours as the canvas page really uses them. */
@@ -125,9 +125,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   // Inspector edits re-render the block shortly after typing stops.
   const pendingBlock = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleBlockRender = (blockId: string) => {
+  const scheduleBlockRender = (blockId: string, then?: () => void) => {
     if (pendingBlock.current) clearTimeout(pendingBlock.current);
-    pendingBlock.current = setTimeout(() => void renderBlock(blockId).catch(() => {}), 220);
+    pendingBlock.current = setTimeout(
+      () =>
+        void renderBlock(blockId)
+          .then(then)
+          .catch(() => {}),
+      220,
+    );
   };
 
   const numbered = session.bundle?.themes.find((th) => th.id === session.settings?.theme.id)?.numbered ?? false;
@@ -261,16 +267,18 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const before = blocksRef.current.find((x) => x.id === b.id);
     doc.setData((d) => updateBlock(d, b.id, () => b));
     // Design shows on the canvas right away; the server's render confirms it a moment later.
-    if (JSON.stringify(before?.style?.design) !== JSON.stringify(b.style?.design)) {
+    if (JSON.stringify([before?.style?.design, before?.style?.motion]) !== JSON.stringify([b.style?.design, b.style?.motion])) {
       void mediaUrls(designImages(b.style?.design)).then((urls) =>
         postToCanvas(frame.current, {
           t: 'design',
           id: b.id,
-          css: designCss(`#${blockDomId(b)}`, b.style?.design, { image: (m) => urls.get(m) ?? null, forceHover: 'nova-hover' }),
+          css: blockCss(`#${blockDomId(b)}`, b.style, { image: (m) => urls.get(m) ?? null, forceHover: 'nova-hover' }),
         }),
       );
     }
-    scheduleBlockRender(b.id);
+    // A new entrance plays as soon as the block is back from the server.
+    const motionChanged = JSON.stringify(before?.style?.motion) !== JSON.stringify(b.style?.motion);
+    scheduleBlockRender(b.id, motionChanged && b.style?.motion?.enter ? () => postToCanvas(frame.current, { t: 'motion-play', id: b.id }) : undefined);
   };
 
   // While the hover look is being designed, the canvas shows it on the selected block.
@@ -659,6 +667,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       onDevice={setDevice}
                       designState={designState}
                       onDesignState={setDesignState}
+                      onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
                     />
                   </TokenColors.Provider>
                 )}
