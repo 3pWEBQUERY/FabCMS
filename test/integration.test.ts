@@ -3370,6 +3370,69 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [a, b, ended, draft, page]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('keeps saved styles with the site: cleaned, under the own design, the same for blocks and elements', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    // Cleaned on the way in: bad ids, empty and repeated names, no design – dropped.
+    const r = await req('PATCH', '/api/settings', {
+      styles: [
+        { id: 'karte01x', name: '  Karte   hell ', design: { desktop: { bg: '$surface', radius: '12px', pt: '24px' }, hover: { shadow: 'm' } } },
+        { id: 'KARTE', name: 'Gross', design: {} },
+        { id: 'karte02x', name: 'karte hell', design: {} },
+        { id: 'akzent01', name: '', design: {} },
+        { id: 'akzent02', name: 'Akzent', design: 'rot' },
+        { id: 'akzent03', name: 'Akzent', design: { desktop: { color: '$accent', weight: 700 } } },
+      ],
+    });
+    expect(r.data.settings.styles.map((x: { id: string; name: string }) => [x.id, x.name])).toEqual([
+      ['karte01x', 'Karte hell'],
+      ['akzent03', 'Akzent'],
+    ]);
+    const els = [{ id: 'sx1', kind: 'heading', use: 'akzent03', props: { text: 'Mit Stil', level: '2' }, design: { desktop: { color: '#123456' } } }];
+    const page = (
+      await req('POST', '/api/entries', {
+        collection: 'pages',
+        data: {
+          title: 'Stile',
+          blocks: [
+            { id: 'stb1', type: 'layout', props: { els }, style: { use: 'karte01x', design: { desktop: { pt: '40px' } } } },
+            { id: 'stb2', type: 'text', props: { body: '<p>Ohne</p>' }, style: { use: '../evil' } },
+          ],
+        },
+      })
+    ).data.entry;
+    // A reference that can't be a style is not kept.
+    expect(page.data.blocks[1].style.use).toBeUndefined();
+    expect(page.data.blocks[0].props.els[0].use).toBe('akzent03');
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', `/${page.slug}`, undefined, anon)).data as string;
+    expect(html).toMatch(/<section class="[^"]*\bst-karte01x\b[^"]*" id="b-stb1"/);
+    expect(html).toContain('class="el el-heading e-sx1 st-akzent03"');
+    // The style first and with less weight than an id: what the block sets itself wins.
+    const css = html.match(/<style data-nova-design="stb1">([^<]*)<\/style>/)![1];
+    expect(css.indexOf('.st-karte01x.st-karte01x{')).toBeGreaterThanOrEqual(0);
+    expect(css.indexOf('.st-karte01x.st-karte01x{')).toBeLessThan(css.indexOf('#b-stb1{'));
+    expect(css).toContain('#b-stb1{padding-top:40px}');
+    expect(css).toContain('.st-akzent03.st-akzent03{font-weight:700;color:var(--accent);');
+    expect(css).toContain('@media (hover:hover){.st-karte01x.st-karte01x:hover{');
+    // Only what this page uses comes along.
+    expect(html).not.toContain('st-unbenutzt');
+
+    // Changing the style changes the page; a removed style leaves its places with their own design.
+    await req('PATCH', '/api/settings', { styles: [{ id: 'karte01x', name: 'Karte hell', design: { desktop: { bg: '$accent' } } }] });
+    const after = (await req('GET', `/${page.slug}`, undefined, anon)).data as string;
+    expect(after).toContain('.st-karte01x.st-karte01x{background-color:var(--accent);');
+    expect(after).not.toContain('.st-akzent03.st-akzent03');
+    expect(after).toContain('#e-sx1');
+
+    // Styles are part of the site design: authors use them, but can't change them.
+    const ruth = await req('POST', '/api/users', { email: 'ruth@example.ch', name: 'Ruth', role: 'author' });
+    const author = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'ruth@example.ch', password: ruth.data.temporaryPassword }, { cookies: author });
+    expect((await req('PATCH', '/api/settings', { styles: [] }, { cookies: author })).status).toBe(403);
+    await req('PATCH', '/api/settings', { styles: [] });
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

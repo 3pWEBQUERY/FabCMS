@@ -4359,6 +4359,14 @@ button.list-item {
   display: grid;
   margin: 0 -1rem;
 }
+/* saved style above the design panel */
+.st-bar {
+  padding: 0 1rem 0.9rem;
+}
+.st-bar .row > .sel-trigger {
+  flex: 1;
+  min-width: 0;
+}
 .dp-top {
   position: sticky;
   top: -1rem;

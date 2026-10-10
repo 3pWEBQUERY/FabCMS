@@ -191,6 +191,7 @@ export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Bloc
       }
       if (typeof style.className === 'string') style.className = style.className.replace(/[^\w\- ]/g, '').slice(0, 120);
       if (typeof style.anchor === 'string') style.anchor = slugify(style.anchor);
+      if (style.use !== undefined && !(typeof style.use === 'string' && /^[a-z0-9]{6,12}$/.test(style.use))) delete style.use;
       return { id: String(b.id).slice(0, 24), type: b.type, props, style, lock: b.lock ?? 'none' };
     });
 }

@@ -26,7 +26,10 @@ import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block, CollectionDef } from '../../shared/types';
-import { blockCss, blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
+import { blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
+import { blockLookCss, savedStyleImages, stylesUsed, type SavedStyle } from '../../shared/styles';
+import type { SiteSettings } from '../../shared/types';
+import { SavedStyles } from './design/SavedStyles';
 import { TokenColors } from './design/controls';
 import { ContrastNow, ContrastPanel, worstFirst } from './design/contrast';
 import type { ContrastIssue } from '../../shared/contrast';
@@ -35,7 +38,6 @@ import {
   createEl,
   EL_DEFS,
   elementImages,
-  elementsCss,
   findEl,
   insertEl,
   isContainer,
@@ -46,7 +48,7 @@ import {
   updateEl,
   canvasPlacement,
   variantImages,
-  variantsCss,
+  walkEls,
   type El,
   type ElKind,
   type Variant,
@@ -87,6 +89,13 @@ function readTokenColors(frame: HTMLIFrameElement | null): Record<string, string
 
 /** Background image URLs for the live preview (the server renders the same ones). */
 const mediaUrlCache = new Map<string, string>();
+/** How many elements in a tree use a saved style. */
+function countUse(els: El[], id: string): number {
+  let n = 0;
+  walkEls(els, (el) => void (el.use === id && n++));
+  return n;
+}
+
 async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   await Promise.all(
     ids
@@ -137,6 +146,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
+  // Saved styles live with the site settings; changes show at once and are saved shortly after.
+  const [styles, setStyles] = useState<SavedStyle[]>(() => session.settings?.styles ?? []);
+  const stylesRef = useRef(styles);
+  const stylesSave = useRef(0);
   const [panel, setPanel] = useState<Panel>(focusComment ? 'comments' : null);
   const [device, setDevice] = useState<Device>('desktop');
   const [designState, setDesignState] = useState<DesignState>('normal');
@@ -402,19 +415,54 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   /* ---------- block operations ---------- */
 
+  const changeStyles = (next: SavedStyle[]) => {
+    const before = stylesRef.current;
+    stylesRef.current = next;
+    setStyles(next);
+    const same = (id: string) => JSON.stringify(before.find((x) => x.id === id)) === JSON.stringify(next.find((x) => x.id === id));
+    const changed = new Set([...before, ...next].map((x) => x.id).filter((id) => !same(id)));
+    for (const b of blocksRef.current) if (stylesUsed(b).some((id) => changed.has(id))) postLook(b);
+    // New, renamed or removed styles are saved right away – the next render of a block needs them.
+    const structural = before.length !== next.length || before.some((x, i) => x.id !== next[i]?.id || x.name !== next[i]?.name);
+    clearTimeout(stylesSave.current);
+    stylesSave.current = window.setTimeout(
+      () => {
+        api
+          .patch<{ settings: SiteSettings }>('/api/settings', { styles: stylesRef.current })
+          .then((r) => {
+            session.setSettings(r.settings);
+            // A block the server rendered in the meantime may carry the older style: shown again as it is now.
+            for (const b of blocksRef.current) if (stylesUsed(b).length) postLook(b);
+          })
+          .catch((e) => toast((e as Error).message, { kind: 'bad' }));
+      },
+      structural ? 0 : 600,
+    );
+  };
+  const savedStyles = {
+    styles,
+    canEdit: session.can('design.manage'),
+    onStyles: changeStyles,
+    usedHere: (id: string) => blocksRef.current.reduce((n, b) => n + (b.style?.use === id ? 1 : 0) + (b.type === 'layout' ? countUse(elsOf(b), id) : 0), 0),
+  };
+
+  /** The block's design as the canvas shows it, built here so it shows before the server answers. */
+  const postLook = (b: Block) => {
+    const els = b.type === 'layout' ? elsOf(b) : [];
+    const variants = b.type === 'layout' ? (b.props.variants as Variant[] | undefined) : undefined;
+    const styles = stylesRef.current;
+    void mediaUrls([...designImages(b.style?.design), ...savedStyleImages(stylesUsed(b), styles), ...elementImages(els), ...variantImages(variants)]).then((urls) => {
+      const opts = { image: (m: string) => urls.get(m) ?? null, forceHover: 'nova-hover' };
+      postToCanvas(frame.current, { t: 'design', id: b.id, css: blockLookCss(`#${blockDomId(b)}`, b, stylesRef.current, opts) });
+    });
+  };
+
   const changeBlock = (b: Block) => {
     const before = blocksRef.current.find((x) => x.id === b.id);
     doc.setData((d) => updateBlock(d, b.id, () => b));
     // Design shows on the canvas right away; the server's render confirms it a moment later.
-    const look = (x: Block | undefined) => JSON.stringify([x?.style?.design, x?.style?.motion, x?.type === 'layout' ? [x.props.els, x.props.variants] : null]);
-    if (look(before) !== look(b)) {
-      const els = b.type === 'layout' ? elsOf(b) : [];
-      const variants = b.type === 'layout' ? (b.props.variants as Variant[] | undefined) : undefined;
-      void mediaUrls([...designImages(b.style?.design), ...elementImages(els), ...variantImages(variants)]).then((urls) => {
-        const opts = { image: (m: string) => urls.get(m) ?? null, forceHover: 'nova-hover' };
-        postToCanvas(frame.current, { t: 'design', id: b.id, css: blockCss(`#${blockDomId(b)}`, b.style, opts) + elementsCss(els, opts) + variantsCss(variants, opts) });
-      });
-    }
+    const look = (x: Block | undefined) => JSON.stringify([x?.style?.design, x?.style?.use, x?.style?.motion, x?.type === 'layout' ? [x.props.els, x.props.variants] : null]);
+    if (look(before) !== look(b)) postLook(b);
     // A new entrance plays as soon as the block is back from the server.
     const motionChanged = JSON.stringify(before?.style?.motion) !== JSON.stringify(b.style?.motion);
     scheduleBlockRender(b.id, motionChanged && b.style?.motion?.enter ? () => postToCanvas(frame.current, { t: 'motion-play', id: b.id }) : undefined);
@@ -1259,46 +1307,48 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </button>
               </header>
               <div className="side-body">
-                {panel === 'inspector' && selectedBlock && selectedElInfo && (
-                  <TokenColors.Provider value={tokenColors}>
-                    <ContrastNow.Provider value={contrastHere}>
-                      <ElementInspector
-                        key={selectedElInfo.el.id}
-                        el={selectedElInfo.el}
-                        onChange={(el) => changeElement(selectedBlock.id, el)}
-                        device={device}
-                        onDevice={setDevice}
-                        designState={designState}
-                        onDesignState={setDesignState}
-                        onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
-                        pro={session.pro}
-                        collections={collections}
-                        source={listSource}
-                        onSelect={selectElement}
-                        locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
-                        onOpenComponent={openComponent}
-                        onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
-                        variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
-                      />
-                    </ContrastNow.Provider>
-                  </TokenColors.Provider>
-                )}
-                {panel === 'inspector' && selectedBlock && !selectedElInfo && (
-                  <TokenColors.Provider value={tokenColors}>
-                    <ContrastNow.Provider value={contrastHere}>
-                      <Inspector
-                        key={selectedBlock.id}
-                        block={selectedBlock}
-                        onChange={changeBlock}
-                        device={device}
-                        onDevice={setDevice}
-                        designState={designState}
-                        onDesignState={setDesignState}
-                        onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
-                      />
-                    </ContrastNow.Provider>
-                  </TokenColors.Provider>
-                )}
+                <SavedStyles.Provider value={savedStyles}>
+                  {panel === 'inspector' && selectedBlock && selectedElInfo && (
+                    <TokenColors.Provider value={tokenColors}>
+                      <ContrastNow.Provider value={contrastHere}>
+                        <ElementInspector
+                          key={selectedElInfo.el.id}
+                          el={selectedElInfo.el}
+                          onChange={(el) => changeElement(selectedBlock.id, el)}
+                          device={device}
+                          onDevice={setDevice}
+                          designState={designState}
+                          onDesignState={setDesignState}
+                          onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
+                          pro={session.pro}
+                          collections={collections}
+                          source={listSource}
+                          onSelect={selectElement}
+                          locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                          onOpenComponent={openComponent}
+                          onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
+                          variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
+                        />
+                      </ContrastNow.Provider>
+                    </TokenColors.Provider>
+                  )}
+                  {panel === 'inspector' && selectedBlock && !selectedElInfo && (
+                    <TokenColors.Provider value={tokenColors}>
+                      <ContrastNow.Provider value={contrastHere}>
+                        <Inspector
+                          key={selectedBlock.id}
+                          block={selectedBlock}
+                          onChange={changeBlock}
+                          device={device}
+                          onDevice={setDevice}
+                          designState={designState}
+                          onDesignState={setDesignState}
+                          onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
+                        />
+                      </ContrastNow.Provider>
+                    </TokenColors.Provider>
+                  )}
+                </SavedStyles.Provider>
                 {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                 {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
                 {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}

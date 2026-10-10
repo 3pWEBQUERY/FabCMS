@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSavedStyle } from './design/SavedStyles';
 import { BLOCK_MAP } from '../../shared/blocks';
 import type { Block, BlockLock, BlockStyle, Breakpoint } from '../../shared/types';
 import { useSession } from '../lib/session';
@@ -6,7 +7,7 @@ import { t, tl } from '../lib/i18n';
 import { FieldList } from '../ui/FieldInput';
 import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
-import { isEmptyDesign, type DesignBp, type DesignState } from '../../shared/design';
+import type { DesignBp, DesignState } from '../../shared/design';
 import { DesignPanel } from './design/DesignPanel';
 import { MotionPanel } from './design/MotionPanel';
 import { hasMotion } from '../../shared/motion';
@@ -49,10 +50,11 @@ export function Inspector({
   useEffect(() => {
     if (!pro && tab === 'code') setTab('content');
   }, [pro, tab]);
-  if (!def) return null;
-
   const style = block.style ?? {};
   const setStyle = (patch: Partial<BlockStyle>) => onChange({ ...block, style: { ...style, ...patch } });
+  const saved = useSavedStyle({ use: style.use, own: style.design, onOwn: (design) => setStyle({ design }), onStyle: (use, design) => setStyle({ use, design }) });
+  if (!def) return null;
+
   const fields = lock === 'layout' ? def.fields.filter((f) => ['text', 'textarea', 'richtext'].includes(f.type)) : def.fields;
 
   if (lock === 'all')
@@ -89,8 +91,9 @@ export function Inspector({
       )}
       {tab === 'style' && (
         <DesignPanel
-          design={style.design}
-          onChange={(d) => setStyle({ design: isEmptyDesign(d) ? undefined : d })}
+          design={saved.design}
+          onChange={saved.onChange}
+          savedStyle={saved.bar}
           target="block"
           bp={device}
           onBp={onDevice}

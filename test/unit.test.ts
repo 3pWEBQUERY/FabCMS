@@ -6,6 +6,8 @@ import { parseDay, formatDay, addMonths, monthGrid, longDay } from '../src/share
 import { computeSlots, zonedToUtc, localDay, type BookingResource, type BookingService } from '../src/shared/booking';
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { BLOCKS, createBlock, sentences } from '../src/shared/blocks';
+import { blockLookCss, cleanStyles, stylesUsed } from '../src/shared/styles';
+import type { Block } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath } from '../src/shared/paths';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
@@ -1759,5 +1761,32 @@ describe('pop-up A/B tests', () => {
     expect(abVerdict([v('a', 500, 0), v('b', 500, 0)])).toEqual({ leader: null, sure: false, needMore: false });
     expect(abVerdict([v('a', 500, 20)])).toEqual({ leader: null, sure: false, needMore: true });
     expect(AB_MIN_SHOWN).toBe(100);
+  });
+});
+
+describe('saved styles', () => {
+  it('builds a block look from its styles first, then its own design and elements', () => {
+    const styles = [
+      { id: 'abc123', name: 'A', design: { desktop: { pt: '8px' } } },
+      { id: 'def456', name: 'B', design: { desktop: { weight: 700 } } },
+      { id: 'zzz999', name: 'Unbenutzt', design: { desktop: { pt: '1px' } } },
+    ];
+    const b = {
+      id: 'b1',
+      type: 'layout',
+      props: {
+        els: [
+          { id: 'e1', kind: 'text', use: 'def456', props: {} },
+          { id: 'e2', kind: 'text', use: 'nope!', props: {} },
+        ],
+      },
+      style: { use: 'abc123', design: { desktop: { pt: '16px' } } },
+    } as unknown as Block;
+    expect(stylesUsed(b)).toEqual(['abc123', 'def456']);
+    const css = blockLookCss('#b-b1', b, styles);
+    expect(css.startsWith('.st-abc123.st-abc123{padding-top:8px}.st-def456.st-def456{font-weight:700}#b-b1{padding-top:16px}')).toBe(true);
+    expect(css).not.toContain('zzz999');
+    expect(cleanStyles([{ id: 'abc123', name: 'x'.repeat(80), design: {} }])[0].name).toHaveLength(60);
+    expect(cleanStyles('nein')).toEqual([]);
   });
 });

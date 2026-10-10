@@ -1,3 +1,4 @@
+import type { SavedStyle } from './styles';
 import type { MailText } from './mails';
 import type { ServerHook } from './hooks';
 import type { SiteTranslation } from './i18n';
@@ -25,6 +26,8 @@ export interface BlockStyle {
   css?: string;
   /** Visual design per breakpoint and hover (shared/design.ts). */
   design?: Design;
+  /** A saved style (shared/styles.ts) under the block's own design. */
+  use?: string;
   /** Entrance, scroll and hover animations (shared/motion.ts). */
   motion?: Motion;
 }
@@ -201,6 +204,8 @@ export interface SiteSettings {
   ageGate: { enabled: boolean; minAge: number; text: string; method: 'self' | 'eid' };
   /** KI-Assistent: only suggestions, never applied on its own. Needs ANTHROPIC_API_KEY. */
   ai: { enabled: boolean };
+  /** Saved styles for blocks and elements (shared/styles.ts). */
+  styles: SavedStyle[];
   shop: {
     currency: string;
     vatIncluded: boolean;

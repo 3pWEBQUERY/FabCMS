@@ -2,9 +2,10 @@ import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
 import type { BoundEntry, RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
-import { blockCss, blockDomId, designImages } from '../shared/design';
+import { blockDomId, designImages } from '../shared/design';
+import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
-import { applyOverrides, BOX_TAGS, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
@@ -909,7 +910,7 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
   const path = rc.path;
   const attrs = elAttrs(el, ctx, rc);
   const handles = rc.edit && !rc.copy;
-  const cls = (extra = '') => `el el-${el.kind} e-${el.id}${extra ? ` ${extra}` : ''}`;
+  const cls = (extra = '') => `el el-${el.kind} e-${el.id}${styleOf(el.use) ? ` st-${el.use}` : ''}${extra ? ` ${extra}` : ''}`;
   const val = (prop: string) => bound(el, prop, rc, ctx);
   const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => {
     if (val(prop).set) return '';
@@ -1067,12 +1068,14 @@ async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: 
   if (ctx.edit || !ctx.components.has(p.ref)) {
     ctx.components.add(p.ref);
     const images = new Map<string, string>();
-    for (const id of new Set([...elementImages(master), ...variantImages(variants)])) {
+    const used = new Set<string>();
+    walkEls(master, (x) => void (styleOf(x.use) && used.add(x.use!)));
+    for (const id of new Set([...elementImages(master), ...variantImages(variants), ...savedStyleImages(used, ctx.settings.styles ?? [])])) {
       const m = await ctx.media(id);
       if (m) images.set(id, variantUrl(m, 1920, 'webp'));
     }
     const opts = { image: (id: string) => images.get(id) ?? null };
-    css = (elementsCss(master, opts) + variantsCss(variants, opts)).replace(/</g, '');
+    css = (savedStylesCss(used, ctx.settings.styles ?? [], opts) + elementsCss(master, opts) + variantsCss(variants, opts)).replace(/</g, '');
   }
   const inner = await renderEls(applyOverrides(master, p.overrides as Overrides), ctx, {
     path: 'els',
@@ -1171,7 +1174,14 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
   const out: Html[] = [];
   // Background images in the design: looked up once, before the blocks render.
   const images = new Map<string, string>();
-  for (const id of new Set(blocks.flatMap((b) => [...designImages(b.style?.design), ...(b.type === 'layout' ? [...elementImages(((b.props as P).els as El[]) ?? []), ...variantImages((b.props as P).variants as Variant[] | undefined)] : [])]))) {
+  const styles = c.settings.styles ?? [];
+  for (const id of new Set(
+    blocks.flatMap((b) => [
+      ...designImages(b.style?.design),
+      ...savedStyleImages(stylesUsed(b), styles),
+      ...(b.type === 'layout' ? [...elementImages(((b.props as P).els as El[]) ?? []), ...variantImages((b.props as P).variants as Variant[] | undefined)] : []),
+    ]),
+  )) {
     const m = await c.media(id);
     if (m) images.set(id, variantUrl(m, 1920, 'webp'));
   }
@@ -1209,13 +1219,13 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
     isCover && 'hero-cover',
     b.type === 'hero' && `hero-${(b.props as P).variant ?? 'statement'}`,
     s.className,
+    styleOf(s.use) && `st-${s.use}`,
   );
   const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
   // The editor swaps this style element while someone drags a value, before the server answers.
   const opts = { image: (m: string) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined };
-  const look =
-    blockCss(`#${id}`, s, opts) + (b.type === 'layout' ? elementsCss(((b.props as P).els as El[]) ?? [], opts) + variantsCss((b.props as P).variants as Variant[] | undefined, opts) : '');
+  const look = blockLookCss(`#${id}`, b, ctx.settings.styles ?? [], opts);
   const motion = motionAttrs(s.motion);
   if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';

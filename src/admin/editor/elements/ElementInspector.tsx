@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
 import { BINDABLE, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
@@ -55,6 +56,7 @@ export function ElementInspector({
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
   const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && el.kind !== 'shape' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
+  const saved = useSavedStyle({ use: el.use, own: el.design, onOwn: (design) => onChange({ ...el, design }), onStyle: (use, design) => onChange({ ...el, use, design }) });
   return (
     <div className="stack">
       <p className="small muted">{tl(def.description)}</p>
@@ -112,8 +114,9 @@ export function ElementInspector({
       {tab === 'style' && (
         <DesignPanel
           key={variants?.active ?? 'standard'}
-          design={variants?.active ? variants.design : el.design}
-          onChange={(d) => (variants?.active ? variants.onDesign(isEmptyDesign(d) ? undefined : d) : onChange({ ...el, design: isEmptyDesign(d) ? undefined : d }))}
+          design={variants?.active ? variants.design : saved.design}
+          onChange={(d) => (variants?.active ? variants.onDesign(isEmptyDesign(d) ? undefined : d) : saved.onChange(d))}
+          savedStyle={variants?.active ? undefined : saved.bar}
           target="element"
           kind={el.kind}
           bp={device}

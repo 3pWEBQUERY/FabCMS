@@ -41,9 +41,10 @@ import { checkHookCode, runHook } from '../hooks';
 import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
 import { lowStockList } from '../stock';
 import { restockWaiting } from '../restock';
+import { cleanStyles } from '../../shared/styles';
 
 /** Settings keys and the capability needed to change them. */
-const DESIGN_KEYS = new Set(['theme']);
+const DESIGN_KEYS = new Set(['theme', 'styles']);
 const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security', 'extensionCss']);
 
 async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | null> {
@@ -109,6 +110,7 @@ export function systemApi(app: Hono<AppEnv>) {
       if (!validQrIban(patch.shop.iban)) throw badRequest('Für die QR-Rechnung braucht es eine gültige IBAN aus der Schweiz oder Liechtenstein.');
     }
     if (patch.mail) patch.mail = cleanMailSettings(patch.mail);
+    if (patch.styles !== undefined) patch.styles = cleanStyles(patch.styles);
     // Who must use a second factor is set under Team (PUT /api/security/2fa), not here.
     if (patch.security) patch.security = { ...patch.security, require2fa: (await getSettings()).security.require2fa };
     if (patch.webhooks) {

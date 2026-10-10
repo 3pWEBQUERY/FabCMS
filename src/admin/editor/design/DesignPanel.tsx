@@ -98,9 +98,11 @@ export interface DesignPanelProps {
   pro: boolean;
   /** Elements: which kind – containers are flex columns unless set otherwise. */
   kind?: ElKind;
+  /** The saved style in use and whether the panel changes it (design/SavedStyles.tsx). */
+  savedStyle?: ReactNode;
 }
 
-export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, rhythm, visibility, pro, kind }: DesignPanelProps) {
+export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, rhythm, visibility, pro, kind, savedStyle }: DesignPanelProps) {
   const toast = useToast();
   const preview = useColorPreview();
   const layer: DesignBp | 'hover' = state === 'hover' ? 'hover' : bp;
@@ -180,6 +182,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
 
   return (
     <div className="dp">
+      {savedStyle}
       <div className="dp-top">
         <div className="dp-bps" role="group" aria-label={t('Bildschirmgrösse')}>
           {DESIGN_BPS.map((b) => (

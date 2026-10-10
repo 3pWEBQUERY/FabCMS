@@ -58,6 +58,8 @@ export interface El {
   name?: string;
   /** Inside a CMS list: props filled from the entry (prop → 'title' | 'url' | 'date' | 'field:key'). */
   bind?: Record<string, string>;
+  /** A saved style (shared/styles.ts) under the element's own design. */
+  use?: string;
 }
 
 /**
@@ -816,6 +818,7 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
     if (isObj(raw.design)) el.design = raw.design as Design;
     if (isObj(raw.motion)) el.motion = raw.motion as Motion;
     if (typeof raw.name === 'string' && raw.name.trim()) el.name = plain(raw.name, 60);
+    if (typeof raw.use === 'string' && /^[a-z0-9]{6,12}$/.test(raw.use)) el.use = raw.use;
     if (isObj(raw.bind)) {
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;
