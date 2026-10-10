@@ -12,6 +12,7 @@ import type { CollectionDef, Webhook } from '../../shared/types';
 import { HOOK_EVENTS, type HookEvent, type ServerHook } from '../../shared/hooks';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { WebhookLog } from './WebhookLog';
+import { MissingPages } from './NotFound';
 import { t, tl, tm } from '../lib/i18n';
 
 /** Puts an element where {code} stands in a translated sentence. */
@@ -807,72 +808,81 @@ export function Redirects() {
           'Wenn sich die Adresse einer veröffentlichten Seite ändert, legt Nova automatisch eine 301-Weiterleitung an. Hier kannst du eigene ergänzen, z. B. nach einem Umzug von WordPress.',
         )}
       />
-      <section className="card">
-        <div className="form-section row wrap">
-          <input
-            className="input mono"
-            style={{ flex: 1, minWidth: '10rem' }}
-            placeholder={t('/alte-adresse')}
-            value={f.from}
-            onChange={(e) => setF({ ...f, from: e.target.value })}
-          />
-          <Icon name="arrowRight" className="faint" />
-          <input className="input mono" style={{ flex: 1, minWidth: '10rem' }} placeholder={t('/neue-adresse')} value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
-          <Select
-            inline
-            label={t('Art der Weiterleitung')}
-            value={String(f.code)}
-            onChange={(v) => setF({ ...f, code: Number(v) })}
-            options={[
-              { value: '301', label: t('301 dauerhaft') },
-              { value: '302', label: t('302 vorübergehend') },
-              { value: '410', label: t('410 entfernt') },
-            ]}
-          />
-          <button className="btn primary" onClick={add} disabled={!f.from || (!f.to && f.code !== 410)}>
-            {t('Hinzufügen')}
-          </button>
-        </div>
-        {!data ? (
-          <Skeleton />
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t('Von')}</th>
-                  <th>{t('Nach')}</th>
-                  <th>{t('Code')}</th>
-                  <th className="right">{t('Aufrufe')}</th>
-                  <th aria-label={t('Aktionen')} />
-                </tr>
-              </thead>
-              <tbody>
-                {data.redirects.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono">{r.from_path}</td>
-                    <td className="mono">{r.to_path}</td>
-                    <td>
-                      {r.code}
-                      {r.auto && (
-                        <span className="badge" style={{ marginLeft: 6 }}>
-                          {t('automatisch')}
-                        </span>
-                      )}
-                    </td>
-                    <td className="right num">{r.hits}</td>
-                    <td className="right">
-                      <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={() => api.del(`/api/redirects/${r.id}`).then(reload)}>
-                        <Icon name="trash" size="s" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="stack loose">
+        <MissingPages onRedirected={() => void reload()} />
+        <section className="card">
+          <div className="form-section row wrap">
+            <input
+              className="input mono"
+              style={{ flex: 1, minWidth: '10rem' }}
+              placeholder={t('/alte-adresse')}
+              value={f.from}
+              onChange={(e) => setF({ ...f, from: e.target.value })}
+            />
+            <Icon name="arrowRight" className="faint" />
+            <input
+              className="input mono"
+              style={{ flex: 1, minWidth: '10rem' }}
+              placeholder={t('/neue-adresse')}
+              value={f.to}
+              onChange={(e) => setF({ ...f, to: e.target.value })}
+            />
+            <Select
+              inline
+              label={t('Art der Weiterleitung')}
+              value={String(f.code)}
+              onChange={(v) => setF({ ...f, code: Number(v) })}
+              options={[
+                { value: '301', label: t('301 dauerhaft') },
+                { value: '302', label: t('302 vorübergehend') },
+                { value: '410', label: t('410 entfernt') },
+              ]}
+            />
+            <button className="btn primary" onClick={add} disabled={!f.from || (!f.to && f.code !== 410)}>
+              {t('Hinzufügen')}
+            </button>
           </div>
-        )}
-      </section>
+          {!data ? (
+            <Skeleton />
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('Von')}</th>
+                    <th>{t('Nach')}</th>
+                    <th>{t('Code')}</th>
+                    <th className="right">{t('Aufrufe')}</th>
+                    <th aria-label={t('Aktionen')} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.redirects.map((r) => (
+                    <tr key={r.id}>
+                      <td className="mono">{r.from_path}</td>
+                      <td className="mono">{r.to_path}</td>
+                      <td>
+                        {r.code}
+                        {r.auto && (
+                          <span className="badge" style={{ marginLeft: 6 }}>
+                            {t('automatisch')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="right num">{r.hits}</td>
+                      <td className="right">
+                        <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={() => api.del(`/api/redirects/${r.id}`).then(reload)}>
+                          <Icon name="trash" size="s" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
     </>
   );
 }

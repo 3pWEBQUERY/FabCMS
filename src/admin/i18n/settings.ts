@@ -1425,4 +1425,24 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
   '{n} Versuche': { fr: '{n} tentatives', it: '{n} tentativi', en: '{n} attempts' },
   'Erneut senden': { fr: 'Renvoyer', it: 'Invia di nuovo', en: 'Send again' },
   'Gesendeter Inhalt': { fr: 'Contenu envoyé', it: 'Contenuto inviato', en: 'Sent content' },
+  /* ---------- 404 log ---------- */
+  '{from} leitet jetzt auf {to} weiter.': { fr: '{from} redirige maintenant vers {to}.', it: '{from} ora reindirizza a {to}.', en: '{from} now redirects to {to}.' },
+  'Nicht gefundene Adressen': { fr: 'Adresses introuvables', it: 'Indirizzi non trovati', en: 'Addresses not found' },
+  'Niemand ist ins Leere gelaufen. Alte Links und Tippfehler, die Besucher auf eine 404-Seite führen, erscheinen hier.': {
+    fr: 'Personne n’est tombé dans le vide. Les anciens liens et les fautes de frappe qui mènent les visiteurs sur une page 404 apparaissent ici.',
+    it: 'Nessuno è finito nel vuoto. Qui compaiono i vecchi link e gli errori di battitura che portano i visitatori su una pagina 404.',
+    en: 'Nobody ran into a dead end. Old links and typos that lead visitors to a 404 page show up here.',
+  },
+  '1 Aufruf': { fr: '1 visite', it: '1 visita', en: '1 visit' },
+  '{n} Aufrufe': { fr: '{n} visites', it: '{n} visite', en: '{n} visits' },
+  'von {page}': { fr: 'depuis {page}', it: 'da {page}', en: 'from {page}' },
+  'Weiterleiten von {path} nach': { fr: 'Rediriger {path} vers', it: 'Reindirizza {path} a', en: 'Redirect {path} to' },
+  Weiterleiten: { fr: 'Rediriger', it: 'Reindirizza', en: 'Redirect' },
+  'Nicht mehr anzeigen': { fr: 'Ne plus afficher', it: 'Non mostrare più', en: 'Don’t show again' },
+  Ignorieren: { fr: 'Ignorer', it: 'Ignora', en: 'Ignore' },
+  'Vorschlag aus einer Seite mit ähnlicher Adresse.': {
+    fr: 'Suggestion d’après une page à l’adresse similaire.',
+    it: 'Proposta da una pagina con indirizzo simile.',
+    en: 'Suggested from a page with a similar address.',
+  },
 };

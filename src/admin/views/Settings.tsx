@@ -17,6 +17,7 @@ import { useToast } from '../ui/toast';
 import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { RightsMatrix, roleName, useRoles } from './Roles';
+import { MissingPages } from './NotFound';
 import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
@@ -644,6 +645,7 @@ function SeoSettings() {
             </ul>
           )}
         </section>
+        <MissingPages />
         <div className="card">
           <Section title={t('Standardwerte')}>
             <Field label={t('Muster für Seitentitel')} help={t('%s = Seitentitel, %site = Name der Website')} keyName="seo.titleTemplate">

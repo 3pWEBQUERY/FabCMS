@@ -21,6 +21,7 @@ import { rateLimit } from '../lib/ratelimit';
 import { sign, unsign } from '../lib/crypto';
 import { recordGoal, recordHit } from '../analytics';
 import { emit } from '../events';
+import { recordMissing } from '../notfound';
 import { sendMail } from '../mail';
 import { cachedOgImage } from '../og';
 import {
@@ -1082,7 +1083,10 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const staff = Boolean(c.get('user'));
     if (!s.firstPublishedAt && !staff) return holdingPage(c, s);
     const resolved = await resolve(path);
-    if (!resolved) return notFoundPage(c);
+    if (!resolved) {
+      recordMissing(c, path);
+      return notFoundPage(c);
+    }
     const ctx = await ctxFor(c);
     const body = resolved.kind === 'entry' ? await renderPage(ctx, resolved.collection, resolved.entry) : await renderList(ctx, resolved.collection);
     const etag = cacheSet(key, body);

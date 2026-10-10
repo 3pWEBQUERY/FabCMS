@@ -2678,6 +2678,37 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [a, b, c, untouched]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('logs addresses that lead nowhere, suggests a page and turns them into a redirect', async () => {
+    const anon = new Map<string, string>();
+    const post = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Sommerfest im Garten' } })).data.entry;
+    await req('POST', `/api/entries/${post.id}/publish`, {});
+    // Three visitors on an old link, one with the page they came from; probes for other systems stay out.
+    for (let i = 0; i < 3; i++)
+      expect((await req('GET', '/blog/sommerfest-im-garten?utm=x', undefined, { cookies: anon, headers: i ? {} : { referer: 'https://partner.ch/events?id=7' } })).status).toBe(404);
+    await req('GET', '/sommerfest-im-garten-2025', undefined, { cookies: anon });
+    await req('GET', '/wp-login.php', undefined, { cookies: anon });
+    await req('GET', '/.env', undefined, { cookies: anon });
+    await new Promise((r) => setTimeout(r, 50));
+    const list = await req('GET', '/api/not-found');
+    const row = list.data.missing.find((m: { path: string }) => m.path === '/blog/sommerfest-im-garten');
+    expect(row).toMatchObject({ hits: 3, referrer: 'https://partner.ch/events', suggestion: `/journal/${post.slug}` });
+    expect(list.data.missing.map((m: { path: string }) => m.path)).not.toEqual(expect.arrayContaining(['/wp-login.php']));
+    // An address that starts with an existing one points there too.
+    expect(list.data.missing.find((m: { path: string }) => m.path === '/sommerfest-im-garten-2025').suggestion).toBe(`/journal/${post.slug}`);
+    // One click: a redirect, and the address leaves the list.
+    await req('POST', '/api/redirects', { from_path: row.path, to_path: row.suggestion, code: 301 });
+    expect((await req('GET', '/api/not-found')).data.missing.map((m: { path: string }) => m.path)).not.toContain(row.path);
+    const followed = await req('GET', '/blog/sommerfest-im-garten', undefined, { cookies: anon });
+    expect(followed.status).toBe(301);
+    // Set aside: gone from the list too.
+    await req('GET', '/irgendwas-falsches', undefined, { cookies: anon });
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await req('POST', '/api/not-found/ignore', { paths: ['/irgendwas-falsches'] })).status).toBe(200);
+    expect((await req('GET', '/api/not-found')).data.missing.map((m: { path: string }) => m.path)).not.toContain('/irgendwas-falsches');
+    expect((await req('GET', '/api/not-found', undefined, { cookies: anon })).status).toBe(401);
+    await req('DELETE', `/api/entries/${post.id}`);
+  });
+
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
     expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
     expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);

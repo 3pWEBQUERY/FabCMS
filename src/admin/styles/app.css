@@ -7128,3 +7128,52 @@ textarea.dg-input {
     gap: 0;
   }
 }
+
+/* ---------- 404 log ---------- */
+.nf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nf-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 0.35rem 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+}
+.nf-from {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.nf-from code {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.nf-to {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.nf-to .input {
+  flex: 1;
+  min-width: 0;
+}
+.nf-hint {
+  grid-column: 2;
+  padding-left: 1.4rem;
+}
+@media (max-width: 760px) {
+  .nf-list > li {
+    grid-template-columns: 1fr;
+  }
+  .nf-to {
+    flex-wrap: wrap;
+  }
+  .nf-hint {
+    grid-column: 1;
+    padding-left: 0;
+  }
+}
