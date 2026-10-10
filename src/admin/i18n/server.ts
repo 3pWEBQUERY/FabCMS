@@ -1363,4 +1363,7 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   'Diesen Webhook gibt es nicht mehr.': { fr: 'Ce webhook n’existe plus.', it: 'Questo webhook non esiste più.', en: 'This webhook no longer exists.' },
   'Keine Antwort in 10 Sekunden.': { fr: 'Pas de réponse en 10 secondes.', it: 'Nessuna risposta in 10 secondi.', en: 'No answer within 10 seconds.' },
   'Nicht erreichbar ({code}).': { fr: 'Injoignable ({code}).', it: 'Non raggiungibile ({code}).', en: 'Unreachable ({code}).' },
+  'Der Ordner braucht einen Namen.': { fr: 'Le dossier a besoin d’un nom.', it: 'La cartella ha bisogno di un nome.', en: 'The folder needs a name.' },
+  'Diesen Ordner gibt es schon.': { fr: 'Ce dossier existe déjà.', it: 'Questa cartella esiste già.', en: 'This folder already exists.' },
+  'Diesen Ordner gibt es nicht.': { fr: 'Ce dossier n’existe pas.', it: 'Questa cartella non esiste.', en: 'This folder doesn’t exist.' },
 };

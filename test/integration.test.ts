@@ -2744,4 +2744,49 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.data.entry.id}`);
   });
 
+  it('keeps media folders of their own: empty ones, renaming, merging and removing without losing files', async () => {
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const folders = async () => (await req('GET', '/api/media?limit=1')).data.folders as { folder: string; n: number }[];
+    const count = async (name: string) => (await folders()).find((f) => f.folder === name)?.n;
+    // An empty folder exists before its first file; names are tidied, doubles refused.
+    const made = await req('POST', '/api/media/folders', { name: '  Team /  2026 ' });
+    expect(made.data.folder).toBe('Team - 2026');
+    expect(await count('Team - 2026')).toBe(0);
+    expect((await req('POST', '/api/media/folders', { name: 'Team - 2026' })).status).toBe(400);
+    expect((await req('POST', '/api/media/folders', { name: '   ' })).status).toBe(400);
+    // Uploading into it, and filtering by it.
+    const form = new FormData();
+    const buf = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#c33' } }).png().toBuffer();
+    form.append('file', new File([new Uint8Array(buf)], 'team.png', { type: 'image/png' }));
+    form.append('folder', 'Team - 2026');
+    const up = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+    const file = (await up.json()).media[0];
+    expect(file.folder).toBe('Team - 2026');
+    const inside = await req('GET', `/api/media?folder=${encodeURIComponent('Team - 2026')}`);
+    expect(inside.data.media.map((m: { id: string }) => m.id)).toEqual([file.id]);
+    expect(await count('Team - 2026')).toBe(1);
+    // Moving into a folder that doesn't exist yet makes it.
+    await req('POST', '/api/media/bulk', { ids: [file.id], action: 'move', folder: 'Archiv' });
+    expect(await count('Archiv')).toBe(1);
+    expect(await count('Team - 2026')).toBe(0);
+    // Renaming into an existing name merges both.
+    expect((await req('PATCH', '/api/media/folders', { from: 'Archiv', to: 'Team - 2026' })).data.moved).toBe(1);
+    expect(await count('Archiv')).toBeUndefined();
+    expect(await count('Team - 2026')).toBe(1);
+    // Removing the folder keeps the file, now without a folder.
+    const gone = await req('DELETE', `/api/media/folders?name=${encodeURIComponent('Team - 2026')}`);
+    expect(gone.data.moved).toBe(1);
+    expect(await count('Team - 2026')).toBeUndefined();
+    const [row] = await sql`select folder from media where id = ${file.id}`;
+    expect(row.folder).toBe('');
+    expect((await req('DELETE', '/api/media/folders?name=gibts-nicht')).status).toBe(404);
+    // Authors may make folders but not rename or remove them.
+    const ann = await req('POST', '/api/users', { email: 'ann@example.ch', name: 'Ann', role: 'author' });
+    const annC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'ann@example.ch', password: ann.data.temporaryPassword }, { cookies: annC });
+    expect((await req('POST', '/api/media/folders', { name: 'Von Ann' }, { cookies: annC })).status).toBe(200);
+    expect((await req('DELETE', '/api/media/folders?name=Von%20Ann', undefined, { cookies: annC })).status).toBe(403);
+    await req('DELETE', '/api/media/folders?name=Von%20Ann');
+    await req('DELETE', `/api/media/${file.id}`);
+  });
 });

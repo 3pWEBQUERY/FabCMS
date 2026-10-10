@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, qs } from '../lib/api';
 import { useDebounced } from '../lib/hooks';
-import { Dialog } from './kit';
+import { Dialog, Select } from './kit';
 import { Icon } from './icons';
 import { useToast } from './toast';
 import { t } from '../lib/i18n';
@@ -101,6 +101,8 @@ export function MediaPicker({
   const toast = useToast();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<MediaRow[]>([]);
+  const [folders, setFolders] = useState<{ folder: string; n: number }[]>([]);
+  const [folder, setFolder] = useState('*');
   const [selected, setSelected] = useState<string[]>(initial);
   const [uploading, setUploading] = useState(false);
   const [share, setShare] = useState(0);
@@ -109,10 +111,11 @@ export function MediaPicker({
   const dq = useDebounced(q, 200);
 
   const load = useCallback(async () => {
-    const r = await api.get<{ media: MediaRow[] }>(`/api/media${qs({ q: dq, type, limit: 120 })}`);
+    const r = await api.get<{ media: MediaRow[]; folders: { folder: string; n: number }[] }>(`/api/media${qs({ q: dq, type, folder, limit: 120 })}`);
     r.media.forEach(rememberMedia);
     setItems(r.media);
-  }, [dq, type]);
+    setFolders(r.folders);
+  }, [dq, type, folder]);
 
   useEffect(() => {
     if (open) {
@@ -126,7 +129,7 @@ export function MediaPicker({
     setUploading(true);
     try {
       setShare(0);
-      const added = await uploadFiles(files, { private: privateUpload }, setShare);
+      const added = await uploadFiles(files, { private: privateUpload, folder: privateUpload || folder === '*' ? undefined : folder }, setShare);
       setItems((list) => [...added, ...list]);
       setSelected((s) => (multiple ? [...s, ...added.map((m) => m.id)] : [added[0].id]));
     } catch (e) {
@@ -163,6 +166,15 @@ export function MediaPicker({
             <Icon name="search" />
             <input className="input" placeholder={t('Suchen nach Name oder Beschreibung')} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
+          {folders.length > 1 && (
+            <Select
+              inline
+              label={t('Ordner')}
+              value={folder}
+              onChange={setFolder}
+              options={[{ value: '*', label: t('Alle Ordner') }, ...folders.map((f) => ({ value: f.folder, label: `${f.folder || t('Ohne Ordner')} (${f.n})` }))]}
+            />
+          )}
           <button className={`btn ${uploading ? 'uploading' : ''}`} style={{ '--up': share } as React.CSSProperties} onClick={() => input.current?.click()} disabled={uploading}>
             {uploading ? <span className="spin" aria-hidden="true" /> : <Icon name="upload" size="s" />}
             {uploading ? (

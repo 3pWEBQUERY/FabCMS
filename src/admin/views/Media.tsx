@@ -4,7 +4,7 @@ import { useDebounced, formatDate } from '../lib/hooks';
 import { usePath, navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm, Select } from '../ui/kit';
+import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm } from '../ui/kit';
 import { AiAlt } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
@@ -13,6 +13,7 @@ import { TagInput } from '../ui/FieldInput';
 import { t } from '../lib/i18n';
 import { MediaBulkBar } from './MediaBulk';
 import { useSelection } from './Bulk';
+import { MEDIA_DRAG, MediaFolders, type FolderCount } from './MediaFolders';
 
 const sizeLabel = (b: number) => (b > 1_048_576 ? `${(b / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
@@ -21,7 +22,7 @@ export function MediaLibrary() {
   const toast = useToast();
   const { query } = usePath();
   const [items, setItems] = useState<MediaRow[] | null>(null);
-  const [folders, setFolders] = useState<{ folder: string; n: number }[]>([]);
+  const [folders, setFolders] = useState<FolderCount[]>([]);
   const [folder, setFolder] = useState('*');
   const [type, setType] = useState('');
   const [missingAlt, setMissingAlt] = useState(query.get('missingAlt') === '1');
@@ -35,9 +36,7 @@ export function MediaLibrary() {
   const dq = useDebounced(q, 200);
 
   const load = useCallback(async () => {
-    const r = await api.get<{ media: MediaRow[]; folders: { folder: string; n: number }[] }>(
-      `/api/media${qs({ folder, type, q: dq, missingAlt: missingAlt ? '1' : undefined, limit: 200 })}`,
-    );
+    const r = await api.get<{ media: MediaRow[]; folders: FolderCount[] }>(`/api/media${qs({ folder, type, q: dq, missingAlt: missingAlt ? '1' : undefined, limit: 200 })}`);
     r.media.forEach(rememberMedia);
     setItems(r.media);
     setFolders(r.folders);
@@ -69,12 +68,26 @@ export function MediaLibrary() {
   };
 
   const open = items?.find((m) => m.id === openId) ?? null;
+  const inFolder = folder !== '*' && folder !== '';
+
+  /** Files dropped on a folder: moved there, the list follows. */
+  const moveTo = async (ids: string[], to: string) => {
+    try {
+      const r = await api.post<{ done: string[] }>('/api/media/bulk', { ids, action: 'move', folder: to });
+      toast(to ? t('{n} nach «{folder}» verschoben.', { n: r.done.length, folder: to }) : t('{n} aus dem Ordner genommen.', { n: r.done.length }));
+      selection.clear();
+      void load();
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
 
   return (
     <div
       className="page wide"
       onDragOver={(e) => {
-        if (!can('media.upload')) return;
+        // Only files from outside upload; tiles dragged onto a folder don't.
+        if (!can('media.upload') || !e.dataTransfer.types.includes('Files')) return;
         e.preventDefault();
         setOver(true);
       }}
@@ -128,13 +141,6 @@ export function MediaLibrary() {
           <Icon name="search" />
           <input className="input" placeholder={t('Dateiname, Beschreibung oder Schlagwort')} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Select
-          inline
-          label={t('Ordner')}
-          value={folder}
-          onChange={setFolder}
-          options={[{ value: '*', label: t('Alle Ordner') }, ...folders.map((f) => ({ value: f.folder, label: `${f.folder || t('Ohne Ordner')} (${f.n})` }))]}
-        />
         <Segmented
           label={t('Typ')}
           value={type}
@@ -150,12 +156,26 @@ export function MediaLibrary() {
           {t('Ohne Beschreibung')}
         </button>
       </div>
+      <MediaFolders
+        folders={folders}
+        current={folder}
+        onPick={setFolder}
+        onChanged={(list, now) => {
+          setFolders(list);
+          setFolder(now);
+        }}
+        onMove={(ids, to) => void moveTo(ids, to)}
+      />
       <div className={`dropzone ${over ? 'over' : ''}`} style={{ padding: items?.length ? '0.75rem' : '3rem', textAlign: items?.length ? 'left' : 'center' }}>
         {!items ? (
           <Skeleton lines={4} />
         ) : items.length === 0 ? (
-          <Empty title={q || missingAlt ? t('Nichts gefunden') : t('Noch keine Dateien')}>
-            {q || missingAlt ? t('Versuch einen anderen Filter.') : t('Zieh Bilder hierher oder tipp auf «Hochladen» – auch direkt vom Handy aus der Kamera.')}
+          <Empty title={q || missingAlt || type ? t('Nichts gefunden') : inFolder ? t('Der Ordner «{name}» ist leer', { name: folder }) : t('Noch keine Dateien')}>
+            {q || missingAlt || type
+              ? t('Versuch einen anderen Filter.')
+              : inFolder
+                ? t('Zieh Dateien hierher oder tipp auf «Hochladen» – sie landen direkt in diesem Ordner. Vorhandene Dateien ziehst du oben auf den Ordner.')
+                : t('Zieh Bilder hierher oder tipp auf «Hochladen» – auch direkt vom Handy aus der Kamera.')}
           </Empty>
         ) : (
           <div className="media-grid">
@@ -168,6 +188,12 @@ export function MediaLibrary() {
                 // While something is chosen, a tap chooses; Cmd/Ctrl/Shift-click starts choosing.
                 onClick={(e) => (selection.some || e.metaKey || e.ctrlKey || e.shiftKey ? selection.toggle(m.id) : setOpenId(m.id))}
                 title={m.filename}
+                draggable={can('media.upload')}
+                onDragStart={(e) => {
+                  // A chosen tile brings all chosen ones along.
+                  e.dataTransfer.setData(MEDIA_DRAG, JSON.stringify(selection.has(m.id) ? [...selection.sel] : [m.id]));
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
               >
                 <span
                   className="tile-check"
@@ -202,6 +228,7 @@ export function MediaLibrary() {
         <MediaDetail
           key={open.id}
           media={open}
+          folders={folders.map((f) => f.folder).filter(Boolean)}
           onClose={() => {
             setOpenId(null);
             if (query.get('id')) navigate('/medien', { replace: true });
@@ -220,7 +247,19 @@ export function MediaLibrary() {
   );
 }
 
-function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; onClose: () => void; onChange: (m: MediaRow) => void; onDelete: () => void }) {
+function MediaDetail({
+  media,
+  folders,
+  onClose,
+  onChange,
+  onDelete,
+}: {
+  media: MediaRow;
+  folders: string[];
+  onClose: () => void;
+  onChange: (m: MediaRow) => void;
+  onDelete: () => void;
+}) {
   const { can } = useSession();
   const toast = useToast();
   const [alt, setAlt] = useState(media.alt);
@@ -352,7 +391,20 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
             </Field>
             <div className="grid-2">
               <Field label={t('Ordner')} htmlFor="m-folder">
-                <input id="m-folder" className="input" value={folder} onChange={(e) => setFolder(e.target.value)} onBlur={() => folder !== media.folder && void save({ folder })} />
+                <input
+                  id="m-folder"
+                  className="input"
+                  list="m-folders"
+                  value={folder}
+                  placeholder={t('Ohne Ordner')}
+                  onChange={(e) => setFolder(e.target.value)}
+                  onBlur={() => folder !== media.folder && void save({ folder })}
+                />
+                <datalist id="m-folders">
+                  {folders.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
               </Field>
               <Field label={t('Schlagwörter')}>
                 <TagInput

@@ -25,6 +25,31 @@ function withUrls(m: MediaItem & { private?: boolean }) {
   };
 }
 
+/** Folder names: trimmed, single spaces, no slashes (folders don't nest). */
+export const folderName = (raw: string) =>
+  raw
+    .replace(/[\/\\]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+
+/** A folder named while uploading or moving files exists from then on. */
+async function ensureFolder(raw: string): Promise<string> {
+  const name = folderName(raw);
+  if (name) await sql`insert into media_folders (name) values (${name}) on conflict do nothing`;
+  return name;
+}
+
+/** Every folder with its number of files, «Ohne Ordner» first. */
+async function folderList(): Promise<{ folder: string; n: number }[]> {
+  const rows = await sql`
+    select f.name as folder, count(m.id)::int as n from media_folders f
+    left join media m on m.folder = f.name and not m.private
+    group by f.name order by lower(f.name)`;
+  const [loose] = await sql`select count(*)::int as n from media where folder = '' and not private`;
+  return [{ folder: '', n: loose.n as number }, ...rows.map((r) => ({ folder: r.folder as string, n: r.n as number }))];
+}
+
 export function mediaApi(app: Hono<AppEnv>) {
   app.get('/api/media', async (c) => {
     requireAnyCap(c, 'media.upload', 'content.edit');
@@ -40,8 +65,52 @@ export function mediaApi(app: Hono<AppEnv>) {
     const rows = await sql`
       select *, count(*) over() as total from media where true ${folder} ${type} ${search} ${missingAlt} ${priv}
       order by created_at desc limit ${limit} offset ${offset}`;
-    const folders = await sql`select folder, count(*)::int as n from media where not private group by folder order by folder`;
+    const folders = await folderList();
     return c.json({ media: rows.map((r) => withUrls(r as unknown as MediaItem)), total: Number(rows[0]?.total ?? 0), folders });
+  });
+
+  /* ---------- folders: exist on their own, also empty ---------- */
+
+  app.post('/api/media/folders', async (c) => {
+    requireCap(c, 'media.upload');
+    const { name } = z.object({ name: z.string().max(200) }).parse(await c.req.json());
+    const clean = folderName(name);
+    if (!clean) throw badRequest('Der Ordner braucht einen Namen.');
+    const [made] = await sql`insert into media_folders (name) values (${clean}) on conflict do nothing returning name`;
+    if (!made) throw badRequest('Diesen Ordner gibt es schon.');
+    await audit(c, 'media.folder.create', 'media', undefined, { name: clean });
+    return c.json({ folder: clean, folders: await folderList() });
+  });
+
+  /** Renaming moves every file along; a name that exists merges both. */
+  app.patch('/api/media/folders', async (c) => {
+    requireCap(c, 'media.manage');
+    const body = z.object({ from: z.string().max(200), to: z.string().max(200) }).parse(await c.req.json());
+    const to = folderName(body.to);
+    if (!to) throw badRequest('Der Ordner braucht einen Namen.');
+    const [had] = await sql`select 1 from media_folders where name = ${body.from}`;
+    if (!had) throw notFound('Diesen Ordner gibt es nicht.');
+    const moved = await sql.begin(async (tx) => {
+      await tx`insert into media_folders (name) values (${to}) on conflict do nothing`;
+      const r = await tx`update media set folder = ${to} where folder = ${body.from}`;
+      if (to !== body.from) await tx`delete from media_folders where name = ${body.from}`;
+      return r.count;
+    });
+    await audit(c, 'media.folder.rename', 'media', undefined, { from: body.from, to, moved });
+    return c.json({ folder: to, moved, folders: await folderList() });
+  });
+
+  /** Removes a folder; its files stay and show under «Ohne Ordner». */
+  app.delete('/api/media/folders', async (c) => {
+    requireCap(c, 'media.manage');
+    const name = c.req.query('name') ?? '';
+    const moved = await sql.begin(async (tx) => {
+      const [had] = await tx`delete from media_folders where name = ${name} returning name`;
+      if (!had) throw notFound('Diesen Ordner gibt es nicht.');
+      return (await tx`update media set folder = '' where folder = ${name}`).count;
+    });
+    await audit(c, 'media.folder.delete', 'media', undefined, { name, moved });
+    return c.json({ moved, folders: await folderList() });
   });
 
   app.get('/api/media/:id', async (c) => {
@@ -56,8 +125,8 @@ export function mediaApi(app: Hono<AppEnv>) {
     const body = await c.req.parseBody({ all: true });
     const files = ([] as unknown[]).concat(body.file ?? body['file[]'] ?? []).filter((f): f is File => f instanceof File);
     if (!files.length) throw badRequest('Keine Datei empfangen.');
-    const folder = typeof body.folder === 'string' ? body.folder.slice(0, 80) : '';
     const priv = body.private === '1';
+    const folder = typeof body.folder === 'string' ? (priv ? body.folder.slice(0, 80) : await ensureFolder(body.folder)) : '';
     const out = [];
     for (const f of files) {
       const m = await storeUpload({ buffer: Buffer.from(await f.arrayBuffer()), filename: f.name, folder, userId: user.id, private: priv });
@@ -104,7 +173,7 @@ export function mediaApi(app: Hono<AppEnv>) {
     if (!m) throw notFound();
     if (body.alt !== undefined) await sql`update media set alt = ${body.alt.trim()} where id = ${id}`;
     if (body.caption !== undefined) await sql`update media set caption = ${body.caption.trim()} where id = ${id}`;
-    if (body.folder !== undefined) await sql`update media set folder = ${body.folder.trim()} where id = ${id}`;
+    if (body.folder !== undefined) await sql`update media set folder = ${await ensureFolder(body.folder)} where id = ${id}`;
     if (body.tags) await sql`update media set tags = ${body.tags} where id = ${id}`;
     if (body.focus) await sql`update media set focus = ${json(body.focus)} where id = ${id}`;
     if (body.edits) {
@@ -145,8 +214,9 @@ export function mediaApi(app: Hono<AppEnv>) {
     requireCap(c, body.action === 'delete' ? 'media.manage' : 'media.upload');
     const done: string[] = [];
     const inUse: string[] = [];
+    const target = body.action === 'move' ? await ensureFolder(body.folder ?? '') : '';
     for (const id of [...new Set(body.ids)]) {
-      if (body.action === 'move') await sql`update media set folder = ${(body.folder ?? '').trim()} where id = ${id}`;
+      if (body.action === 'move') await sql`update media set folder = ${target} where id = ${id}`;
       else if (body.action === 'tag') await sql`update media set tags = array_append(tags, ${body.tag!.trim()}) where id = ${id} and not (${body.tag!.trim()} = any(tags))`;
       else {
         if (!body.force) {

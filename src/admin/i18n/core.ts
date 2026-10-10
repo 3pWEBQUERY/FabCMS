@@ -282,4 +282,27 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Datenbank direkt abfragen': { fr: 'Interroger directement la base de données', it: 'Interrogare direttamente il database', en: 'Query the database directly' },
   'Kontakte & Geschäft': { fr: 'Contacts & affaires', it: 'Contatti & affari', en: 'Contacts & business' },
   'Website & System': { fr: 'Site & système', it: 'Sito & sistema', en: 'Website & system' },
+  /* ---------- media folders ---------- */
+  '{n} nach «{folder}» verschoben.': { fr: '{n} déplacé(s) dans «{folder}».', it: '{n} spostati in «{folder}».', en: '{n} moved to “{folder}”.' },
+  '{n} aus dem Ordner genommen.': { fr: '{n} retiré(s) du dossier.', it: '{n} tolti dalla cartella.', en: '{n} taken out of the folder.' },
+  'Der Ordner «{name}» ist leer': { fr: 'Le dossier «{name}» est vide', it: 'La cartella «{name}» è vuota', en: 'The folder “{name}” is empty' },
+  'Zieh Dateien hierher oder tipp auf «Hochladen» – sie landen direkt in diesem Ordner. Vorhandene Dateien ziehst du oben auf den Ordner.': {
+    fr: 'Glissez des fichiers ici ou touchez «Téléverser» – ils arrivent directement dans ce dossier. Les fichiers existants se glissent sur le dossier en haut.',
+    it: 'Trascina qui i file o tocca «Carica» – finiscono direttamente in questa cartella. I file esistenti li trascini sulla cartella in alto.',
+    en: 'Drag files here or tap “Upload” – they land right in this folder. Drag existing files onto the folder above.',
+  },
+  'Ordner «{name}» angelegt.': { fr: 'Dossier «{name}» créé.', it: 'Cartella «{name}» creata.', en: 'Folder “{name}” created.' },
+  'Ordner heisst jetzt «{name}».': { fr: 'Le dossier s’appelle maintenant «{name}».', it: 'La cartella ora si chiama «{name}».', en: 'The folder is now called “{name}”.' },
+  'Ordner «{name}» löschen?': { fr: 'Supprimer le dossier «{name}» ?', it: 'Eliminare la cartella «{name}»?', en: 'Delete the folder “{name}”?' },
+  'Die {n} Dateien darin bleiben und erscheinen unter «Ohne Ordner».': {
+    fr: 'Les {n} fichiers qu’il contient restent et apparaissent sous «Sans dossier».',
+    it: 'I {n} file al suo interno restano e compaiono sotto «Senza cartella».',
+    en: 'The {n} files in it stay and show under “No folder”.',
+  },
+  'Ordner löschen': { fr: 'Supprimer le dossier', it: 'Elimina cartella', en: 'Delete folder' },
+  'Ordner «{name}» gelöscht.': { fr: 'Dossier «{name}» supprimé.', it: 'Cartella «{name}» eliminata.', en: 'Folder “{name}” deleted.' },
+  'Name des Ordners': { fr: 'Nom du dossier', it: 'Nome della cartella', en: 'Folder name' },
+  'Neuer Ordner': { fr: 'Nouveau dossier', it: 'Nuova cartella', en: 'New folder' },
+  'Alle Dateien': { fr: 'Tous les fichiers', it: 'Tutti i file', en: 'All files' },
+  'Ordner «{name}» bearbeiten': { fr: 'Modifier le dossier «{name}»', it: 'Modifica la cartella «{name}»', en: 'Edit folder “{name}”' },
 };
