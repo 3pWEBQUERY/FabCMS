@@ -5,6 +5,7 @@ import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Menu, Tip } from '../../ui/kit';
 import { MediaField } from '../../ui/FieldInput';
+import { ContrastNote } from './contrast';
 import { useToast } from '../../ui/toast';
 import { ColorInput, DesignSection, IconChoice, LengthInput, NumberInput, PropRow, useColorPreview } from './controls';
 import { BoxModel, GradientEditor, gradientPreviewCss, PositionGrid, ShadowEditor, spaceTokens } from './parts';
@@ -460,6 +461,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
         </DesignSection>
       )}
 
+      {!hover && <ContrastNote onFix={(c) => prop('color').set(c)} />}
       <DesignSection id="type" title={t('Text & Farben')} icon="type" count={count('type')} defaultOpen={block}>
         {color('color', t('Textfarbe'))}
         {color('accent', t('Akzentfarbe'))}

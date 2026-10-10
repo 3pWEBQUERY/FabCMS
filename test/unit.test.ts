@@ -83,6 +83,7 @@ import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-v
 import { pickTemplate, templateSeed } from '../src/server/seed';
 import { SECTORS } from '../src/shared/collections';
 import { THEMES } from '../src/site/themes';
+import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -1572,5 +1573,44 @@ describe('own mail texts', () => {
     expect(r.text).toBe('Hallo Anna,\n\nSchön, Anna!\n\nDanke für deine Bestellung.\n1 × Käse  12.–\n\nBis bald.\n\nEuer Linde-Team');
     // Unknown placeholders stay readable instead of vanishing.
     expect(applyMailText(mail, { intro: 'Hallo {wer}' }, {}, sign).text).toContain('Hallo {wer}');
+  });
+});
+
+describe('text contrast', () => {
+  const hex = (h: string) => parseHex(h)!;
+  it('measures like WCAG', () => {
+    expect(contrastRatio(hex('#000000'), hex('#ffffff'))).toBeCloseTo(21, 5);
+    expect(contrastRatio(hex('#777777'), hex('#ffffff'))).toBeCloseTo(4.48, 2);
+    expect(contrastRatio(hex('#ffffff'), hex('#777777'))).toBeCloseTo(4.48, 2);
+    // Shown rounded down: 4.48 is not «4.5».
+    expect(formatRatio(4.48)).toBe('4.4');
+    expect(needFor(16, 400)).toBe(4.5);
+    expect(needFor(19, 700)).toBe(3);
+    expect(needFor(19, 400)).toBe(4.5);
+    expect(needFor(24, 400)).toBe(3);
+  });
+
+  it('lays transparent text over its background', () => {
+    const half = { ...hex('#000000'), a: 0.5 };
+    expect(composite(half, hex('#ffffff'))).toMatchObject({ r: 127.5, g: 127.5, b: 127.5, a: 1 });
+  });
+
+  it('suggests the nearest colour of the same hue that is readable', () => {
+    const bg = hex('#ffffff');
+    const fix = fixColor(hex('#9aa0a6'), bg, 4.5)!;
+    expect(contrastRatio(hex(fix), bg)).toBeGreaterThanOrEqual(4.5);
+    // Darker grey, not black.
+    expect(fix).not.toBe('#000000');
+    expect(contrastRatio(hex(fix), bg)).toBeLessThan(5.5);
+    // On dark ground it goes lighter.
+    const dark = hex('#1c1b19');
+    const light = fixColor(hex('#555555'), dark, 4.5)!;
+    expect(contrastRatio(hex(light), dark)).toBeGreaterThanOrEqual(4.5);
+    expect(hex(light).r).toBeGreaterThan(0x55);
+    // Muted text keeps its transparency: the fix works once laid over the ground.
+    const muted = fixColor({ ...hex('#888888'), a: 0.72 }, bg, 4.5)!;
+    expect(contrastRatio(composite({ ...hex(muted), a: 0.72 }, bg), bg)).toBeGreaterThanOrEqual(4.5);
+    // Half-transparent text on mid grey can't reach it either way.
+    expect(fixColor({ ...hex('#000000'), a: 0.1 }, hex('#777777'), 4.5)).toBeNull();
   });
 });

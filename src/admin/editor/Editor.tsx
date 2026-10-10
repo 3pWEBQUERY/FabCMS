@@ -28,6 +28,8 @@ import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block, CollectionDef } from '../../shared/types';
 import { blockCss, blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
+import { ContrastNow, ContrastPanel, worstFirst } from './design/contrast';
+import type { ContrastIssue } from '../../shared/contrast';
 import {
   cloneEl,
   createEl,
@@ -99,7 +101,7 @@ async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   return mediaUrlCache;
 }
 
-type Panel = 'inspector' | 'seo' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
+type Panel = 'inspector' | 'seo' | 'contrast' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
 type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -108,6 +110,7 @@ const panelTitle = (p: Exclude<Panel, null>): string =>
   ({
     inspector: t('Block'),
     seo: t('Suchmaschinen'),
+    contrast: t('Kontrast'),
     history: t('Verlauf'),
     page: t('Seite'),
     structure: t('Aufbau'),
@@ -162,6 +165,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
   // In a component's original: the variant being designed.
   const [variant, setVariant] = useState<string | null>(null);
+  // Text too faint for its background, as the canvas measured it.
+  const [contrast, setContrast] = useState<ContrastIssue[]>([]);
 
   const studio = session.mode !== 'werkbank';
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
@@ -252,6 +257,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'multi':
           setMulti(m.els ?? []);
+          break;
+        case 'contrast':
+          setContrast(m.items ?? []);
           break;
         case 'select-el':
           setMulti([]);
@@ -832,6 +840,30 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     postToCanvas(frame.current, { t: 'select', id: blockId, scroll });
   };
 
+  // The selection's worst text; its colour can be fixed here only if it belongs to exactly what is selected.
+  const contrastHere = selected
+    ? (worstFirst(contrast.filter((i) => i.block === selected && (!selectedEl || i.els.includes(selectedEl)))).map((i) => ({
+        ...i,
+        own: i.own && (selectedEl ? i.els[0] === selectedEl : !i.els.length),
+      }))[0] ?? null)
+    : null;
+  const goToIssue = (i: ContrastIssue) => {
+    setSelected(i.block);
+    setSelectedEl(i.els[0] ?? null);
+    postToCanvas(frame.current, i.els[0] ? { t: 'select-el', block: i.block, el: i.els[0], scroll: true } : { t: 'select', id: i.block, scroll: true });
+  };
+  /** The text colour of the block or element the faint text takes its colour from, for the screen size in view. */
+  const fixIssue = (i: ContrastIssue) => {
+    if (!i.fix) return;
+    const b = blocksRef.current.find((x) => x.id === i.block);
+    if (!b) return;
+    if (!session.pro && b.lock && b.lock !== 'none') return toast(t('Layout gesperrt – du kannst die Texte ändern.'), { kind: 'bad' });
+    const info = i.els[0] ? findEl(elsOf(b), i.els[0]) : null;
+    if (i.els[0] && !info) return toast(t('Dieses Element gehört zu einer Komponente – pass die Farbe in der Komponente an.'), { kind: 'bad' });
+    if (info) changeElement(b.id, { ...info.el, design: setDesign(info.el.design ?? {}, device, 'color', i.fix) });
+    else changeBlock({ ...b, style: { ...b.style, design: setDesign(b.style?.design ?? {}, device, 'color', i.fix) } });
+  };
+
   const onSeoTarget = (c: SeoCheck) => {
     if (c.target?.blockId) {
       selectBlock(c.target.blockId);
@@ -956,14 +988,16 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               ['page', 'page', t('Seite')],
               ['structure', 'layers', t('Aufbau')],
               ['seo', 'seo', t('Suchmaschinen')],
+              ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
               ['history', 'history', t('Verlauf')],
             ] as [Panel, string, string][]
           )
             .filter(([p]) => !(lang && p === 'history'))
             .map(([p, icon, label]) => (
               <Tip key={p} label={label}>
-                <button className="btn ghost icon-only" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
+                <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
                   <Icon name={icon} />
+                  {p === 'contrast' && contrast.length > 0 && <span className="dot-count">{contrast.length}</span>}
                 </button>
               </Tip>
             ))}
@@ -1218,42 +1252,47 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               <div className="side-body">
                 {panel === 'inspector' && selectedBlock && selectedElInfo && (
                   <TokenColors.Provider value={tokenColors}>
-                    <ElementInspector
-                      key={selectedElInfo.el.id}
-                      el={selectedElInfo.el}
-                      onChange={(el) => changeElement(selectedBlock.id, el)}
-                      device={device}
-                      onDevice={setDevice}
-                      designState={designState}
-                      onDesignState={setDesignState}
-                      onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
-                      pro={session.pro}
-                      collections={collections}
-                      source={listSource}
-                      onSelect={selectElement}
-                      locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
-                      onOpenComponent={openComponent}
-                      onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
-                      variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
-                    />
+                    <ContrastNow.Provider value={contrastHere}>
+                      <ElementInspector
+                        key={selectedElInfo.el.id}
+                        el={selectedElInfo.el}
+                        onChange={(el) => changeElement(selectedBlock.id, el)}
+                        device={device}
+                        onDevice={setDevice}
+                        designState={designState}
+                        onDesignState={setDesignState}
+                        onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
+                        pro={session.pro}
+                        collections={collections}
+                        source={listSource}
+                        onSelect={selectElement}
+                        locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                        onOpenComponent={openComponent}
+                        onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
+                        variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
+                      />
+                    </ContrastNow.Provider>
                   </TokenColors.Provider>
                 )}
                 {panel === 'inspector' && selectedBlock && !selectedElInfo && (
                   <TokenColors.Provider value={tokenColors}>
-                    <Inspector
-                      key={selectedBlock.id}
-                      block={selectedBlock}
-                      onChange={changeBlock}
-                      device={device}
-                      onDevice={setDevice}
-                      designState={designState}
-                      onDesignState={setDesignState}
-                      onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
-                    />
+                    <ContrastNow.Provider value={contrastHere}>
+                      <Inspector
+                        key={selectedBlock.id}
+                        block={selectedBlock}
+                        onChange={changeBlock}
+                        device={device}
+                        onDevice={setDevice}
+                        designState={designState}
+                        onDesignState={setDesignState}
+                        onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
+                      />
+                    </ContrastNow.Provider>
                   </TokenColors.Provider>
                 )}
                 {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                 {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
+                {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}
                 {panel === 'page' && <PagePanel doc={doc} />}
                 {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
                 {panel === 'structure' && (

@@ -7326,3 +7326,79 @@ textarea.dg-input {
     padding-left: 1rem;
   }
 }
+
+/* contrast check in the editor */
+.ct-note {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, #f2b84b 16%, var(--panel));
+  border: 1px solid color-mix(in srgb, #f2b84b 45%, transparent);
+}
+.ct-sample {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 6px;
+  font-weight: 650;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.ct-dot {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.ct-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.ct-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.ct-go {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.45rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-go:hover {
+  background: var(--hover);
+}
+.ct-go .grow {
+  display: grid;
+  min-width: 0;
+}
+.ct-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--t-s);
+}
+.ct-ok {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  color: var(--ok);
+}

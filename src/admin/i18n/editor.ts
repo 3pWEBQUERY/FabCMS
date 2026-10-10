@@ -501,4 +501,36 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Suggestions from the AI assistant. Pick what you want to use – you can then edit everything as usual. Nothing goes live until you publish.',
   },
   '{n} übernehmen': { fr: 'Reprendre {n}', it: 'Applica {n}', en: 'Apply {n}' },
+  'Dieses Element gehört zu einer Komponente – pass die Farbe in der Komponente an.': {
+    fr: 'Cet élément fait partie d’un composant – adapte la couleur dans le composant.',
+    it: 'Questo elemento fa parte di un componente – adatta il colore nel componente.',
+    en: 'This element belongs to a component – change the colour in the component.',
+  },
+  'Kontrast, {n} schwer lesbar': { fr: 'Contraste, {n} peu lisibles', it: 'Contrasto, {n} poco leggibili', en: 'Contrast, {n} hard to read' },
+  Kontrast: { fr: 'Contraste', it: 'Contrasto', en: 'Contrast' },
+  '{ratio} : 1 – nötig sind {need} : 1': { fr: '{ratio} : 1 – il faut {need} : 1', it: '{ratio} : 1 – servono {need} : 1', en: '{ratio} : 1 – {need} : 1 needed' },
+  'Schwer lesbar': { fr: 'Peu lisible', it: 'Poco leggibile', en: 'Hard to read' },
+  'Textfarbe anpassen': { fr: 'Ajuster la couleur du texte', it: 'Adatta il colore del testo', en: 'Adjust text colour' },
+  'Die Farbe kommt von einem Element darin oder aus dem Design der Website. Wähl die Stelle unter «Kontrast».': {
+    fr: 'La couleur vient d’un élément à l’intérieur ou du design du site. Choisis l’endroit sous «Contraste».',
+    it: 'Il colore viene da un elemento interno o dal design del sito. Scegli il punto in «Contrasto».',
+    en: 'The colour comes from an element inside or from the website’s design. Pick the spot under «Contrast».',
+  },
+  'Text braucht genug Kontrast zum Hintergrund, damit ihn alle lesen können – auch draussen am Handy oder mit schwächeren Augen. Gemessen wird, was gerade auf der Vorschau zu sehen ist.':
+    {
+      fr: 'Le texte a besoin d’assez de contraste avec le fond pour que tout le monde puisse le lire – aussi dehors sur le téléphone ou avec une vue plus faible. On mesure ce qui est visible dans l’aperçu.',
+      it: 'Il testo ha bisogno di abbastanza contrasto con lo sfondo perché tutti lo possano leggere – anche fuori col telefono o con una vista più debole. Si misura ciò che si vede ora nell’anteprima.',
+      en: 'Text needs enough contrast with its background so everyone can read it – outdoors on a phone or with weaker eyes, too. What the preview shows right now is measured.',
+    },
+  'Alle Texte auf dieser Ansicht sind gut lesbar.': {
+    fr: 'Tous les textes de cette vue sont bien lisibles.',
+    it: 'Tutti i testi di questa vista sono ben leggibili.',
+    en: 'All text in this view is easy to read.',
+  },
+  Anpassen: { fr: 'Ajuster', it: 'Adatta', en: 'Adjust' },
+  'Grenzen nach WCAG 2.2: 4.5 : 1 für Text, 3 : 1 für grosse Schrift. Text auf Bildern und Verläufen lässt sich so nicht messen – prüf ihn von Auge.': {
+    fr: 'Seuils selon WCAG 2.2: 4.5 : 1 pour le texte, 3 : 1 pour les grands caractères. Le texte sur images et dégradés ne peut pas être mesuré ainsi – vérifie-le à l’œil.',
+    it: 'Soglie secondo WCAG 2.2: 4.5 : 1 per il testo, 3 : 1 per i caratteri grandi. Il testo su immagini e sfumature non si può misurare così – controllalo a occhio.',
+    en: 'Limits per WCAG 2.2: 4.5 : 1 for text, 3 : 1 for large type. Text on pictures and gradients can’t be measured this way – check it by eye.',
+  },
 };

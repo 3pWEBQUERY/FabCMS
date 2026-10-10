@@ -9,6 +9,7 @@ import { replay, setupMotion } from './motion';
 import { activeTab, reveal, setupWidgets, showTab } from './widgets';
 import { shortcutAction } from '../../shared/shortcuts';
 import { alignRects, snapLines, snapTo, type AlignHow, type Rect } from '../../shared/canvas';
+import { composite, contrastRatio, fixColor, needFor, toHex, type ContrastIssue, type Rgba } from '../../shared/contrast';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -903,6 +904,117 @@ addEventListener('scroll', sendRect, { passive: true });
 addEventListener('resize', sendRect);
 new ResizeObserver(sendRect).observe(d.body);
 
+/* ---------- contrast: text that is hard to read on what is behind it ---------- */
+
+// Any CSS colour (oklch, color-mix, named …) to sRGB, the way the browser paints it.
+const swatch = d.createElement('canvas').getContext('2d', { willReadFrequently: true });
+const rgbCache = new Map<string, Rgba | null>();
+function rgba(css: string): Rgba | null {
+  if (rgbCache.has(css)) return rgbCache.get(css)!;
+  let out: Rgba | null = null;
+  const m = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/.exec(css);
+  if (m) out = { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+  else if (swatch) {
+    swatch.clearRect(0, 0, 1, 1);
+    swatch.fillStyle = '#000';
+    swatch.fillStyle = css;
+    swatch.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = swatch.getImageData(0, 0, 1, 1).data;
+    out = a ? { r: (r * 255) / a, g: (g * 255) / a, b: (b * 255) / a, a: a / 255 } : { r: 0, g: 0, b: 0, a: 0 };
+  }
+  rgbCache.set(css, out);
+  return out;
+}
+
+const overlaps = (a: DOMRect, b: DOMRect) => {
+  const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+  return w > 0 && h > 0 && w * h > 0.2 * b.width * b.height;
+};
+
+function measureContrast(): ContrastIssue[] {
+  const tops = blocks();
+  // Pictures, videos and background images: text on them can't be measured from colours.
+  const painted = [...main.querySelectorAll<HTMLElement>('*')].filter((x) => /^(IMG|VIDEO|CANVAS|IFRAME|PICTURE)$/.test(x.tagName) || getComputedStyle(x).backgroundImage !== 'none');
+  const page = rgba(getComputedStyle(d.body).backgroundColor);
+  const white: Rgba = { r: 255, g: 255, b: 255, a: 1 };
+  const seen = new Set<Element>();
+  const found = new Map<string, { strictest: number; issue: ContrastIssue }>();
+  const walker = d.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement;
+    if (!el || seen.has(el) || !n.textContent?.trim()) continue;
+    seen.add(el);
+    if (el.closest('script,style,noscript,[hidden],[aria-hidden="true"],.nova-peer,.nova-cmt,nova-chrome')) continue;
+    const block = tops.find((b) => b.contains(el));
+    if (!block) continue;
+    const cs = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    if (box.width < 2 || box.height < 2 || cs.visibility !== 'visible' || cs.backgroundClip === 'text') continue;
+    const fg = rgba(cs.color);
+    if (!fg || fg.a < 0.05) continue;
+    // Layers behind the text, from the text outwards, until one is solid.
+    const layers: Rgba[] = [];
+    let solid: Element = d.documentElement;
+    let unknown = false;
+    let faded = false;
+    for (let a: Element | null = el; a && a !== d.documentElement; a = a.parentElement) {
+      const as = getComputedStyle(a);
+      if (Number(as.opacity) < 0.1) faded = true;
+      if (as.backgroundImage !== 'none') {
+        unknown = true;
+        break;
+      }
+      const c = rgba(as.backgroundColor);
+      if (c && c.a > 0) layers.push(c);
+      if (c && c.a >= 0.999) {
+        solid = a;
+        break;
+      }
+    }
+    if (faded || unknown) continue;
+    if (painted.some((p) => p !== el && !el.contains(p) && solid.contains(p) && overlaps(p.getBoundingClientRect(), box))) continue;
+    let bg = page && page.a >= 0.999 && solid === d.documentElement ? page : white;
+    for (const l of layers.reverse()) bg = composite(l, bg);
+    const ratio = contrastRatio(composite(fg, bg), bg);
+    const need = needFor(parseFloat(cs.fontSize), Number(cs.fontWeight) || 400);
+    if (ratio >= need) continue;
+    const els: string[] = [];
+    for (let a: HTMLElement | null = el.closest<HTMLElement>('[data-nova-el]'); a && block.contains(a); a = a.parentElement?.closest<HTMLElement>('[data-nova-el]') ?? null) els.push(a.dataset.novaEl!);
+    const owner = (els[0] ? elEl(els[0]) : null) ?? block;
+    const oc = rgba(getComputedStyle(owner).color);
+    const own = Boolean(oc && Math.abs(oc.r - fg.r) + Math.abs(oc.g - fg.g) + Math.abs(oc.b - fg.b) < 4);
+    // Same colours in the same place: one entry, shown with its worst text, fixed for the strictest limit.
+    const key = [block.dataset.novaBlock, els[0] ?? '', toHex(fg), fg.a.toFixed(2), toHex(bg)].join('|');
+    const prev = found.get(key);
+    const strictest = Math.max(need, prev?.strictest ?? 0);
+    const issue: ContrastIssue = {
+      block: block.dataset.novaBlock!,
+      els,
+      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60),
+      ratio,
+      need,
+      fg: toHex(composite(fg, bg)),
+      bg: toHex(bg),
+      fix: fixColor(fg, bg, strictest),
+      own,
+    };
+    found.set(key, { strictest, issue: prev && prev.issue.ratio / prev.issue.need <= ratio / need ? { ...prev.issue, fix: issue.fix } : issue });
+  }
+  return [...found.values()].map((x) => x.issue).slice(0, 60);
+}
+
+// Measured again shortly after anything on the page changes.
+let contrastTimer = 0;
+function sendContrast() {
+  clearTimeout(contrastTimer);
+  contrastTimer = window.setTimeout(() => post({ t: 'contrast', items: measureContrast() }), 400);
+}
+addEventListener('resize', sendContrast);
+d.fonts?.ready.then(sendContrast);
+// New blocks, re-rendered blocks, typed text and design changes (their style tags) all show up here.
+new MutationObserver(sendContrast).observe(main, { childList: true, subtree: true, characterData: true });
+
 /* ---------- commands from the parent ---------- */
 
 function animateIn(el: HTMLElement) {
@@ -1199,6 +1311,7 @@ addEventListener('message', (e) => {
       variantOf.set(m.id, m.variant ?? null);
       applyVariants();
       sendRect();
+      sendContrast();
       break;
     }
     case 'hover-state': {
@@ -1214,3 +1327,4 @@ addEventListener('message', (e) => {
 setupMotion(main, true);
 setupWidgets(main, true);
 post({ t: 'ready', blocks: blocks().map((b) => b.dataset.novaBlock) });
+sendContrast();
