@@ -519,6 +519,7 @@ addEventListener('message', (e) => {
       const old = blockEl(m.id);
       const next = htmlToElement(m.html);
       if (!old || !next) break;
+      if (old.classList.contains('nova-hover')) next.classList.add('nova-hover');
       old.replaceWith(next);
       setupFields(next);
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
@@ -653,6 +654,20 @@ addEventListener('message', (e) => {
     case 'flash': {
       const el = blockEl(m.id);
       if (el) flash(el);
+      break;
+    }
+    case 'design': {
+      // Design changes show at once; the server's HTML for the block follows a moment later.
+      const tag = d.querySelector<HTMLStyleElement>(`style[data-nova-design="${CSS.escape(m.id)}"]`);
+      if (tag && tag.textContent !== m.css) tag.textContent = m.css;
+      sendRect();
+      break;
+    }
+    case 'hover-state': {
+      // While hover is being designed, the selected block shows its hover look without the mouse.
+      d.querySelectorAll('.nova-hover').forEach((x) => x.classList.remove('nova-hover'));
+      const el = m.id ? blockEl(m.id) : null;
+      el?.classList.add('nova-hover');
       break;
     }
   }

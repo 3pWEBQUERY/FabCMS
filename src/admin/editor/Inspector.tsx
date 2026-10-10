@@ -6,6 +6,8 @@ import { t, tl } from '../lib/i18n';
 import { FieldList } from '../ui/FieldInput';
 import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
+import { isEmptyDesign, type DesignBp, type DesignState } from '../../shared/design';
+import { DesignPanel } from './design/DesignPanel';
 
 const tones = (): { value: NonNullable<BlockStyle['tone']>; label: string }[] => [
   { value: 'default', label: t('Normal') },
@@ -21,7 +23,21 @@ const spacing = () =>
     { value: 'l', label: t('Gross') },
   ] as const;
 
-export function Inspector({ block, onChange }: { block: Block; onChange: (b: Block) => void }) {
+export function Inspector({
+  block,
+  onChange,
+  device,
+  onDevice,
+  designState,
+  onDesignState,
+}: {
+  block: Block;
+  onChange: (b: Block) => void;
+  device: DesignBp;
+  onDevice: (d: DesignBp) => void;
+  designState: DesignState;
+  onDesignState: (s: DesignState) => void;
+}) {
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
   const [tab, setTab] = useState<'content' | 'style' | 'code'>('content');
@@ -52,7 +68,7 @@ export function Inspector({ block, onChange }: { block: Block; onChange: (b: Blo
         onChange={setTab}
         options={[
           { value: 'content', label: t('Inhalt') },
-          ...(lock === 'none' ? [{ value: 'style' as const, label: t('Darstellung') }] : []),
+          ...(lock === 'none' ? [{ value: 'style' as const, label: t('Design') }] : []),
           ...(pro ? [{ value: 'code' as const, label: t('Code') }] : []),
         ]}
       />
@@ -67,68 +83,87 @@ export function Inspector({ block, onChange }: { block: Block; onChange: (b: Blo
         </div>
       )}
       {tab === 'style' && (
-        <div className="stack">
-          <Field label={t('Hintergrund')}>
-            <div className="chips">
-              {tones().map((o) => (
-                <button key={o.value} type="button" className="chip" aria-pressed={(style.tone ?? 'default') === o.value} onClick={() => setStyle({ tone: o.value })}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label={t('Abstand oben und unten')}>
-            <div className="chips">
-              {spacing().map((s) => (
-                <button key={s.value} type="button" className="chip" aria-pressed={(style.spacing ?? 'm') === s.value} onClick={() => setStyle({ spacing: s.value })}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label={t('Abstand auf dem Handy')} help={t('Überschreibt den Abstand nur auf schmalen Bildschirmen.')}>
-            <div className="chips">
-              <button type="button" className="chip" aria-pressed={!style.spacingMobile} onClick={() => setStyle({ spacingMobile: undefined })}>
-                {t('Wie oben')}
-              </button>
-              {spacing().map((s) => (
-                <button key={s.value} type="button" className="chip" aria-pressed={style.spacingMobile === s.value} onClick={() => setStyle({ spacingMobile: s.value })}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label={t('Ausblenden auf')}>
-            <div className="chips">
-              {(
-                [
-                  ['mobile', t('Handy')],
-                  ['tablet', t('Tablet')],
-                  ['desktop', t('Computer')],
-                ] as [Breakpoint, string][]
-              ).map(([bp, label]) => {
-                const on = (style.hideOn ?? []).includes(bp);
-                return (
-                  <button
-                    key={bp}
-                    type="button"
-                    className="chip"
-                    aria-pressed={on}
-                    onClick={() => setStyle({ hideOn: on ? (style.hideOn ?? []).filter((x) => x !== bp) : [...(style.hideOn ?? []), bp] })}
-                  >
-                    {label}
+        <DesignPanel
+          design={style.design}
+          onChange={(d) => setStyle({ design: isEmptyDesign(d) ? undefined : d })}
+          target="block"
+          bp={device}
+          onBp={onDevice}
+          state={designState}
+          onState={onDesignState}
+          pro={pro}
+          scheme={
+            <Field label={t('Farbschema')}>
+              <div className="chips">
+                {tones().map((o) => (
+                  <button key={o.value} type="button" className="chip" aria-pressed={(style.tone ?? 'default') === o.value} onClick={() => setStyle({ tone: o.value })}>
+                    {o.label}
                   </button>
-                );
-              })}
-            </div>
-          </Field>
-          <Field label={t('Sprungmarke')} help={t('Damit Links wie /#preise direkt hierher springen.')}>
-            <div className="input-affix">
-              <span>#</span>
-              <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder={t('preise')} />
-            </div>
-          </Field>
-        </div>
+                ))}
+              </div>
+            </Field>
+          }
+          rhythm={
+            device === 'mobile' ? (
+              <Field label={t('Abstand oben und unten auf dem Handy')}>
+                <div className="chips">
+                  <button type="button" className="chip" aria-pressed={!style.spacingMobile} onClick={() => setStyle({ spacingMobile: undefined })}>
+                    {t('Wie oben')}
+                  </button>
+                  {spacing().map((x) => (
+                    <button key={x.value} type="button" className="chip" aria-pressed={style.spacingMobile === x.value} onClick={() => setStyle({ spacingMobile: x.value })}>
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            ) : (
+              <Field label={t('Abstand oben und unten')}>
+                <div className="chips">
+                  {spacing().map((x) => (
+                    <button key={x.value} type="button" className="chip" aria-pressed={(style.spacing ?? 'm') === x.value} onClick={() => setStyle({ spacing: x.value })}>
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            )
+          }
+          visibility={
+            <>
+              <Field label={t('Ausblenden auf')}>
+                <div className="chips">
+                  {(
+                    [
+                      ['mobile', t('Handy')],
+                      ['tablet', t('Tablet')],
+                      ['desktop', t('Computer')],
+                    ] as [Breakpoint, string][]
+                  ).map(([bp, label]) => {
+                    const on = (style.hideOn ?? []).includes(bp);
+                    return (
+                      <button
+                        key={bp}
+                        type="button"
+                        className="chip"
+                        aria-pressed={on}
+                        onClick={() => setStyle({ hideOn: on ? (style.hideOn ?? []).filter((x) => x !== bp) : [...(style.hideOn ?? []), bp] })}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+              <Field label={t('Sprungmarke')} help={t('Damit Links wie /#preise direkt hierher springen.')}>
+                <div className="input-affix">
+                  <span>#</span>
+                  <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder={t('preise')} />
+                </div>
+              </Field>
+            </>
+          }
+        />
       )}
       {tab === 'code' && <CodeTab block={block} onChange={onChange} />}
     </div>

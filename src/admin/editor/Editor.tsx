@@ -25,6 +25,32 @@ import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block } from '../../shared/types';
+import { blockDomId, COLOR_TOKENS, designCss, designImages, type DesignState } from '../../shared/design';
+import { TokenColors } from './design/controls';
+
+/** The theme's colours as the canvas page really uses them. */
+function readTokenColors(frame: HTMLIFrameElement | null): Record<string, string> {
+  const win = frame?.contentWindow;
+  if (!win) return {};
+  const cs = win.getComputedStyle(win.document.documentElement);
+  return Object.fromEntries(COLOR_TOKENS.map((k) => [k, cs.getPropertyValue(`--${k}`).trim()]).filter(([, v]) => v));
+}
+
+/** Background image URLs for the live preview (the server renders the same ones). */
+const mediaUrlCache = new Map<string, string>();
+async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
+  await Promise.all(
+    ids
+      .filter((m) => !mediaUrlCache.has(m))
+      .map((m) =>
+        api
+          .get<{ media: { id: string; version: number } }>(`/api/media/${m}`)
+          .then((r) => mediaUrlCache.set(m, `/media/${r.media.id}/v${r.media.version}/1920.webp`))
+          .catch(() => {}),
+      ),
+  );
+  return mediaUrlCache;
+}
 
 type Panel = 'inspector' | 'seo' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
 type Device = 'desktop' | 'tablet' | 'mobile';
@@ -63,6 +89,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [rect, setRect] = useState<Rect | null>(null);
   const [panel, setPanel] = useState<Panel>(focusComment ? 'comments' : null);
   const [device, setDevice] = useState<Device>('desktop');
+  const [designState, setDesignState] = useState<DesignState>('normal');
+  const [tokenColors, setTokenColors] = useState<Record<string, string>>({});
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
   const glide = useAnimationControls();
@@ -117,6 +145,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
       switch (m.t) {
         case 'ready':
           setReady(true);
+          setTokenColors(readTokenColors(frame.current));
           postToCanvas(frame.current, { t: 'init', studio });
           postToCanvas(frame.current, { t: 'comments', counts: comments.counts, label: t('Kommentare') });
           if (selected) postToCanvas(frame.current, { t: 'select', id: selected });
@@ -229,9 +258,25 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   /* ---------- block operations ---------- */
 
   const changeBlock = (b: Block) => {
+    const before = blocksRef.current.find((x) => x.id === b.id);
     doc.setData((d) => updateBlock(d, b.id, () => b));
+    // Design shows on the canvas right away; the server's render confirms it a moment later.
+    if (JSON.stringify(before?.style?.design) !== JSON.stringify(b.style?.design)) {
+      void mediaUrls(designImages(b.style?.design)).then((urls) =>
+        postToCanvas(frame.current, {
+          t: 'design',
+          id: b.id,
+          css: designCss(`#${blockDomId(b)}`, b.style?.design, { image: (m) => urls.get(m) ?? null, forceHover: 'nova-hover' }),
+        }),
+      );
+    }
     scheduleBlockRender(b.id);
   };
+
+  // While the hover look is being designed, the canvas shows it on the selected block.
+  useEffect(() => {
+    if (ready) postToCanvas(frame.current, { t: 'hover-state', id: designState === 'hover' && panel === 'inspector' ? selected : null });
+  }, [designState, panel, selected, ready]);
 
   const insertBlock = async (type: string, index: number, props?: Record<string, unknown>) => {
     const block = createBlock(type, props);
@@ -604,7 +649,19 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </button>
               </header>
               <div className="side-body">
-                {panel === 'inspector' && selectedBlock && <Inspector key={selectedBlock.id} block={selectedBlock} onChange={changeBlock} />}
+                {panel === 'inspector' && selectedBlock && (
+                  <TokenColors.Provider value={tokenColors}>
+                    <Inspector
+                      key={selectedBlock.id}
+                      block={selectedBlock}
+                      onChange={changeBlock}
+                      device={device}
+                      onDevice={setDevice}
+                      designState={designState}
+                      onDesignState={setDesignState}
+                    />
+                  </TokenColors.Provider>
+                )}
                 {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                 {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
                 {panel === 'page' && <PagePanel doc={doc} />}

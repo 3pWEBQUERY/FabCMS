@@ -2027,4 +2027,29 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('PUT', '/api/collections/posts', { custom_fields: [] });
     await req('PUT', '/api/collections/dishes', { custom_fields: [] });
   });
+
+  it('renders the visual design of a block scoped to it, per screen size and on hover', async () => {
+    const design = {
+      desktop: { pt: '$s-7', bg: '$surface', radius: '24px', color: 'red;}body{display:none' },
+      mobile: { pt: '1rem', textAlign: 'center' },
+      hover: { y: '-4px', shadow: 'l' },
+    };
+    const page = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: { title: 'Gestaltet', blocks: [{ id: 'dsg1', type: 'text', props: { heading: 'Hallo', body: '<p>Text</p>' }, style: { design } }] },
+    });
+    expect(page.status).toBe(200);
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    const css = /<style data-nova-design="dsg1">([^<]*)<\/style>/.exec(html)?.[1] ?? '';
+    expect(css).toContain('#b-dsg1{padding-top:var(--s-7)');
+    expect(css).toContain('border-radius:24px');
+    expect(css).toContain('@media (max-width:40rem){#b-dsg1{padding-top:1rem;text-align:center}}');
+    expect(css).toContain('@media (hover:hover){#b-dsg1:hover{');
+    expect(css).not.toContain('body');
+    // The editor's preview renders the forced-hover rule too; the public page doesn't need it.
+    expect(css).not.toContain('nova-hover');
+    const preview = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'dsg1' });
+    expect(preview.data.html).toContain('#b-dsg1.nova-hover{');
+  });
 });

@@ -1,6 +1,7 @@
 import type { ServerHook } from './hooks';
 import type { SiteTranslation } from './i18n';
 import type { FieldDef, LinkValue } from './fields';
+import type { Design } from './design';
 
 export type Mode = 'studio' | 'werkbank';
 export type Role = 'owner' | 'admin' | 'editor' | 'author' | 'member';
@@ -18,6 +19,8 @@ export interface BlockStyle {
   /** Werkbank: extra class names and scoped CSS. */
   className?: string;
   css?: string;
+  /** Visual design per breakpoint and hover (shared/design.ts). */
+  design?: Design;
 }
 
 /**

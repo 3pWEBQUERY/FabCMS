@@ -2,6 +2,7 @@ import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
+import { blockDomId, designCss, designImages } from '../shared/design';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
@@ -832,6 +833,12 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
   const c = ctx as RenderContext;
   c.depth ??= 0;
   const out: Html[] = [];
+  // Background images in the design: looked up once, before the blocks render.
+  const images = new Map<string, string>();
+  for (const id of new Set(blocks.flatMap((b) => designImages(b.style?.design)))) {
+    const m = await c.media(id);
+    if (m) images.set(id, variantUrl(m, 1920, 'webp'));
+  }
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     const def = BLOCK_MAP[b.type];
@@ -847,12 +854,12 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
       console.error(`[render] Block ${b.type} (${b.id}) fehlgeschlagen:`, e);
       inner = empty(c, 'Dieser Block konnte nicht angezeigt werden.');
     }
-    out.push(wrapBlock(b, inner, c));
+    out.push(wrapBlock(b, inner, c, images));
   }
   return join(out);
 }
 
-export function wrapBlock(b: Block, inner: Html, ctx: RenderContext): Html {
+export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map<string, string> = new Map()): Html {
   const s = b.style ?? {};
   const tone = s.tone ?? 'default';
   const isCover = b.type === 'hero' && (b.props as P).variant === 'cover';
@@ -867,10 +874,13 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext): Html {
     b.type === 'hero' && `hero-${(b.props as P).variant ?? 'statement'}`,
     s.className,
   );
-  const id = s.anchor || `b-${b.id}`;
+  const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
+  // The editor swaps this style element while someone drags a value, before the server answers.
+  const look = designCss(`#${id}`, s.design, { image: (m) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined });
+  const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';
   const editAttrs = ctx.edit ? raw(` data-nova-block="${esc(b.id)}" data-nova-type="${esc(b.type)}" data-nova-lock="${esc(b.lock ?? 'none')}"`) : '';
-  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}>${css}${inner}</section>`;
+  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}>${css}${design}${inner}</section>`;
 }
 
 /** Werkbank CSS per block: `&` refers to the block; plain rules are prefixed with it. */

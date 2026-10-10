@@ -28,6 +28,7 @@ import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
+import { blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1023,5 +1024,67 @@ describe('website icons', () => {
     expect(validateFields(f, { icon: '<script>' })[0].message).toContain('gibt es nicht');
     expect(siteIconSvg('cup')).toContain('aria-hidden="true"');
     expect(siteIconSvg('nope')).toBe('');
+  });
+});
+
+describe('visual design', () => {
+  it('compiles per breakpoint and hover, with the theme tokens', () => {
+    const css = designCss('#b-x', {
+      desktop: { pt: '4rem', bg: '$accent', color: '#ffffff', radius: 24 as unknown as string, shadow: 'm' },
+      tablet: { pt: '2rem' },
+      mobile: { textAlign: 'center' },
+      hover: { y: '-4px', shadow: 'l' },
+      transition: 300,
+    });
+    expect(css).toContain('#b-x{padding-top:4rem;color:#ffffff;--ink:#ffffff');
+    expect(css).toContain('background-color:var(--accent)');
+    expect(css).toContain('border-radius:24px');
+    expect(css).toContain('transition:color 300ms');
+    expect(css).toContain('@media (max-width:64rem){#b-x{padding-top:2rem}}');
+    expect(css).toContain('@media (max-width:40rem){#b-x{text-align:center}}');
+    expect(css).toMatch(/@media \(hover:hover\)\{#b-x:hover\{box-shadow:[^}]*;transform:translate\(0,-4px\)\}\}/);
+    expect(designCss('#b-x', { hover: { scale: 1.05 } }, { forceHover: 'nova-hover' })).toContain('#b-x.nova-hover{transform:scale(1.05)}');
+  });
+
+  it('keeps everything typed into the panel inside the rule', () => {
+    const evil = 'red;}body{display:none}';
+    const css = designCss('#b', {
+      desktop: {
+        color: evil,
+        bg: 'url(javascript:alert(1))',
+        pt: '1px;}*{x:y',
+        fontSize: 'calc(1px)',
+        width: '10px</style><script>',
+        bgImage: '../../etc',
+        display: 'contents' as never,
+        gradient: { type: 'linear', angle: 45, stops: [{ color: evil, at: 0 }, { color: '#000', at: 100 }] },
+        shadow: { x: 0, y: 4, blur: 8, spread: 0, color: 'expression(alert(1))' },
+      },
+    }, { image: () => 'x");}body{a:b' });
+    expect(css).not.toMatch(/body|script|javascript|expression|calc|contents|;}\*/);
+    expect(cssLength('2.5rem')).toBe('2.5rem');
+    expect(cssLength('12')).toBe('12px');
+    expect(cssLength('$s-4')).toBe('var(--s-4)');
+    expect(cssLength('$nope')).toBeNull();
+    expect(cssColor('$accent/40')).toBe('color-mix(in srgb,var(--accent) 40%,transparent)');
+    expect(cssColor('rgb(1 2 3 / 50%)')).toBe('rgb(1 2 3 / 50%)');
+  });
+
+  it('never sets a theme token from itself', () => {
+    const css = designCss('#b', { desktop: { accent: '$accent', bg: '$bg/80', color: '$ink' } });
+    expect(css).not.toContain('--accent:');
+    expect(css).not.toContain('--bg:');
+    expect(css).not.toContain('--ink:');
+    expect(css).toContain('background-color:color-mix(in srgb,var(--bg) 80%,transparent)');
+  });
+
+  it('knows which value applies where, and removes empty layers', () => {
+    const d: Design = { desktop: { pt: '4rem', color: '$ink' }, tablet: { pt: '2rem' } };
+    expect(effective(d, 'mobile', 'pt')).toEqual({ value: '2rem', from: 'tablet' });
+    expect(effective(d, 'mobile', 'color')).toEqual({ value: '$ink', from: 'desktop' });
+    expect(setDesign(d, 'tablet', 'pt', undefined).tablet).toBeUndefined();
+    expect(isEmptyDesign(setDesign(setDesign(d, 'tablet', 'pt', undefined), 'desktop', 'pt', undefined))).toBe(false);
+    expect(blockDomId({ id: 'abc', style: { anchor: 'preise' } })).toBe('preise');
+    expect(blockDomId({ id: 'abc', style: { anchor: 'x"><script>' } })).toBe('b-abc');
   });
 });
