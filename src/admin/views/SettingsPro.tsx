@@ -11,7 +11,8 @@ import { shortId } from '../../shared/text';
 import type { CollectionDef, Webhook } from '../../shared/types';
 import { HOOK_EVENTS, type HookEvent, type ServerHook } from '../../shared/hooks';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
-import { t, tl } from '../lib/i18n';
+import { WebhookLog } from './WebhookLog';
+import { t, tl, tm } from '../lib/i18n';
 
 /** Puts an element where {code} stands in a translated sentence. */
 function withCode(text: string, el: ReactNode) {
@@ -513,8 +514,12 @@ export function CodeSettings() {
 /* ---------- API & webhooks ---------- */
 
 const events = (): [string, string][] => [
+  ['entry.created', t('Inhalt angelegt')],
+  ['entry.updated', t('Inhalt geändert')],
   ['entry.published', t('Inhalt veröffentlicht')],
   ['entry.unpublished', t('Inhalt offline genommen')],
+  ['entry.deleted', t('Inhalt gelöscht')],
+  ['entry.restored', t('Inhalt wiederhergestellt')],
   ['form.submitted', t('Formular gesendet')],
   ['lead.created', t('Neuer Kontakt')],
   ['order.created', t('Bestellung eingegangen')],
@@ -526,6 +531,7 @@ export function ApiSettings() {
   const toast = useToast();
   const tokens = useApi<{ tokens: { id: string; name: string; scopes: string[]; last_used_at: string | null; created_at: string }[] }>('/api/tokens');
   const { draft, set, dirty, save, reset } = useSettingsDraft();
+  const { data: cols } = useApi<{ collections: CollectionDef[] }>('/api/collections');
   const [newToken, setNewToken] = useState({ name: '', write: false });
   const [secret, setSecret] = useState<string | null>(null);
   const [explorer, setExplorer] = useState('/api/v1/pages?limit=3');
@@ -705,6 +711,30 @@ export function ApiSettings() {
                   </button>
                 ))}
               </div>
+              {h.events.some((ev) => ev.startsWith('entry.')) && cols && (
+                <div className="stack tight">
+                  <span className="xsmall muted">{h.collections?.length ? t('Inhalts-Ereignisse nur für:') : t('Inhalts-Ereignisse für alle Inhaltstypen – oder nur für:')}</span>
+                  <div className="chips">
+                    {cols.collections.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="chip"
+                        aria-pressed={Boolean(h.collections?.includes(c.id))}
+                        onClick={() => {
+                          const cur = h.collections ?? [];
+                          setHook(i, { collections: cur.includes(c.id) ? cur.filter((x) => x !== c.id) : [...cur, c.id] });
+                        }}
+                      >
+                        {tl(c.name)}
+                      </button>
+                    ))}
+                  </div>
+                  {h.events.includes('entry.updated') && (
+                    <span className="xsmall muted">{t('«Inhalt geändert» kommt einmal, wenn eine Minute lang nichts mehr geändert wurde – nicht bei jedem Speichern.')}</span>
+                  )}
+                </div>
+              )}
               {h.secret && (
                 <div className="row small">
                   <span className="muted">{t('Signatur-Schlüssel:')}</span> <code className="mono">{h.secret}</code>
@@ -714,9 +744,12 @@ export function ApiSettings() {
                       api
                         .post<{ ok: boolean; status: number; ms: number; error?: string }>('/api/webhooks/test', { url: h.url })
                         .then((r) =>
-                          toast(r.ok ? t('Antwort {status} in {ms} ms', { status: r.status, ms: r.ms }) : t('Fehlgeschlagen: {error}', { error: r.error ?? r.status }), {
-                            kind: r.ok ? 'info' : 'bad',
-                          }),
+                          toast(
+                            r.ok ? t('Antwort {status} in {ms} ms', { status: r.status, ms: r.ms }) : t('Fehlgeschlagen: {error}', { error: r.error ? tm(r.error) : r.status }),
+                            {
+                              kind: r.ok ? 'info' : 'bad',
+                            },
+                          ),
                         )
                         .catch((e) => toast(e.message, { kind: 'bad' }))
                     }
@@ -725,6 +758,7 @@ export function ApiSettings() {
                   </button>
                 </div>
               )}
+              {h.id && <WebhookLog hookId={h.id} />}
             </div>
           ))}
         </section>

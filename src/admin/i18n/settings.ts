@@ -1397,4 +1397,32 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
   Betriebsferien: { fr: 'Vacances annuelles', it: 'Ferie aziendali', en: 'Holiday closure' },
   Mittagsmenü: { fr: 'Menu de midi', it: 'Menù di mezzogiorno', en: 'Lunch menu' },
   'Reservation empfohlen': { fr: 'Réservation recommandée', it: 'Prenotazione consigliata', en: 'Booking recommended' },
+  /* ---------- content webhooks & deliveries ---------- */
+  'Inhalt angelegt': { fr: 'Contenu créé', it: 'Contenuto creato', en: 'Content created' },
+  'Inhalt geändert': { fr: 'Contenu modifié', it: 'Contenuto modificato', en: 'Content changed' },
+  'Inhalt gelöscht': { fr: 'Contenu supprimé', it: 'Contenuto eliminato', en: 'Content deleted' },
+  'Inhalt wiederhergestellt': { fr: 'Contenu restauré', it: 'Contenuto ripristinato', en: 'Content restored' },
+  'Inhalts-Ereignisse nur für:': { fr: 'Événements de contenu uniquement pour :', it: 'Eventi di contenuto solo per:', en: 'Content events only for:' },
+  'Inhalts-Ereignisse für alle Inhaltstypen – oder nur für:': {
+    fr: 'Événements de contenu pour tous les types – ou seulement pour :',
+    it: 'Eventi di contenuto per tutti i tipi – o solo per:',
+    en: 'Content events for all content types – or only for:',
+  },
+  '«Inhalt geändert» kommt einmal, wenn eine Minute lang nichts mehr geändert wurde – nicht bei jedem Speichern.': {
+    fr: '«Contenu modifié» arrive une fois, quand plus rien n’a changé pendant une minute – pas à chaque enregistrement.',
+    it: '«Contenuto modificato» arriva una volta, quando per un minuto non è cambiato più nulla – non a ogni salvataggio.',
+    en: '“Content changed” arrives once, after nothing has changed for a minute – not on every save.',
+  },
+  Zustellungen: { fr: 'Envois', it: 'Invii', en: 'Deliveries' },
+  '{n} fehlgeschlagen': { fr: '{n} en échec', it: '{n} non riusciti', en: '{n} failed' },
+  'Lade …': { fr: 'Chargement …', it: 'Caricamento …', en: 'Loading …' },
+  'Noch nichts gesendet. Zustellungen bleiben 14 Tage sichtbar.': {
+    fr: 'Rien envoyé pour l’instant. Les envois restent visibles 14 jours.',
+    it: 'Ancora nulla inviato. Gli invii restano visibili 14 giorni.',
+    en: 'Nothing sent yet. Deliveries stay visible for 14 days.',
+  },
+  wartet: { fr: 'en attente', it: 'in attesa', en: 'waiting' },
+  '{n} Versuche': { fr: '{n} tentatives', it: '{n} tentativi', en: '{n} attempts' },
+  'Erneut senden': { fr: 'Renvoyer', it: 'Invia di nuovo', en: 'Send again' },
+  'Gesendeter Inhalt': { fr: 'Contenu envoyé', it: 'Contenuto inviato', en: 'Sent content' },
 };

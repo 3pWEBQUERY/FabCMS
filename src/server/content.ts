@@ -10,7 +10,7 @@ import { entryPath, RESERVED_PREFIXES } from '../shared/paths';
 import type { Block, CollectionDef, Entry, EntryData } from '../shared/types';
 import { badRequest, HttpError, notFound } from './lib/http';
 import { bumpGeneration, getSettings, updateSettings } from './settings';
-import { emit, pingIndexNow } from './events';
+import { cancelSettled, emit, emitSettled, pingIndexNow } from './events';
 import { notify } from './notify';
 
 /* ---------- Collections ---------- */
@@ -298,7 +298,13 @@ export async function createEntry(collectionId: string, data: Record<string, unk
     values (${c.id}, ${finalSlug}, ${json(clean)}, ${ctx.userId}, ${Number(max) + 1})
     returning *`;
   await sql`insert into revisions (entry_id, data, kind, user_id) values (${e.id}, ${json(clean)}, 'autosave', ${ctx.userId})`;
+  emit('entry.created', entryPayload(c, e as unknown as Entry));
   return e as unknown as Entry;
+}
+
+/** What content webhooks say about an entry. */
+function entryPayload(c: CollectionDef, e: Pick<Entry, 'id' | 'slug' | 'status' | 'data'>): Record<string, unknown> {
+  return { id: e.id, collection: c.id, slug: e.slug, status: e.status, title: e.data?.title ?? '', path: entryPath(c, e.slug) };
 }
 
 export async function updateEntry(
@@ -337,6 +343,10 @@ export async function updateEntry(
     if (!ctx.collab) void import('./collab').then((m) => m.externalChange(id)).catch(() => {});
     return e;
   });
+      emitSettled(id, async () => {
+        const [now] = await sql`select id, collection, slug, status, data from entries where id = ${id}`;
+        return now ? entryPayload(await getCollection(now.collection as string), now as unknown as Entry) : null;
+      });
 }
 
 /**
@@ -439,11 +449,14 @@ const RELATED = ['revisions', 'entry_translations', 'entry_comments', 'comments'
 export async function deleteEntry(id: string, userId: string | null = null, opts: { permanent?: boolean } = {}): Promise<void> {
   const e = await getEntry(id);
   if (e.collection === 'pages' && e.slug === '') throw badRequest('Die Startseite kann nicht gelöscht werden.');
+  cancelSettled(id);
+  const gone = { ...entryPayload(await getCollection(e.collection), e), permanent: Boolean(opts.permanent) };
   // A withdrawn consent leaves nothing behind – not even in the trash.
   if (opts.permanent) {
     await sql`delete from trash where id = ${id}`;
     await sql`delete from entries where id = ${id}`;
     bumpGeneration();
+    emit('entry.deleted', gone);
     return;
   }
   await sql.begin(async (tx) => {
@@ -456,6 +469,7 @@ export async function deleteEntry(id: string, userId: string | null = null, opts
     await tx`delete from entries where id = ${id}`;
   });
   bumpGeneration();
+  emit('entry.deleted', gone);
 }
 
 /**
@@ -492,6 +506,7 @@ export async function restoreEntry(id: string): Promise<Entry> {
     return e;
   });
   bumpGeneration();
+  emit('entry.restored', entryPayload(await getCollection(restored.collection as string), restored as unknown as Entry));
   return restored as unknown as Entry;
 }
 

@@ -124,6 +124,8 @@ export interface Webhook {
   events: string[];
   secret: string;
   active: boolean;
+  /** Content events only for these types; empty = all. */
+  collections?: string[];
 }
 
 export interface SiteSettings {

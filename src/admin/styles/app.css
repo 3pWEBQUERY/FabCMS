@@ -6852,3 +6852,54 @@ textarea.dg-input {
 .rm input[type='checkbox']:disabled {
   cursor: not-allowed;
 }
+
+/* ---------- webhook deliveries ---------- */
+.wh-log .linkish {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.wh-bad {
+  color: var(--bad);
+}
+.wh-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  max-height: 18rem;
+  overflow: auto;
+}
+.wh-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--r-m);
+  font-size: var(--t-s);
+}
+.wh-list li:hover {
+  background: var(--hover);
+}
+.wh-list li > i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+}
+.wh-list li.ok > i {
+  background: var(--ok);
+}
+.wh-list li.bad > i {
+  background: var(--bad);
+}
+.wh-list li.bad > .xsmall:nth-of-type(2) {
+  color: var(--bad);
+}
+.wh-list code {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}

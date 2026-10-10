@@ -2,7 +2,6 @@ import type { Hono } from 'hono';
 import { formatIban, validQrIban } from '../../shared/qrbill';
 import { deleteMember } from '../members';
 import { z } from 'zod';
-import { createHmac } from 'node:crypto';
 import QRCode from 'qrcode';
 import { Readable } from 'node:stream';
 import { sql, json } from '../db';
@@ -17,6 +16,7 @@ import { eidConfigured } from '../age-verify';
 import { legalPages } from '../legal';
 import { createBackup, restoreBackup } from '../backup';
 import { exportZip } from '../export';
+import { deliver, redeliver } from '../events';
 import { storage } from '../storage';
 import { env, s3Configured } from '../env';
 import { mailConfigured, sendMail } from '../mail';
@@ -108,6 +108,8 @@ export function systemApi(app: Hono<AppEnv>) {
         if (!/^https:\/\//.test(w.url)) throw badRequest('Webhooks müssen eine https-Adresse haben.');
         w.id ||= shortId();
         w.secret ||= token(24);
+        const known = new Set((await listCollections()).map((x) => x.id));
+        w.collections = Array.isArray(w.collections) ? [...new Set(w.collections.filter((x) => typeof x === 'string' && known.has(x)))] : [];
       }
     }
     if (patch.analytics) {
@@ -212,23 +214,32 @@ export function systemApi(app: Hono<AppEnv>) {
   app.post('/api/webhooks/test', async (c) => {
     requireCap(c, 'dev');
     const { url } = z.object({ url: z.string().url() }).parse(await c.req.json());
-    const s = await getSettings();
-    const hook = s.webhooks.find((w) => w.url === url);
+    const hook = (await getSettings()).webhooks.find((w) => w.url === url);
     if (!hook) throw notFound('Speichere den Webhook zuerst.');
-    const body = JSON.stringify({ event: 'test', site: env.publicUrl, at: new Date().toISOString(), data: { message: 'Hallo von Nova' } });
-    const sig = createHmac('sha256', hook.secret).update(body).digest('hex');
-    const started = Date.now();
-    try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Nova-Signature': `sha256=${sig}` },
-        body,
-        signal: AbortSignal.timeout(10_000),
-      });
-      return c.json({ ok: r.ok, status: r.status, ms: Date.now() - started });
-    } catch (e) {
-      return c.json({ ok: false, status: 0, error: (e as Error).message, ms: Date.now() - started });
-    }
+    return c.json(await deliver(hook, 'test', { message: 'Hallo von Nova' }, true));
+  });
+
+  /** The last deliveries of a webhook, newest first – what went out and what came back. */
+  app.get('/api/webhooks/:id/deliveries', async (c) => {
+    requireCap(c, 'dev');
+    const rows = await sql`
+      select id, event, ok, status, error, ms, attempts, created_at, finished_at
+      from webhook_deliveries where hook_id = ${c.req.param('id')} order by created_at desc limit 50`;
+    return c.json({ deliveries: rows });
+  });
+
+  app.get('/api/webhooks/deliveries/:id', async (c) => {
+    requireCap(c, 'dev');
+    const [d] = await sql`select * from webhook_deliveries where id = ${c.req.param('id')}`;
+    if (!d) throw notFound('Diese Zustellung gibt es nicht mehr.');
+    return c.json({ delivery: { ...d, body: JSON.parse(d.body as string) } });
+  });
+
+  app.post('/api/webhooks/deliveries/:id/retry', async (c) => {
+    requireCap(c, 'dev');
+    const r = await redeliver(c.req.param('id'));
+    await audit(c, 'webhook.retry', 'webhook', c.req.param('id'), { ok: r.ok, status: r.status });
+    return c.json(r);
   });
 
   /* ---------- onboarding ---------- */

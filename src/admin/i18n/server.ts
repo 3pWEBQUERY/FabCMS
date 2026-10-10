@@ -1358,4 +1358,9 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Solo titolari e admin nominano admin.',
     en: 'Only owners and admins appoint admins.',
   },
+  /* ---------- webhook deliveries ---------- */
+  'Diese Zustellung gibt es nicht mehr.': { fr: 'Cet envoi n’existe plus.', it: 'Questo invio non esiste più.', en: 'This delivery no longer exists.' },
+  'Diesen Webhook gibt es nicht mehr.': { fr: 'Ce webhook n’existe plus.', it: 'Questo webhook non esiste più.', en: 'This webhook no longer exists.' },
+  'Keine Antwort in 10 Sekunden.': { fr: 'Pas de réponse en 10 secondes.', it: 'Nessuna risposta in 10 secondi.', en: 'No answer within 10 seconds.' },
+  'Nicht erreichbar ({code}).': { fr: 'Injoignable ({code}).', it: 'Non raggiungibile ({code}).', en: 'Unreachable ({code}).' },
 };

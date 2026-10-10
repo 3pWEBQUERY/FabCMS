@@ -20,6 +20,8 @@ import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
 import { syncBuiltinCollections, invalidateCollections, unpublishDue } from '../src/server/content';
+import { deliveriesIdle, settleNow } from '../src/server/events';
+import { createHmac } from 'node:crypto';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
@@ -2507,6 +2509,93 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(kinds(live.id)).toEqual(['expires', 'published']);
     expect((await req('GET', '/api/calendar?from=2026-01-01&to=2026-12-31')).status).toBe(400);
     for (const e of [plan, live]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
+  it('tells webhooks about content: created, changed once it rests, deleted, restored – filtered, signed and logged', async () => {
+    const realFetch = globalThis.fetch;
+    const got: { url: string; event: string; delivery: string; signature: string; raw: string; body: any }[] = [];
+    let failing = true;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      if (!String(url).startsWith('https://hooks.test/')) return realFetch(url, init);
+      const h = init?.headers as Record<string, string>;
+      got.push({
+        url: String(url),
+        event: h['X-Nova-Event'],
+        delivery: h['X-Nova-Delivery'],
+        signature: h['X-Nova-Signature'],
+        raw: String(init?.body),
+        body: JSON.parse(String(init?.body)),
+      });
+      return new Response('', { status: String(url).endsWith('/down') && failing ? 503 : 200 });
+    }) as typeof fetch;
+    const flush = async () => {
+      await new Promise((r) => setTimeout(r, 60));
+      await deliveriesIdle();
+    };
+    const of = (u: string, ev?: string) => got.filter((g) => g.url === `https://hooks.test/${u}` && (!ev || g.event === ev));
+    try {
+      // Changes waiting from earlier tests go out first, to nobody.
+      await settleNow();
+      const all = ['entry.created', 'entry.updated', 'entry.published', 'entry.deleted', 'entry.restored'];
+      const saved = await req('PATCH', '/api/settings', {
+        webhooks: [
+          { id: '', url: 'https://hooks.test/posts', events: all, collections: ['posts', 'gibts-nicht'], secret: '', active: true },
+          { id: '', url: 'https://hooks.test/any', events: ['entry.created'], secret: '', active: true },
+          { id: '', url: 'https://hooks.test/down', events: ['entry.deleted'], secret: '', active: true },
+        ],
+      });
+      const [postsHook, , downHook] = saved.data.settings.webhooks;
+      expect(postsHook.collections).toEqual(['posts']);
+
+      const post = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Webhook-Beitrag' } })).data.entry;
+      const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Webhook-Seite', blocks: [] } })).data.entry;
+      await flush();
+      expect(of('posts', 'entry.created').map((g) => g.body.data.id)).toEqual([post.id]);
+      expect(of('any', 'entry.created').map((g) => g.body.data.id)).toEqual([post.id, page.id]);
+      expect(of('posts', 'entry.created')[0].body.data).toMatchObject({ collection: 'posts', title: 'Webhook-Beitrag', status: 'draft', path: `/journal/${post.slug}` });
+      // Signed with the hook's secret over the exact body.
+      const g = of('posts', 'entry.created')[0];
+      expect(g.signature).toBe(`sha256=${createHmac('sha256', postsHook.secret).update(g.raw).digest('hex')}`);
+
+      // Three saves while writing: one «updated», with the last state, once it rests.
+      for (const title of ['Webhook 1', 'Webhook 2', 'Webhook 3']) await req('PUT', `/api/entries/${post.id}`, { data: { ...post.data, title } });
+      await flush();
+      expect(of('posts', 'entry.updated')).toHaveLength(0);
+      await settleNow();
+      await flush();
+      expect(of('posts', 'entry.updated').map((x) => x.body.data.title)).toEqual(['Webhook 3']);
+
+      // A change right before deleting sends no late «updated».
+      await req('PUT', `/api/entries/${post.id}`, { data: { ...post.data, title: 'Letzte Fassung' } });
+      await req('DELETE', `/api/entries/${post.id}`);
+      await settleNow();
+      await flush();
+      expect(of('posts', 'entry.updated')).toHaveLength(1);
+      expect(of('posts', 'entry.deleted')[0].body.data).toMatchObject({ id: post.id, title: 'Letzte Fassung', permanent: false });
+      await req('POST', `/api/trash/${post.id}/restore`);
+      await flush();
+      expect(of('posts', 'entry.restored').map((x) => x.body.data.id)).toEqual([post.id]);
+
+      // Every delivery is logged; a failed one goes out again with the same id.
+      const log = (await req('GET', `/api/webhooks/${postsHook.id}/deliveries`)).data.deliveries;
+      expect(log.map((d: { event: string }) => d.event)).toEqual(['entry.restored', 'entry.deleted', 'entry.updated', 'entry.created']);
+      expect(log.every((d: { ok: boolean; status: number }) => d.ok && d.status === 200)).toBe(true);
+      const down = (await req('GET', `/api/webhooks/${downHook.id}/deliveries`)).data.deliveries[0];
+      expect(down).toMatchObject({ event: 'entry.deleted', ok: false, status: 503, attempts: 1 });
+      failing = false;
+      const again = await req('POST', `/api/webhooks/deliveries/${down.id}/retry`);
+      expect(again.data).toMatchObject({ ok: true, status: 200 });
+      const deliveries = of('down');
+      expect(deliveries[deliveries.length - 1].delivery).toBe(deliveries[0].delivery);
+      expect((await req('GET', `/api/webhooks/${downHook.id}/deliveries`)).data.deliveries[0]).toMatchObject({ ok: true, attempts: 2 });
+      const detail = await req('GET', `/api/webhooks/deliveries/${down.id}`);
+      expect(detail.data.delivery.body).toMatchObject({ event: 'entry.deleted', data: { id: post.id } });
+
+      await req('PATCH', '/api/settings', { webhooks: [] });
+      for (const id of [post.id, page.id]) await req('DELETE', `/api/entries/${id}`);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
