@@ -1148,4 +1148,22 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Si carica solo dopo il consenso. Senza consenso non viene trasmesso nulla a Google.',
     en: 'Only loads after consent. Without consent nothing is sent to Google.',
   },
+  'Suchindex neu aufgebaut.': { fr: 'Index de recherche reconstruit.', it: 'Indice di ricerca ricostruito.', en: 'Search index rebuilt.' },
+  'Suche auf der Website': { fr: 'Recherche sur le site', it: 'Ricerca sul sito', en: 'Website search' },
+  'Meilisearch ist verbunden: {n} Einträge im Index, zuletzt abgeglichen {when}. Findet auch Wörter mit Tippfehlern und halb getippte Begriffe.': {
+    fr: 'Meilisearch est connecté : {n} entrées dans l’index, dernière synchronisation {when}. Trouve aussi les mots avec fautes de frappe et les termes à moitié tapés.',
+    it: 'Meilisearch è collegato: {n} voci nell’indice, ultimo allineamento {when}. Trova anche parole con errori di battitura e termini scritti a metà.',
+    en: 'Meilisearch is connected: {n} entries in the index, last synced {when}. Also finds words with typos and half-typed terms.',
+  },
+  'Meilisearch antwortet gerade nicht. Bis es wieder geht, sucht die Website in der Datenbank.': {
+    fr: 'Meilisearch ne répond pas pour le moment. En attendant, le site cherche dans la base de données.',
+    it: 'Meilisearch al momento non risponde. Finché non torna, il sito cerca nel database.',
+    en: 'Meilisearch isn’t answering right now. Until it is back, the website searches the database.',
+  },
+  'Index neu aufbauen': { fr: 'Reconstruire l’index', it: 'Ricostruisci l’indice', en: 'Rebuild index' },
+  'Die Suche läuft über die Volltextsuche der Datenbank. Für eine Suche, die auch Tippfehler verzeiht, einen Meilisearch-Dienst hinzufügen und {var} setzen.': {
+    fr: 'La recherche utilise la recherche plein texte de la base de données. Pour une recherche qui pardonne aussi les fautes de frappe, ajoutez un service Meilisearch et définissez {var}.',
+    it: 'La ricerca usa la ricerca full-text del database. Per una ricerca che perdona anche gli errori di battitura, aggiungi un servizio Meilisearch e imposta {var}.',
+    en: 'Search uses the database’s full-text search. For a search that also forgives typos, add a Meilisearch service and set {var}.',
+  },
 };

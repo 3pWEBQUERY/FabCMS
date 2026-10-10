@@ -10,6 +10,7 @@ import { startScheduler } from './scheduler';
 import { runtimeScript } from '../site/assets';
 import { backfillPlaceholders } from './media';
 import { resumeVideos } from './video';
+import { startSearchSync } from './search';
 import { sql } from './db';
 import type { Server } from 'node:http';
 import { attachCollab, flushRooms } from './collab';
@@ -43,6 +44,7 @@ async function main() {
   attachCollab(server as Server);
   startScheduler();
   // Loading previews for images uploaded before they existed; runs once, in the background.
+  startSearchSync();
   void resumeVideos()
     .then((n) => n && console.info(`[nova] Videos für das Web aufbereiten: ${n}`))
     .catch((e) => console.error('[nova] Videos:', e));

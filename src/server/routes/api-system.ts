@@ -33,6 +33,7 @@ import { HOOK_EVENTS } from '../../shared/hooks';
 import { GA4_ID } from '../../shared/stats-services';
 import { defaultLang, isLang, LANGS } from '../../shared/i18n';
 import { checkHookCode, runHook } from '../hooks';
+import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme']);
@@ -157,6 +158,22 @@ export function systemApi(app: Hono<AppEnv>) {
     }
     await audit(c, 'settings.update', 'settings', '', { keys: Object.keys(patch) });
     return c.json({ settings: next });
+  });
+
+  /* ---------- site search ---------- */
+
+  app.get('/api/search/status', async (c) => {
+    requireCap(c, 'settings.manage');
+    return c.json(searchStatus());
+  });
+
+  app.post('/api/search/rebuild', async (c) => {
+    requireCap(c, 'settings.manage');
+    if (!meiliConfigured()) throw badRequest('Die Suche läuft über die Datenbank – da gibt es keinen Index zum Neuaufbauen.');
+    await rebuildSearch();
+    const status = searchStatus();
+    if (!status.ok) throw new HttpError(502, 'Meilisearch ist nicht erreichbar. Prüf MEILI_HOST und MEILI_KEY.');
+    return c.json(status);
   });
 
   /** Runs a hook against real data without saving anything. */

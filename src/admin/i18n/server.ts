@@ -1180,4 +1180,14 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Il server Plausible proprio deve iniziare con https://, p. es. https://plausible.beispiel.ch.',
     en: 'The self-hosted Plausible server must start with https://, e.g. https://plausible.beispiel.ch.',
   },
+  'Die Suche läuft über die Datenbank – da gibt es keinen Index zum Neuaufbauen.': {
+    fr: 'La recherche passe par la base de données – il n’y a pas d’index à reconstruire.',
+    it: 'La ricerca passa dal database – non c’è un indice da ricostruire.',
+    en: 'Search runs on the database – there is no index to rebuild.',
+  },
+  'Meilisearch ist nicht erreichbar. Prüf MEILI_HOST und MEILI_KEY.': {
+    fr: 'Meilisearch n’est pas joignable. Vérifiez MEILI_HOST et MEILI_KEY.',
+    it: 'Meilisearch non è raggiungibile. Controlla MEILI_HOST e MEILI_KEY.',
+    en: 'Meilisearch can’t be reached. Check MEILI_HOST and MEILI_KEY.',
+  },
 };

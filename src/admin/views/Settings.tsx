@@ -671,6 +671,7 @@ function SeoSettings() {
               {t('Die Google Search Console verbindest du, indem du dort die Sitemap einreichst.')}
             </p>
           </Section>
+          <SearchSection />
           <Section title={t('Statistik')}>
             <Toggle
               checked={draft.analytics.enabled}
@@ -741,6 +742,57 @@ function SeoSettings() {
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
+  );
+}
+
+/** Which search the website uses; Meilisearch with its state and a rebuild. */
+function SearchSection() {
+  const toast = useToast();
+  const { data, reload } = useApi<{ engine: 'meilisearch' | 'postgres'; ok: boolean; at: string | null; error: string | null; documents: number }>('/api/search/status');
+  const [busy, setBusy] = useState(false);
+  const rebuild = async () => {
+    setBusy(true);
+    try {
+      await api.post('/api/search/rebuild');
+      toast(t('Suchindex neu aufgebaut.'));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    } finally {
+      setBusy(false);
+      void reload();
+    }
+  };
+  if (!data) return null;
+  return (
+    <Section title={t('Suche auf der Website')}>
+      {data.engine === 'meilisearch' ? (
+        <div className="row wrap" style={{ justifyContent: 'space-between', gap: '0.75rem' }}>
+          <p className="small" style={{ flex: '1 1 20rem' }}>
+            {data.ok
+              ? t('Meilisearch ist verbunden: {n} Einträge im Index, zuletzt abgeglichen {when}. Findet auch Wörter mit Tippfehlern und halb getippte Begriffe.', {
+                  n: data.documents,
+                  when: data.at ? formatDate(data.at) : '–',
+                })
+              : t('Meilisearch antwortet gerade nicht. Bis es wieder geht, sucht die Website in der Datenbank.')}
+            {!data.ok && data.error && (
+              <>
+                {' '}
+                <code className="xsmall">{data.error}</code>
+              </>
+            )}
+          </p>
+          <button type="button" className="btn s" onClick={() => void rebuild()} aria-busy={busy || undefined}>
+            <span>{t('Index neu aufbauen')}</span>
+          </button>
+        </div>
+      ) : (
+        <p className="small muted">
+          {withEl(t('Die Suche läuft über die Volltextsuche der Datenbank. Für eine Suche, die auch Tippfehler verzeiht, einen Meilisearch-Dienst hinzufügen und {var} setzen.'), {
+            var: <code>MEILI_HOST</code>,
+          })}
+        </p>
+      )}
+    </Section>
   );
 }
 

@@ -108,8 +108,15 @@ let generation = 0;
 
 /** Bumped whenever anything public changes; the page cache keys on it. */
 export const contentGeneration = () => generation;
+const bumpListeners = new Set<() => void>();
 export const bumpGeneration = () => {
   generation++;
+  for (const fn of bumpListeners) fn();
+};
+/** Called after every public change (search index sync). */
+export const onContentChange = (fn: () => void) => {
+  bumpListeners.add(fn);
+  return () => bumpListeners.delete(fn);
 };
 
 function deepMerge<T>(base: T, patch: unknown): T {

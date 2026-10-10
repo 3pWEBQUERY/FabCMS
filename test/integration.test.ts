@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { videoQueueIdle } from '../src/server/video';
+import { searchIdle, startSearchSync } from '../src/server/search';
 import { storage } from '../src/server/storage';
 import { createServer, type AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
@@ -1506,5 +1507,96 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await patch({ plausible: { domain: '', host: '' }, matomo: { url: '', siteId: '', cookies: false }, ga4: { id: '' } });
     home = await req('GET', '/', undefined, anon);
     expect(home.data).not.toContain('nova-stats');
+  });
+
+  it('searches with Meilisearch when it is there – typos included – and falls back to Postgres', async () => {
+    const anon = { cookies: new Map() };
+    const find = async (q: string) => (await req('GET', `/suche?q=${encodeURIComponent(q)}`, undefined, anon)).data as string;
+    expect(await find('Kontackt')).toContain('Keine Treffer'); // Postgres needs the word as it is
+
+    // A stand-in for Meilisearch: the endpoints Nova uses, with a search that forgives one wrong letter.
+    const realFetch = globalThis.fetch;
+    const docs = new Map<string, any>();
+    const auth: string[] = [];
+    let down = false;
+    const lev = (a: string, b: string) => {
+      const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+      for (let j = 1; j <= b.length; j++) m[0][j] = j;
+      for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      return m[a.length][b.length];
+    };
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      const u = new URL(String(url));
+      if (u.host !== 'meili.test') return realFetch(url, init);
+      auth.push(String((init?.headers as Record<string, string>)?.Authorization));
+      if (down) return new Response('{"message":"down"}', { status: 503 });
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+      const ok = (x: unknown, status = 202) => new Response(JSON.stringify(x), { status });
+      const path = u.pathname;
+      if (path === '/indexes' || path.endsWith('/settings')) return ok({ taskUid: 1 });
+      if (path === '/indexes/nova/documents' && init?.method === 'GET') return ok({ results: [...docs.keys()].map((id) => ({ id })) }, 200);
+      if (path === '/indexes/nova/documents') {
+        for (const d of body) docs.set(d.id, d);
+        return ok({ taskUid: 2 });
+      }
+      if (path === '/indexes/nova/documents/delete-batch') {
+        for (const id of body) docs.delete(id);
+        return ok({ taskUid: 3 });
+      }
+      if (path === '/indexes/nova/search') {
+        const lang = /lang = "(\w+)"/.exec(body.filter)![1];
+        const words = (body.q as string).toLowerCase().split(/\s+/);
+        const hits = [...docs.values()].filter(
+          (d) => d.lang === lang && words.every((w) => `${d.title} ${d.text}`.toLowerCase().split(/[^\p{L}\d]+/u).some((x) => x.startsWith(w) || (w.length > 3 && lev(x, w) <= 1))),
+        );
+        return ok({ hits: hits.map((h) => ({ entry: h.entry })) }, 200);
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+    env.meili.host = 'http://meili.test';
+    env.meili.key = 'master-key';
+    try {
+      startSearchSync();
+      await searchIdle();
+      expect(auth.every((a) => a === 'Bearer master-key')).toBe(true);
+      const [kontakt] = await sql`select id from entries where collection = 'pages' and slug = 'kontakt'`;
+      expect(docs.get(`${kontakt.id}-de`)).toMatchObject({ entry: kontakt.id, lang: 'de', collection: 'pages', title: 'Kontakt' });
+      // Members-only: found by the title only, nothing of the text in the index.
+      const [members] = await sql`select id from entries where data ->> 'title' = 'Nur für Mitglieder'`;
+      expect(docs.get(`${members.id}-de`).text).toBe('');
+      expect(await find('Kardamom')).toContain('Keine Treffer');
+      expect((await req('GET', '/api/search/status')).data).toMatchObject({ engine: 'meilisearch', ok: true, documents: docs.size });
+
+      // Typos are forgiven; what is shown still comes from the database.
+      const hit = await find('Kontackt');
+      expect(hit).toContain('1 Treffer');
+      expect(hit).toContain('href="/kontakt">Kontakt</a>');
+
+      // Changes reach the index on their own, shortly after publishing.
+      const page = (await req('GET', `/api/entries/${kontakt.id}`)).data.entry;
+      await req('PUT', `/api/entries/${kontakt.id}`, { data: { ...page.data, title: 'Kontakt und Anfahrt' }, baseVersion: page.version });
+      await req('POST', `/api/entries/${kontakt.id}/publish`, {});
+      await new Promise((r) => setTimeout(r, 1800));
+      await searchIdle();
+      expect(docs.get(`${kontakt.id}-de`).title).toBe('Kontakt und Anfahrt');
+      await req('POST', `/api/entries/${kontakt.id}/unpublish`, {});
+      await new Promise((r) => setTimeout(r, 1800));
+      await searchIdle();
+      expect(docs.has(`${kontakt.id}-de`)).toBe(false);
+      await req('POST', `/api/entries/${kontakt.id}/publish`, {});
+
+      // Meilisearch gone: the site keeps finding things through Postgres.
+      down = true;
+      expect(await find('Kontakt')).toContain('Treffer für');
+      expect((await req('POST', '/api/search/rebuild')).status).toBe(502);
+      expect((await req('GET', '/api/search/status')).data.ok).toBe(false);
+      down = false;
+      expect((await req('POST', '/api/search/rebuild')).data).toMatchObject({ ok: true });
+    } finally {
+      globalThis.fetch = realFetch;
+      env.meili.host = '';
+      const [k] = await sql`select data from entries where collection = 'pages' and slug = 'kontakt'`;
+      if (k.data.title !== 'Kontakt') await sql`update entries set data = jsonb_set(data, '{title}', '"Kontakt"'), published_data = jsonb_set(published_data, '{title}', '"Kontakt"') where collection = 'pages' and slug = 'kontakt'`;
+    }
   });
 });

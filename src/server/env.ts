@@ -65,6 +65,12 @@ export const env = {
     host: e.CLAMAV_HOST ?? '',
     port: Number(e.CLAMAV_PORT ?? 3310),
   },
+  /** Optional Meilisearch for the site search (typo tolerance, ranking). Without it Postgres full-text search is used. */
+  meili: {
+    host: (e.MEILI_HOST ?? '').replace(/\/$/, ''),
+    key: e.MEILI_KEY ?? e.MEILI_MASTER_KEY ?? '',
+    index: e.MEILI_INDEX ?? 'nova',
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

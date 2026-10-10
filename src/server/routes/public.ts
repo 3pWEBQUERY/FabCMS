@@ -1,3 +1,4 @@
+import { searchSite } from '../search';
 import type { Context, Hono } from 'hono';
 import { formHooks } from '../hooks';
 import { alternates, currentLang, localized, localizedOne, localizePath, pathMap } from '../translations';
@@ -930,39 +931,9 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const q = (c.req.query('q') ?? '').trim().slice(0, 100);
     const collections = ctx.collections.filter((x) => x.id === 'pages' || x.route || x.list_route);
     let results: { title: string; href: string; text: string }[] = [];
-    const lang = currentLang();
     if (q) {
       // In another language: its translations, plus originals that have none.
-      const cfg = lang ? langInfo(lang).pg : 'german';
-      const like = '%' + q.replace(/[%_]/g, '') + '%';
-      const translatedRows = lang
-        ? await sql`
-        select e.id, e.collection, e.slug, e.published_data as data, ts_rank(to_tsvector(${cfg}::regconfig, t.published_data::text), websearch_to_tsquery(${cfg}::regconfig, ${q})) as rank
-        from entry_translations t join entries e on e.id = t.entry_id
-        where t.lang = ${lang} and t.status = 'published' and e.status = 'published' and e.collection = any(${collections.map((x) => x.id)})
-          and ((coalesce(e.published_data ->> 'access', 'public') = 'public' and to_tsvector(${cfg}::regconfig, t.published_data::text) @@ websearch_to_tsquery(${cfg}::regconfig, ${q}))
-            or t.published_data ->> 'title' ilike ${like})
-          and coalesce(e.published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
-        order by rank desc limit 30`
-        : [];
-      const mainRows = await sql`
-        select id, collection, slug, published_data as data,
-               ts_rank(to_tsvector('german', published_data::text), websearch_to_tsquery('german', ${q})) as rank
-        from entries
-        where status = 'published' and collection = any(${collections.map((x) => x.id)})
-          and ((coalesce(published_data ->> 'access', 'public') = 'public' and to_tsvector('german', published_data::text) @@ websearch_to_tsquery('german', ${q}))
-            or published_data ->> 'title' ilike ${'%' + q.replace(/[%_]/g, '') + '%'})
-          and coalesce(published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
-          ${lang ? sql`and not exists (select 1 from entry_translations t where t.entry_id = entries.id and t.lang = ${lang} and t.status = 'published')` : sql``}
-        order by rank desc limit 30`;
-      const rows = await localized(
-        [...translatedRows, ...mainRows].sort((a, b) => Number(b.rank) - Number(a.rank)).slice(0, 30) as unknown as {
-          id: string;
-          collection: string;
-          slug: string;
-          data: EntryData;
-        }[],
-      );
+      const rows = await searchSite(q, currentLang(), collections);
       results = rows
         .map((r) => {
           const col = collections.find((x) => x.id === r.collection)!;
