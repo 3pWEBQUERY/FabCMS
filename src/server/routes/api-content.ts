@@ -24,7 +24,8 @@ import { deleteMedia } from '../media';
 import { externalChange } from '../collab';
 import { badRequest, forbidden, notFound } from '../lib/http';
 import { can } from '../../shared/roles';
-import type { Entry, EntryData } from '../../shared/types';
+import type { CollectionDef, Entry, EntryData } from '../../shared/types';
+import { sanitizePlain } from '../../shared/richtext';
 import { getSettings, bumpGeneration } from '../settings';
 import { createContext, renderPage, templateContext } from '../../site/render';
 import { HEADED_BLOCKS, renderBlocks } from '../../site/blocks';
@@ -330,6 +331,61 @@ export function contentApi(app: Hono<AppEnv>) {
     await deleteEntry(cur.id, user.id);
     await audit(c, 'entry.delete', cur.collection, cur.id, { title: cur.data.title });
     return c.json({ ok: true, trash: true });
+  });
+
+  /* ---------- categories and tags: rename, merge, remove across all entries of a type ---------- */
+
+  /** Fields that group entries: «category» and every tags field. */
+  const groupFields = (col: CollectionDef) => col.fields.filter((f) => f.key === 'category' || f.type === 'tags');
+
+  app.get('/api/taxonomy/:collection', async (c) => {
+    requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const col = await getCollection(c.req.param('collection'));
+    const fields = [];
+    for (const f of groupFields(col)) {
+      const rows =
+        f.type === 'tags'
+          ? await sql`
+              select v as value, count(*)::int as count, count(*) filter (where status = 'published')::int as published
+              from entries, jsonb_array_elements_text(case when jsonb_typeof(data -> ${f.key}) = 'array' then data -> ${f.key} else '[]' end) v
+              where collection = ${col.id} group by v order by count(*) desc, v`
+          : await sql`
+              select data ->> ${f.key} as value, count(*)::int as count, count(*) filter (where status = 'published')::int as published
+              from entries where collection = ${col.id} and coalesce(data ->> ${f.key}, '') <> ''
+              group by 1 order by count(*) desc, 1`;
+      fields.push({ key: f.key, label: f.label, type: f.type, values: rows });
+    }
+    return c.json({ fields });
+  });
+
+  app.post('/api/taxonomy/:collection', async (c) => {
+    requireCap(c, 'content.publish');
+    const col = await getCollection(c.req.param('collection'));
+    const body = z.object({ field: z.string(), from: z.string().min(1).max(120), to: z.string().max(120) }).parse(await c.req.json());
+    const f = groupFields(col).find((x) => x.key === body.field);
+    if (!f) throw badRequest('Dieses Feld gruppiert keine Einträge.');
+    const to = sanitizePlain(body.to).trim();
+    // Working copy and live copy alike: a renamed category is renamed on the website at once.
+    let count = 0;
+    for (const target of ['data', 'published_data'] as const) {
+      const col_ = sql(target);
+      const r =
+        f.type === 'tags'
+          ? await sql`
+              update entries set ${col_} = jsonb_set(${col_}, ${[f.key]}, (
+                select coalesce(jsonb_agg(distinct x), '[]') from (
+                  select case when e = ${body.from} then ${to} else e end as x from jsonb_array_elements_text(${col_} -> ${f.key}) e
+                ) t where x <> ''
+              ))
+              where collection = ${col.id} and jsonb_typeof(${col_} -> ${f.key}) = 'array' and ${col_} -> ${f.key} ? ${body.from}`
+          : await sql`
+              update entries set ${col_} = jsonb_set(${col_}, ${[f.key]}, to_jsonb(${to}::text))
+              where collection = ${col.id} and ${col_} ->> ${f.key} = ${body.from}`;
+      if (target === 'data') count = r.count;
+    }
+    bumpGeneration();
+    await audit(c, to ? 'taxonomy.rename' : 'taxonomy.remove', col.id, undefined, { field: f.key, from: body.from, to });
+    return c.json({ ok: true, count });
   });
 
   /* ---------- editorial calendar: what went online, what is planned, what expires ---------- */

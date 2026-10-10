@@ -6444,3 +6444,39 @@ tr.selected td,
     flex: 1;
   }
 }
+
+/* ---------- categories and tags ---------- */
+
+.tax-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: min(60vh, 32rem);
+  overflow-y: auto;
+}
+.tax-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+}
+.tax-list li + li {
+  border-top: 1px solid var(--line);
+}
+.tax-name {
+  font-weight: 600;
+}
+.tax-edit {
+  display: flex;
+  flex: 1;
+  gap: 0.35rem;
+}
+.tax-edit .input {
+  flex: 1;
+  min-width: 0;
+}

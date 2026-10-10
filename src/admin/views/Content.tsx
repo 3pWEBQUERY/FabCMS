@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
 import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
 import { BulkBar, SelectBox, useSelection } from './Bulk';
+import { TaxonomyDialog } from './Taxonomy';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
@@ -185,6 +186,7 @@ export function CollectionList({ collection }: { collection: string }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const [view, setView] = useState<'table' | 'order'>('table');
   const [apiOpen, setApiOpen] = useState(false);
+  const [taxOpen, setTaxOpen] = useState(false);
   const dq = useDebounced(q, 200);
   const { data, reload } = useApi<{ entries: Row[]; total: number }>(`/api/entries${qs({ collection, q: dq, status, limit: 500 })}`);
   const [ordered, setOrdered] = useState<Row[]>([]);
@@ -262,6 +264,11 @@ export function CollectionList({ collection }: { collection: string }) {
             {pro && (
               <button className="btn" onClick={() => setApiOpen(true)}>
                 <Icon name="code" size="s" /> API
+              </button>
+            )}
+            {col.fields.some((f) => f.key === 'category' || f.type === 'tags') && (
+              <button className="btn" onClick={() => setTaxOpen(true)}>
+                <Icon name="tag" size="s" /> {t('Kategorien')}
               </button>
             )}
             {col.route && can('content.edit') && (
@@ -385,6 +392,7 @@ export function CollectionList({ collection }: { collection: string }) {
           </div>
         )}
       </section>
+      <TaxonomyDialog collection={collection} name={tl(col.name)} open={taxOpen} onClose={() => setTaxOpen(false)} onChanged={() => void reload()} />
       <BulkBar hasCategory={col.fields.some((f) => f.key === 'category')} selection={selection} categories={categories} onDone={() => void reload()} />
       <Dialog
         open={apiOpen}

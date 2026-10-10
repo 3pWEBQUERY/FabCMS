@@ -107,4 +107,45 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   },
   '+ {n} weitere': { fr: '+ {n} autres', it: '+ altri {n}', en: '+ {n} more' },
   weniger: { fr: 'moins', it: 'meno', en: 'less' },
+  /* categories and tags */
+  Kategorien: { fr: 'Catégories', it: 'Categorie', en: 'Categories' },
+  '«{from}» heisst jetzt «{to}» – in {n} Einträgen.': {
+    fr: '«{from}» s’appelle maintenant «{to}» – dans {n} entrées.',
+    it: '«{from}» ora si chiama «{to}» – in {n} voci.',
+    en: '“{from}” is now called “{to}” – in {n} entries.',
+  },
+  '«{from}» aus {n} Einträgen entfernt.': { fr: '«{from}» retiré de {n} entrées.', it: '«{from}» rimosso da {n} voci.', en: '“{from}” removed from {n} entries.' },
+  'Zusammenführen?': { fr: 'Fusionner ?', it: 'Unire?', en: 'Merge?' },
+  '«{to}» gibt es schon. Alle Einträge mit «{from}» kommen dazu.': {
+    fr: '«{to}» existe déjà. Toutes les entrées avec «{from}» y seront ajoutées.',
+    it: '«{to}» esiste già. Tutte le voci con «{from}» vi saranno aggiunte.',
+    en: '“{to}” already exists. All entries with “{from}” will join it.',
+  },
+  Zusammenführen: { fr: 'Fusionner', it: 'Unisci', en: 'Merge' },
+  'Bei {n} Einträgen fällt sie weg – die Einträge selbst bleiben.': {
+    fr: 'Elle disparaît de {n} entrées – les entrées elles-mêmes restent.',
+    it: 'Viene tolta da {n} voci – le voci restano.',
+    en: 'It is removed from {n} entries – the entries themselves stay.',
+  },
+  'Kategorien & Schlagwörter: {name}': { fr: 'Catégories et mots-clés : {name}', it: 'Categorie e parole chiave: {name}', en: 'Categories & tags: {name}' },
+  'Umbenennen gilt überall, auch auf der Website. Benennst du in einen bestehenden Namen um, werden beide zusammengeführt.': {
+    fr: 'Renommer s’applique partout, y compris sur le site. En renommant vers un nom existant, les deux sont fusionnés.',
+    it: 'Rinominare vale ovunque, anche sul sito. Rinominando con un nome esistente, i due vengono uniti.',
+    en: 'Renaming applies everywhere, including the website. Renaming to an existing name merges the two.',
+  },
+  'Dieser Inhaltstyp hat keine Kategorien oder Schlagwörter.': {
+    fr: 'Ce type de contenu n’a ni catégories ni mots-clés.',
+    it: 'Questo tipo di contenuto non ha categorie né parole chiave.',
+    en: 'This content type has no categories or tags.',
+  },
+  'Noch nichts vergeben. Kategorien und Schlagwörter entstehen beim Bearbeiten der Einträge.': {
+    fr: 'Rien d’attribué pour l’instant. Les catégories et mots-clés naissent en éditant les entrées.',
+    it: 'Ancora niente assegnato. Categorie e parole chiave nascono modificando le voci.',
+    en: 'Nothing assigned yet. Categories and tags come from editing the entries.',
+  },
+  'Neuer Name': { fr: 'Nouveau nom', it: 'Nuovo nome', en: 'New name' },
+  Sichern: { fr: 'Enregistrer', it: 'Salva', en: 'Save' },
+  '{n} online': { fr: '{n} en ligne', it: '{n} online', en: '{n} online' },
+  Umbenennen: { fr: 'Renommer', it: 'Rinomina', en: 'Rename' },
+  '«{name}» entfernen': { fr: 'Retirer «{name}»', it: 'Rimuovi «{name}»', en: 'Remove “{name}”' },
 };

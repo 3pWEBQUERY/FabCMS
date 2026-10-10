@@ -2508,4 +2508,30 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/api/calendar?from=2026-01-01&to=2026-12-31')).status).toBe(400);
     for (const e of [plan, live]) await req('DELETE', `/api/entries/${e.id}`);
   });
+
+  it('renames, merges and removes categories and tags across all entries', async () => {
+    const mk = async (title: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'posts', data: { title, ...data } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const a = await mk('Tax A', { category: 'Velotour', tags: ['see', 'sommer'] });
+    const b = await mk('Tax B', { category: 'Wanderung', tags: ['sommer', 'berg'] });
+    const groups = (await req('GET', '/api/taxonomy/posts')).data.fields;
+    expect(groups.map((g: { key: string }) => g.key)).toEqual(['category', 'tags']);
+    expect(groups[1].values.find((v: { value: string }) => v.value === 'sommer')).toMatchObject({ count: 2, published: 2 });
+    // Rename: working copy and website alike.
+    expect((await req('POST', '/api/taxonomy/posts', { field: 'category', from: 'Velotour', to: '  Velo Tour ' })).data.count).toBe(1);
+    const ea = (await req('GET', `/api/entries/${a.id}`)).data.entry;
+    expect(ea.data.category).toBe('Velo Tour');
+    expect(ea.published_data.category).toBe('Velo Tour');
+    // Merge: a tag renamed into an existing one stays once.
+    await req('POST', '/api/taxonomy/posts', { field: 'tags', from: 'see', to: 'sommer' });
+    expect((await req('GET', `/api/entries/${a.id}`)).data.entry.data.tags).toEqual(['sommer']);
+    // Remove.
+    await req('POST', '/api/taxonomy/posts', { field: 'tags', from: 'berg', to: '' });
+    expect((await req('GET', `/api/entries/${b.id}`)).data.entry.data.tags).toEqual(['sommer']);
+    expect((await req('POST', '/api/taxonomy/posts', { field: 'title', from: 'x', to: 'y' })).status).toBe(400);
+    for (const e of [a, b]) await req('DELETE', `/api/entries/${e.id}`);
+  });
 });
