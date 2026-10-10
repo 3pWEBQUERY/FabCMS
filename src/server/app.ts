@@ -74,6 +74,8 @@ function buildApp() {
     c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
     c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
     if (env.production) c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // Preview deployments never end up in a search index, whatever the settings say.
+    if (env.preview.on) c.header('X-Robots-Tag', 'noindex, nofollow');
     const type = c.res.headers.get('Content-Type') ?? '';
     if (!type.includes('text/html') || c.res.headers.has('Content-Security-Policy')) return;
     if (path.startsWith('/admin')) {

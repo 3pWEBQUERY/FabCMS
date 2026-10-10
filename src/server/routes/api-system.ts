@@ -11,7 +11,7 @@ import { getSettings, updateSettings, bumpGeneration } from '../settings';
 import { activeCollections, listCollections, uniqueSlug } from '../content';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/http';
 import { stats } from '../analytics';
-import { seedSite, modulesFor } from '../seed';
+import { applyStarter, type StarterImport } from '../seed';
 import { legalPages } from '../legal';
 import { createBackup, restoreBackup } from '../backup';
 import { exportZip } from '../export';
@@ -78,6 +78,7 @@ export function systemApi(app: Hono<AppEnv>) {
         turnstile: Boolean(env.turnstile.siteKey),
         ai: Boolean(env.ai.key),
         clamav: Boolean(env.clamav.host),
+        preview: env.preview.on ? env.preview.name || 'Vorschau' : null,
         publicUrl: env.publicUrl,
       },
     });
@@ -314,25 +315,7 @@ export function systemApi(app: Hono<AppEnv>) {
     const s = await getSettings();
     if (s.setupDone) throw badRequest('Die Einrichtung ist schon abgeschlossen.');
     const sectors = body.sectors.filter((x) => SECTOR_MAP[x]);
-    const seeded = await seedSite(sectors, body.name, user.id);
-    const imp = (body.imported ?? {}) as { description?: string; business?: Partial<SiteSettings['business']>; hours?: SiteSettings['hours'] };
-    const business = { ...s.business, type: SECTOR_MAP[sectors[0]]?.businessType ?? 'LocalBusiness', legalName: body.name };
-    if (imp.business) for (const [k, v] of Object.entries(imp.business)) if (typeof v === 'string' && v) (business as Record<string, unknown>)[k] = v;
-    const adult = sectors.includes('adult');
-    const [first] = sectors.map((x) => SECTOR_MAP[x]);
-    await updateSettings({
-      name: body.name,
-      tagline: seeded.tagline,
-      sectors,
-      modules: modulesFor(sectors),
-      business,
-      hours: imp.hours ?? s.hours,
-      nav: seeded.nav,
-      footer: { text: seeded.footer, columns: [] },
-      theme: { ...s.theme, id: first?.themes[0] ?? 'kante', palette: 'default' },
-      seo: { ...s.seo, defaultDescription: imp.description ?? '', adult },
-      ageGate: { ...s.ageGate, enabled: adult },
-    });
+    const { business, first } = await applyStarter(sectors, body.name, user.id, body.imported as StarterImport | undefined);
     if (business.city) {
       const geo = await geocode(await getSettings());
       if (geo) await updateSettings({ business: { ...business, ...geo } });

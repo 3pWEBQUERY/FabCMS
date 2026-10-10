@@ -845,7 +845,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const s = await getSettings();
     const base = await siteBase(s);
     c.header('Content-Type', 'text/plain; charset=utf-8');
-    if (s.seo.noindex) return c.body('User-agent: *\nDisallow: /\n');
+    if (s.seo.noindex || env.preview.on) return c.body('User-agent: *\nDisallow: /\n');
     return c.body(
       `User-agent: *\nDisallow: /admin\nDisallow: /api/\nDisallow: /warenkorb\nDisallow: /kasse\nDisallow: /bestellung/\nDisallow: /suche\n\nSitemap: ${base}/sitemap.xml\n`,
     );

@@ -49,6 +49,7 @@ Gebaut nach der PRD «Nova CMS» (Okt. 2026). Gehostet auf **Railway** mit **Rai
 | `CLAMAV_HOST`, `CLAMAV_PORT` | Virenprüfung jedes Uploads mit ClamAV (clamd über TCP, Port 3310). Auf Railway z. B. einen Dienst aus dem Docker-Image `clamav/clamav:stable` anlegen (braucht rund 1,5 GB RAM für die Signaturen) und `CLAMAV_HOST=${{clamav.RAILWAY_PRIVATE_DOMAIN}}` setzen; das private Netz von Railway läuft über IPv6, clamd muss dafür mit `TCPAddr ::` lauschen. Ohne diese Variable prüft Nova nur den Aufbau der Dateien. |
 | `MEILI_HOST`, `MEILI_KEY`, `MEILI_INDEX` | Optionale Website-Suche mit Meilisearch (z. B. ein Railway-Dienst aus dem Template «Meilisearch», `MEILI_HOST=http://${{Meilisearch.RAILWAY_PRIVATE_DOMAIN}}:7700`, `MEILI_KEY` = Master-Key; im privaten Netz von Railway (IPv6) muss Meilisearch mit `MEILI_HTTP_ADDR=[::]:7700` lauschen). Ohne: Volltextsuche in Postgres. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optionale Verbindung zur Google Search Console. In der Google Cloud Console einen OAuth-Client vom Typ «Webanwendung» anlegen, Weiterleitungs-URI `https://<deine-domain>/api/gsc/callback`, die Search Console API aktivieren. |
+| `NOVA_PREVIEW_DEMO`, `NOVA_PREVIEW` | Preview-Deployments: in einer PR-Umgebung von Railway (oder mit `NOVA_PREVIEW=1`) richtet Nova auf leerer Datenbank selbst eine Demo-Website ein, z. B. `NOVA_PREVIEW_DEMO=restaurant` oder `restaurant:salon`. |
 | `APP_SECRET` | Schlüssel für signierte Cookies (Warenkorb, Altersschranke). Ohne Angabe erzeugt Nova einen und speichert ihn in der Datenbank. |
 | `HOST` | Bind-Adresse, Standard `0.0.0.0`. Für Railways privates Netzwerk (IPv6) `::`. |
 
@@ -217,6 +218,16 @@ jobs:
           git add content && git commit -m "Inhalte von der Website" && git push || true
 ```
 
+## Preview-Deployments pro Branch
+
+Railway kann für jeden Pull Request eine eigene Umgebung starten – mit eigener Datenbank und eigenem Bucket:
+
+1. Im Railway-Projekt unter **Settings → Environments** die **PR Environments** einschalten.
+2. In der Haupt-Umgebung die Variable `NOVA_PREVIEW_DEMO` setzen, z. B. `restaurant` oder `shop:kante` (Sparte, optional Stil). Die PR-Umgebungen übernehmen sie; in der Haupt-Umgebung selbst wirkt sie nicht.
+3. Pull Request öffnen: Railway baut ihn, Nova erkennt die PR-Umgebung am Namen, richtet auf der leeren Datenbank eine Demo-Website ein und schreibt die Anmeldung einmal ins Deploy-Log.
+
+In jeder Vorschau-Umgebung sperrt Nova Suchmaschinen aus (`X-Robots-Tag`, `robots.txt`, `noindex`) und zeigt im Admin oben einen Hinweis. Schliesst man den Pull Request, räumt Railway die Umgebung samt Daten weg.
+
 ## Continuous Integration
 
 `.github/workflows/ci.yml` läuft bei jedem Push und Pull Request:
@@ -230,7 +241,7 @@ Lokal gemessen (Lighthouse 12, mobil): Kante, Salon und Feuilleton 100/100/100/1
 
 Ehrlich aufgelistet – vieles davon ist in der PRD ohnehin P1/P2:
 
-- **Marktplatz** für Erweiterungen und **Preview-Deployments pro Branch** (auf Railway lassen sich PR-Umgebungen einschalten; Nova startet dort mit eigener Datenbank, eingebaut ist nichts davon).
+- **Marktplatz** für Erweiterungen.
 - Echte **Altersverifikation** über einen Anbieter.
 - Die PRD nennt «ca. 40 Blöcke», «ca. 400 Icons» und «3 Vorlagen pro Sparte in 2 Stilen» – umgesetzt sind 40 Blöcke, rund 90 Icons und 4 Stile × 3 Paletten, die jede Sparte nutzen kann.
 - Der Stil «Bistro» erreicht den LCP-Zielwert der PRD (< 1,8 s) in der Lighthouse-Simulation auf Start- und Kartenseite nicht ganz (2,1 s): Seine weiche Display-Schrift (Fraunces mit SOFT-Achse) wiegt mehr als die der anderen Stile. Der Performance-Wert liegt trotzdem bei 99; CI meldet den LCP als Warnung.

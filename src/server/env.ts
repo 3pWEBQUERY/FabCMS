@@ -76,6 +76,16 @@ export const env = {
     clientId: e.GOOGLE_CLIENT_ID ?? '',
     clientSecret: e.GOOGLE_CLIENT_SECRET ?? '',
   },
+  /**
+   * Preview environment (a Railway PR environment, or NOVA_PREVIEW=1): kept out of
+   * search engines, marked in the admin, and with NOVA_PREVIEW_DEMO=<Sparte>[:<Stil>]
+   * filled with a demo site on an empty database.
+   */
+  preview: {
+    on: bool(e.NOVA_PREVIEW, /(^|-)pr-\d+$/i.test(e.RAILWAY_ENVIRONMENT_NAME ?? '')),
+    name: e.RAILWAY_ENVIRONMENT_NAME ?? '',
+    demo: e.NOVA_PREVIEW_DEMO ?? '',
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

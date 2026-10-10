@@ -11,6 +11,7 @@ import { runtimeScript } from '../site/assets';
 import { backfillPlaceholders } from './media';
 import { resumeVideos } from './video';
 import { startSearchSync } from './search';
+import { setupPreviewDemo } from './demo';
 import { sql } from './db';
 import type { Server } from 'node:http';
 import { attachCollab, flushRooms } from './collab';
@@ -24,6 +25,7 @@ async function main() {
   }
   await syncBuiltinCollections();
   await getSettings();
+  await setupPreviewDemo();
   await Promise.all([runtimeScript('site'), runtimeScript('bridge'), runtimeScript('fields')]);
 
   const app = createApp();

@@ -158,6 +158,14 @@ export function Shell() {
               ]}
             />
           </header>
+          {session.bundle?.system.preview && (
+            <p className="preview-bar" role="note">
+              <Icon name="info" size="s" />
+              {t('Vorschau-Umgebung «{name}» – eigene Datenbank, für Suchmaschinen gesperrt. Was du hier änderst, verschwindet mit der Umgebung.', {
+                name: session.bundle.system.preview,
+              })}
+            </p>
+          )}
           <main className="main">
             <Suspense fallback={<RouteLoading />}>
               <Router

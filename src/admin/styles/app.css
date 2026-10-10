@@ -4031,3 +4031,16 @@ button.list-item {
     animation-duration: 2.4s;
   }
 }
+
+/* preview deployment: say so, quietly but always */
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.4rem 1rem;
+  font-size: var(--t-xs);
+  background: var(--edited-soft);
+  color: var(--ink);
+  border-bottom: 1px solid color-mix(in oklab, var(--edited) 30%, var(--line));
+}

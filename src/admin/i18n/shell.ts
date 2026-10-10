@@ -655,4 +655,9 @@ export const shell: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Domande e risposte – Google spesso le mostra direttamente.',
     en: 'Questions and answers – Google often shows them directly.',
   },
+  'Vorschau-Umgebung «{name}» – eigene Datenbank, für Suchmaschinen gesperrt. Was du hier änderst, verschwindet mit der Umgebung.': {
+    fr: 'Environnement de prévisualisation « {name} » – base de données propre, bloqué pour les moteurs de recherche. Ce que vous modifiez ici disparaît avec l’environnement.',
+    it: 'Ambiente di anteprima «{name}» – database proprio, bloccato per i motori di ricerca. Ciò che modifichi qui sparisce con l’ambiente.',
+    en: 'Preview environment “{name}” – its own database, blocked for search engines. What you change here goes away with the environment.',
+  },
 };
