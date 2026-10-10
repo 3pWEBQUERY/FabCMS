@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 /**
  * Fonts are self-hosted from the @fontsource packages. Loading them from
  * Google's CDN would transfer visitor IPs to Google (LG München, 2022).
@@ -16,6 +18,8 @@ interface FontSource {
   base: string;
   /** Axis part of the variable file name ("wght", "soft") or a static weight ("400"). */
   axis: string;
+  /** The files live in the repository's fonts/ folder instead of the package (scripts/instance-fonts.py). */
+  local?: boolean;
   weight: string;
   italic: boolean;
 }
@@ -44,7 +48,9 @@ export const FONTS: Record<string, FontSource> = {
     stack: "'Fraunces', ui-serif, Georgia, serif",
     pkg: '@fontsource-variable/fraunces',
     base: 'fraunces',
-    axis: 'soft',
+    // Fixed at SOFT 100, the only value Bistro uses: 37 instead of 62 KB for the LCP heading.
+    axis: 'soft100',
+    local: true,
     weight: '100 900',
     italic: true,
   },
@@ -103,7 +109,7 @@ export const FONT_FILES: Map<string, string> = new Map(
     (['latin', 'latin-ext'] as const).flatMap((subset) =>
       (f.italic ? (['normal', 'italic'] as const) : (['normal'] as const)).map((style) => {
         const file = fontFile(f, subset, style);
-        return [file, `${f.pkg}/files/${file}`] as [string, string];
+        return [file, f.local ? join(process.cwd(), 'fonts', file) : `${f.pkg}/files/${file}`] as [string, string];
       }),
     ),
   ),

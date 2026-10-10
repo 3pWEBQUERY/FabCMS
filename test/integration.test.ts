@@ -1772,6 +1772,12 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).not.toContain('>Bald</p>');
     expect(html).toContain('<th scope="row">Haarschnitt</th><td class="num" data-label="Preis">68.–</td>');
     expect(html.slice(html.indexOf('<table'))).not.toContain('data-label=""');
+    // The page carries the CSS of its blocks, not that of the shop or the booking calendar.
+    const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+    expect(css).toContain('.tbl');
+    expect(css).not.toContain('.bk-step');
+    expect(css).not.toContain('.cart-table');
+    expect(css.length).toBeLessThan(60_000);
   });
 
   it('checks the age with the Swiss e-ID through an own swiyu verifier – and shows nothing before', async () => {

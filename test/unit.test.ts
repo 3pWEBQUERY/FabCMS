@@ -42,6 +42,7 @@ import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
 import { deflateSync } from 'node:zlib';
 import { TEMPLATES, templatesFor } from '../src/shared/templates';
+import { htmlClasses, pruneCss, requiredClasses, scriptWords } from '../src/site/css-prune';
 import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-verify';
 import { pickTemplate } from '../src/server/seed';
 import { THEMES } from '../src/site/themes';
@@ -628,6 +629,24 @@ describe('website translations', () => {
       price: 1800,
       prices: [{ label: 'grand', price: 2400 }],
     });
+  });
+});
+
+describe('unused CSS', () => {
+  it('drops a rule only when every selector needs a class the page lacks', () => {
+    const used = new Set(['hero', 'on']);
+    expect(pruneCss('.hero h1{a:1}.faq summary{b:2}.faq,.hero{c:3}', used)).toBe('.hero h1{a:1}.hero{c:3}');
+    expect(pruneCss('@media (min-width:40rem){.faq{a:1}.hero{b:2}}@media print{.faq{c:3}}', used)).toBe('@media (min-width:40rem){.hero{b:2}}');
+    // Untouched: element and attribute selectors, at-rules, classes inside :is()/:not(), braces in strings.
+    expect(pruneCss('body{a:1}[data-x=".faq"]{b:2}@keyframes faq{to{c:3}}:is(.faq) p{d:4}.x:not(.faq){e:5}.hero::after{content:"}"}', new Set(['x', 'hero']))).toBe(
+      'body{a:1}[data-x=".faq"]{b:2}@keyframes faq{to{c:3}}:is(.faq) p{d:4}.x:not(.faq){e:5}.hero::after{content:"}"}',
+    );
+    expect(requiredClasses('.a .b:hover>.c[data-k=".d"]:not(.e)')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('knows the classes of the page and of the scripts', () => {
+    expect([...htmlClasses('<div class="a  b"><p class="c">x</p><i data-class="no">')]).toEqual(['a', 'b', 'c']);
+    expect(scriptWords('e.classList.add("on");n.className="nvid paused"').has('paused')).toBe(true);
   });
 });
 

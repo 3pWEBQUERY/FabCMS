@@ -1121,7 +1121,7 @@ export function resolveTheme(settings: SiteSettings): { theme: Theme; palette: P
 /** Werkbank token values are free text; keep them from closing the style element. */
 const cssValue = (v: string) => v.replace(/[<>{};]/g, '');
 
-export function themeCss(settings: SiteSettings): { css: string; fonts: string[]; preload: string[] } {
+export function themeCss(settings: SiteSettings): { css: string; parts: { fixed: string; nova: string; own: string }; fonts: string[]; preload: string[] } {
   const { theme, palette } = resolveTheme(settings);
   const pair = FONT_PAIRS.find((f) => f.id === settings.theme.fontPair) ?? FONT_PAIRS.find((f) => f.id === theme.pair)!;
   const rhythm = Math.min(1.4, Math.max(0.7, settings.theme.spacing || 1));
@@ -1163,10 +1163,15 @@ export function themeCss(settings: SiteSettings): { css: string; fonts: string[]
     .map(([k, v]) => `${k}:${v}`)
     .join(';')}}`;
   const custom = (settings.theme.css ?? '').replace(/<\/?style/gi, '');
-  const css = [fontFaces([pair.display, pair.body]), root, BASE, theme.css, overrides ? `:root{${overrides}}` : '', custom].join('\n');
+  // fixed: fonts and tokens; nova: base and theme rules (a page can drop what it doesn't use); own: Werkbank tokens and CSS, never touched.
+  const parts = {
+    fixed: minify([fontFaces([pair.display, pair.body]), root].join('\n')),
+    nova: minify([BASE, theme.css].join('\n')),
+    own: minify([overrides ? `:root{${overrides}}` : '', custom].join('\n')),
+  };
   // What the first screen needs: display and body font, and the italic display cut where titles use it.
   const preload = [fontPreload(pair.display), ...(theme.italicDisplay ? [fontPreload(pair.display, 'italic')] : []), fontPreload(pair.body)];
-  return { css: minify(css), fonts: [pair.display, pair.body], preload: [...new Set(preload.filter(Boolean))] };
+  return { css: parts.fixed + parts.nova + parts.own, parts, fonts: [pair.display, pair.body], preload: [...new Set(preload.filter(Boolean))] };
 }
 
 function minify(css: string): string {

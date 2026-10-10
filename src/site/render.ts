@@ -25,7 +25,8 @@ import { blocksText } from '../shared/blocks';
 import { DAYS } from '../shared/hours';
 import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
 import { sql } from '../server/db';
-import { runtimeVersion } from './assets';
+import { runtimeScript, runtimeVersion } from './assets';
+import { htmlClasses, pruneCss, scriptWords } from './css-prune';
 import { accountLink, gate } from './members';
 import { eventCards, eventTemplate, upcoming } from './events';
 import { propertyList, propertyTemplate } from './realestate';
@@ -179,7 +180,7 @@ function ageGateEid(ctx: RenderContext): Html {
 
 export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Html, crumbs: Crumb[] = []): Promise<string> {
   const s = ctx.settings;
-  const { css, preload } = themeCss(s);
+  const { css, parts, preload } = themeCss(s);
   const { palette } = resolveTheme(s);
   const [hdr, ftr, logo] = await Promise.all([header(ctx), footer(ctx), ctx.media(s.logo)]);
   const crumbHtml = breadcrumbs(ctx, crumbs);
@@ -216,7 +217,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
     meta.publishedAt ? html`<meta property="article:published_time" content="${new Date(meta.publishedAt).toISOString()}">` : ''
   }<meta name="theme-color" content="${palette.bg}">${
     favicon ? html`<link rel="icon" href="${variantUrl(favicon, 160, 'webp')}" type="image/webp">` : html`<link rel="icon" href="/_nova/favicon.svg" type="image/svg+xml">`
-  }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${preload.map((href) => html`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(css)}</style>${
+  }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${preload.map((href) => html`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(STYLE_MARK)}</style>${
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${
     stats ? html`<script type="application/json" id="nova-stats">${raw(JSON.stringify(stats).replace(/</g, '\\u003c'))}</script>` : ''
@@ -230,8 +231,17 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
+  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
+  // Only the rules this page can use – not in the editor or previews, and not when own scripts may add classes.
+  const lean = ctx.edit || ctx.preview || s.security.allowCustomScripts ? css : parts.fixed + pruneCss(parts.nova, htmlClasses(doc, new Set(await scriptClasses()))) + parts.own;
+  return doc.replace(STYLE_MARK, () => lean);
 }
+
+const STYLE_MARK = '/*nova-css*/';
+let scriptWordsOnce: Promise<Set<string>> | null = null;
+/** Classes the site's scripts may add later: every word in their code. */
+const scriptClasses = () =>
+  (scriptWordsOnce ??= Promise.all([runtimeScript('site'), runtimeScript('fields')]).then(([a, b]) => scriptWords(b.code, scriptWords(a.code))));
 
 /** Asks once whether statistics services that set cookies may run. Both answers weigh the same; the footer brings it back. */
 function consentBar(ctx: RenderContext, stats: StatsConfig | null): Html {
