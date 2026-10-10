@@ -2,7 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
+import { videoQueueIdle } from '../src/server/video';
+import { storage } from '../src/server/storage';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import WebSocket from 'ws';
@@ -38,6 +40,8 @@ try {
 }
 
 const app = createApp();
+const ffmpegHere = spawnSync('ffmpeg', ['-version']).status === 0;
+const storageHas = (key: string) => storage.exists(key);
 const jar = new Map<string, string>();
 
 async function req(method: string, path: string, body?: unknown, opts: { cookies?: Map<string, string>; headers?: Record<string, string>; form?: Record<string, string> } = {}) {
@@ -1312,5 +1316,73 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       globalThis.fetch = realFetch;
       env.ai.key = '';
     }
+  });
+
+  it.skipIf(!ffmpegHere)('makes web versions of uploaded videos and serves them with byte ranges', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nova-vid-'));
+    const src = join(dir, 'clip.mp4');
+    const make = (file: string, codec: string[]) =>
+      execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=480x270:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440', '-t', '2', ...codec, '-c:a', 'aac', '-shortest', file]);
+    // An older codec that not every browser plays: gets a web version.
+    make(src, ['-c:v', 'mpeg4', '-q:v', '2']);
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const upload = async (name: string) => {
+      const form = new FormData();
+      form.append('file', new File([new Uint8Array(readFileSync(src))], name, { type: 'video/mp4' }));
+      const r = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      return (await r.json()).media[0];
+    };
+    const media = await upload('Rundgang.mp4');
+    expect(media.video.status).toBe('queued');
+    await videoQueueIdle();
+
+    const [row] = await sql`select video from media where id = ${media.id}`;
+    expect(row.video).toMatchObject({ status: 'ready', width: 480, height: 270, renditions: [{ p: 270, width: 480, height: 270 }] });
+    expect(row.video.duration).toBeCloseTo(2, 0);
+
+    // Byte ranges for seeking; the index sits in front of the data, so playback starts at once.
+    const part = await app.request(`/media/${media.id}/video/270.mp4`, { headers: { range: 'bytes=0-99' } });
+    expect(part.status).toBe(206);
+    expect(part.headers.get('content-range')).toBe(`bytes 0-99/${row.video.renditions[0].size}`);
+    const whole = Buffer.from(await (await app.request(`/media/${media.id}/video/270.mp4`)).arrayBuffer());
+    expect(whole.indexOf('moov')).toBeGreaterThan(0);
+    expect(whole.indexOf('moov')).toBeLessThan(whole.indexOf('mdat'));
+    const poster = await app.request(`/media/${media.id}/video/poster.jpg`);
+    expect(poster.headers.get('content-type')).toBe('image/jpeg');
+    expect((await app.request(`/media/${media.id}/video/1080.mp4`)).status).toBe(404);
+
+    // The website plays the web version, the original stays as the last fallback; the admin shows the poster.
+    const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+    const block = { id: 'vid1', type: 'video', props: { file: media.id, poster: null, url: '', caption: '' }, style: {}, lock: 'none' };
+    const rendered = await req('POST', '/api/render', { entryId: page.id, data: { ...page.data, blocks: [block] }, blockId: 'vid1' });
+    expect(rendered.data.html).toContain(`<source src="/media/${media.id}/video/270.mp4" type="video/mp4">`);
+    expect(rendered.data.html).toContain(`poster="/media/${media.id}/video/poster.jpg"`);
+    expect(rendered.data.html).toContain('width="480" height="270" data-duration="2"');
+    expect(rendered.data.html).toContain(`/media/${media.id}/file/Rundgang.mp4`);
+    expect((await req('GET', `/api/media/${media.id}`)).data.media.thumb).toBe(`/media/${media.id}/video/poster.jpg`);
+
+    // Switched off: delivered as uploaded, and it says why.
+    env.video.enabled = false;
+    try {
+      const plain = await upload('Roh.mp4');
+      expect(plain.video).toEqual({ status: 'skipped', error: 'ausgeschaltet' });
+    } finally {
+      env.video.enabled = true;
+    }
+
+    // Already a small H.264 MP4: no bigger copy, the original plays directly.
+    make(src, ['-c:v', 'libx264', '-crf', '40', '-pix_fmt', 'yuv420p']);
+    const small = await upload('Klein.mp4');
+    await videoQueueIdle();
+    expect((await sql`select video from media where id = ${small.id}`)[0].video).toMatchObject({ status: 'ready', renditions: [] });
+
+    // Again on request; deleting removes the web versions too.
+    expect((await req('POST', `/api/media/${media.id}/video`)).data.media.video.status).toBe('queued');
+    await videoQueueIdle();
+    expect((await sql`select video ->> 'status' as s from media where id = ${media.id}`)[0].s).toBe('ready');
+    expect((await req('DELETE', `/api/media/${media.id}`)).status).toBe(200);
+    expect((await app.request(`/media/${media.id}/video/270.mp4`)).status).toBe(404);
+    expect(await storageHas(`media/${media.id}/video/270.mp4`)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
   });
 });

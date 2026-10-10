@@ -5,6 +5,7 @@ import { Dialog } from './kit';
 import { Icon } from './icons';
 import { useToast } from './toast';
 import { t } from '../lib/i18n';
+import type { VideoInfo } from '../../shared/types';
 
 export interface MediaRow {
   id: string;
@@ -29,6 +30,7 @@ export interface MediaRow {
   size: number;
   private?: boolean;
   created_at: string;
+  video?: VideoInfo | null;
 }
 
 const cache = new Map<string, MediaRow>();

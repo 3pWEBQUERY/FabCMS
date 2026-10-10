@@ -58,7 +58,7 @@ import { resolveTheme, themeCss } from '../../site/themes';
 import { entryPath, matchRoute } from '../../shared/paths';
 import { formatMoney, formatPrice, excerpt, stripHtml } from '../../shared/text';
 import { blocksText } from '../../shared/blocks';
-import type { CollectionDef, EntryData, FormDef, SiteSettings } from '../../shared/types';
+import type { CollectionDef, EntryData, FormDef, SiteSettings, VideoInfo } from '../../shared/types';
 
 const require = createRequire(import.meta.url);
 const AGE_COOKIE = 'nova_age';
@@ -311,22 +311,17 @@ export function publicRoutes(app: Hono<AppEnv>) {
     return c.body(new Uint8Array(buf));
   });
 
-  app.get('/media/:id/file/:name', async (c) => {
-    const id = c.req.param('id');
-    if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
-    const [m] = await sql`select storage_key, filename, mime, size, private from media where id = ${id}`;
-    if (!m || m.private) return c.notFound();
-    // Bucket egress is free on Railway and S3 handles range requests (video seeking).
-    const url = await storage.presign(m.storage_key, 3600);
+  /** A stored file with byte ranges (video and audio seek), or a short-lived bucket link. */
+  async function sendStored(c: Context, key: string, size: number, mime: string): Promise<Response> {
+    // Bucket egress is free on Railway and S3 handles range requests itself.
+    const url = await storage.presign(key, 3600);
     if (url) {
       c.header('Cache-Control', 'private, max-age=3000');
       return c.redirect(url, 302);
     }
-    // Without a bucket the file comes from here; byte ranges let video and audio seek.
-    const size = Number(m.size);
     const want = /^bytes=(\d*)-(\d*)$/.exec(c.req.header('range') ?? '');
     let range: { start: number; end: number } | undefined;
-    if (want && (want[1] || want[2])) {
+    if (want && (want[1] || want[2]) && size) {
       const start = want[1] ? Number(want[1]) : Math.max(0, size - Number(want[2]));
       const end = want[1] && want[2] ? Math.min(Number(want[2]), size - 1) : size - 1;
       if (start > end || start >= size) {
@@ -335,9 +330,9 @@ export function publicRoutes(app: Hono<AppEnv>) {
       }
       range = { start, end };
     }
-    const obj = await storage.get(m.storage_key, range);
+    const obj = await storage.get(key, range);
     if (!obj) return c.notFound();
-    c.header('Content-Type', m.mime);
+    c.header('Content-Type', mime);
     c.header('Accept-Ranges', 'bytes');
     c.header('Cache-Control', 'public, max-age=86400');
     if (range) {
@@ -347,6 +342,35 @@ export function publicRoutes(app: Hono<AppEnv>) {
     }
     c.header('Content-Length', String(obj.size));
     return c.body(Readable.toWeb(obj.body) as ReadableStream);
+  }
+
+  app.get('/media/:id/file/:name', async (c) => {
+    const id = c.req.param('id');
+    if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
+    const [m] = await sql`select storage_key, filename, mime, size, private from media where id = ${id}`;
+    if (!m || m.private) return c.notFound();
+    return sendStored(c, m.storage_key, Number(m.size), m.mime);
+  });
+
+  /** Web versions of a video (server/video.ts). */
+  app.get('/media/:id/video/:file{(\\d+\\.mp4|poster\\.jpg)}', async (c) => {
+    const id = c.req.param('id');
+    if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
+    const [m] = await sql`select video, private from media where id = ${id}`;
+    const v = m?.video as VideoInfo | null;
+    if (!m || m.private || v?.status !== 'ready') return c.notFound();
+    const file = c.req.param('file');
+    if (file === 'poster.jpg') {
+      if (!v.poster) return c.notFound();
+      const obj = await storage.getBuffer(v.poster);
+      if (!obj) return c.notFound();
+      c.header('Content-Type', 'image/jpeg');
+      c.header('Cache-Control', 'public, max-age=86400');
+      return c.body(new Uint8Array(obj));
+    }
+    const r = v.renditions?.find((x) => `${x.p}.mp4` === file);
+    if (!r) return c.notFound();
+    return sendStored(c, r.key, r.size, 'video/mp4');
   });
 
   /* analytics */

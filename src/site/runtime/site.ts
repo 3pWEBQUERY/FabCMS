@@ -188,7 +188,7 @@ d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
   box.append(v);
   box.insertAdjacentHTML(
     'beforeend',
-    `<button type="button" class="nvid-big" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-bar"><button type="button" class="nvid-pp" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-track" role="slider" tabindex="0" aria-label="${tx('Position')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="nvid-fill"></div></div><span class="nvid-time">0:00 / –:––</span><button type="button" class="nvid-vol" aria-label="${tx('Ton aus')}">${icon('vol')}</button><button type="button" class="nvid-fs" aria-label="${tx('Vollbild')}">${icon('full')}</button></div>`,
+    `<button type="button" class="nvid-big" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-bar"><button type="button" class="nvid-pp" aria-label="${tx('Abspielen')}">${icon('play')}</button><div class="nvid-track" role="slider" tabindex="0" aria-label="${tx('Position')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="nvid-fill"></div></div><span class="nvid-time">0:00 / ${clock(Number(v.dataset.duration) || NaN)}</span><button type="button" class="nvid-vol" aria-label="${tx('Ton aus')}">${icon('vol')}</button><button type="button" class="nvid-fs" aria-label="${tx('Vollbild')}">${icon('full')}</button></div>`,
   );
   const $ = <T extends HTMLElement>(c: string) => box.querySelector<T>(c)!;
   const [big, pp, track, fill, time, vol, fs] = ['.nvid-big', '.nvid-pp', '.nvid-track', '.nvid-fill', '.nvid-time', '.nvid-vol', '.nvid-fs'].map((c) => $(c));

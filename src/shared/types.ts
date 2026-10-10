@@ -279,6 +279,26 @@ export interface MediaItem {
   color?: string | null;
   /** Tiny WebP preview, base64. */
   lqip?: string | null;
+  /** Web versions of a video (see server/video.ts). */
+  video?: VideoInfo | null;
+}
+
+export interface VideoRendition {
+  /** Short side in pixels: 1080, 720, or the source's own when smaller. */
+  p: number;
+  width: number;
+  height: number;
+  key: string;
+  size: number;
+}
+export interface VideoInfo {
+  status: 'queued' | 'working' | 'ready' | 'failed' | 'skipped';
+  duration?: number;
+  width?: number;
+  height?: number;
+  renditions?: VideoRendition[];
+  poster?: string;
+  error?: string;
 }
 
 export interface MediaEdits {

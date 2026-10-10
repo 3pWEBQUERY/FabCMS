@@ -54,6 +54,12 @@ export const env = {
     model: e.NOVA_AI_MODEL ?? 'claude-sonnet-5-5',
     baseUrl: (e.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com').replace(/\/$/, ''),
   },
+  /** Video transcoding: ffmpeg/ffprobe from PATH unless set; NOVA_VIDEO=off leaves videos as uploaded. */
+  video: {
+    enabled: bool(e.NOVA_VIDEO, true),
+    ffmpeg: e.FFMPEG_PATH ?? 'ffmpeg',
+    ffprobe: e.FFPROBE_PATH ?? 'ffprobe',
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

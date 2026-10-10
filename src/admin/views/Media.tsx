@@ -264,7 +264,17 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
                 <p className="xsmall muted">{t('Tipp ins Bild, um den Fokuspunkt zu setzen. Beim Zuschneiden auf Hoch- oder Querformat bleibt diese Stelle sichtbar.')}</p>
               </>
             ) : media.mime.startsWith('video') ? (
-              <video src={media.url} controls style={{ width: '100%', borderRadius: 8 }} />
+              <>
+                <video
+                  key={media.video?.status}
+                  src={webVersion(media) ?? media.url}
+                  poster={media.thumb ?? undefined}
+                  controls
+                  preload="metadata"
+                  style={{ width: '100%', borderRadius: 8, background: '#000' }}
+                />
+                {!media.private && <VideoStatus media={media} onChange={onChange} />}
+              </>
             ) : (
               <div className="card card-pad row">
                 <Icon name="page" /> {media.filename}
@@ -503,6 +513,89 @@ function ImageEditor({ media, onSave, onCancel }: { media: MediaRow; onSave: (e:
           {t('Übernehmen')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Smallest web version of a video – plays everywhere, loads fastest in the admin. */
+const webVersion = (m: MediaRow) => {
+  const r = m.video?.status === 'ready' ? [...(m.video.renditions ?? [])].sort((a, b) => a.p - b.p)[0] : null;
+  return r ? `/media/${m.id}/video/${r.p}.mp4` : null;
+};
+
+/** Where the web versions of a video stand; checks back while they are being made. */
+function VideoStatus({ media, onChange }: { media: MediaRow; onChange: (m: MediaRow) => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const v = media.video;
+  const pending = v?.status === 'queued' || v?.status === 'working';
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(async () => {
+      const r = await api.get<{ media: MediaRow }>(`/api/media/${media.id}`).catch(() => null);
+      if (r && r.media.video?.status !== v?.status) onChange(r.media);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [pending, media.id, v?.status, onChange]);
+  if (!v) return null;
+
+  const retry = async () => {
+    setBusy(true);
+    try {
+      onChange((await api.post<{ media: MediaRow }>(`/api/media/${media.id}/video`)).media);
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (pending)
+    return (
+      <p className="xsmall muted row" role="status">
+        <span className="mini-spin" aria-hidden="true" /> {t('Wird fürs Web aufbereitet … Bis dahin läuft auf der Website das Original.')}
+      </p>
+    );
+  if (v.status === 'ready' && !v.renditions?.length)
+    return (
+      <p className="xsmall muted row" role="status">
+        <Icon name="check" size="s" />
+        {t('Das Original ist schon fürs Web geeignet und kleiner als eine neue Fassung – auf der Website läuft es direkt.')}
+      </p>
+    );
+  if (v.status === 'ready') {
+    const total = (v.renditions ?? []).reduce((n, r) => n + r.size, 0);
+    return (
+      <p className="xsmall muted row" role="status">
+        <Icon name="check" size="s" />
+        {t('Fürs Web aufbereitet: {sizes} – zusammen {web} statt {original}. Auf der Website laufen diese Fassungen, das Original bleibt für Downloads.', {
+          sizes: (v.renditions ?? [])
+            .map((r) => `${r.p}p`)
+            .sort()
+            .reverse()
+            .join(', '),
+          web: sizeLabel(total),
+          original: sizeLabel(media.size),
+        })}
+      </p>
+    );
+  }
+  const reason =
+    v.error === 'ffmpeg fehlt auf dem Server'
+      ? t('Auf diesem Server fehlt ffmpeg – das Video läuft so, wie es hochgeladen wurde.')
+      : v.error === 'ausgeschaltet'
+        ? t('Die Aufbereitung ist ausgeschaltet (NOVA_VIDEO=off) – das Video läuft so, wie es hochgeladen wurde.')
+        : v.status === 'skipped'
+          ? t('In dieser Datei ist keine Videospur – sie läuft so, wie sie ist.')
+          : t('Konnte nicht fürs Web aufbereitet werden. Auf der Website läuft das Original.');
+  return (
+    <div className="row wrap xsmall muted" role="status">
+      <Icon name="info" size="s" />
+      <span style={{ flex: 1, minWidth: '12rem' }}>{reason}</span>
+      {v.status === 'failed' || v.error === 'ffmpeg fehlt auf dem Server' ? (
+        <button type="button" className="btn s" onClick={() => void retry()} aria-busy={busy || undefined}>
+          <span>{t('Nochmals versuchen')}</span>
+        </button>
+      ) : null}
     </div>
   );
 }

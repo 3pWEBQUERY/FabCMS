@@ -610,4 +610,39 @@ export const views: Record<string, { fr: string; it: string; en: string }> = {
   Drehen: { fr: 'Pivoter', it: 'Ruota', en: 'Rotate' },
   Helligkeit: { fr: 'Luminosité', it: 'Luminosità', en: 'Brightness' },
   'Auf Original zurücksetzen': { fr: 'Revenir à l’original', it: 'Ripristina l’originale', en: 'Reset to original' },
+  'Wird fürs Web aufbereitet … Bis dahin läuft auf der Website das Original.': {
+    fr: 'Préparation pour le web … En attendant, le site diffuse l’original.',
+    it: 'Preparazione per il web … Nel frattempo sul sito gira l’originale.',
+    en: 'Preparing for the web … Until then the website plays the original.',
+  },
+  'Fürs Web aufbereitet: {sizes} – zusammen {web} statt {original}. Auf der Website laufen diese Fassungen, das Original bleibt für Downloads.': {
+    fr: 'Préparé pour le web : {sizes} – en tout {web} au lieu de {original}. Le site diffuse ces versions, l’original reste pour les téléchargements.',
+    it: 'Preparato per il web: {sizes} – in totale {web} invece di {original}. Sul sito girano queste versioni, l’originale resta per i download.',
+    en: 'Prepared for the web: {sizes} – {web} in total instead of {original}. The website plays these versions; the original stays for downloads.',
+  },
+  'Auf diesem Server fehlt ffmpeg – das Video läuft so, wie es hochgeladen wurde.': {
+    fr: 'ffmpeg manque sur ce serveur – la vidéo est diffusée telle qu’elle a été téléversée.',
+    it: 'Su questo server manca ffmpeg – il video gira così come è stato caricato.',
+    en: 'ffmpeg is missing on this server – the video plays as it was uploaded.',
+  },
+  'Die Aufbereitung ist ausgeschaltet (NOVA_VIDEO=off) – das Video läuft so, wie es hochgeladen wurde.': {
+    fr: 'La préparation est désactivée (NOVA_VIDEO=off) – la vidéo est diffusée telle qu’elle a été téléversée.',
+    it: 'La preparazione è disattivata (NOVA_VIDEO=off) – il video gira così come è stato caricato.',
+    en: 'Preparation is switched off (NOVA_VIDEO=off) – the video plays as it was uploaded.',
+  },
+  'In dieser Datei ist keine Videospur – sie läuft so, wie sie ist.': {
+    fr: 'Ce fichier ne contient pas de piste vidéo – il est diffusé tel quel.',
+    it: 'In questo file non c’è una traccia video – gira così com’è.',
+    en: 'This file has no video track – it plays as it is.',
+  },
+  'Konnte nicht fürs Web aufbereitet werden. Auf der Website läuft das Original.': {
+    fr: 'La préparation pour le web a échoué. Le site diffuse l’original.',
+    it: 'Non è stato possibile prepararlo per il web. Sul sito gira l’originale.',
+    en: 'Couldn’t be prepared for the web. The website plays the original.',
+  },
+  'Das Original ist schon fürs Web geeignet und kleiner als eine neue Fassung – auf der Website läuft es direkt.': {
+    fr: 'L’original est déjà adapté au web et plus léger qu’une nouvelle version – le site le diffuse directement.',
+    it: 'L’originale è già adatto al web e più leggero di una nuova versione – sul sito gira direttamente.',
+    en: 'The original is already fit for the web and smaller than a new version – the website plays it directly.',
+  },
 };

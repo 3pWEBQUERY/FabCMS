@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { queueVideo } from './video';
 import { extname } from 'node:path';
 import { sql } from './db';
 import { storage } from './storage';
@@ -101,6 +102,7 @@ export async function storeUpload(input: UploadInput): Promise<MediaItem> {
   await storage.put(key, buffer, mime);
   await sql`update media set storage_key = ${key} where id = ${row.id}`;
   if (width) await storePlaceholder(row.id as string, buffer, {});
+  if (mime.startsWith('video/') && !input.private) await queueVideo(row.id as string);
   const [item] = await sql`select * from media where id = ${row.id}`;
   return item as unknown as MediaItem;
 }

@@ -1109,4 +1109,9 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Questa voce è troppo lunga per una bozza di traduzione in un colpo solo.',
     en: 'This entry is too long for a translation draft in one go.',
   },
+  'Das geht nur mit Videos aus der Mediathek.': {
+    fr: 'Cela ne fonctionne qu’avec les vidéos de la médiathèque.',
+    it: 'Funziona solo con i video della mediateca.',
+    en: 'This only works with videos from the media library.',
+  },
 };

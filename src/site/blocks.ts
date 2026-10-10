@@ -367,8 +367,19 @@ const R: Record<string, Renderer> = {
     const caption = p.caption || ctx.edit ? html`<figcaption${field(ctx.edit, 'caption')}>${p.caption}</figcaption>` : '';
     if (p.file) {
       const file = await ctx.media(p.file);
-      if (file?.mime.startsWith('video/'))
-        return html`<div class="wrap"><figure><video class="vid" controls preload="none" playsinline${poster ? raw(` poster="${variantUrl(poster, 1280, 'jpg')}"`) : ''}><source src="${originalUrl(file)}" type="${file.mime}"></video>${caption}</figure></div>`;
+      if (file?.mime.startsWith('video/')) {
+        // Web versions when they are ready (largest first, for wide screens), the original as the last resort.
+        const v = file.video?.status === 'ready' ? file.video : null;
+        const versions = [...(v?.renditions ?? [])].sort((a, b) => b.p - a.p);
+        const sources = versions.map((r, i) =>
+          i < versions.length - 1
+            ? html`<source src="/media/${file.id}/video/${r.p}.mp4" type="video/mp4" media="(min-width: ${r.p >= 1080 ? 1200 : 720}px)">`
+            : html`<source src="/media/${file.id}/video/${r.p}.mp4" type="video/mp4">`,
+        );
+        const posterUrl = poster ? variantUrl(poster, 1280, 'jpg') : v?.poster ? `/media/${file.id}/video/poster.jpg` : '';
+        const size = v?.width && v.height ? raw(` width="${v.width}" height="${v.height}"${v.duration ? ` data-duration="${v.duration}"` : ''}`) : '';
+        return html`<div class="wrap"><figure><video class="vid" controls preload="none" playsinline${size}${posterUrl ? raw(` poster="${posterUrl}"`) : ''}>${sources}<source src="${originalUrl(file)}" type="${file.mime}"></video>${caption}</figure></div>`;
+      }
     }
     const embed = p.url ? videoEmbed(p.url) : null;
     if (!embed) return empty(ctx, 'Füge einen YouTube- oder Vimeo-Link ein oder lade ein Video hoch.');

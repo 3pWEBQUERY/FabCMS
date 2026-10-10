@@ -10,7 +10,8 @@ RUN npm run build && npm prune --omit=dev
 
 FROM public.ecr.aws/docker/library/node:22-bookworm-slim
 # fontconfig: libvips/Pango needs it to set social-preview images in the theme fonts.
-RUN apt-get update && apt-get install -y --no-install-recommends fontconfig ca-certificates && rm -rf /var/lib/apt/lists/*
+# ffmpeg: web versions of uploaded videos (H.264 MP4 and a poster frame).
+RUN apt-get update && apt-get install -y --no-install-recommends fontconfig ca-certificates ffmpeg && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/package.json ./

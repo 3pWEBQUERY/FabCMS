@@ -8,16 +8,18 @@ import { bumpMediaVersion, deleteMedia, isImage, refreshPlaceholder, storeUpload
 import { storage } from '../storage';
 import { badRequest, notFound } from '../lib/http';
 import { bumpGeneration } from '../settings';
+import { queueVideo } from '../video';
 import type { MediaItem } from '../../shared/types';
 
 function withUrls(m: MediaItem & { private?: boolean }) {
   const image = isImage(m);
   const size = image ? effectiveSize(m) : null;
+  const poster = m.video?.status === 'ready' && m.video.poster ? `/media/${m.id}/video/poster.jpg` : null;
   return {
     ...m,
     image,
     effective: size,
-    thumb: image ? `/media/${m.id}/v${m.version}/480.webp` : null,
+    thumb: image ? `/media/${m.id}/v${m.version}/480.webp` : poster,
     preview: image ? `/media/${m.id}/v${m.version}/1280.webp` : null,
     url: image ? `/media/${m.id}/v${m.version}/1920.webp` : `/media/${m.id}/file/${encodeURIComponent(m.filename)}`,
   };
@@ -32,9 +34,7 @@ export function mediaApi(app: Hono<AppEnv>) {
     const folder = q.folder !== undefined && q.folder !== '*' ? sql`and folder = ${q.folder}` : sql``;
     const type =
       q.type === 'image' ? sql`and mime like 'image/%'` : q.type === 'video' ? sql`and mime like 'video/%'` : q.type === 'file' ? sql`and mime not like 'image/%'` : sql``;
-    const search = q.q
-      ? sql`and (filename ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or alt ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or ${q.q} = any(tags))`
-      : sql``;
+    const search = q.q ? sql`and (filename ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or alt ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or ${q.q} = any(tags))` : sql``;
     const missingAlt = q.missingAlt === '1' ? sql`and mime like 'image/%' and alt = ''` : sql``;
     const priv = q.private === '1' ? sql`` : sql`and not private`;
     const rows = await sql`
@@ -67,6 +67,17 @@ export function mediaApi(app: Hono<AppEnv>) {
     return c.json({ media: out });
   });
 
+  /** Make the web versions of a video again (after a failure, or once ffmpeg is installed). */
+  app.post('/api/media/:id/video', async (c) => {
+    requireCap(c, 'media.upload');
+    const [m] = await sql`select id, mime, private from media where id = ${c.req.param('id')}`;
+    if (!m) throw notFound();
+    if (!String(m.mime).startsWith('video/') || m.private) throw badRequest('Das geht nur mit Videos aus der Mediathek.');
+    await queueVideo(m.id as string);
+    const [row] = await sql`select * from media where id = ${m.id}`;
+    return c.json({ media: withUrls(row as unknown as MediaItem) });
+  });
+
   app.patch('/api/media/:id', async (c) => {
     requireCap(c, 'media.upload');
     const id = c.req.param('id');
@@ -79,7 +90,10 @@ export function mediaApi(app: Hono<AppEnv>) {
         focus: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
         edits: z
           .object({
-            crop: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), w: z.number().min(0.01).max(1), h: z.number().min(0.01).max(1) }).nullable().optional(),
+            crop: z
+              .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), w: z.number().min(0.01).max(1), h: z.number().min(0.01).max(1) })
+              .nullable()
+              .optional(),
             rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).optional(),
             brightness: z.number().min(0.5).max(1.5).optional(),
           })

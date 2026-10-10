@@ -35,6 +35,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { entrySlots, getAt, setAt, slotKey } from '../src/shared/text-slots';
+import { plannedSizes } from '../src/server/video';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -759,5 +760,20 @@ describe('texts for the translation draft', () => {
     expect(data.blocks[0].props.title).toBe('Willkommen'); // copies, not changes
     // A block that is gone in the translation: nothing happens.
     expect(setAt(next, ['blocks', '#weg', 'props', 'title'], 'x')).toBe(next);
+  });
+});
+
+describe('video web versions', () => {
+  it('plans 1080p and 720p by the short side, never larger than the source, always even', () => {
+    expect(plannedSizes(3840, 2160)).toEqual([
+      { p: 1080, width: 1920, height: 1080 },
+      { p: 720, width: 1280, height: 720 },
+    ]);
+    expect(plannedSizes(1080, 1920)).toEqual([
+      { p: 1080, width: 1080, height: 1920 },
+      { p: 720, width: 720, height: 1280 },
+    ]);
+    expect(plannedSizes(1280, 720)).toEqual([{ p: 720, width: 1280, height: 720 }]);
+    expect(plannedSizes(641, 361)).toEqual([{ p: 361, width: 642, height: 362 }]);
   });
 });
