@@ -61,7 +61,14 @@ export interface El {
   bind?: Record<string, string>;
   /** A saved style (shared/styles.ts) under the element's own design. */
   use?: string;
+  /** Buttons: what a click does to another element instead of following a link. */
+  act?: { do: ElAct; target: string };
+  /** Not shown until a button shows it. */
+  hidden?: boolean;
 }
+
+export const EL_ACTS = ['toggle', 'show', 'hide'] as const;
+export type ElAct = (typeof EL_ACTS)[number];
 
 /**
  * A component is an element tree kept in its own «sections» entry (kind
@@ -615,7 +622,20 @@ export function moveEl(els: El[], id: string, parentId: string | null, index: nu
 
 /** A deep copy with fresh ids (duplicate). */
 export function cloneEl(el: El): El {
-  return { ...structuredClone(el), id: shortId(8), children: el.children?.map(cloneEl) };
+  // New ids; a button aiming at an element of the same copy aims at its copy.
+  const ids = new Map<string, string>();
+  const copy = (x: El): El => {
+    const id = shortId(8);
+    ids.set(x.id, id);
+    return { ...structuredClone(x), id, children: x.children?.map(copy) };
+  };
+  const out = copy(el);
+  const retarget = (x: El): El => ({
+    ...x,
+    ...(x.act && ids.has(x.act.target) ? { act: { ...x.act, target: ids.get(x.act.target)! } } : {}),
+    children: x.children?.map(retarget),
+  });
+  return retarget(out);
 }
 
 export const countEls = (els: El[]) => {
@@ -831,6 +851,16 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
     if (isObj(raw.motion)) el.motion = raw.motion as Motion;
     if (typeof raw.name === 'string' && raw.name.trim()) el.name = plain(raw.name, 60);
     if (typeof raw.use === 'string' && /^[a-z0-9]{6,12}$/.test(raw.use)) el.use = raw.use;
+    if (
+      kind === 'button' &&
+      isObj(raw.act) &&
+      (EL_ACTS as readonly string[]).includes(String(raw.act.do)) &&
+      typeof raw.act.target === 'string' &&
+      ID.test(raw.act.target) &&
+      raw.act.target !== id
+    )
+      el.act = { do: raw.act.do as ElAct, target: raw.act.target };
+    if (raw.hidden === true) el.hidden = true;
     if (isObj(raw.bind)) {
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;

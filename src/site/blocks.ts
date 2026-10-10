@@ -874,10 +874,12 @@ function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'bo
   if (motion) ctx.needs.add('motion');
   const handles = rc.edit && !rc.copy;
   // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
+  // Hidden until a button shows it – in the editor it stays in view, marked, so it can be designed.
+  const hidden = el.hidden ? (rc.edit ? ' data-nova-hidden' : ' hidden') : '';
   return raw(
     `${!rc.copy && (rc.edit || !rc.list) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
       motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
-    }${rc.extra ?? ''}`,
+    }${hidden}${rc.extra ?? ''}`,
   );
 }
 
@@ -955,6 +957,11 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       const label = b.set ? String(b.value ?? '') : (p.label ?? '');
       const variant = p.variant === 'secondary' ? 'btn-2' : p.variant === 'link' ? 'el-link' : 'btn';
       if (!label && !rc.edit) return html``;
+      // Shows or hides another element: a real button, wired up by the site's script (copies in a list have no ids to aim at).
+      if (el.act && !rc.list && !rc.copy) {
+        ctx.needs.add('reveal');
+        return html`<button type="button" class="${cls(variant)}" data-act="${el.act.do}" aria-controls="e-${el.act.target}"${attrs}><span${editField('label')}>${label}</span></button>`;
+      }
       return html`<a class="${cls(variant)}" href="${hrefOf() || '#'}"${attrs}><span${editField('label')}>${label}</span></a>`;
     }
     case 'icon':

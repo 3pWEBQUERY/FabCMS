@@ -4428,6 +4428,15 @@ button.list-item {
   display: grid;
   margin: 0 -1rem;
 }
+/* element interactions in the inspector */
+.ia-box {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.ia-warn {
+  color: var(--warn, #9a5b00);
+}
+
 /* saved style above the design panel */
 .st-bar {
   padding: 0 1rem 0.9rem;

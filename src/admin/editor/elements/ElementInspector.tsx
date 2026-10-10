@@ -13,6 +13,7 @@ import { MotionPanel } from '../design/MotionPanel';
 import { ComponentInspector, VariantBar, type VariantControls } from './Components';
 import { ItemsEditor } from './ItemsEditor';
 import { ShapeControls } from './ShapeControls';
+import { InteractionControls } from './Interaction';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -31,6 +32,7 @@ export function ElementInspector({
   onOpenComponent,
   onDetach,
   variants,
+  blockEls,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -52,6 +54,8 @@ export function ElementInspector({
   onDetach: (master: El[]) => void;
   /** In a component's original: its variants, and the design of this element in the active one. */
   variants?: VariantControls & { design: Design | undefined; onDesign: (d: Design | undefined) => void };
+  /** Every element of the layout – targets for a button's click. */
+  blockEls: El[];
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
@@ -105,6 +109,7 @@ export function ElementInspector({
           {el.kind === 'list' && (
             <p className="xsmall faint">{t('Gestaltet wird der erste Eintrag – alle anderen sehen gleich aus. Verbinde seine Elemente mit den Feldern des Inhaltstyps.')}</p>
           )}
+          {!source && <InteractionControls el={el} els={blockEls} onChange={onChange} onSelect={onSelect} />}
           <Field label={t('Name in den Ebenen')} help={t('Hilft, im Aufbau den Überblick zu behalten.')}>
             <input className="input" value={el.name ?? ''} placeholder={tl(def.label)} maxLength={60} onChange={(e) => onChange({ ...el, name: e.target.value || undefined })} />
           </Field>

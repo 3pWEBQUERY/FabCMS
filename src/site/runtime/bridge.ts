@@ -49,6 +49,8 @@ style.textContent = `
 .nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 a[href]{cursor:default}
 [data-nova-el]{transition:outline-color .12s}
+[data-nova-hidden]{outline:2px dashed rgba(232,64,138,.55)!important;outline-offset:2px}
+[data-nova-hidden]:not(img):not(hr)::before{content:"Versteckt, bis ein Knopf es zeigt";display:block;margin-bottom:.35rem;font:600 11px/1.3 system-ui,sans-serif;color:#c22f73}
 [data-nova-el-hover]{outline:1px dashed rgba(43,89,195,.7)!important;outline-offset:-1px}
 [data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
 [data-nova-el-multi]{outline:2px dashed #2b59c3!important;outline-offset:-1px}

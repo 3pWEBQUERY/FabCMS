@@ -1790,3 +1790,25 @@ describe('saved styles', () => {
     expect(cleanStyles('nein')).toEqual([]);
   });
 });
+
+describe('element interactions', () => {
+  it('keeps a copied button aimed at the copy of its element', () => {
+    const box = {
+      id: 'outer',
+      kind: 'box',
+      props: {},
+      children: [
+        { id: 'btn', kind: 'button', props: {}, act: { do: 'toggle', target: 'panel' } },
+        { id: 'panel', kind: 'box', props: {}, hidden: true, children: [] },
+        { id: 'away', kind: 'button', props: {}, act: { do: 'show', target: 'elsewhere' } },
+      ],
+    } as unknown as El;
+    const copy = cloneEl(box);
+    const [btn, panel, away] = copy.children!;
+    expect(panel.id).not.toBe('panel');
+    expect(btn.act).toEqual({ do: 'toggle', target: panel.id });
+    expect(panel.hidden).toBe(true);
+    // Aimed outside the copy: stays as it was.
+    expect(away.act?.target).toBe('elsewhere');
+  });
+});

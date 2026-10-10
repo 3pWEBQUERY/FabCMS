@@ -237,6 +237,7 @@ h1.el-heading{font-size:var(--step-7)}h2.el-heading{font-size:var(--step-5)}h3.e
 @keyframes nova-mq{to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.acc-item::details-content{transition:none}.tab-enter{animation:none}.sl-track{scroll-behavior:auto}.mq-track{width:auto;animation:none}.mq-group{flex-wrap:wrap;min-width:0}.mq-group[aria-hidden]{display:none}.el-marquee{-webkit-mask-image:none;mask-image:none}}
 .el-ghost{display:contents}
+:where(button.el-button){appearance:none;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:inherit;cursor:pointer}.el[hidden]{display:none!important}.el[data-revealed]{animation:el-reveal .22s ease-out}@keyframes el-reveal{from{opacity:0;transform:translateY(-6px)}}
 .el-empty{display:grid;place-items:center;min-height:5rem;padding:1rem;border:1px dashed var(--line);border-radius:6px;color:var(--ink-2);font-size:var(--step-n1);text-align:center}
 .el-ph{display:grid;place-items:center;min-height:10rem;margin:0;background:var(--surface);color:var(--ink-2);font-size:var(--step-n1);border-radius:var(--img-radius,0)}
 .tone-muted{background:var(--surface)}

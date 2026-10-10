@@ -3467,6 +3467,45 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('lets a button show, hide or toggle another element, hidden until then', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const els = [
+      { id: 'iabtn', kind: 'button', props: { label: 'Mehr zeigen', href: '/x' }, act: { do: 'toggle', target: 'iapanel' } },
+      {
+        id: 'iapanel',
+        kind: 'box',
+        props: {},
+        hidden: true,
+        children: [
+          { id: 'iatext', kind: 'text', props: { html: '<p>Die Details.</p>' } },
+          { id: 'iaclose', kind: 'button', props: { label: 'Schliessen' }, act: { do: 'hide', target: 'iapanel' } },
+        ],
+      },
+      // Only buttons act, only on valid ids, never on themselves.
+      { id: 'iatitle', kind: 'heading', props: { text: 'Titel' }, act: { do: 'toggle', target: 'iapanel' } },
+      { id: 'iabad', kind: 'button', props: { label: 'Kaputt' }, act: { do: 'explode', target: 'iapanel' } },
+      { id: 'iaself', kind: 'button', props: { label: 'Selbst' }, act: { do: 'hide', target: 'iaself' } },
+    ];
+    const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Mehr', blocks: [{ id: 'ialay', type: 'layout', props: { els } }] } })).data.entry;
+    const saved = page.data.blocks[0].props.els;
+    expect(saved[0].act).toEqual({ do: 'toggle', target: 'iapanel' });
+    expect(saved[1].hidden).toBe(true);
+    for (const i of [2, 3, 4]) expect(saved[i].act).toBeUndefined();
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', `/${page.slug}`, undefined, anon)).data as string;
+    // A real button that names what it controls; the script reports open or closed.
+    expect(html).toContain('<button type="button" class="el el-button e-iabtn btn" data-act="toggle" aria-controls="e-iapanel" id="e-iabtn"><span>Mehr zeigen</span></button>');
+    expect(html).toContain('data-act="hide" aria-controls="e-iapanel"');
+    expect(html).toMatch(/<div class="el el-box e-iapanel" id="e-iapanel" hidden>/);
+    expect(html).toContain('/_nova/site.js');
+    expect(html).toContain('.el[hidden]{display:none!important}');
+    // In the editor it stays visible to be designed, marked instead of hidden.
+    const canvas = await req('POST', '/api/render', { entryId: page.id, data: page.data, blockId: 'ialay' });
+    expect(canvas.data.html).toMatch(/data-nova-el="iapanel"[^>]*data-nova-hidden/);
+    expect(canvas.data.html).not.toMatch(/data-nova-el="iapanel"[^>]* hidden[ >]/);
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

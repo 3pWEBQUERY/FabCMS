@@ -738,6 +738,31 @@ if (ageBox) {
   });
 }
 
+/* ---------- interactions: a button shows, hides or toggles another element ---------- */
+const acts = d.body.dataset.novaEdit ? [] : [...d.querySelectorAll<HTMLButtonElement>('button[data-act][aria-controls]')];
+if (acts.length) {
+  const targetOf = (b: Element) => d.getElementById(b.getAttribute('aria-controls') ?? '');
+  // Buttons that open something say whether it is open; a pure «hide» button just closes.
+  const shut = (t: HTMLElement) => t.hidden !== false;
+  const sync = (t: HTMLElement) => acts.forEach((b) => b.dataset.act !== 'hide' && targetOf(b) === t && b.setAttribute('aria-expanded', String(!shut(t))));
+  acts.forEach((b) => {
+    const t = targetOf(b);
+    if (t) sync(t);
+  });
+  d.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest?.<HTMLButtonElement>('button[data-act][aria-controls]');
+    const t = b && targetOf(b);
+    if (!b || !t) return;
+    const show = b.dataset.act === 'show' ? true : b.dataset.act === 'hide' ? false : shut(t);
+    if (show === !shut(t)) return;
+    t.hidden = !show;
+    t.toggleAttribute('data-revealed', show);
+    sync(t);
+    // Closing what holds the focus sends the focus back to a button that opens it.
+    if (!show && t.contains(d.activeElement)) acts.find((x) => x.dataset.act !== 'hide' && targetOf(x) === t && !t.contains(x))?.focus();
+  });
+}
+
 /* ---------- pop-ups: at most one per page view, when its trigger fires; this browser remembers it was seen ---------- */
 const pops = [...d.querySelectorAll<HTMLDialogElement>('dialog[data-pop]')];
 if (pops.length && !d.body.classList.contains('age-locked')) {

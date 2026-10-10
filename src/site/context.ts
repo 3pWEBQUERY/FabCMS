@@ -52,7 +52,7 @@ export interface RenderContext {
   lcpImage: string | null;
   /** Components whose design is already on the page (once per page, for all their places). */
   components: Set<string>;
-  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare' | 'age' | 'motion' | 'widgets'>;
+  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare' | 'age' | 'motion' | 'widgets' | 'reveal'>;
   /** Signed age gate already passed. */
   ageOk: boolean;
   /** The age gate asks for the Swiss e-ID (and the page withholds its content until then). */

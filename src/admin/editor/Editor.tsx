@@ -1486,6 +1486,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           key={selectedElInfo.el.id}
                           el={selectedElInfo.el}
                           onChange={(el) => changeElement(selectedBlock.id, el)}
+                          blockEls={elsOf(selectedBlock)}
                           device={device}
                           onDevice={chooseDevice}
                           designState={designState}
