@@ -63,4 +63,23 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Leer lassen entfernt die Kategorie.': { fr: 'Laisser vide supprime la catégorie.', it: 'Lasciare vuoto rimuove la categoria.', en: 'Leave empty to remove the category.' },
   'Alle auswählen': { fr: 'Tout sélectionner', it: 'Seleziona tutto', en: 'Select all' },
   '«{name}» auswählen': { fr: 'Sélectionner «{name}»', it: 'Seleziona «{name}»', en: 'Select “{name}”' },
+  /* expiry */
+  'Geht am {when} automatisch offline.': {
+    fr: 'Passe automatiquement hors ligne le {when}.',
+    it: 'Va offline automaticamente il {when}.',
+    en: 'Goes offline automatically on {when}.',
+  },
+  'Kein Ablaufdatum mehr.': { fr: 'Plus de date d’expiration.', it: 'Nessuna data di scadenza.', en: 'No expiry date any more.' },
+  'Läuft ab: {when}': { fr: 'Expire : {when}', it: 'Scade: {when}', en: 'Expires: {when}' },
+  'Ablaufdatum …': { fr: 'Date d’expiration …', it: 'Data di scadenza …', en: 'Expiry date …' },
+  Ablaufdatum: { fr: 'Date d’expiration', it: 'Data di scadenza', en: 'Expiry date' },
+  'Nova nimmt den Inhalt zu diesem Zeitpunkt automatisch offline – ein Angebot, eine Aktion, ein Hinweis. Er bleibt als Entwurf erhalten.': {
+    fr: 'Nova met le contenu hors ligne automatiquement à ce moment – une offre, une action, un avis. Il reste en brouillon.',
+    it: 'Nova mette il contenuto offline automaticamente in quel momento – un’offerta, un’azione, un avviso. Resta come bozza.',
+    en: 'Nova takes the content offline automatically at this time – an offer, a promotion, a notice. It stays as a draft.',
+  },
+  'Offline nehmen am': { fr: 'Mettre hors ligne le', it: 'Mettere offline il', en: 'Take offline on' },
+  'Kein Ablaufdatum': { fr: 'Pas de date d’expiration', it: 'Nessuna scadenza', en: 'No expiry date' },
+  Festlegen: { fr: 'Définir', it: 'Imposta', en: 'Set' },
+  'bis {date}': { fr: 'jusqu’au {date}', it: 'fino al {date}', en: 'until {date}' },
 };

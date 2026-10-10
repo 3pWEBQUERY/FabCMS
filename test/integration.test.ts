@@ -19,7 +19,7 @@ import { applyData, toData } from '../src/shared/collab-doc';
 import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
-import { syncBuiltinCollections, invalidateCollections } from '../src/server/content';
+import { syncBuiltinCollections, invalidateCollections, unpublishDue } from '../src/server/content';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
@@ -2468,5 +2468,24 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(gone.data.failed).toHaveLength(1);
     expect((await req('GET', '/api/trash')).data.entries.filter((x: { id: string }) => [a.id, b.id].includes(x.id))).toHaveLength(2);
     expect((await req('POST', '/api/entries/bulk', { ids: [], action: 'publish' })).status).toBe(400);
+  });
+
+  it('takes entries offline at their expiry date and tells the people who publish', async () => {
+    const e = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Aktion bis Sonntag' } })).data.entry;
+    await req('POST', `/api/entries/${e.id}/publish`, {});
+    expect((await req('POST', `/api/entries/${e.id}/expiry`, { at: new Date(Date.now() - 1000).toISOString() })).status).toBe(400);
+    const set = await req('POST', `/api/entries/${e.id}/expiry`, { at: new Date(Date.now() + 3_600_000).toISOString() });
+    expect(set.data.entry.unpublish_at).toBeTruthy();
+    const list = await req('GET', '/api/entries?collection=posts&limit=500');
+    expect(list.data.entries.find((x: { id: string }) => x.id === e.id).unpublish_at).toBeTruthy();
+    // Time has come (moved back here instead of waiting).
+    await sql`update entries set unpublish_at = now() - interval '1 minute' where id = ${e.id}`;
+    expect(await unpublishDue()).toBeGreaterThanOrEqual(1);
+    const after = (await req('GET', `/api/entries/${e.id}`)).data.entry;
+    expect(after).toMatchObject({ status: 'draft', unpublish_at: null });
+    expect((await req('GET', `/journal/${e.slug}`, undefined, { cookies: new Map() })).status).toBe(404);
+    const [n] = await sql`select title from notifications where title like '%Aktion bis Sonntag%' order by created_at desc limit 1`;
+    expect(n.title).toBe('«Aktion bis Sonntag» ist abgelaufen und offline.');
+    await req('DELETE', `/api/entries/${e.id}`);
   });
 });

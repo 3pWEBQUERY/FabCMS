@@ -1,4 +1,4 @@
-import { publishDue, purgeTrash } from './content';
+import { publishDue, purgeTrash, unpublishDue } from './content';
 import { dailyBackup } from './backup';
 import { sql } from './db';
 import { bumpGeneration } from './settings';
@@ -32,6 +32,7 @@ function every(ms: number, name: string, job: () => Promise<unknown>) {
 
 export function startScheduler() {
   every(30_000, 'scheduled publishing', publishDue);
+  every(30_000, 'expiry', unpublishDue);
   every(5 * 60_000, 'booking reminders', async () => {
     await sendReminders();
     await releaseUnpaid();

@@ -23,6 +23,7 @@ interface Row {
   changed: boolean;
   publish_at: string | null;
   translations?: { lang: string; status: string; changed: boolean }[];
+  unpublish_at?: string | null;
 }
 
 export function NewPageDialog({ open, onClose, pages }: { open: boolean; onClose: () => void; pages: Row[] }) {
@@ -149,7 +150,7 @@ export function PagesList() {
                   </Link>
                   <span className="xsmall faint hide-m">{formatDate(r.updated_at)}</span>
                   <LangBadges translations={r.translations} />
-                  <StatusBadge status={r.status} changed={r.changed} />
+                  <StatusBadge status={r.status} changed={r.changed} until={r.unpublish_at} />
                   <Menu
                     trigger={
                       <button className="btn ghost icon-only s" aria-label={t('Aktionen für {name}', { name: r.title })}>

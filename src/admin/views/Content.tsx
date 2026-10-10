@@ -29,6 +29,7 @@ interface Row {
   author_name: string | null;
   sort_index: number;
   translations?: { lang: string; status: string; changed: boolean }[];
+  unpublish_at?: string | null;
 }
 
 export function ContentHub() {
@@ -354,7 +355,7 @@ export function CollectionList({ collection }: { collection: string }) {
                     ))}
                     <td>
                       <LangBadges translations={r.translations} />
-                      <StatusBadge status={r.status} changed={r.changed} />
+                      <StatusBadge status={r.status} changed={r.changed} until={r.unpublish_at} />
                     </td>
                     <td className="muted">{formatDate(r.updated_at)}</td>
                     <td className="right" onClick={(e) => e.stopPropagation()}>

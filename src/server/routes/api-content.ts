@@ -81,6 +81,7 @@ function listRow(r: Record<string, any>) {
     title: (r.data as EntryData)?.title ?? '',
     fields: rest,
     publish_at: r.publish_at,
+    unpublish_at: r.unpublish_at ?? null,
     published_at: r.published_at,
     updated_at: r.updated_at,
     sort_index: r.sort_index,
@@ -172,7 +173,7 @@ export function contentApi(app: Hono<AppEnv>) {
     const status = q.status ? sql`and e.status = ${q.status}` : sql``;
     const search = q.q ? sql`and (e.data ->> 'title' ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or e.slug ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'})` : sql``;
     const rows = await sql`
-      select e.id, e.collection, e.slug, e.status, e.data, e.publish_at, e.published_at, e.updated_at, e.sort_index, e.author_id,
+      select e.id, e.collection, e.slug, e.status, e.data, e.publish_at, e.unpublish_at, e.published_at, e.updated_at, e.sort_index, e.author_id,
              u.name as author_name, (e.published_data is distinct from e.data) as changed, count(*) over() as total
       from entries e left join users u on u.id = e.author_id
       where e.collection = ${collection} ${own} ${status} ${search}
@@ -185,7 +186,7 @@ export function contentApi(app: Hono<AppEnv>) {
   app.get('/api/entries/review', async (c) => {
     requireCap(c, 'content.publish');
     const rows = await sql`
-      select e.id, e.collection, e.slug, e.status, e.data, e.publish_at, e.published_at, e.updated_at, e.sort_index, e.author_id,
+      select e.id, e.collection, e.slug, e.status, e.data, e.publish_at, e.unpublish_at, e.published_at, e.updated_at, e.sort_index, e.author_id,
              u.name as author_name, false as changed
       from entries e left join users u on u.id = e.author_id where e.status = 'review' order by e.updated_at desc`;
     return c.json({ entries: rows.map(listRow) });
@@ -281,6 +282,17 @@ export function contentApi(app: Hono<AppEnv>) {
     if (lang) return c.json({ entry: await unpublishTranslation(await getEntry(c.req.param('id')), lang) });
     const e = await unpublishEntry(c.req.param('id'));
     await audit(c, 'entry.unpublish', e.collection, e.id);
+    return c.json({ entry: e });
+  });
+
+  /** Expiry: the entry goes offline by itself at this time (null: stays). */
+  app.post('/api/entries/:id/expiry', async (c) => {
+    requireCap(c, 'content.publish');
+    const { at } = z.object({ at: z.string().datetime({ offset: true }).nullable() }).parse(await c.req.json());
+    if (at && new Date(at).getTime() <= Date.now()) throw badRequest('Das Ablaufdatum muss in der Zukunft liegen.');
+    const [e] = await sql`update entries set unpublish_at = ${at} where id = ${c.req.param('id')} returning *`;
+    if (!e) throw notFound();
+    await audit(c, 'entry.expiry', e.collection as string, e.id as string, { at });
     return c.json({ entry: e });
   });
 

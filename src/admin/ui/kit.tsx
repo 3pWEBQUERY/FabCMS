@@ -982,13 +982,23 @@ const STATUS: Record<EntryStatus, { label: () => string; cls: string }> = {
   published: { label: () => t('Online'), cls: 'ok' },
 };
 
-export function StatusBadge({ status, changed }: { status: EntryStatus; changed?: boolean }) {
+export function StatusBadge({ status, changed, until }: { status: EntryStatus; changed?: boolean; until?: string | null }) {
   const s = STATUS[status];
   return (
-    <span className={`badge ${changed ? 'edited' : s.cls}`}>
-      <span className={`dot ${changed ? 'edited' : s.cls}`} />
-      {changed ? t('Online · geändert') : s.label()}
-    </span>
+    <>
+      <span className={`badge ${changed ? 'edited' : s.cls}`}>
+        <span className={`dot ${changed ? 'edited' : s.cls}`} />
+        {changed ? t('Online · geändert') : s.label()}
+      </span>
+      {until && (
+        <span
+          className="badge"
+          title={t('Geht am {when} automatisch offline.', { when: new Date(until).toLocaleString(adminLocale(), { dateStyle: 'medium', timeStyle: 'short' }) })}
+        >
+          {t('bis {date}', { date: new Date(until).toLocaleDateString(adminLocale(), { day: 'numeric', month: 'short' }) })}
+        </span>
+      )}
+    </>
   );
 }
 

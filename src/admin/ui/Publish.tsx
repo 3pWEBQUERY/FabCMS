@@ -40,6 +40,8 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [expiryOpen, setExpiryOpen] = useState(false);
+  const [until, setUntil] = useState('');
   const [when, setWhen] = useState(() => {
     const d = new Date(Date.now() + 86_400_000);
     d.setHours(8, 0, 0, 0);
@@ -79,6 +81,29 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
       setScheduleOpen(false);
     }
   };
+
+  const fmt = (iso: string) => new Date(iso).toLocaleString(adminLocale(), { dateStyle: 'medium', timeStyle: 'short' });
+  const expires = e.unpublish_at ?? null;
+  const setExpiry = async (at: string | null) => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ entry: Entry }>(`/api/entries/${e.id}/expiry`, { at: at ? new Date(at).toISOString() : null });
+      doc.setEntry({ ...e, unpublish_at: r.entry.unpublish_at });
+      toast(at ? t('Geht am {when} automatisch offline.', { when: fmt(at) }) : t('Kein Ablaufdatum mehr.'));
+      setExpiryOpen(false);
+    } catch (err) {
+      toast((err as Error).message, { kind: 'bad' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const openExpiry = () => {
+    const d = expires ? new Date(expires) : new Date(Date.now() + 7 * 86_400_000);
+    if (!expires) d.setHours(23, 59, 0, 0);
+    setUntil(new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16));
+    setExpiryOpen(true);
+  };
+  const untilPast = Boolean(until) && new Date(until).getTime() <= Date.now();
 
   const unpublish = async () => {
     if (
@@ -131,11 +156,39 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
           }
           items={[
             { label: t('Später veröffentlichen …'), icon: 'calendar', onSelect: () => setScheduleOpen(true), hidden: doc.blockers.length > 0 },
+            {
+              label: expires ? t('Läuft ab: {when}', { when: fmt(expires) }) : t('Ablaufdatum …'),
+              icon: 'clock',
+              onSelect: openExpiry,
+              hidden: Boolean(e.lang),
+            },
             { label: t('Änderungen verwerfen'), icon: 'undo', onSelect: discard, hidden: !changed },
             { label: t('Offline nehmen'), icon: 'eyeOff', onSelect: unpublish, hidden: !live },
           ]}
         />
       )}
+      <Dialog
+        open={expiryOpen}
+        onOpenChange={setExpiryOpen}
+        title={t('Ablaufdatum')}
+        description={t('Nova nimmt den Inhalt zu diesem Zeitpunkt automatisch offline – ein Angebot, eine Aktion, ein Hinweis. Er bleibt als Entwurf erhalten.')}
+      >
+        <DateTimeInput label={t('Offline nehmen am')} value={until} onChange={setUntil} min={isoDay(new Date())} defaultTime="23:59" />
+        {untilPast && <p className="field-error">{t('Dieser Zeitpunkt liegt in der Vergangenheit.')}</p>}
+        <div className="dialog-actions">
+          {expires && (
+            <button className="btn ghost" disabled={busy} onClick={() => void setExpiry(null)} style={{ marginRight: 'auto' }}>
+              {t('Kein Ablaufdatum')}
+            </button>
+          )}
+          <button className="btn ghost" onClick={() => setExpiryOpen(false)}>
+            {t('Abbrechen')}
+          </button>
+          <button className="btn primary" disabled={busy || !until || untilPast} aria-busy={busy || undefined} onClick={() => void setExpiry(until)}>
+            {t('Festlegen')}
+          </button>
+        </div>
+      </Dialog>
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen} title={t('Später veröffentlichen')} description={t('Nova veröffentlicht automatisch zum gewählten Zeitpunkt.')}>
         <DateTimeInput label={t('Veröffentlichen am')} value={when} onChange={setWhen} min={isoDay(new Date())} defaultTime="08:00" />
         {past && <p className="field-error">{t('Dieser Zeitpunkt liegt in der Vergangenheit.')}</p>}

@@ -64,6 +64,8 @@ export interface Entry {
   published_data: EntryData | null;
   published_slug: string | null;
   publish_at: string | null;
+  /** Goes offline by itself at this time. */
+  unpublish_at?: string | null;
   published_at: string | null;
   author_id: string | null;
   version: number;

@@ -11,6 +11,7 @@ import type { Block, CollectionDef, Entry, EntryData } from '../shared/types';
 import { badRequest, HttpError, notFound } from './lib/http';
 import { bumpGeneration, getSettings, updateSettings } from './settings';
 import { emit, pingIndexNow } from './events';
+import { notify } from './notify';
 
 /* ---------- Collections ---------- */
 
@@ -423,7 +424,7 @@ export async function publishEntry(id: string, userId: string, at?: Date | null)
 
 export async function unpublishEntry(id: string): Promise<Entry> {
   const [e] = await sql`
-    update entries set status = 'draft', published_data = null, publish_at = null, updated_at = now()
+    update entries set status = 'draft', published_data = null, publish_at = null, unpublish_at = null, updated_at = now()
     where id = ${id} returning *`;
   if (!e) throw notFound();
   bumpGeneration();
@@ -498,6 +499,27 @@ export async function restoreEntry(id: string): Promise<Entry> {
 export async function purgeTrash(): Promise<number> {
   const r = await sql`delete from trash where deleted_at < now() - interval '30 days'`;
   return r.count;
+}
+
+/** Called by the scheduler: takes offline what has expired, and tells the people who publish. */
+export async function unpublishDue(): Promise<number> {
+  const due = await sql`select id, collection, data ->> 'title' as title from entries where unpublish_at <= now()`;
+  for (const d of due) {
+    try {
+      if ((await sql`select status from entries where id = ${d.id}`)[0]?.status === 'published') await unpublishEntry(d.id as string);
+      else await sql`update entries set unpublish_at = null where id = ${d.id}`;
+      await notify({
+        kind: 'system',
+        cap: 'content.publish',
+        title: `«${d.title}» ist abgelaufen und offline.`,
+        body: 'Der Inhalt bleibt als Entwurf erhalten.',
+        href: d.collection === 'pages' ? `/seiten/${d.id}` : `/inhalte/${d.collection}/${d.id}`,
+      });
+    } catch (e) {
+      console.error(`[scheduler] Ablauf von ${d.id} fehlgeschlagen:`, (e as Error).message);
+    }
+  }
+  return due.length;
 }
 
 /** Called by the scheduler: publishes everything whose time has come. */
