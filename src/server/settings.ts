@@ -61,7 +61,7 @@ export function defaultSettings(): SiteSettings {
       ga4: { id: '' },
     },
     consent: { youtube: true, vimeo: true, maps: true },
-    ageGate: { enabled: false, minAge: 18, text: 'Diese Website enthält Inhalte für Erwachsene.' },
+    ageGate: { enabled: false, minAge: 18, text: 'Diese Website enthält Inhalte für Erwachsene.', method: 'self' },
     ai: { enabled: false },
     shop: {
       currency: 'CHF',

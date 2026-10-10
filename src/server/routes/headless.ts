@@ -14,6 +14,7 @@ import { currentSchema, depthLimit } from '../graphql';
 import { generateSdk } from '../sdk';
 import { cliScript } from '../../site/assets';
 import { getSettings } from '../settings';
+import { eidGate } from '../age-verify';
 import { env } from '../env';
 import { mediaLoader } from '../../site/context';
 import { localized, localizedOne, parseLang, requestLang } from '../translations';
@@ -54,6 +55,9 @@ export function headlessRoutes(app: Hono<AppEnv>) {
     c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     if (c.req.method === 'OPTIONS') return c.body(null, 204);
     if (!rateLimit(`v1:${clientIp(c)}`, 300, 60_000).ok) throw new HttpError(429, 'Zu viele Anfragen.');
+    // A site behind the e-ID age gate does not publish its content without a token.
+    if (eidGate(await getSettings()) && !(await tokenScopes(c)))
+      throw new HttpError(403, 'Diese Website ist nur nach einer Altersprüfung zugänglich. Die API braucht hier ein Token.');
     // ?lang=fr: published translations laid over the content (drafts stay in the main language).
     const lang = c.req.method === 'GET' || c.req.path === '/api/v1/graphql' ? await parseLang(c.req.query('lang')) : null;
     if (lang) await requestLang.run(lang, next);

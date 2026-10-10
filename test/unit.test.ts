@@ -42,6 +42,7 @@ import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
 import { deflateSync } from 'node:zlib';
 import { TEMPLATES, templatesFor } from '../src/shared/templates';
+import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-verify';
 import { pickTemplate } from '../src/server/seed';
 import { THEMES } from '../src/site/themes';
 
@@ -627,6 +628,37 @@ describe('website translations', () => {
       price: 1800,
       prices: [{ label: 'grand', price: 2400 }],
     });
+  });
+});
+
+describe('age check with the e-ID', () => {
+  it('asks for as little as possible and counts only an explicit yes', () => {
+    expect([16, 18, 20, 21].map(ageClaim)).toEqual(['age_over_16', 'age_over_18', 'birth_date', 'birth_date']);
+    expect(judgeAge({ age: [{ age_over_18: true }] }, 18)).toBe('ok');
+    expect(judgeAge({ age: { age_over_16: true } }, 16)).toBe('ok');
+    expect(judgeAge({ age: [{ age_over_18: 'true' }] }, 18)).toBe('young');
+    expect(judgeAge({ age: [{}] }, 18)).toBe('young');
+    expect(() => judgeAge(undefined, 18)).toThrow(/CREDENTIAL_SUBJECT_DATA/);
+  });
+
+  it('counts birthdays in Swiss time', () => {
+    // 20th birthday on 1 March 2026: 22:30 UTC on 28 February is 23:30 in Zurich (still 19), an hour later it is 1 March there.
+    expect(yearsSince('2006-03-01', new Date('2026-02-28T22:30:00Z'))).toBe(19);
+    expect(yearsSince('2006-03-01', new Date('2026-02-28T23:30:00Z'))).toBe(20);
+    expect(judgeAge({ age: [{ birth_date: '2006-03-01' }] }, 20, new Date('2026-02-28T12:00:00Z'))).toBe('young');
+    expect(judgeAge({ age: [{ birth_date: '2006-03-01' }] }, 20, new Date('2026-03-01T12:00:00Z'))).toBe('ok');
+    expect(yearsSince('1.3.2006', new Date())).toBeNull();
+  });
+
+  it('lets only a check for the current limit through the e-ID gate', () => {
+    const s = (method: 'self' | 'eid', minAge = 18) => ({ ageGate: { enabled: true, minAge, text: '', method } }) as never;
+    expect(ageAccepted('1', s('self'))).toBe(true);
+    expect(ageAccepted('v18', s('self'))).toBe(true);
+    expect(ageAccepted(null, s('self'))).toBe(false);
+    // Without a configured verifier the e-ID gate is not active, so a click still counts there.
+    expect(ageAccepted('1', s('eid'))).toBe(true);
+    expect(ageAccepted('v16', s('self', 18))).toBe(false);
+    expect(ageAccepted('v21', s('self', 18))).toBe(true);
   });
 });
 

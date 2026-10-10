@@ -680,6 +680,54 @@ d.querySelectorAll<HTMLFormElement>('form[data-add-to-cart]').forEach((form) => 
   });
 });
 
+/* ---------- age check with the Swiss e-ID (swiyu) ---------- */
+const ageBox = d.querySelector<HTMLElement>('[data-age-eid]');
+if (ageBox) {
+  const start = ageBox.querySelector<HTMLButtonElement>('[data-age-start]')!;
+  const open = ageBox.querySelector<HTMLAnchorElement>('[data-age-open]')!;
+  const qr = ageBox.querySelector<HTMLElement>('[data-age-qr]')!;
+  const status = ageBox.querySelector<HTMLElement>('[data-age-status]')!;
+  let timer = 0;
+  // All texts come with the page, already in its language.
+  const say = (state: string) => (status.textContent = status.dataset[state] ?? status.dataset.error ?? '');
+  const stop = (state: string) => {
+    clearTimeout(timer);
+    qr.hidden = open.hidden = true;
+    start.hidden = false;
+    start.removeAttribute('aria-busy');
+    say(state);
+  };
+  const poll = async (until: number) => {
+    if (Date.now() > until) return stop('expired');
+    try {
+      const r = (await (await fetch('/_nova/age/eid', { headers: { Accept: 'application/json' } })).json()) as { state: string };
+      if (r.state === 'ok') {
+        say('ok');
+        return location.reload();
+      }
+      if (r.state !== 'pending') return stop(r.state);
+    } catch {
+      /* a network hiccup – ask again */
+    }
+    timer = setTimeout(() => void poll(until), 2000) as unknown as number;
+  };
+  start.addEventListener('click', async () => {
+    start.setAttribute('aria-busy', 'true');
+    try {
+      const r = (await (await fetch('/_nova/age/eid', { method: 'POST', headers: { Accept: 'application/json' } })).json()) as { state: string; qr?: string; deeplink?: string };
+      if (r.state !== 'pending' || !r.qr || !r.deeplink) return stop('error');
+      qr.innerHTML = r.qr; // SVG drawn by the server from the verifier's link
+      open.href = r.deeplink;
+      qr.hidden = open.hidden = false;
+      start.hidden = true;
+      say('pending');
+      void poll(Date.now() + 10 * 60_000);
+    } catch {
+      stop('error');
+    }
+  });
+}
+
 /* ---------- buttons: busy state while a normal form submits, no double orders ---------- */
 d.addEventListener('submit', (e) => {
   if (e.defaultPrevented) return; // async forms above handle themselves

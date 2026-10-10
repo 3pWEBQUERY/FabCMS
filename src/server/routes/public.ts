@@ -1,4 +1,6 @@
 import { searchSite } from '../search';
+import QRCode from 'qrcode';
+import { ageAccepted, ageCheckResult, EidError, eidGate, startAgeCheck } from '../age-verify';
 import type { Context, Hono } from 'hono';
 import { formHooks } from '../hooks';
 import { alternates, currentLang, localized, localizedOne, localizePath, pathMap } from '../translations';
@@ -63,6 +65,8 @@ import type { CollectionDef, EntryData, FormDef, SiteSettings, VideoInfo } from 
 
 const require = createRequire(import.meta.url);
 const AGE_COOKIE = 'nova_age';
+/** A running e-ID check: verifier id, the age asked for, expiry. */
+const AGE_CHECK_COOKIE = 'nova_age_check';
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
 /* ---------- helpers ---------- */
@@ -89,7 +93,7 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
   const settings = await getSettings();
   const url = new URL(c.req.url);
   const cart = settings.modules.includes('shop') ? await cartItems(c) : [];
-  const age = unsign(getCookie(c, AGE_COOKIE), await appSecret()) === '1';
+  const age = ageAccepted(unsign(getCookie(c, AGE_COOKIE), await appSecret()), settings);
   const member = settings.modules.includes('members') && !opts.edit && !opts.preview ? await currentMember(c) : null;
   const path = decodeURIComponent(url.pathname);
   return createContext({
@@ -103,6 +107,7 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
     edit: opts.edit,
     preview: opts.preview,
     ageOk: age,
+    ageEid: eidGate(settings),
     cartCount: cart.reduce((s, i) => s + i.q, 0),
     member: member ? { id: member.id, name: member.name, level: member.level } : null,
   });
@@ -509,8 +514,59 @@ export function publicRoutes(app: Hono<AppEnv>) {
   app.post('/_nova/age', async (c) => {
     const body = await c.req.parseBody();
     const back = typeof body.back === 'string' && body.back.startsWith('/') && !body.back.startsWith('//') ? body.back : '/';
-    if (body.ok === '1') setCookie(c, AGE_COOKIE, sign('1', await appSecret()), { httpOnly: true, sameSite: 'Lax', secure: env.production, path: '/', maxAge: 60 * 60 * 24 * 30 });
+    // With the e-ID gate a click proves nothing.
+    if (body.ok === '1' && !eidGate(await getSettings()))
+      setCookie(c, AGE_COOKIE, sign('1', await appSecret()), { httpOnly: true, sameSite: 'Lax', secure: env.production, path: '/', maxAge: 60 * 60 * 24 * 30 });
     return c.redirect(back, 303);
+  });
+
+  /** e-ID check, step 1: ask the verifier for a request and hand its link to the page (QR code or «open in swiyu»). */
+  app.post('/_nova/age/eid', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    const s = await getSettings();
+    if (!eidGate(s)) return c.json({ state: 'off' }, 404);
+    if (!rateLimit(`age-eid:${clientIp(c)}`, 20, 10 * 60_000).ok) return c.json({ state: 'error', message: T('Zu viele Versuche. Bitte warte ein paar Minuten.') }, 429);
+    try {
+      const { id, deeplink } = await startAgeCheck(s.ageGate.minAge);
+      const until = Date.now() + 10 * 60_000;
+      setCookie(c, AGE_CHECK_COOKIE, sign(`${id}|${s.ageGate.minAge}|${until}`, await appSecret()), {
+        httpOnly: true,
+        sameSite: 'Lax',
+        secure: env.production,
+        path: '/_nova/age',
+        maxAge: 600,
+      });
+      const qr = await QRCode.toString(deeplink, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#111111', light: '#ffffff' } });
+      return c.json({ state: 'pending', deeplink, qr });
+    } catch (e) {
+      if (!(e instanceof EidError)) throw e;
+      console.error('[nova] E-ID:', e.message);
+      return c.json({ state: 'error' }, 502);
+    }
+  });
+
+  /** e-ID check, step 2: the page asks until the wallet has answered. Only then the age cookie is set. */
+  app.get('/_nova/age/eid', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    const s = await getSettings();
+    if (!eidGate(s)) return c.json({ state: 'off' }, 404);
+    const [id, minAge, until] = (unsign(getCookie(c, AGE_CHECK_COOKIE), await appSecret()) ?? '').split('|');
+    if (!id || Number(until) < Date.now()) return c.json({ state: 'expired' });
+    // The limit changed in between: the answer was for another question.
+    if (Number(minAge) !== s.ageGate.minAge) return c.json({ state: 'expired' });
+    let state;
+    try {
+      state = await ageCheckResult(id, s.ageGate.minAge);
+    } catch (e) {
+      if (!(e instanceof EidError)) throw e;
+      console.error('[nova] E-ID:', e.message);
+      return c.json({ state: 'error' }, 502);
+    }
+    if (state === 'pending') return c.json({ state });
+    setCookie(c, AGE_CHECK_COOKIE, '', { path: '/_nova/age', maxAge: 0 });
+    if (state === 'ok')
+      setCookie(c, AGE_COOKIE, sign(`v${s.ageGate.minAge}`, await appSecret()), { httpOnly: true, sameSite: 'Lax', secure: env.production, path: '/', maxAge: 60 * 60 * 24 * 30 });
+    return c.json({ state });
   });
 
   /* ---------- shop ---------- */
@@ -884,6 +940,8 @@ export function publicRoutes(app: Hono<AppEnv>) {
 
   app.get('/feed.xml', async (c) => {
     const s = await getSettings();
+    // Behind the e-ID gate the content is not handed out elsewhere either.
+    if (eidGate(s) && !ageAccepted(unsign(getCookie(c, AGE_COOKIE), await appSecret()), s)) return c.notFound();
     const base = await siteBase(s);
     const col = (await activeCollections()).find((x) => x.id === 'posts');
     if (!col) return c.notFound();
@@ -993,11 +1051,11 @@ export function publicRoutes(app: Hono<AppEnv>) {
     }
 
     const s = await getSettings();
-    const ageOk = unsign(getCookie(c, AGE_COOKIE), await appSecret()) === '1';
+    const ageOk = ageAccepted(unsign(getCookie(c, AGE_COOKIE), await appSecret()), s);
     const cart = s.modules.includes('shop') ? (await cartItems(c)).reduce((n, i) => n + i.q, 0) : 0;
     // Members see other content (and «Mein Konto» in the header): one cached copy per level.
     const member = s.modules.includes('members') ? await currentMember(c) : null;
-    const key = `${currentLang() ?? ''}|${path}?${url.searchParams}|${ageOk ? 1 : 0}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
+    const key = `${currentLang() ?? ''}|${path}?${url.searchParams}|${ageOk ? 1 : 0}${eidGate(s) ? 'e' : ''}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
     const send = (body: string, etag: string) => {
       const res = sendHtml(c, body, 200, etag);
       if (member) res.headers.set('Cache-Control', 'private, no-cache');

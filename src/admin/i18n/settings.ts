@@ -1232,4 +1232,24 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     en: 'Nova hands the access back to Google. Nothing changes in the Search Console itself.',
   },
   Trennen: { fr: 'Déconnecter', it: 'Scollega', en: 'Disconnect' },
+  Prüfung: { fr: 'Vérification', it: 'Verifica', en: 'Check' },
+  'Besucher bestätigen ihr Alter mit der E-ID in der App swiyu. Bis dahin liefert die Website keine Inhalte aus – auch nicht über Feed und API. Bei 16 und 18 erfährst du nur «alt genug», bei anderen Grenzen wird das Geburtsdatum einmal geprüft und nicht gespeichert.':
+    {
+      fr: 'Les visiteurs confirment leur âge avec l’e-ID dans l’app swiyu. D’ici là, le site ne livre aucun contenu – ni par le flux ni par l’API. À 16 et 18 ans, vous apprenez seulement « assez âgé » ; pour d’autres limites, la date de naissance est vérifiée une fois et n’est pas enregistrée.',
+      it: 'I visitatori confermano la loro età con l’e-ID nell’app swiyu. Fino ad allora il sito non fornisce alcun contenuto – nemmeno tramite feed e API. A 16 e 18 anni sai solo «abbastanza grande»; per altri limiti la data di nascita viene verificata una volta e non salvata.',
+      en: 'Visitors confirm their age with the e-ID in the swiyu app. Until then the website serves no content – not via feed or API either. For 16 and 18 you only learn “old enough”; for other limits the date of birth is checked once and not stored.',
+    },
+  'Wo das Gesetz eine echte Altersverifikation verlangt, reicht ein Klick nicht – dann die E-ID wählen.': {
+    fr: 'Là où la loi exige une véritable vérification de l’âge, un clic ne suffit pas – choisissez alors l’e-ID.',
+    it: 'Dove la legge richiede una vera verifica dell’età, un clic non basta – scegli allora l’e-ID.',
+    en: 'Where the law requires real age verification, a click is not enough – choose the e-ID then.',
+  },
+  'Wo das Gesetz eine echte Altersverifikation verlangt, reicht ein Klick nicht. Für die Prüfung mit der E-ID braucht es einen eigenen swiyu-Verifier (SWIYU_VERIFIER_URL und SWIYU_ISSUER_DIDS, siehe README).':
+    {
+      fr: 'Là où la loi exige une véritable vérification de l’âge, un clic ne suffit pas. La vérification avec l’e-ID nécessite votre propre vérificateur swiyu (SWIYU_VERIFIER_URL et SWIYU_ISSUER_DIDS, voir README).',
+      it: 'Dove la legge richiede una vera verifica dell’età, un clic non basta. Per la verifica con l’e-ID serve un proprio verificatore swiyu (SWIYU_VERIFIER_URL e SWIYU_ISSUER_DIDS, vedi README).',
+      en: 'Where the law requires real age verification, a click is not enough. Checking with the e-ID needs your own swiyu verifier (SWIYU_VERIFIER_URL and SWIYU_ISSUER_DIDS, see README).',
+    },
+  'Selbstauskunft mit einem Klick': { fr: 'Auto-déclaration en un clic', it: 'Autodichiarazione con un clic', en: 'Self-declaration with one click' },
+  'E-ID des Bundes (swiyu)': { fr: 'e-ID de la Confédération (swiyu)', it: 'e-ID della Confederazione (swiyu)', en: 'Federal e-ID (swiyu)' },
 };

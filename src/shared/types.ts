@@ -182,7 +182,8 @@ export interface SiteSettings {
     ga4: { id: string };
   };
   consent: { youtube: boolean; vimeo: boolean; maps: boolean };
-  ageGate: { enabled: boolean; minAge: number; text: string };
+  /** method «eid»: proof with the Swiss e-ID (swiyu) instead of a click. */
+  ageGate: { enabled: boolean; minAge: number; text: string; method: 'self' | 'eid' };
   /** KI-Assistent: only suggestions, never applied on its own. Needs ANTHROPIC_API_KEY. */
   ai: { enabled: boolean };
   shop: {

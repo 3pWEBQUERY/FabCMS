@@ -1,3 +1,4 @@
+import { eidGate } from './age-verify';
 import { statsConfig, type StatsConfig } from '../shared/stats-services';
 import type { SiteSettings } from '../shared/types';
 import { createBlock } from '../shared/blocks';
@@ -60,6 +61,18 @@ export function datenschutz(s: SiteSettings): string {
         ? []
         : [h('Statistik'), p('Wir führen keine Besucherstatistik.')]),
     ...statsSections(stats),
+    ...(eidGate(s)
+      ? [
+          h('Altersprüfung mit der E-ID'),
+          p(
+            `Bevor du Inhalte dieser Website siehst, prüfen wir dein Alter mit der E-ID des Bundes in der App swiyu. Du entscheidest in der App, ob du die Angabe freigibst. ${
+              s.ageGate.minAge === 16 || s.ageGate.minAge === 18
+                ? `Wir erhalten dabei nur die Bestätigung, ob du mindestens ${s.ageGate.minAge} Jahre alt bist – nicht deinen Namen und nicht dein Geburtsdatum.`
+                : 'Wir erhalten dabei dein Geburtsdatum, vergleichen es einmal mit dem Mindestalter und speichern es nicht.'
+            } Die Prüfung läuft über unseren eigenen Prüfdienst (swiyu Generic Verifier), der die Echtheit der E-ID beim Vertrauensregister des Bundes nachprüft. Danach hält ein Cookie die bestandene Prüfung 30 Tage lang fest.`,
+          ),
+        ]
+      : []),
     h('Cookies'),
     p(
       `Wir setzen technisch notwendige Cookies: für die Anmeldung im Verwaltungsbereich${m.has('shop') ? ', für den Warenkorb' : ''}${s.ageGate.enabled ? ', für die Bestätigung der Altersprüfung' : ''}. ${

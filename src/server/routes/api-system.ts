@@ -13,6 +13,7 @@ import { badRequest, forbidden, HttpError, notFound } from '../lib/http';
 import { stats } from '../analytics';
 import { applyStarter, resetStarter, type StarterImport } from '../seed';
 import { TEMPLATES, templatesFor } from '../../shared/templates';
+import { eidConfigured } from '../age-verify';
 import { legalPages } from '../legal';
 import { createBackup, restoreBackup } from '../backup';
 import { exportZip } from '../export';
@@ -79,6 +80,7 @@ export function systemApi(app: Hono<AppEnv>) {
         turnstile: Boolean(env.turnstile.siteKey),
         ai: Boolean(env.ai.key),
         clamav: Boolean(env.clamav.host),
+        eid: eidConfigured(),
         preview: env.preview.on ? env.preview.name || 'Vorschau' : null,
         publicUrl: env.publicUrl,
       },

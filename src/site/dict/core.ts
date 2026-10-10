@@ -20,6 +20,54 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Bist du {age} oder älter?': { fr: 'Avez-vous {age} ans ou plus?', it: 'Hai {age} anni o più?', en: 'Are you {age} or older?' },
   'Ja, ich bin {age}+': { fr: 'Oui, j’ai {age} ans ou plus', it: 'Sì, ho {age}+ anni', en: 'Yes, I’m {age}+' },
   'Nein, verlassen': { fr: 'Non, quitter le site', it: 'No, esci', en: 'No, leave' },
+  'Bestätige dein Alter mit deiner E-ID in der App swiyu. Wir erfahren nur, ob du alt genug bist – nicht deinen Namen und nicht dein Geburtsdatum.': {
+    fr: 'Confirmez votre âge avec votre e-ID dans l’app swiyu. Nous apprenons seulement si vous avez l’âge requis – ni votre nom, ni votre date de naissance.',
+    it: 'Conferma la tua età con la tua e-ID nell’app swiyu. Sappiamo solo se hai l’età richiesta – né il tuo nome né la tua data di nascita.',
+    en: 'Confirm your age with your e-ID in the swiyu app. We only learn whether you are old enough – not your name and not your date of birth.',
+  },
+  'Bestätige dein Alter mit deiner E-ID in der App swiyu. Wir prüfen dabei nur dein Geburtsdatum und speichern es nicht.': {
+    fr: 'Confirmez votre âge avec votre e-ID dans l’app swiyu. Nous vérifions uniquement votre date de naissance et ne l’enregistrons pas.',
+    it: 'Conferma la tua età con la tua e-ID nell’app swiyu. Controlliamo solo la tua data di nascita e non la salviamo.',
+    en: 'Confirm your age with your e-ID in the swiyu app. We only check your date of birth and do not store it.',
+  },
+  'Mit E-ID bestätigen': { fr: 'Confirmer avec l’e-ID', it: 'Conferma con l’e-ID', en: 'Confirm with e-ID' },
+  'In swiyu öffnen': { fr: 'Ouvrir dans swiyu', it: 'Apri in swiyu', en: 'Open in swiyu' },
+  'Scanne den Code mit der App swiyu – oder öffne sie auf diesem Gerät.': {
+    fr: 'Scannez le code avec l’app swiyu – ou ouvrez-la sur cet appareil.',
+    it: 'Scansiona il codice con l’app swiyu – oppure aprila su questo dispositivo.',
+    en: 'Scan the code with the swiyu app – or open it on this device.',
+  },
+  'Bestätigt. Einen Moment …': { fr: 'Confirmé. Un instant …', it: 'Confermato. Un attimo …', en: 'Confirmed. One moment …' },
+  'Laut deiner E-ID bist du noch nicht {age}. Diese Website ist für dich gesperrt.': {
+    fr: 'Selon votre e-ID, vous n’avez pas encore {age} ans. Ce site ne vous est pas accessible.',
+    it: 'Secondo la tua e-ID non hai ancora {age} anni. Questo sito non è accessibile per te.',
+    en: 'According to your e-ID you are not yet {age}. This website is closed to you.',
+  },
+  'Die Prüfung wurde abgebrochen. Du kannst es nochmals versuchen.': {
+    fr: 'La vérification a été interrompue. Vous pouvez réessayer.',
+    it: 'La verifica è stata interrotta. Puoi riprovare.',
+    en: 'The check was cancelled. You can try again.',
+  },
+  'Die Zeit ist abgelaufen. Bitte starte die Prüfung nochmals.': {
+    fr: 'Le délai est écoulé. Veuillez relancer la vérification.',
+    it: 'Il tempo è scaduto. Avvia di nuovo la verifica.',
+    en: 'Time is up. Please start the check again.',
+  },
+  'Die Prüfung ist gerade nicht möglich. Bitte versuch es später nochmals.': {
+    fr: 'La vérification n’est pas possible pour le moment. Veuillez réessayer plus tard.',
+    it: 'La verifica al momento non è possibile. Riprova più tardi.',
+    en: 'The check isn’t possible right now. Please try again later.',
+  },
+  'Noch keine E-ID? Du beantragst sie in der App swiyu.': {
+    fr: 'Pas encore d’e-ID ? Vous la demandez dans l’app swiyu.',
+    it: 'Non hai ancora un’e-ID? La richiedi nell’app swiyu.',
+    en: 'No e-ID yet? You apply for it in the swiyu app.',
+  },
+  'Für die Prüfung mit der E-ID braucht es JavaScript.': {
+    fr: 'La vérification avec l’e-ID nécessite JavaScript.',
+    it: 'Per la verifica con l’e-ID serve JavaScript.',
+    en: 'The e-ID check needs JavaScript.',
+  },
 
   // Lists & pagination
   Alle: { fr: 'Tous', it: 'Tutti', en: 'All' },

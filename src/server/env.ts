@@ -71,6 +71,24 @@ export const env = {
     key: e.MEILI_KEY ?? e.MEILI_MASTER_KEY ?? '',
     index: e.MEILI_INDEX ?? 'nova',
   },
+  /**
+   * Optional age verification with the Swiss e-ID: the URL of an own swiyu Generic
+   * Verifier (management API, reachable from Nova only), the issuers whose
+   * credentials count and the credential type. Without URL and issuer the
+   * age gate stays a self-declaration.
+   */
+  eid: {
+    verifierUrl: (e.SWIYU_VERIFIER_URL ?? '').replace(/\/$/, ''),
+    token: e.SWIYU_VERIFIER_TOKEN ?? '',
+    issuers: (e.SWIYU_ISSUER_DIDS ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean),
+    vct: (e.SWIYU_VCT ?? 'betaid-sdjwt')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean),
+  },
   /** Optional Google OAuth client for the Search Console connection. */
   google: {
     clientId: e.GOOGLE_CLIENT_ID ?? '',

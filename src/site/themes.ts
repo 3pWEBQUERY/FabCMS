@@ -922,6 +922,10 @@ th{font-weight:600}
 .age-box{max-width:30rem;text-align:center;display:grid;gap:1.25rem;justify-items:center}
 .age-box h1{font-size:var(--step-5)}
 .age-box .actions{justify-content:center}
+.age-qr{width:min(15rem,70vw);padding:.85rem;background:#fff;border-radius:8px;box-shadow:0 0 0 1px var(--line)}
+.age-qr svg{display:block;width:100%;height:auto}
+.age-status:empty{display:none}
+.age-note{font-size:var(--step-n1)}
 body.age-locked{overflow:hidden}
 
 /* lightbox */

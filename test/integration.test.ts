@@ -1773,4 +1773,92 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).toContain('<th scope="row">Haarschnitt</th><td class="num" data-label="Preis">68.–</td>');
     expect(html.slice(html.indexOf('<table'))).not.toContain('data-label=""');
   });
+
+  it('checks the age with the Swiss e-ID through an own swiyu verifier – and shows nothing before', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    expect((await req('PATCH', '/api/settings', { ageGate: { enabled: true, minAge: 18, method: 'eid' } })).status).toBe(200);
+    // Without a verifier the e-ID cannot be chosen in practice: the gate stays a click.
+    expect((await req('GET', '/api/settings')).data.system.eid).toBe(false);
+    expect((await req('GET', '/', undefined, anon)).data).toContain('name="ok" value="1"');
+
+    // A stand-in for the swiyu Generic Verifier's management API.
+    const realFetch = globalThis.fetch;
+    const created: { body: any; auth: string }[] = [];
+    let state: Record<string, unknown> = { state: 'PENDING' };
+    Object.assign(env.eid, { verifierUrl: 'https://verifier.test', token: 'tok', issuers: ['did:tdw:issuer'], vct: ['betaid-sdjwt'] });
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      if (!u.startsWith('https://verifier.test/')) return realFetch(url, init);
+      const auth = (init?.headers as Record<string, string>).Authorization;
+      if (init?.method === 'POST' && u === 'https://verifier.test/management/api/verifications') {
+        created.push({ body: JSON.parse(String(init.body)), auth });
+        const id = `ver-${created.length}-abcdef`;
+        return Response.json({ id, request_nonce: 'n', state: 'PENDING', verification_url: 'https://verifier.test/x', verification_deeplink: `swiyu-verify://?client_id=did%3Atdw%3Av&request_uri=https%3A%2F%2Fverifier.test%2Foid4vp%2F${id}` });
+      }
+      if (u.startsWith('https://verifier.test/management/api/verifications/')) return Response.json({ id: u.split('/').pop(), ...state });
+      return new Response('nope', { status: 404 });
+    }) as typeof fetch;
+    try {
+      expect((await req('GET', '/api/settings')).data.system.eid).toBe(true);
+      const gated = (await req('GET', '/', undefined, anon)).data as string;
+      expect(gated).toContain('data-age-eid');
+      expect(gated).toContain('<main id="inhalt"></main>');
+      expect(gated).not.toContain('name="ok" value="1"');
+      // A click proves nothing any more, and neither feed nor API hand out content.
+      await req('POST', '/_nova/age', undefined, { ...anon, form: { ok: '1', back: '/' } });
+      expect(anon.cookies.has('nova_age')).toBe(false);
+      expect((await req('GET', '/api/v1/pages', undefined, anon)).status).toBe(403);
+
+      // Step 1: a request for «age_over_18 = true» from the accepted issuer, as QR code.
+      const start = await req('POST', '/_nova/age/eid', undefined, anon);
+      expect(start.data.state).toBe('pending');
+      expect(start.data.qr).toContain('<svg');
+      expect(start.data.deeplink).toMatch(/^swiyu-verify:\/\//);
+      expect(created[0].auth).toBe('Bearer tok');
+      expect(created[0].body).toMatchObject({ accepted_issuer_dids: ['did:tdw:issuer'], response_mode: 'direct_post.jwt' });
+      expect(created[0].body.dcql_query.credentials[0]).toMatchObject({ format: 'dc+sd-jwt', meta: { vct_values: ['betaid-sdjwt'] }, claims: [{ path: ['age_over_18'], values: [true] }] });
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('pending');
+
+      // Only a disclosed «true» counts.
+      state = { state: 'SUCCESS', wallet_response: { credential_subject_data: { age: [{ age_over_18: false }] } } };
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('young');
+      expect(anon.cookies.get('nova_age') ?? '').toBe('');
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('expired');
+
+      // Turned down in the wallet.
+      await req('POST', '/_nova/age/eid', undefined, anon);
+      state = { state: 'FAILED', wallet_response: { error_code: 'client_rejected' } };
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('failed');
+
+      // A verifier that keeps the answer to itself is a setup error, not a pass.
+      await req('POST', '/_nova/age/eid', undefined, anon);
+      state = { state: 'SUCCESS', wallet_response: {} };
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).status).toBe(502);
+
+      // Confirmed: the cookie says «checked for 18», the page shows its content.
+      state = { state: 'SUCCESS', wallet_response: { credential_subject_data: { age: [{ age_over_18: true }] } } };
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('ok');
+      const open = (await req('GET', '/', undefined, anon)).data as string;
+      expect(open).not.toContain('data-age-eid');
+      expect(open).not.toContain('<main id="inhalt"></main>');
+
+      // Raising the limit to 20 asks again – now for the birth date.
+      await req('PATCH', '/api/settings', { ageGate: { enabled: true, minAge: 20, method: 'eid' } });
+      expect((await req('GET', '/', undefined, anon)).data).toContain('data-age-eid');
+      await req('POST', '/_nova/age/eid', undefined, anon);
+      expect(created.at(-1)!.body.dcql_query.credentials[0].claims).toEqual([{ path: ['birth_date'] }]);
+      state = { state: 'SUCCESS', wallet_response: { credential_subject_data: { age: [{ birth_date: '1990-02-01' }] } } };
+      expect((await req('GET', '/_nova/age/eid', undefined, anon)).data.state).toBe('ok');
+      expect((await req('GET', '/', undefined, anon)).data).not.toContain('data-age-eid');
+
+      // The privacy policy says what happens.
+      const legal = await req('POST', '/api/legal/generate', {});
+      const ds = legal.data.pages.find((x: { slug: string }) => x.slug === 'datenschutz');
+      expect(JSON.stringify((await req('GET', `/api/entries/${ds.id}`)).data.entry.data)).toContain('Altersprüfung mit der E-ID');
+    } finally {
+      globalThis.fetch = realFetch;
+      Object.assign(env.eid, { verifierUrl: '', token: '', issuers: [], vct: ['betaid-sdjwt'] });
+      await req('PATCH', '/api/settings', { ageGate: { enabled: false, minAge: 18, method: 'self' } });
+    }
+  });
 });

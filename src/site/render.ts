@@ -43,6 +43,7 @@ export function createContext(input: {
   edit?: boolean;
   preview?: boolean;
   ageOk?: boolean;
+  ageEid?: boolean;
   cartCount?: number;
   member?: RenderContext['member'];
   lang?: Lang;
@@ -72,6 +73,7 @@ export function createContext(input: {
     lcpImage: null,
     needs: new Set(),
     ageOk: input.ageOk ?? false,
+    ageEid: input.ageEid ?? false,
     cartCount: input.cartCount ?? 0,
     csrf: '',
     member: input.member ?? null,
@@ -158,7 +160,19 @@ function breadcrumbs(ctx: RenderContext, crumbs: Crumb[]): Html {
 function ageGate(ctx: RenderContext): Html {
   const g = ctx.settings.ageGate;
   if (!g.enabled || ctx.ageOk || ctx.edit) return html``;
+  if (ctx.ageEid) return ageGateEid(ctx);
   return html`<div class="age" role="dialog" aria-modal="true" aria-labelledby="age-h"><form class="age-box" method="post" action="/_nova/age"><p class="label">${ctx.settings.name}</p><h1 id="age-h">${t(ctx, 'Bist du {age} oder älter?', { age: g.minAge })}</h1><p class="muted">${g.text}</p><input type="hidden" name="back" value="${ctx.path}"><div class="actions"><button class="btn" name="ok" value="1">${t(ctx, 'Ja, ich bin {age}+', { age: g.minAge })}</button><a class="btn-2" href="https://www.google.ch" rel="noopener">${t(ctx, 'Nein, verlassen')}</a></div></form></div>`;
+}
+
+/** The gate with the Swiss e-ID: QR code for the phone, or «open in swiyu» on the phone itself. */
+function ageGateEid(ctx: RenderContext): Html {
+  const g = ctx.settings.ageGate;
+  ctx.needs.add('age');
+  const why =
+    g.minAge === 16 || g.minAge === 18
+      ? t(ctx, 'Bestätige dein Alter mit deiner E-ID in der App swiyu. Wir erfahren nur, ob du alt genug bist – nicht deinen Namen und nicht dein Geburtsdatum.')
+      : t(ctx, 'Bestätige dein Alter mit deiner E-ID in der App swiyu. Wir prüfen dabei nur dein Geburtsdatum und speichern es nicht.');
+  return html`<div class="age" role="dialog" aria-modal="true" aria-labelledby="age-h" data-age-eid><div class="age-box"><p class="label">${ctx.settings.name}</p><h1 id="age-h">${t(ctx, 'Bist du {age} oder älter?', { age: g.minAge })}</h1><p class="muted">${g.text}</p><p>${why}</p><div class="age-qr" data-age-qr hidden></div><div class="actions"><button class="btn" type="button" data-age-start>${t(ctx, 'Mit E-ID bestätigen')}</button><a class="btn" data-age-open hidden>${t(ctx, 'In swiyu öffnen')}</a><a class="btn-2" href="https://www.google.ch" rel="noopener">${t(ctx, 'Nein, verlassen')}</a></div><p class="muted age-status" role="status" aria-live="polite" data-age-status data-pending="${t(ctx, 'Scanne den Code mit der App swiyu – oder öffne sie auf diesem Gerät.')}" data-ok="${t(ctx, 'Bestätigt. Einen Moment …')}" data-young="${t(ctx, 'Laut deiner E-ID bist du noch nicht {age}. Diese Website ist für dich gesperrt.', { age: g.minAge })}" data-failed="${t(ctx, 'Die Prüfung wurde abgebrochen. Du kannst es nochmals versuchen.')}" data-expired="${t(ctx, 'Die Zeit ist abgelaufen. Bitte starte die Prüfung nochmals.')}" data-error="${t(ctx, 'Die Prüfung ist gerade nicht möglich. Bitte versuch es später nochmals.')}"></p><p class="muted age-note">${t(ctx, 'Noch keine E-ID? Du beantragst sie in der App swiyu.')}</p><noscript><p>${t(ctx, 'Für die Prüfung mit der E-ID braucht es JavaScript.')}</p></noscript></div></div>`;
 }
 
 /* ---------- Document ---------- */
@@ -176,8 +190,10 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   // site.js also carries the text-field helpers (growing textareas, search clear button, messages) and the video player.
   // Statistics services from outside (Plausible, Matomo, Google Analytics) – never in the editor or a preview.
   const stats = ctx.edit || ctx.preview ? null : statsConfig(s);
-  const runtime = s.analytics.enabled || Boolean(stats) || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
   const gate = ageGate(ctx);
+  // Behind the e-ID gate the page carries no content at all – not even hidden under the overlay.
+  const withheld = ctx.ageEid && Boolean(gate.value);
+  const runtime = s.analytics.enabled || Boolean(stats) || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
   const blog = ctx.collections.find((c) => c.id === 'posts');
   // Other languages: canonical is the translated address; an untranslated page points to the original and stays out of the index.
   const here = ctx.alternates.find((a) => a.lang === ctx.lang);
@@ -214,7 +230,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${crumbHtml}${main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
+  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
 }
 
 /** Asks once whether statistics services that set cookies may run. Both answers weigh the same; the footer brings it back. */

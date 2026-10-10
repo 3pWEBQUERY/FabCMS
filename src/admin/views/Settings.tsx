@@ -927,6 +927,7 @@ function SearchSection() {
 
 function LegalSettings() {
   const toast = useToast();
+  const { bundle } = useSession();
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const { data, reload } = useApi<{ entries: { id: string; slug: string; status: string; title: string; changed: boolean }[] }>('/api/entries?collection=pages&limit=500');
   const legal = (data?.entries ?? []).filter((p) => ['impressum', 'datenschutz', 'agb'].includes(p.slug));
@@ -1008,9 +1009,30 @@ function LegalSettings() {
               </div>
             )}
             {draft.ageGate.enabled && (
-              <p className="xsmall muted">
-                {t('Wo das Gesetz eine echte Altersverifikation verlangt (z. B. in Deutschland), reicht eine Selbstauskunft nicht. Dafür braucht es einen Verifikationsanbieter.')}
-              </p>
+              <Field
+                label={t('Prüfung')}
+                help={
+                  draft.ageGate.method === 'eid'
+                    ? t(
+                        'Besucher bestätigen ihr Alter mit der E-ID in der App swiyu. Bis dahin liefert die Website keine Inhalte aus – auch nicht über Feed und API. Bei 16 und 18 erfährst du nur «alt genug», bei anderen Grenzen wird das Geburtsdatum einmal geprüft und nicht gespeichert.',
+                      )
+                    : bundle?.system.eid
+                      ? t('Wo das Gesetz eine echte Altersverifikation verlangt, reicht ein Klick nicht – dann die E-ID wählen.')
+                      : t(
+                          'Wo das Gesetz eine echte Altersverifikation verlangt, reicht ein Klick nicht. Für die Prüfung mit der E-ID braucht es einen eigenen swiyu-Verifier (SWIYU_VERIFIER_URL und SWIYU_ISSUER_DIDS, siehe README).',
+                        )
+                }
+              >
+                <Select
+                  label={t('Prüfung')}
+                  value={draft.ageGate.method === 'eid' && bundle?.system.eid ? 'eid' : 'self'}
+                  onChange={(v) => set('ageGate', { ...draft.ageGate, method: v === 'eid' ? 'eid' : 'self' })}
+                  options={[
+                    { value: 'self', label: t('Selbstauskunft mit einem Klick') },
+                    { value: 'eid', label: t('E-ID des Bundes (swiyu)'), disabled: !bundle?.system.eid },
+                  ]}
+                />
+              </Field>
             )}
           </Section>
         </div>
