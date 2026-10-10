@@ -58,12 +58,6 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      NODE_ENV: production
-      PORT: 3000
-      PUBLIC_URL: http://localhost:3000
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/nova
-      NOVA_SETUP_CODE: 123-456
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,13 +66,20 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      # NODE_ENV only here: set for the whole job, npm ci would leave out the build tools.
       - name: Nova starten
+        env:
+          NODE_ENV: production
+          PORT: 3000
+          PUBLIC_URL: http://localhost:3000
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/nova
+          NOVA_SETUP_CODE: 123-456
         run: |
           nohup node dist/server.js > nova.log 2>&1 &
           for i in $(seq 1 60); do curl -sf localhost:3000/healthz > /dev/null && exit 0; sleep 1; done
           cat nova.log; exit 1
       - name: Demo-Website einrichten (${{ matrix.sector }}, ${{ matrix.theme }})
-        run: node scripts/demo-site.mjs --sector ${{ matrix.sector }} --theme ${{ matrix.theme }} | tee urls.txt
+        run: node scripts/demo-site.mjs --code 123-456 --sector ${{ matrix.sector }} --theme ${{ matrix.theme }} | tee urls.txt
       - name: Lighthouse (mobil, 3 Durchläufe pro Seite)
         run: npx --yes @lhci/cli@0.14.0 autorun $(sed 's/^/--collect.url=/' urls.txt)
       - uses: actions/upload-artifact@v4
