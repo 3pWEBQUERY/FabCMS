@@ -129,6 +129,8 @@ async function thankYou(d: Donation, first: boolean): Promise<void> {
     to: d.email,
     subject: first ? T('Danke für deine Spende an {name}', { name: recipientName(s) }) : T('Monatliche Spende: {amount} – danke!', { amount }),
     replyTo: s.business.email || undefined,
+    kind: 'donation',
+    vars: { name: d.name ? d.name.split(' ')[0] : '', amount },
     text: [
       d.name ? T('Hallo {name},', { name: d.name.split(' ')[0] }) : T('Hallo,'),
       '',

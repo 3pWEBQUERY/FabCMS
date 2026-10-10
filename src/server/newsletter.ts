@@ -6,10 +6,9 @@ import { token } from './lib/crypto';
 import { badRequest, notFound } from './lib/http';
 import { mailConfigured, sendMail } from './mail';
 import { notify } from './notify';
-import { pageLang } from './translations';
 import { T } from '../site/i18n';
 import { activeCollections } from './content';
-import { resolveTheme } from '../site/themes';
+import { colors, esc, mailLogo, shell } from './mail-layout';
 import { variantUrl } from '../site/picture';
 import { entryPath } from '../shared/paths';
 import { blocksText } from '../shared/blocks';
@@ -50,7 +49,6 @@ export interface Newsletter {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const base = (s: SiteSettings) => (s.baseUrl || env.publicUrl).replace(/\/$/, '');
-const esc = (v: unknown) => String(v ?? '').replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch]!);
 
 /* ---------- list provider mirror (optional) ---------- */
 
@@ -121,18 +119,14 @@ async function confirmMail(sub: Subscriber): Promise<void> {
   const wants = T('jemand – hoffentlich du – möchte den Newsletter von {name} an diese Adresse bekommen.', { name: s.name });
   const click = T('Ein Klick bestätigt die Anmeldung:');
   const notYou = T('Warst du das nicht? Dann ignoriere diese E-Mail einfach. Ohne Bestätigung schicken wir nichts.');
+  // The shared mail layout turns the «label: link» line into a button.
   await sendMail({
     to: sub.email,
     subject: T('Bitte bestätige: Newsletter von {name}', { name: s.name }),
     replyTo: s.business.email || undefined,
-    text: [hello, '', wants, click, '', link, '', notYou, '', s.name].join('\n'),
-    html: shell(
-      s,
-      `<p style="margin:0 0 16px">${esc(hello)}</p><p style="margin:0 0 16px">${esc(wants)} ${esc(click)}</p>${button(s, link, T('Anmeldung bestätigen'))}<p style="margin:24px 0 0;color:#6b6b66;font-size:14px">${esc(notYou)}</p>`,
-      '',
-      '',
-      pageLang(),
-    ),
+    text: [hello, '', `${wants} ${click}`, '', `${T('Anmeldung bestätigen')}: ${link}`, '', notYou, '', s.name].join('\n'),
+    kind: 'newsletter',
+    vars: { name: sub.name.split(' ')[0] ?? '' },
   });
 }
 
@@ -230,37 +224,6 @@ export async function importSubscribers(rows: { email: string; name: string }[])
 
 /* ---------- rendering ---------- */
 
-function colors(s: SiteSettings) {
-  const { palette } = resolveTheme(s);
-  // Mail clients show light backgrounds; dark palettes keep their accent for lines only.
-  return {
-    accent: palette.dark ? '#1c1b19' : palette.accent,
-    accentInk: palette.dark ? '#ffffff' : palette.accentInk,
-  };
-}
-
-function button(s: SiteSettings, href: string, label: string) {
-  const c = colors(s);
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:6px;background:${c.accent}"><a href="${esc(href)}" style="display:inline-block;padding:12px 22px;font-weight:600;color:${c.accentInk};text-decoration:none;border-radius:6px">${esc(label)}</a></td></tr></table>`;
-}
-
-/** Table layout and inline styles: what Outlook, Gmail and Apple Mail all understand. */
-function shell(s: SiteSettings, body: string, footer: string, preheader = '', lang = 'de'): string {
-  const address = [s.business.legalName || s.name, s.business.street, [s.business.zip, s.business.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(s.name)}</title></head>
-<body style="margin:0;padding:0;background:#f3f2ee;-webkit-text-size-adjust:100%">
-${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>` : ''}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f2ee"><tr><td align="center" style="padding:32px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.55;color:#1c1b19">
-<tr><td style="padding:28px 32px 8px;font-size:18px;font-weight:700;letter-spacing:-.01em">${esc(s.name)}</td></tr>
-<tr><td style="padding:16px 32px 32px">${body}</td></tr>
-</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#6b6b66">
-<tr><td style="padding:20px 32px">${footer}${address ? `<p style="margin:8px 0 0">${esc(address)}</p>` : ''}</td></tr>
-</table>
-</td></tr></table></body></html>`;
-}
-
 interface IssueItem {
   title: string;
   excerpt: string;
@@ -337,7 +300,7 @@ ${i.excerpt ? `<p style="margin:0 0 12px;color:#45443f">${esc(i.excerpt)}</p>` :
     .join('\n');
   return {
     subject: n.subject,
-    html: shell(s, body, footer, paragraphs[0] ?? items[0]?.excerpt ?? ''),
+    html: shell(s, body, footer, paragraphs[0] ?? items[0]?.excerpt ?? '', 'de', await mailLogo(s)),
     text,
     unsubscribe,
   };

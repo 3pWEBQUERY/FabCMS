@@ -18,6 +18,7 @@ import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { RightsMatrix, roleName, useRoles } from './Roles';
 import { MissingPages } from './NotFound';
+import { MailSettings } from './MailSettings';
 import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
@@ -41,6 +42,7 @@ const SECTIONS: Section[] = [
   { id: 'sprachen', label: () => t('Sprachen'), icon: 'globe', cap: 'settings.manage' },
   { id: 'seo', label: () => t('Suchmaschinen'), icon: 'seo', cap: 'settings.manage' },
   { id: 'rechtliches', label: () => t('Rechtliches'), icon: 'scale', cap: 'settings.manage' },
+  { id: 'emails', label: () => t('E-Mails'), icon: 'mail', cap: 'settings.manage' },
   { id: 'domain', label: () => t('Domain'), icon: 'globe', cap: 'settings.manage' },
   { id: 'shop', label: () => t('Shop'), icon: 'bag', cap: 'settings.manage', module: 'shop' },
   { id: 'reservation', label: () => t('Reservation & Termine'), icon: 'calendar', cap: 'settings.manage', module: 'booking' },
@@ -107,6 +109,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'sprachen' && <LanguageSettings />}
           {current.id === 'seo' && <SeoSettings />}
           {current.id === 'rechtliches' && <LegalSettings />}
+          {current.id === 'emails' && <MailSettings />}
           {current.id === 'domain' && <DomainSettings />}
           {current.id === 'shop' && <ShopSettings />}
           {current.id === 'reservation' && <BookingSettings />}

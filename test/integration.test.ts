@@ -2750,6 +2750,52 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [a, b, old]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('sends customer mails with the site’s own texts and look, and keeps what Nova fills in', async () => {
+    const settings = (await req('GET', '/api/settings')).data.settings;
+    await req('PATCH', '/api/settings', { modules: [...new Set([...settings.modules, 'newsletter'])] });
+    const saved = await req('PATCH', '/api/settings', {
+      mail: {
+        logo: true,
+        color: '#2b59c3',
+        signature: 'Herzlich\nIhr Linde-Team',
+        footer: 'Mo–Sa 11–23 Uhr',
+        texts: {
+          newsletter: { de: { subject: 'Fast geschafft, {name}!', intro: 'Schön, dass du dabei sein willst, {name}.', outro: 'PS: Einmal im Monat, versprochen.' } },
+          erfunden: { de: { subject: 'x' } },
+        },
+      },
+    });
+    expect(saved.data.settings.mail.texts).toEqual({
+      newsletter: { de: { subject: 'Fast geschafft, {name}!', intro: 'Schön, dass du dabei sein willst, {name}.', outro: 'PS: Einmal im Monat, versprochen.' } },
+    });
+    expect((await req('PATCH', '/api/settings', { mail: { ...saved.data.settings.mail, color: 'red' } })).data.settings.mail.color).toBe('');
+    await req('PATCH', '/api/settings', { mail: saved.data.settings.mail });
+
+    const form = { email: 'mira@example.ch', name: 'Mira Keller', _page: '/journal', _block: 'nl1', _t: (Date.now() - 5000).toString(36) };
+    await req('POST', '/_nova/newsletter', undefined, { cookies: new Map(), form });
+    const m = outbox.filter((x) => x.to === 'mira@example.ch').pop()!;
+    expect(m.subject).toBe('Fast geschafft, Mira!');
+    const lines = m.text.split('\n');
+    expect(lines.slice(0, 3)).toEqual(['Hallo Mira,', '', 'Schön, dass du dabei sein willst, Mira.']);
+    expect(m.text).toContain('/newsletter/bestaetigen/');
+    expect(m.text.endsWith('PS: Einmal im Monat, versprochen.\n\nHerzlich\nIhr Linde-Team')).toBe(true);
+    // The same in the site's look: colour, a button for the link, footer – and nothing typed becomes markup.
+    expect(m.html).toContain('#2b59c3');
+    expect(m.html).toMatch(/<a href="[^"]*\/newsletter\/bestaetigen\/[^"]+"[^>]*>Anmeldung bestätigen<\/a>/);
+    expect(m.html).toContain('Mo–Sa 11–23 Uhr');
+    // Preview of unsaved texts, with sample details.
+    const pre = await req('POST', '/api/mail/preview', {
+      kind: 'order',
+      lang: 'de',
+      mail: { ...saved.data.settings.mail, texts: { order: { de: { intro: '<b>Danke</b>, {name}!' } } } },
+    });
+    expect(pre.data.subject).toContain('Bestellung B-1042');
+    expect(pre.data.html).toContain('&lt;b&gt;Danke&lt;/b&gt;, Anna!');
+    expect(pre.data.html).toContain('Bergkäse');
+    expect((await req('POST', '/api/mail/preview', { kind: 'gibts-nicht', lang: 'de' })).status).toBe(404);
+    await req('PATCH', '/api/settings', { mail: { logo: true, color: '', signature: '', footer: '', texts: {} } });
+  });
+
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
     expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
     expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);

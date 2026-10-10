@@ -329,7 +329,14 @@ export async function sendOrderMails(orderId: string): Promise<void> {
   ]
     .filter((l) => l !== '')
     .join('\n');
-  await sendMail({ to: o.email, subject: `${s.name}: ${T('Bestellung {number}', { number: o.number })}`, text, replyTo: s.business.email || undefined });
+  await sendMail({
+    to: o.email,
+    subject: `${s.name}: ${T('Bestellung {number}', { number: o.number })}`,
+    text,
+    replyTo: s.business.email || undefined,
+    kind: 'order',
+    vars: { name: String(o.customer.name ?? '').split(' ')[0], number: o.number, total: formatMoney(o.total) },
+  });
   const notify = s.shop.notifyEmail || s.business.email;
   if (notify) await sendMail({ to: notify, subject: `Neue Bestellung ${o.number} – ${formatMoney(o.total)}`, text: `${o.customer.name} <${o.email}>\n\n${lines}\n\n${base}/admin/bestellungen` });
 }

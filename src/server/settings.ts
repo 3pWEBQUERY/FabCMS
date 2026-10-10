@@ -90,6 +90,7 @@ export function defaultSettings(): SiteSettings {
     ordering: { pickup: true, delivery: false, deliveryZips: [], deliveryFee: 500, deliveryMin: 3000, prepMinutes: 30, slotMinutes: 15, payOnSite: true, paused: false, note: '' },
     donations: { recipient: '', iban: '', taxDeductible: false, receiptNote: '' },
     members: { registration: 'open', planName: 'Mitgliedschaft', price: 0, interval: 'month', perks: '' },
+    mail: { logo: true, color: '', signature: '', footer: '', texts: {} },
     newsletter: { auto: 'off', weekday: 1 },
     blog: { comments: true, perPage: 10 },
     menu: { showAllergens: true, dailyTitle: 'Heute' },

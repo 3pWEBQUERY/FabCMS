@@ -228,6 +228,8 @@ export async function foodMail(o: FoodOrder, kind: 'received' | 'ready' | 'out' 
       cancelled: T('Storniert: Nr. {n}', { n }),
     }[kind],
     replyTo: s.business.email || undefined,
+    kind: 'food',
+    vars: { name: o.name.split(' ')[0], number: n },
     text: [
       T('Hallo {name},', { name: o.name.split(' ')[0] }),
       '',

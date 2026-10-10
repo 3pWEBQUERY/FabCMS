@@ -7266,3 +7266,59 @@ textarea.dg-input {
 .lv-chip button:hover {
   background: rgb(0 0 0 / 0.08);
 }
+
+/* ---------- mail texts ---------- */
+.ml-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ml-list > li {
+  border-top: 1px solid var(--line);
+}
+.ml-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ml-head:hover {
+  background: var(--hover);
+}
+.ml-head .grow {
+  display: grid;
+  gap: 0.1rem;
+}
+.ml-name {
+  font-weight: 600;
+}
+.ml-body {
+  padding: 0.25rem 1rem 1rem 2.6rem;
+}
+.ml-var {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  padding: 0.05rem 0.3rem;
+  margin-right: 0.25rem;
+  border-radius: 4px;
+  background: var(--sunken);
+}
+.ml-frame {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: #f3f2ee;
+}
+@media (max-width: 640px) {
+  .ml-body {
+    padding-left: 1rem;
+  }
+}

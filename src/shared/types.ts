@@ -1,3 +1,4 @@
+import type { MailText } from './mails';
 import type { ServerHook } from './hooks';
 import type { SiteTranslation } from './i18n';
 import type { FieldDef, LinkValue } from './fields';
@@ -266,6 +267,19 @@ export interface SiteSettings {
     interval: 'month' | 'year';
     /** What members get, shown on the paywall and the membership block. */
     perks: string;
+  };
+  /** Look and own texts of the mails to customers. */
+  mail: {
+    /** Logo instead of the name at the top. */
+    logo: boolean;
+    /** Colour of the line and buttons ('' = from the theme). */
+    color: string;
+    /** Instead of the site's name under every mail. */
+    signature: string;
+    /** Under every mail, above the address. */
+    footer: string;
+    /** Own subject and texts: mail kind → language → texts. */
+    texts: Record<string, Record<string, MailText>>;
   };
   newsletter: {
     /** «each»: every new post goes out on its own; «weekly»: one digest per week. */

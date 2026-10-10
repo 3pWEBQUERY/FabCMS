@@ -19,6 +19,7 @@ import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv, snif
 import { cellText, matchColumns, parseCell, tableFields } from '../src/shared/datatable';
 import { alignRects, snapLines, snapTo } from '../src/shared/canvas';
 import { replaceDeep, replaceInSettings } from '../src/shared/replace';
+import { applyMailText } from '../src/shared/mails';
 import { CAP_INFO, DEFAULT_ROLE_MODES, can, capsOf, modesOf, setCustomRoles } from '../src/shared/roles';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
@@ -1551,5 +1552,25 @@ describe('search and replace', () => {
     const r = replaceInSettings(s, { find: 'Linde', replace: 'Eiche' });
     expect(r.value).toMatchObject({ name: 'Gasthaus Eiche', seo: { indexNowKey: 'Linde' }, nav: [{ id: 'n1', label: 'Eiche' }] });
     expect(r.hits.map((h) => h.path)).toEqual(['name', 'nav.0.label']);
+  });
+});
+
+describe('own mail texts', () => {
+  const mail = { subject: 'Linde: Bestellung B-1', text: 'Hallo Anna,\n\nDanke für deine Bestellung.\n1 × Käse  12.–\n\nLinde' };
+  const sign = { site: 'Linde', signature: '' };
+  it('leaves Nova’s mail as it is without own texts', () => {
+    expect(applyMailText(mail, undefined, {}, sign)).toEqual(mail);
+  });
+  it('puts own texts after the greeting and before the signature, with placeholders', () => {
+    const r = applyMailText(
+      mail,
+      { subject: '{site}: deine Bestellung {number}', intro: 'Schön, {name}!', outro: 'Bis bald.' },
+      { name: 'Anna', number: 'B-1' },
+      { site: 'Linde', signature: 'Euer Linde-Team' },
+    );
+    expect(r.subject).toBe('Linde: deine Bestellung B-1');
+    expect(r.text).toBe('Hallo Anna,\n\nSchön, Anna!\n\nDanke für deine Bestellung.\n1 × Käse  12.–\n\nBis bald.\n\nEuer Linde-Team');
+    // Unknown placeholders stay readable instead of vanishing.
+    expect(applyMailText(mail, { intro: 'Hallo {wer}' }, {}, sign).text).toContain('Hallo {wer}');
   });
 });

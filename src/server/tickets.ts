@@ -253,6 +253,8 @@ export async function cancelTicketOrder(orderId: string): Promise<TicketOrder> {
     to: o.email as string,
     subject: T('Storniert: {title}', { title: o.entry_title }),
     replyTo: s.business.email || undefined,
+    kind: 'tickets',
+    vars: { name: String(o.name).split(' ')[0], title: String(o.entry_title) },
     text: [
       T('Hallo {name},', { name: String(o.name).split(' ')[0] }),
       '',
@@ -282,6 +284,8 @@ export async function offerFreedPlaces(entryId: string): Promise<void> {
       to: w.email as string,
       subject: T('Ein Platz ist frei: {title}', { title: entry.data.title }),
       replyTo: s.business.email || undefined,
+      kind: 'tickets',
+      vars: { name: String(w.name).split(' ')[0], title: String(entry.data.title ?? '') },
       text: [
         T('Hallo {name},', { name: String(w.name).split(' ')[0] }),
         '',
@@ -357,6 +361,8 @@ export async function ticketMail(orderId: string): Promise<void> {
     to: o.email as string,
     subject: T(list.length === 1 ? 'Dein Ticket: {title}' : 'Deine Tickets: {title}', { title: o.entry_title }),
     replyTo: s.business.email || undefined,
+    kind: 'tickets',
+    vars: { name: String(o.name).split(' ')[0], title: String(o.entry_title) },
     text: [
       T('Hallo {name},', { name: String(o.name).split(' ')[0] }),
       '',

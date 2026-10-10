@@ -16,10 +16,13 @@ import { eidConfigured } from '../age-verify';
 import { legalPages } from '../legal';
 import { createBackup, restoreBackup } from '../backup';
 import { exportZip } from '../export';
+import { cleanMailSettings, sampleMail } from '../mail-texts';
+import { mailKind } from '../../shared/mails';
+import { requestLang } from '../translations';
 import { deliver, redeliver } from '../events';
 import { storage } from '../storage';
 import { env, s3Configured } from '../env';
-import { mailConfigured, sendMail } from '../mail';
+import { composeMail, mailConfigured, sendMail } from '../mail';
 import { sha256, token } from '../lib/crypto';
 import { rateLimit } from '../lib/ratelimit';
 import { analyzeSeo, fullTitle } from '../../shared/seo-analyze';
@@ -103,6 +106,7 @@ export function systemApi(app: Hono<AppEnv>) {
       patch.shop.iban = formatIban(patch.shop.iban);
       if (!validQrIban(patch.shop.iban)) throw badRequest('Für die QR-Rechnung braucht es eine gültige IBAN aus der Schweiz oder Liechtenstein.');
     }
+    if (patch.mail) patch.mail = cleanMailSettings(patch.mail);
     if (patch.webhooks) {
       for (const w of patch.webhooks) {
         if (!/^https:\/\//.test(w.url)) throw badRequest('Webhooks müssen eine https-Adresse haben.');
@@ -772,11 +776,28 @@ export function systemApi(app: Hono<AppEnv>) {
     return c.body(svg);
   });
 
-  /* ---------- mail test ---------- */
+  /* ---------- mail test & own mail texts ---------- */
+
+  /** A customer mail with sample details – as it would look with the texts being edited (not saved yet). */
+  app.post('/api/mail/preview', async (c) => {
+    requireCap(c, 'settings.manage');
+    const body = z.object({ kind: z.string().max(40), lang: z.string().max(5), mail: z.unknown().optional() }).parse(await c.req.json());
+    const kind = mailKind(body.kind);
+    if (!kind) throw notFound('Diese Mail-Art gibt es nicht.');
+    const s = await getSettings();
+    const lang = isLang(body.lang) ? body.lang : defaultLang(s);
+    const out = await requestLang.run(lang, async () => composeMail(sampleMail(kind, s), body.mail ? cleanMailSettings(body.mail as SiteSettings['mail']) : undefined));
+    return c.json({ subject: out.subject, html: out.html });
+  });
 
   app.post('/api/mail/test', async (c) => {
     const user = requireCap(c, 'settings.manage');
-    const ok = await sendMail({ to: user.email, subject: 'Test von Nova', text: 'Wenn du das liest, funktioniert der E-Mail-Versand.' });
+    const kind = mailKind(String((await c.req.json().catch(() => ({}))).kind ?? ''));
+    const ok = await sendMail(
+      kind
+        ? { ...sampleMail(kind, await getSettings()), to: user.email }
+        : { to: user.email, subject: 'Test von Nova', text: 'Wenn du das liest, funktioniert der E-Mail-Versand.' },
+    );
     return c.json({ ok, configured: mailConfigured() });
   });
 }

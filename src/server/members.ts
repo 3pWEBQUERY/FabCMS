@@ -117,9 +117,9 @@ async function useToken(raw: string, kind: 'verify' | 'reset'): Promise<string |
   return (row?.member_id as string) ?? null;
 }
 
-async function mail(to: string, subject: string, lines: string[]): Promise<void> {
+async function mail(to: string, subject: string, lines: string[], name = ''): Promise<void> {
   const s = await getSettings();
-  await sendMail({ to, subject, replyTo: s.business.email || undefined, text: [...lines, '', s.name].join('\n') });
+  await sendMail({ to, subject, replyTo: s.business.email || undefined, text: [...lines, '', s.name].join('\n'), kind: 'member', vars: { name: name.split(' ')[0] ?? '' } });
 }
 
 const hello = (name: string) => (name ? `Hallo ${name.split(' ')[0]},` : 'Hallo,');
@@ -147,15 +147,20 @@ export async function registerMember(input: { email: string; name: string; passw
   checkPassword(input.password);
   const [existing] = await sql`select id, name, email_verified_at from members where lower(email) = ${email}`;
   if (existing?.email_verified_at) {
-    await mail(email, T('Dein Konto bei {name}', { name: s.name }), [
-      helloT(existing.name as string),
-      '',
-      T('jemand wollte mit dieser Adresse ein neues Konto anlegen. Du hast aber schon eines.'),
-      T('Anmelden: {url}', { url: `${base(s)}${await here('/konto/anmelden')}` }),
-      T('Passwort vergessen? {url}', { url: `${base(s)}${await here('/konto/passwort-vergessen')}` }),
-      '',
-      T('Warst du das nicht? Dann kannst du diese E-Mail ignorieren.'),
-    ]);
+    await mail(
+      email,
+      T('Dein Konto bei {name}', { name: s.name }),
+      [
+        helloT(existing.name as string),
+        '',
+        T('jemand wollte mit dieser Adresse ein neues Konto anlegen. Du hast aber schon eines.'),
+        T('Anmelden: {url}', { url: `${base(s)}${await here('/konto/anmelden')}` }),
+        T('Passwort vergessen? {url}', { url: `${base(s)}${await here('/konto/passwort-vergessen')}` }),
+        '',
+        T('Warst du das nicht? Dann kannst du diese E-Mail ignorieren.'),
+      ],
+      existing.name as string,
+    );
     return;
   }
   const hash = await hashPassword(input.password);
@@ -169,15 +174,20 @@ export async function registerMember(input: { email: string; name: string; passw
   // Back to the visitor's language after confirming (the confirmation page itself has no language prefix).
   const after = currentLang() ? await here(input.next === '/konto' ? '/konto?ok=willkommen' : input.next) : input.next;
   const next = after !== '/konto' ? `?weiter=${encodeURIComponent(after)}` : '';
-  await mail(email, T('Bitte bestätige dein Konto bei {name}', { name: s.name }), [
-    helloT(name),
-    '',
-    T('willkommen! Ein Klick bestätigt deine E-Mail-Adresse, danach bist du angemeldet:'),
-    '',
-    `${base(s)}/konto/bestaetigen/${t}${next}`,
-    '',
-    T('Der Link gilt drei Tage. Hast du dich nicht registriert? Dann ignoriere diese E-Mail einfach.'),
-  ]);
+  await mail(
+    email,
+    T('Bitte bestätige dein Konto bei {name}', { name: s.name }),
+    [
+      helloT(name),
+      '',
+      T('willkommen! Ein Klick bestätigt deine E-Mail-Adresse, danach bist du angemeldet:'),
+      '',
+      `${base(s)}/konto/bestaetigen/${t}${next}`,
+      '',
+      T('Der Link gilt drei Tage. Hast du dich nicht registriert? Dann ignoriere diese E-Mail einfach.'),
+    ],
+    name,
+  );
 }
 
 export async function verifyMember(raw: string): Promise<Member | null> {
@@ -202,13 +212,12 @@ export async function resendVerification(email: string): Promise<void> {
   const [m] = await sql`select id, name, email from members where lower(email) = ${email.trim().toLowerCase()} and email_verified_at is null`;
   if (!m) return;
   const t = await linkToken(m.id as string, 'verify', 72);
-  await mail(m.email as string, T('Bitte bestätige dein Konto bei {name}', { name: s.name }), [
-    helloT(m.name as string),
-    '',
-    T('hier ist der Link nochmals:'),
-    '',
-    `${base(s)}/konto/bestaetigen/${t}`,
-  ]);
+  await mail(
+    m.email as string,
+    T('Bitte bestätige dein Konto bei {name}', { name: s.name }),
+    [helloT(m.name as string), '', T('hier ist der Link nochmals:'), '', `${base(s)}/konto/bestaetigen/${t}`],
+    m.name as string,
+  );
 }
 
 export class UnverifiedError extends HttpError {
@@ -232,15 +241,20 @@ export async function requestPasswordReset(email: string): Promise<void> {
   const [m] = await sql`select id, name, email from members where lower(email) = ${email.trim().toLowerCase()} and status = 'active'`;
   if (!m) return;
   const t = await linkToken(m.id as string, 'reset', 2);
-  await mail(m.email as string, T('Neues Passwort für {name}', { name: s.name }), [
-    helloT(m.name as string),
-    '',
-    T('mit diesem Link legst du ein neues Passwort fest. Er gilt zwei Stunden:'),
-    '',
-    `${base(s)}/konto/passwort/${t}`,
-    '',
-    T('Hast du das nicht angefordert? Dann bleibt alles, wie es ist.'),
-  ]);
+  await mail(
+    m.email as string,
+    T('Neues Passwort für {name}', { name: s.name }),
+    [
+      helloT(m.name as string),
+      '',
+      T('mit diesem Link legst du ein neues Passwort fest. Er gilt zwei Stunden:'),
+      '',
+      `${base(s)}/konto/passwort/${t}`,
+      '',
+      T('Hast du das nicht angefordert? Dann bleibt alles, wie es ist.'),
+    ],
+    m.name as string,
+  );
 }
 
 export async function tokenValid(raw: string, kind: 'verify' | 'reset'): Promise<boolean> {
@@ -275,15 +289,20 @@ export async function inviteMember(input: { email: string; name: string; paidUnt
     on conflict ((lower(email))) do nothing returning ${PUBLIC_COLUMNS}`;
   if (!m) throw badRequest('Zu dieser Adresse gibt es schon ein Konto.');
   const t = await linkToken(m.id as string, 'reset', 7 * 24);
-  await mail(email, `Dein Zugang zu ${s.name}`, [
-    hello(m.name as string),
-    '',
-    `${s.name} hat ein Konto für dich angelegt. Leg hier dein Passwort fest, dann bist du drin:`,
-    '',
-    `${base(s)}/konto/passwort/${t}`,
-    '',
-    'Der Link gilt sieben Tage.',
-  ]);
+  await mail(
+    email,
+    `Dein Zugang zu ${s.name}`,
+    [
+      hello(m.name as string),
+      '',
+      `${s.name} hat ein Konto für dich angelegt. Leg hier dein Passwort fest, dann bist du drin:`,
+      '',
+      `${base(s)}/konto/passwort/${t}`,
+      '',
+      'Der Link gilt sieben Tage.',
+    ],
+    m.name as string,
+  );
   return m as unknown as Member;
 }
 

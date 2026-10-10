@@ -271,6 +271,8 @@ export async function bookingMail(id: string, kind: 'received' | 'confirmed' | '
     to: b.email as string,
     subject,
     replyTo: s.business.email || undefined,
+    kind: 'booking',
+    vars: { name: String(b.name).split(' ')[0], when, what },
     text: [
       T('Hallo {name},', { name: String(b.name).split(' ')[0] }),
       '',
