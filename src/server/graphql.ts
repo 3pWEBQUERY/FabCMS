@@ -26,7 +26,7 @@ import { localized, localizedOne } from './translations';
 import { originalUrl, variantUrl } from '../site/picture';
 import { VARIANT_WIDTHS, effectiveSize, isImage } from './media';
 import { entryPath } from '../shared/paths';
-import { entryAccess } from '../shared/members';
+import { entryAccess, withoutSecrets } from '../shared/members';
 import type { FieldDef } from '../shared/fields';
 import type { CollectionDef, MediaItem } from '../shared/types';
 
@@ -121,8 +121,8 @@ const list = (v: unknown) => (Array.isArray(v) ? v : v === undefined || v === nu
 /** Members-only entries: without a token only what the paywall shows. */
 function visibleData(row: Record<string, any>, drafts: boolean, ctx: GqlContext): Record<string, unknown> {
   const data = (drafts ? row.data : row.published_data) ?? {};
-  if (ctx.token || entryAccess(data) === 'public') return data;
-  return { ...data, blocks: [], body: undefined, description: undefined };
+  if (ctx.token || entryAccess(data) === 'public') return withoutSecrets(data);
+  return withoutSecrets({ ...data, blocks: [], body: undefined, description: undefined });
 }
 
 async function loadEntry(ref: unknown, collection: string, ctx: GqlContext) {

@@ -1646,4 +1646,15 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'I prodotti scelti a mano vengono prima. Altrimenti Nova propone ciò che si compra spesso insieme o della stessa categoria.',
     en: 'Hand-picked products come first. Otherwise Nova suggests what is often bought together or in the same category.',
   },
+  'Mit Passwort': { fr: 'Avec mot de passe', it: 'Con password', en: 'With password' },
+  '«Mit Passwort» geht immer, die Mitglieder-Stufen mit dem Modul «Mitglieder». Alle anderen sehen nur den Titel.': {
+    fr: '«Avec mot de passe» fonctionne toujours, les niveaux membres avec le module «Membres». Les autres ne voient que le titre.',
+    it: '«Con password» funziona sempre, i livelli soci con il modulo «Soci». Gli altri vedono solo il titolo.',
+    en: '«With password» always works, the member levels with the «Members» module. Everyone else sees only the title.',
+  },
+  'Gib es allen, die die Seite sehen sollen. Ein neues Passwort sperrt alle wieder aus.': {
+    fr: 'Donne-le à toutes les personnes qui doivent voir la page. Un nouveau mot de passe exclut à nouveau tout le monde.',
+    it: 'Dallo a chi deve vedere la pagina. Una nuova password esclude di nuovo tutti.',
+    en: 'Give it to everyone who should see the page. A new password locks everyone out again.',
+  },
 };

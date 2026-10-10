@@ -50,7 +50,8 @@ function actions(ctx: RenderContext, access: Access): Html {
   return html``;
 }
 
-export function gate(ctx: RenderContext, access: Access): Html {
+export function gate(ctx: RenderContext, access: Access, entryId = ''): Html {
+  if (access === 'password') return passwordGate(ctx, entryId);
   const m = ctx.settings.members;
   const paid = access === 'paid';
   const title = !ctx.member
@@ -114,4 +115,37 @@ export function membershipBox(ctx: RenderContext, p: { heading?: string; intro?:
       ${paid ? html`<p class="plan-note">${t(ctx, 'Jederzeit kündbar. Bezahlt wird sicher über Stripe.')}</p>` : ''}
     </div>
   </div>`;
+}
+
+/** A page behind a password: one field, and a word when it was wrong. */
+function passwordGate(ctx: RenderContext, entryId: string): Html {
+  const state = ctx.query.get('passwort');
+  return html`<section class="wrap gate" id="zugang" aria-labelledby="gate-h">
+    <div class="gate-box">
+      <span class="gate-lock" aria-hidden="true"></span>
+      <h2 id="gate-h">${t(ctx, 'Diese Seite ist geschützt')}</h2>
+      <p>${t(ctx, 'Gib das Passwort ein, das du erhalten hast.')}</p>
+      <form class="nform gate-pw" method="post" action="/_nova/unlock/${entryId}">
+        <input type="hidden" name="back" value="${ctx.path}" />
+        <div class="fld">
+          <label for="gate-pw">${t(ctx, 'Passwort')}</label
+          ><input
+            id="gate-pw"
+            name="password"
+            type="password"
+            required
+            autocomplete="off"
+            maxlength="100"
+            ${state ? raw('aria-describedby="gate-err" aria-invalid="true" autofocus') : ''}
+          />
+        </div>
+        ${state
+          ? html`<p class="form-err" id="gate-err" role="alert">
+              ${state === 'pause' ? t(ctx, 'Zu viele Versuche. Bitte warte eine Viertelstunde.') : t(ctx, 'Das Passwort stimmt nicht.')}
+            </p>`
+          : ''}
+        <div><button class="btn">${t(ctx, 'Öffnen')}</button></div>
+      </form>
+    </div>
+  </section>`;
 }

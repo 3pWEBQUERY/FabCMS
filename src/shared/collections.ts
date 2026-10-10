@@ -80,10 +80,20 @@ const accessField: FieldDef = {
   key: 'access',
   type: 'select',
   label: 'Wer darf das sehen?',
-  help: 'Mit dem Modul «Mitglieder». Alle anderen sehen Titel, Kurzfassung und eine Einladung, sich anzumelden.',
+  help: '«Mit Passwort» geht immer, die Mitglieder-Stufen mit dem Modul «Mitglieder». Alle anderen sehen nur den Titel.',
   options: ACCESS_OPTIONS,
   default: 'public',
   width: 'half',
+};
+
+const passwordField: FieldDef = {
+  key: 'page_password',
+  type: 'text',
+  label: 'Passwort',
+  help: 'Gib es allen, die die Seite sehen sollen. Ein neues Passwort sperrt alle wieder aus.',
+  maxLength: 100,
+  width: 'half',
+  showIf: { field: 'access', equals: ['password'] },
 };
 
 export const BUILTIN_COLLECTIONS: CollectionDef[] = [
@@ -92,7 +102,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
     name: 'Seiten',
     singular: 'Seite',
     icon: 'page',
-    fields: [{ key: 'title', type: 'text', label: 'Titel der Seite', required: true, maxLength: 120 }, accessField],
+    fields: [{ key: 'title', type: 'text', label: 'Titel der Seite', required: true, maxLength: 120 }, accessField, passwordField],
     route: '/:slug',
     list_route: null,
     has_blocks: true,
@@ -116,6 +126,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
       { key: 'series', type: 'text', label: 'Serie', help: 'Beiträge mit gleichem Seriennamen werden miteinander verlinkt.', pro: false },
       { key: 'allowComments', type: 'boolean', label: 'Kommentare erlauben', default: true },
       accessField,
+      passwordField,
     ],
     route: '/journal/:slug',
     list_route: '/journal',

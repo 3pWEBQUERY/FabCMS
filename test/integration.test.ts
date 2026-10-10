@@ -3188,6 +3188,61 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('PATCH', '/api/settings', { modules });
   });
 
+  it('keeps a page behind its password – out of search, sitemap and API, open once the password is given', async () => {
+    const page = (
+      await req('POST', '/api/entries', {
+        collection: 'pages',
+        slug: 'kunden',
+        data: {
+          title: 'Für Kunden',
+          access: 'password',
+          page_password: 'Linde-2026',
+          blocks: [{ id: 'pw1', type: 'text', props: { heading: 'Preise', body: '<p>Geheime Preise für Wiederverkäufer.</p>' } }],
+        },
+      })
+    ).data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const anon = new Map<string, string>();
+    const locked = await req('GET', '/kunden', undefined, { cookies: anon });
+    expect(locked.status).toBe(200);
+    expect(locked.data).toContain('Für Kunden');
+    expect(locked.data).not.toContain('Geheime Preise');
+    expect(locked.data).toContain(`action="/_nova/unlock/${page.id}"`);
+    expect(locked.data).toContain('name="robots" content="noindex');
+    // Nowhere else either – and the password never leaves the team.
+    expect((await req('GET', '/sitemap.xml', undefined, { cookies: new Map() })).data).not.toContain('/kunden<');
+    expect((await req('GET', '/suche?q=Wiederverk%C3%A4ufer', undefined, { cookies: new Map() })).data).not.toContain('Für Kunden</');
+    const api = JSON.stringify((await req('GET', '/api/v1/pages', undefined, { cookies: new Map() })).data);
+    expect(api).not.toContain('Linde-2026');
+    expect(api).not.toContain('Geheime Preise');
+    const gq = await req('POST', '/api/v1/graphql', { query: '{ pages { items { title page_password } } }' }, { cookies: new Map() });
+    expect(gq.data.errors).toBeUndefined();
+    expect(gq.data.data.pages.items.find((p: { title: string }) => p.title === 'Für Kunden')).toEqual({ title: 'Für Kunden', page_password: null });
+
+    // Wrong, then right.
+    const unlock = (password: string, cookies = anon) => req('POST', `/_nova/unlock/${page.id}`, undefined, { cookies, form: { password, back: '/kunden' } });
+    expect((await unlock('falsch')).headers.get('location')).toBe('/kunden?passwort=falsch#zugang');
+    expect((await req('GET', '/kunden?passwort=falsch', undefined, { cookies: anon })).data).toContain('Das Passwort stimmt nicht.');
+    expect((await unlock('Linde-2026')).headers.get('location')).toBe('/kunden');
+    const open = await req('GET', '/kunden', undefined, { cookies: anon });
+    expect(open.data).toContain('Geheime Preise');
+    expect(open.headers.get('cache-control')).toContain('private');
+    // Someone else still sees the lock (the cache keeps them apart).
+    expect((await req('GET', '/kunden', undefined, { cookies: new Map() })).data).not.toContain('Geheime Preise');
+
+    // A new password shuts the old ones out.
+    const data = (await req('GET', `/api/entries/${page.id}`)).data.entry.data;
+    await req('PUT', `/api/entries/${page.id}`, { data: { ...data, page_password: 'Neu-2027' } });
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    expect((await req('GET', '/kunden', undefined, { cookies: anon })).data).not.toContain('Geheime Preise');
+    // Guessing is slowed down.
+    const guesser = new Map<string, string>();
+    let last = '';
+    for (let i = 0; i < 11; i++) last = (await unlock(`rate-${i}`, guesser)).headers.get('location') ?? '';
+    expect(last).toContain('passwort=pause');
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

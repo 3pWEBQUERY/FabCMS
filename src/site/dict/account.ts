@@ -302,4 +302,11 @@ export const account: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Fatture e download si trovano nel rispettivo ordine.',
     en: 'Invoices and downloads are in each order.',
   },
+  'Diese Seite ist geschützt': { fr: 'Cette page est protégée', it: 'Questa pagina è protetta', en: 'This page is protected' },
+  'Gib das Passwort ein, das du erhalten hast.': {
+    fr: 'Saisis le mot de passe que tu as reçu.',
+    it: 'Inserisci la password che hai ricevuto.',
+    en: 'Enter the password you were given.',
+  },
+  Öffnen: { fr: 'Ouvrir', it: 'Apri', en: 'Open' },
 };

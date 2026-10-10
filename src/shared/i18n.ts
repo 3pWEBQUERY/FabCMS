@@ -23,7 +23,7 @@ export const siteLangs = (s: Pick<SiteSettings, 'locale' | 'languages'>): Lang[]
 
 /** Field types whose content is text and gets translated. Everything else is shared by all languages. */
 const TEXT_TYPES = new Set(['text', 'textarea', 'richtext', 'link', 'blocks', 'json', 'form']);
-const SHARED_KEYS = new Set(['access', 'consent', 'adult']);
+const SHARED_KEYS = new Set(['access', 'page_password', 'consent', 'adult']);
 
 /** Whether a field differs per language (text) or is shared by all languages (prices, images, dates …). */
 export const isTranslatable = (f: FieldDef): boolean => !SHARED_KEYS.has(f.key) && (TEXT_TYPES.has(f.type) || (f.type === 'group' && (f.fields ?? []).some(isTranslatable)));

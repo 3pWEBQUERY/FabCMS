@@ -36,6 +36,7 @@ import { accountLink, gate } from './members';
 import { eventCards, eventTemplate, upcoming } from './events';
 import { propertyList, propertyTemplate } from './realestate';
 import { entryAccess, mayRead, type Access } from '../shared/members';
+import { pwTag } from '../server/page-password';
 import { defaultLang, langInfo, localizeSettings, type Lang } from '../shared/i18n';
 import { localized } from '../server/translations';
 import { t, L } from './i18n';
@@ -52,6 +53,7 @@ export function createContext(input: {
   ageEid?: boolean;
   cartCount?: number;
   member?: RenderContext['member'];
+  unlocked?: Record<string, string>;
   lang?: Lang;
   alternates?: RenderContext['alternates'];
 }): RenderContext {
@@ -84,6 +86,7 @@ export function createContext(input: {
     cartCount: input.cartCount ?? 0,
     csrf: '',
     member: input.member ?? null,
+    unlocked: input.unlocked ?? {},
     lang,
     mainLang,
     alternates: input.alternates ?? [],
@@ -349,7 +352,8 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     canonical: ctx.base + path,
     image,
     type: c.id === 'posts' ? 'article' : c.id === 'products' ? 'product' : 'website',
-    noindex: Boolean(e.data.seo?.noindex),
+    // Behind a password: never in search engines.
+    noindex: Boolean(e.data.seo?.noindex) || entryAccess(e.data) === 'password',
     publishedAt: c.id === 'posts' ? ((e.data.date as string) || e.published_at) : null,
   };
   let main: Html;
@@ -359,7 +363,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   const tpl = c.route && c.id !== 'pages' ? await entryTemplate(c.id, ctx.preview) : null;
   if (tpl?.blocks.length) {
     const access = entryAccess(e.data);
-    const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
+    const locked = !readable(ctx, e);
     const edit = ctx.edit;
     crumbs = [...listCrumbs(ctx, c), { label: e.data.title, href: path }];
     // The entry's content is drawn where the template asks for it and put in place afterwards,
@@ -371,7 +375,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       ctx.edit = edit;
       try {
         const html =
-          mode === 'default' ? (await builtInView(ctx, c, e, image)).main : locked ? gate(ctx, access) : ownBlocks(ctx, await renderBlocks(e.data.blocks ?? [], ctx));
+          mode === 'default' ? (await builtInView(ctx, c, e, image)).main : locked ? gate(ctx, access, e.id) : ownBlocks(ctx, await renderBlocks(e.data.blocks ?? [], ctx));
         views.push({ html, full: mode === 'default' });
         return raw(`<!--nova-view-${views.length - 1}-->`);
       } finally {
@@ -441,12 +445,20 @@ export async function templateContext(ctx: RenderContext, data: EntryData): Prom
   };
 }
 
+/** May this visitor read the entry: open to all, their membership, or the page's password given. */
+function readable(ctx: RenderContext, e: { id: string; data: EntryData }): boolean {
+  if (ctx.edit || ctx.preview) return true;
+  const access = entryAccess(e.data);
+  const unlocked = access === 'password' && typeof e.data.page_password === 'string' && e.data.page_password !== '' && ctx.unlocked[e.id] === pwTag(e.id, e.data.page_password);
+  return mayRead(access, ctx.member?.level ?? null, unlocked);
+}
+
 /** Nova's own view of an entry: the page without a template, and «Inhalt des Eintrags» in its full form. */
 async function builtInView(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null): Promise<{ main: Html; crumbs: Crumb[] }> {
   const path = entryPath(c, e.slug) ?? ctx.path;
   // Members-only content: everyone else gets title, excerpt and an invitation.
   const access = entryAccess(e.data);
-  const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
+  const locked = !readable(ctx, e);
   let main: Html;
   let crumbs: Crumb[] = [];
   const listCrumb = listCrumbs(ctx, c);
@@ -457,7 +469,7 @@ async function builtInView(ctx: RenderContext, c: CollectionDef, e: RenderEntry,
     case 'pages':
       crumbs = await pageCrumbs(ctx, e.slug, e.data.title);
       main = locked
-        ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}`
+        ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access, e.id)}`
         : await renderBlocks(e.data.blocks ?? [], ctx);
       if (!e.data.blocks?.length && ctx.edit) main = html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Diese Seite ist noch leer. Füg oben den ersten Block hinzu.</div></div>`;
       break;
@@ -488,7 +500,7 @@ async function builtInView(ctx: RenderContext, c: CollectionDef, e: RenderEntry,
       break;
     default:
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
-      main = locked ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}` : await genericTemplate(ctx, c, e);
+      main = locked ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access, e.id)}` : await genericTemplate(ctx, c, e);
   }
   if (c.id !== 'posts') main = html`${main}${ownFields}`;
   return { main, crumbs };
@@ -504,7 +516,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
   // Locked: the first text block as a teaser, faded out, then the invitation.
   const first = (d.blocks ?? []).find((b) => b.type === 'text');
   const body = locked
-    ? html`${first ? html`<div class="gate-teaser" aria-hidden="false">${await renderBlocks([first], ctx)}</div>` : ''}${gate(ctx, locked)}`
+    ? html`${first && locked !== 'password' ? html`<div class="gate-teaser" aria-hidden="false">${await renderBlocks([first], ctx)}</div>` : ''}${gate(ctx, locked, e.id)}`
     : ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx));
   const tags = (d.tags as string[]) ?? [];
   let series = html``;

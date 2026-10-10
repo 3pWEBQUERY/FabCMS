@@ -59,6 +59,8 @@ export interface RenderContext {
   ageEid: boolean;
   cartCount: number;
   csrf: string;
+  /** Pages opened with their password: entry id → tag of the password (server/page-password). */
+  unlocked: Record<string, string>;
   /** Signed-in member of the website (Mitgliederbereich), if any. */
   member: { id: string; name: string; level: MemberLevel } | null;
   /** Language of this page; the main language unless the visitor is under /fr/ etc. */

@@ -22,6 +22,7 @@ import { sign, unsign } from '../lib/crypto';
 import { recordGoal, recordHit } from '../analytics';
 import { emit } from '../events';
 import { recordMissing } from '../notfound';
+import { PW_COOKIE, pagePasswordRoutes, pwTag, readUnlocked } from '../page-password';
 import { recordPopup, type PopupEvent } from '../popups';
 import { cartOrdered, dropCart, forgetCart, rememberCart, restoreCart } from '../cart-reminders';
 import { addRestockAlert } from '../restock';
@@ -114,6 +115,7 @@ export async function ctxFor(c: Context, opts: { edit?: boolean; preview?: boole
     ageEid: eidGate(settings),
     cartCount: cart.reduce((s, i) => s + i.q, 0),
     member: member ? { id: member.id, name: member.name, level: member.level } : null,
+    unlocked: opts.edit || opts.preview ? {} : await readUnlocked(c),
   });
 }
 
@@ -255,6 +257,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
   ticketsPublicRoutes(app);
   donationsPublicRoutes(app);
   realestatePublicRoutes(app);
+  pagePasswordRoutes(app);
   orderingPublicRoutes(app);
   app.get('/_nova/:name{(site|bridge|fields)\\.js}', async (c) => {
     const name = c.req.param('name').replace('.js', '') as RuntimeName;
@@ -1016,7 +1019,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const collections = await activeCollections();
     const rows = await sql`
       select collection, slug, updated_at, published_data -> 'seo' ->> 'noindex' as noindex
-      from entries where status = 'published' order by collection, slug`;
+      from entries where status = 'published' and coalesce(published_data ->> 'access', '') <> 'password' order by collection, slug`;
     const urls: string[] = [];
     // Translated pages: every language gets its own <url>, each listing all versions (hreflang).
     const langs = extraLangs(s);
@@ -1158,10 +1161,12 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const cart = s.modules.includes('shop') ? (await cartItems(c)).reduce((n, i) => n + i.q, 0) : 0;
     // Members see other content (and «Mein Konto» in the header): one cached copy per level.
     const member = s.modules.includes('members') ? await currentMember(c) : null;
-    const key = `${currentLang() ?? ''}|${path}?${url.searchParams}|${ageOk ? 1 : 0}${eidGate(s) ? 'e' : ''}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}`;
+    // Pages opened with a password: cached per set of opened pages, and never in shared caches.
+    const opened = getCookie(c, PW_COOKIE) ?? '';
+    const key = `${currentLang() ?? ''}|${path}?${url.searchParams}|${ageOk ? 1 : 0}${eidGate(s) ? 'e' : ''}|${cart}|${timeBucket()}|${c.get('user') && !s.firstPublishedAt ? 'staff' : ''}|${member?.level ?? ''}|${opened ? pwTag('cookie', opened) : ''}`;
     const send = (body: string, etag: string) => {
       const res = sendHtml(c, body, 200, etag);
-      if (member) res.headers.set('Cache-Control', 'private, no-cache');
+      if (member || opened) res.headers.set('Cache-Control', 'private, no-cache');
       return res;
     };
     const hit = cacheGet(key);

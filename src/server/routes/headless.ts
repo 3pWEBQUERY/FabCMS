@@ -7,7 +7,7 @@ import { HttpError, notFound } from '../lib/http';
 import { rateLimit } from '../lib/ratelimit';
 import { clientIp } from '../lib/http';
 import { entryPath } from '../../shared/paths';
-import { entryAccess } from '../../shared/members';
+import { entryAccess, withoutSecrets } from '../../shared/members';
 import type { EntryData } from '../../shared/types';
 import { graphql, printSchema, specifiedRules, validate, parse, GraphQLError } from 'graphql';
 import { currentSchema, depthLimit } from '../graphql';
@@ -44,7 +44,7 @@ function shape(c: { id: string; route: string | null }, e: Record<string, any>, 
     version: e.version,
     published_at: e.published_at,
     updated_at: e.updated_at,
-    data: open ? data : { ...data, blocks: [], body: undefined, description: undefined },
+    data: withoutSecrets(open ? data : { ...data, blocks: [], body: undefined, description: undefined }),
   };
 }
 

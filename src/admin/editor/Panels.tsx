@@ -138,9 +138,14 @@ export function SeoPanel({ doc, onTarget }: { doc: EntryDoc; onTarget: (c: SeoCh
 /* ---------- page settings (title, address, collection fields) ---------- */
 
 export function PagePanel({ doc }: { doc: EntryDoc }) {
-  const { pro } = useSession();
+  const { pro, settings } = useSession();
   const data = doc.data!;
-  const col = doc.collection!;
+  // Members-only choices need the module; a password works always.
+  const members = settings?.modules.includes('members') ?? false;
+  const col = {
+    ...doc.collection!,
+    fields: doc.collection!.fields.map((f) => (f.key === 'access' && !members ? { ...f, options: f.options?.filter((o) => o.value === 'public' || o.value === 'password') } : f)),
+  };
   const isHome = col.id === 'pages' && doc.slug === '';
   const prefix = col.id === 'pages' ? '/' : (col.route ?? '').replace(':slug', '');
   return (
@@ -150,6 +155,7 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
           <Field label={t('Titel der Seite')} htmlFor="pg-title" help={t('Erscheint in Menüs, Brotkrümeln und als Standard-Titel bei Google.')}>
             <input id="pg-title" className="input" value={data.title} onChange={(e) => doc.setData((d) => ({ ...d, title: e.target.value }))} />
           </Field>
+          <FieldList fields={col.fields.filter((f) => f.key === 'access' || f.key === 'page_password')} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v }))} />
           {Boolean(col.custom_fields?.length) && <FieldList fields={col.custom_fields!} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v }))} />}
         </>
       ) : (

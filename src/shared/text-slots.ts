@@ -21,7 +21,7 @@ export interface TextSlot {
 }
 
 /** Same as isTranslatable in i18n.ts: these keys are shared by all languages. */
-const SHARED_KEYS = new Set(['access', 'consent', 'adult']);
+const SHARED_KEYS = new Set(['access', 'page_password', 'consent', 'adult']);
 
 const KIND: Record<string, SlotKind> = { text: 'plain', textarea: 'multi', richtext: 'rich' };
 const filled = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
