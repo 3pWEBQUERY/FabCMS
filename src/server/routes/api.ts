@@ -3,6 +3,7 @@ import type { AppEnv } from '../auth';
 import { HttpError } from '../lib/http';
 import { authApi } from './api-auth';
 import { contentApi } from './api-content';
+import { dataApi } from './api-data';
 import { mediaApi } from './api-media';
 import { businessApi } from './api-business';
 import { systemApi } from './api-system';
@@ -44,6 +45,7 @@ export function apiRoutes(app: Hono<AppEnv>) {
   });
   authApi(app);
   contentApi(app);
+  dataApi(app);
   mediaApi(app);
   businessApi(app);
   systemApi(app);

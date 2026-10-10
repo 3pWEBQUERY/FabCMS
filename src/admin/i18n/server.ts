@@ -990,7 +990,11 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   'Backup fehlgeschlagen': { fr: 'Échec de la sauvegarde', it: 'Backup non riuscito', en: 'Backup failed' },
   '«{title}» ist abgelaufen und offline.': { fr: '«{title}» a expiré et est hors ligne.', it: '«{title}» è scaduto ed è offline.', en: '“{title}” has expired and is offline.' },
   'Der Inhalt bleibt als Entwurf erhalten.': { fr: 'Le contenu reste en brouillon.', it: 'Il contenuto resta come bozza.', en: 'The content stays as a draft.' },
-  'Das Ablaufdatum muss in der Zukunft liegen.': { fr: 'La date d’expiration doit être dans le futur.', it: 'La data di scadenza deve essere nel futuro.', en: 'The expiry date must be in the future.' },
+  'Das Ablaufdatum muss in der Zukunft liegen.': {
+    fr: 'La date d’expiration doit être dans le futur.',
+    it: 'La data di scadenza deve essere nel futuro.',
+    en: 'The expiry date must be in the future.',
+  },
   '1 Ticket: {event}': { fr: '1 billet: {event}', it: '1 biglietto: {event}', en: '1 ticket: {event}' },
   '{n} Tickets: {event}': { fr: '{n} billets: {event}', it: '{n} biglietti: {event}', en: '{n} tickets: {event}' },
   'Späte Zahlung: {name}': { fr: 'Paiement tardif: {name}', it: 'Pagamento tardivo: {name}', en: 'Late payment: {name}' },
@@ -1242,4 +1246,82 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     en: 'First choose the property for this website.',
   },
   '«{label}»: dieses Symbol gibt es nicht.': { fr: '«{label}» : cette icône n’existe pas.', it: '«{label}»: questa icona non esiste.', en: '“{label}”: this icon doesn’t exist.' },
+  /* ---------- data view & CSV import ---------- */
+  'Der Titel darf nicht leer sein.': { fr: 'Le titre ne peut pas être vide.', it: 'Il titolo non può essere vuoto.', en: 'The title can’t be empty.' },
+  'Dieses Feld lässt sich in der Tabelle nicht bearbeiten.': {
+    fr: 'Ce champ ne peut pas être modifié dans le tableau.',
+    it: 'Questo campo non si può modificare nella tabella.',
+    en: 'This field can’t be edited in the table.',
+  },
+  'Die Datei hat keine Zeilen unter der Kopfzeile.': {
+    fr: 'Le fichier n’a pas de lignes sous l’en-tête.',
+    it: 'Il file non ha righe sotto l’intestazione.',
+    en: 'The file has no rows below the header.',
+  },
+  'Höchstens {n} Zeilen pro Datei – teile sie auf.': {
+    fr: 'Au maximum {n} lignes par fichier – divisez-le.',
+    it: 'Al massimo {n} righe per file – dividilo.',
+    en: 'At most {n} rows per file – split it up.',
+  },
+  'Keine Spalte passt zu einem Feld dieses Inhaltstyps. Die Kopfzeile braucht die Feldnamen, z. B. aus einem Export.': {
+    fr: 'Aucune colonne ne correspond à un champ de ce type de contenu. L’en-tête doit contenir les noms des champs, p. ex. d’un export.',
+    it: 'Nessuna colonna corrisponde a un campo di questo tipo di contenuto. L’intestazione deve contenere i nomi dei campi, ad es. da un’esportazione.',
+    en: 'No column matches a field of this content type. The header needs the field names, e.g. from an export.',
+  },
+  'Dieser Eintrag kommt in der Datei schon weiter oben vor.': {
+    fr: 'Cette entrée figure déjà plus haut dans le fichier.',
+    it: 'Questa voce compare già più in alto nel file.',
+    en: 'This entry already appears further up in the file.',
+  },
+  'Neue Einträge brauchen einen Titel.': { fr: 'Les nouvelles entrées ont besoin d’un titre.', it: 'Le nuove voci hanno bisogno di un titolo.', en: 'New entries need a title.' },
+  'Veröffentlichen darf, wer veröffentlichen darf.': {
+    fr: 'Seules les personnes autorisées peuvent publier.',
+    it: 'Può pubblicare solo chi ne ha il permesso.',
+    en: 'Only people allowed to publish can publish.',
+  },
+  '«{label}»: «{value}» ist keine Zahl.': {
+    fr: '«{label}» : «{value}» n’est pas un nombre.',
+    it: '«{label}»: «{value}» non è un numero.',
+    en: '“{label}”: “{value}” is not a number.',
+  },
+  '«{label}»: «{value}» ist weder ja noch nein.': {
+    fr: '«{label}» : «{value}» n’est ni oui ni non.',
+    it: '«{label}»: «{value}» non è né sì né no.',
+    en: '“{label}”: “{value}” is neither yes nor no.',
+  },
+  '«{label}»: «{value}» ist kein Datum (TT.MM.JJJJ oder JJJJ-MM-TT).': {
+    fr: '«{label}» : «{value}» n’est pas une date (JJ.MM.AAAA ou AAAA-MM-JJ).',
+    it: '«{label}»: «{value}» non è una data (GG.MM.AAAA o AAAA-MM-GG).',
+    en: '“{label}”: “{value}” is not a date (DD.MM.YYYY or YYYY-MM-DD).',
+  },
+  '«{label}»: «{value}» ist kein Zeitpunkt.': {
+    fr: '«{label}» : «{value}» n’est pas une date et heure.',
+    it: '«{label}»: «{value}» non è un momento valido.',
+    en: '“{label}”: “{value}” is not a point in time.',
+  },
+  '«{label}»: «{value}» gibt es nicht zur Auswahl ({list}).': {
+    fr: '«{label}» : «{value}» ne fait pas partie des choix ({list}).',
+    it: '«{label}»: «{value}» non è tra le scelte ({list}).',
+    en: '“{label}”: “{value}” is not one of the choices ({list}).',
+  },
+  '«{label}»: «{value}» gibt es nicht zur Auswahl.': {
+    fr: '«{label}» : «{value}» ne fait pas partie des choix.',
+    it: '«{label}»: «{value}» non è tra le scelte.',
+    en: '“{label}”: “{value}” is not one of the choices.',
+  },
+  '«{label}»: «{value}» ist keine E-Mail-Adresse.': {
+    fr: '«{label}» : «{value}» n’est pas une adresse e-mail.',
+    it: '«{label}»: «{value}» non è un indirizzo e-mail.',
+    en: '“{label}”: “{value}” is not an email address.',
+  },
+  '«{label}»: «{value}» muss mit https://, / oder # beginnen.': {
+    fr: '«{label}» : «{value}» doit commencer par https://, / ou #.',
+    it: '«{label}»: «{value}» deve iniziare con https://, / o #.',
+    en: '“{label}”: “{value}” must start with https://, / or #.',
+  },
+  '«{label}»: «{value}» ist keine Farbe wie #1a2b3c.': {
+    fr: '«{label}» : «{value}» n’est pas une couleur comme #1a2b3c.',
+    it: '«{label}»: «{value}» non è un colore come #1a2b3c.',
+    en: '“{label}”: “{value}” is not a colour like #1a2b3c.',
+  },
 };

@@ -261,8 +261,15 @@ export function parseFeed(xml: string): ImportBundle {
 
 /* ---------- Shopify products CSV ---------- */
 
-/** RFC 4180 CSV (quotes, commas and line breaks inside quotes). */
-export function parseCsv(text: string): string[][] {
+/** The separator of a CSV file: whatever the header line uses most – comma, semicolon (Excel in CH/DE) or tab. */
+export function sniffDelimiter(text: string): string {
+  const head = (text.replace(/^\uFEFF/, '').split(/\r?\n/)[0] ?? '').replace(/"[^"]*"/g, '');
+  const count = (d: string) => head.split(d).length - 1;
+  return [';', '\t', ','].reduce((best, d) => (count(d) > count(best) ? d : best), ',');
+}
+
+/** RFC 4180 CSV (quotes, separators and line breaks inside quotes). */
+export function parseCsv(text: string, delimiter = ','): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -277,7 +284,7 @@ export function parseCsv(text: string): string[][] {
       } else if (ch === '"') quoted = false;
       else cell += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ',') {
+    else if (ch === delimiter) {
       row.push(cell);
       cell = '';
     } else if (ch === '\n' || ch === '\r') {

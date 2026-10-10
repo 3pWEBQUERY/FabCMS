@@ -6533,3 +6533,223 @@ tr.selected td,
     height: 1.9rem;
   }
 }
+
+/* ---------- Werkbank: data view (spreadsheet) ---------- */
+.dg-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+.dg-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 16rem);
+  outline: none;
+}
+.dg-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--sel-soft);
+}
+.dg-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: var(--t-s);
+}
+.dg-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel-2);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.dg-table th code {
+  display: block;
+  font-family: var(--mono);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.dg-table th.right {
+  text-align: right;
+}
+.dg-table td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 0 0.7rem;
+  height: 2.25rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.dg-table td.check-cell,
+.dg-table th.check-cell {
+  width: 2.25rem;
+  padding: 0 0.6rem;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.dg-table th.check-cell {
+  z-index: 3;
+  background: var(--panel-2);
+}
+.dg-table tr.selected td {
+  background: var(--sel-soft);
+}
+.dg-cell {
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: cell;
+  position: relative;
+}
+.dg-cell > .ellipsis {
+  display: block;
+}
+.dg-cell.t-number,
+.dg-cell.t-money {
+  text-align: right;
+}
+.dg-cell.t-boolean {
+  text-align: center;
+  color: var(--ok);
+}
+.dg-cell.locked {
+  cursor: default;
+  color: var(--ink-2);
+}
+.dg-cell.on {
+  box-shadow: inset 0 0 0 2px var(--sel);
+}
+.dg-cell.busy {
+  color: var(--ink-3);
+}
+.dg-cell.busy::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--sel), transparent);
+  background-size: 200% 100%;
+  animation: dg-busy 0.9s linear infinite;
+}
+@keyframes dg-busy {
+  to {
+    background-position: -200% 0;
+  }
+}
+.dg-cell.editing {
+  padding: 0;
+  overflow: visible;
+  box-shadow: inset 0 0 0 2px var(--sel);
+}
+.dg-input {
+  width: 100%;
+  min-width: 10rem;
+  height: 100%;
+  min-height: 2.25rem;
+  border: 0;
+  padding: 0 0.7rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--sel), var(--shadow-2);
+  border-radius: 2px;
+}
+.dg-cell.t-number .dg-input,
+.dg-cell.t-money .dg-input {
+  text-align: right;
+}
+textarea.dg-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  min-width: 18rem;
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+}
+.dg-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+}
+.dg-color::before {
+  content: '';
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 3px;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+}
+.dg-cols {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 15rem;
+  max-height: 22rem;
+  overflow: auto;
+}
+.dg-cols .row {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.dg-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--r-m);
+  cursor: pointer;
+  font-size: var(--t-s);
+}
+.dg-col:hover {
+  background: var(--hover);
+}
+.dg-drop {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.dg-sum {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  font-size: var(--t-s);
+  color: var(--ink-2);
+}
+.dg-sum b {
+  font-size: var(--t-l);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.dg-sum .bad b {
+  color: var(--bad);
+}
+.dg-errors {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  max-height: 12rem;
+  overflow: auto;
+  background: var(--bad-soft);
+  border-radius: var(--r-m);
+  font-size: var(--t-s);
+  display: grid;
+  gap: 0.25rem;
+}
+.dg-errors .num {
+  font-weight: 600;
+  margin-right: 0.35rem;
+}

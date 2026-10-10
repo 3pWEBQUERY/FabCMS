@@ -15,7 +15,8 @@ import { scopeCss } from '../src/site/blocks';
 import { woffToSfnt } from '../src/server/og';
 import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { orderSlots, foodTotals } from '../src/shared/ordering';
-import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv } from '../src/server/importer/parse';
+import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv, sniffDelimiter } from '../src/server/importer/parse';
+import { cellText, matchColumns, parseCell, tableFields } from '../src/shared/datatable';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
 import { generateSdk } from '../src/server/sdk';
@@ -1416,5 +1417,61 @@ describe('editor shortcuts', () => {
     expect(shortcutAction(k('?', 'Minus', { shift: true }), false)).toBe('help');
     expect(shortcutAction(k('c', 'KeyC'), false)).toBeNull();
     expect(shortcutAction(k('z', 'KeyZ', { ctrl: true, shift: true }), false)).toBeNull();
+  });
+});
+
+describe('data view cells', () => {
+  const products = BUILTIN_COLLECTIONS.find((c) => c.id === 'products')!;
+  const f = (key: string) => products.fields.find((x) => x.key === key)!;
+  it('offers only flat fields as columns', () => {
+    const keys = tableFields(products.fields).map((x) => x.key);
+    expect(keys).toContain('price');
+    expect(keys).not.toContain('title');
+    expect(keys).not.toContain('images');
+    expect(keys).not.toContain('variants');
+  });
+  it('turns values into text and back the Swiss way', () => {
+    expect(cellText(f('price'), 1250)).toBe('12.50');
+    expect(parseCell(f('price'), "1'250.50")).toEqual({ ok: true, value: 125050 });
+    expect(parseCell(f('price'), '12,5')).toEqual({ ok: true, value: 1250 });
+    expect(parseCell(f('price'), 'CHF 9.90')).toEqual({ ok: true, value: 990 });
+    expect(parseCell(f('price'), 'gratis')).toEqual({ ok: false, error: '«Preis (inkl. MwSt.)»: «gratis» ist keine Zahl.' });
+    expect(parseCell(f('digital'), 'Ja')).toEqual({ ok: true, value: true });
+    expect(parseCell(f('digital'), '')).toEqual({ ok: true, value: false });
+    expect(parseCell(f('digital'), 'vielleicht').ok).toBe(false);
+    const date: FieldDef = { key: 'd', type: 'date', label: 'Datum' };
+    expect(parseCell(date, '3.4.2026')).toEqual({ ok: true, value: '2026-04-03' });
+    expect(parseCell(date, '2026-13-45').ok).toBe(false);
+    const tags: FieldDef = { key: 't', type: 'tags', label: 'Schlagwörter' };
+    expect(parseCell(tags, 'a, b; a ,')).toEqual({ ok: true, value: ['a', 'b'] });
+    expect(cellText(tags, ['a', 'b'])).toBe('a, b');
+  });
+  it('accepts a choice by value or label, and names the valid ones otherwise', () => {
+    const sel: FieldDef = {
+      key: 's',
+      type: 'select',
+      label: 'Art',
+      options: [
+        { value: 'rent', label: 'Miete' },
+        { value: 'buy', label: 'Kauf' },
+      ],
+    };
+    expect(parseCell(sel, 'miete')).toEqual({ ok: true, value: 'rent' });
+    expect(parseCell(sel, 'buy')).toEqual({ ok: true, value: 'buy' });
+    expect(parseCell(sel, 'Tausch')).toEqual({ ok: false, error: '«Art»: «Tausch» gibt es nicht zur Auswahl (rent, buy).' });
+  });
+  it('matches file columns by key or label and lists the rest', () => {
+    const { map, ignored } = matchColumns(['ID', 'Titel', 'preis (inkl. mwst.)', 'sku', 'status', 'Farbe'], tableFields(products.fields));
+    expect(map.map((m) => (typeof m === 'string' || m === null ? m : m.key))).toEqual(['id', 'title', 'price', 'sku', null, null]);
+    expect(ignored).toEqual(['Farbe']);
+  });
+  it('reads CSV with semicolons (Excel) as well as commas and tabs', () => {
+    expect(sniffDelimiter('\uFEFFid;title;price\r\n1;"a;b";3')).toBe(';');
+    expect(sniffDelimiter('id,title\n1,x')).toBe(',');
+    expect(sniffDelimiter('id\ttitle\n1\tx')).toBe('\t');
+    expect(parseCsv('id;title\r\n1;"Brot; frisch"\r\n', ';')).toEqual([
+      ['id', 'title'],
+      ['1', 'Brot; frisch'],
+    ]);
   });
 });

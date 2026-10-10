@@ -2509,6 +2509,45 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [plan, live]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('edits one cell of the data view and round-trips a type through CSV', async () => {
+    const p = (await req('POST', '/api/entries', { collection: 'products', data: { title: 'Bergkäse', price: 1200, sku: 'BK-1', stock: 5 } })).data.entry;
+    // One cell: text in, checked like the editor, the fresh row back.
+    const cell = await req('POST', `/api/entries/${p.id}/field`, { field: 'price', text: '14,50' });
+    expect(cell.data.row.fields.price).toBe(1450);
+    expect((await req('POST', `/api/entries/${p.id}/field`, { field: 'stock', text: '9' })).data.row.fields.stock).toBe(9);
+    const bad = await req('POST', `/api/entries/${p.id}/field`, { field: 'price', text: 'gratis' });
+    expect(bad.status).toBe(400);
+    expect(bad.data.error).toBe('«Preis (inkl. MwSt.)»: «gratis» ist keine Zahl.');
+    expect((await req('POST', `/api/entries/${p.id}/field`, { field: 'title', text: ' ' })).status).toBe(400);
+    expect((await req('POST', `/api/entries/${p.id}/field`, { field: 'images', text: 'x' })).status).toBe(400);
+
+    const csv = (await req('GET', '/api/data/products/export')).data as string;
+    const lines = csv.replace(/^\uFEFF/, '').split('\r\n');
+    expect(lines[0].split(';').slice(0, 5)).toEqual(['id', 'slug', 'status', 'title', 'price']);
+    const mine = lines.find((l) => l.startsWith(p.id))!;
+    expect(mine).toContain(';Bergkäse;14.50;');
+
+    // Back in, edited in a spreadsheet: one changed, one new, one broken, one untouched.
+    const head = lines[0];
+    const changed = mine.replace(';14.50;', ';16.00;');
+    const file = [head, changed, ';;;Alpkäse;8.90', ';;;Ohne Preis;viel', ';;;;3.00'].join('\r\n');
+    const dry = await req('POST', '/api/data/products/import', { csv: file, dryRun: true });
+    expect(dry.data).toMatchObject({ created: 1, updated: 1, unchanged: 0, errorCount: 2 });
+    expect(dry.data.errors.map((e: { line: number }) => e.line)).toEqual([4, 5]);
+    expect((await req('GET', `/api/entries/${p.id}`)).data.entry.data.price).toBe(1450);
+    const done = await req('POST', '/api/data/products/import', { csv: file, dryRun: false, publish: true });
+    expect(done.data).toMatchObject({ created: 1, updated: 1 });
+    const after = (await req('GET', `/api/entries/${p.id}`)).data.entry;
+    expect(after).toMatchObject({ status: 'published', data: { price: 1600, stock: 9, sku: 'BK-1' } });
+    const list = await req('GET', '/api/entries?collection=products&limit=500');
+    const alp = list.data.entries.find((x: { title: string }) => x.title === 'Alpkäse');
+    expect(alp.fields.price).toBe(890);
+    // The same file again changes nothing.
+    expect((await req('POST', '/api/data/products/import', { csv: [head, changed].join('\n'), dryRun: true })).data).toMatchObject({ updated: 0, unchanged: 1 });
+    expect((await req('POST', '/api/data/products/import', { csv: 'foo;bar\n1;2', dryRun: true })).status).toBe(400);
+    for (const id of [p.id, alp.id]) await req('DELETE', `/api/entries/${id}`);
+  });
+
   it('renames, merges and removes categories and tags across all entries', async () => {
     const mk = async (title: string, data: Record<string, unknown>) => {
       const e = (await req('POST', '/api/entries', { collection: 'posts', data: { title, ...data } })).data.entry;

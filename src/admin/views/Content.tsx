@@ -8,6 +8,7 @@ import { t, tl } from '../lib/i18n';
 import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
 import { BulkBar, SelectBox, useSelection } from './Bulk';
 import { TaxonomyDialog } from './Taxonomy';
+import { DataGrid } from './DataGrid';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
@@ -19,7 +20,7 @@ import type { FieldDef } from '../../shared/fields';
 
 type Col = CollectionDef & { active: boolean; count: number; review: number };
 
-interface Row {
+export interface Row {
   id: string;
   slug: string;
   status: EntryStatus;
@@ -28,6 +29,7 @@ interface Row {
   updated_at: string;
   changed: boolean;
   author_name: string | null;
+  author_id?: string | null;
   sort_index: number;
   translations?: { lang: string; status: string; changed: boolean }[];
   unpublish_at?: string | null;
@@ -184,11 +186,17 @@ export function CollectionList({ collection }: { collection: string }) {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState(query.get('status') ?? '');
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
-  const [view, setView] = useState<'table' | 'order'>('table');
+  const [view, setView] = useState<'table' | 'order' | 'data'>(() => {
+    try {
+      return pro && localStorage.getItem('nova.listview') === 'data' ? 'data' : 'table';
+    } catch {
+      return 'table';
+    }
+  });
   const [apiOpen, setApiOpen] = useState(false);
   const [taxOpen, setTaxOpen] = useState(false);
   const dq = useDebounced(q, 200);
-  const { data, reload } = useApi<{ entries: Row[]; total: number }>(`/api/entries${qs({ collection, q: dq, status, limit: 500 })}`);
+  const { data, setData, reload } = useApi<{ entries: Row[]; total: number }>(`/api/entries${qs({ collection, q: dq, status, limit: 500 })}`);
   const [ordered, setOrdered] = useState<Row[]>([]);
   useEffect(() => setOrdered(data?.entries ?? []), [data]);
 
@@ -303,14 +311,22 @@ export function CollectionList({ collection }: { collection: string }) {
             { value: 'scheduled', label: t('Geplant') },
           ]}
         />
-        {sortable && (
+        {(sortable || pro) && (
           <Segmented
             label={t('Ansicht')}
-            value={view}
-            onChange={setView}
+            value={view === 'data' && !pro ? 'table' : view}
+            onChange={(v) => {
+              setView(v);
+              try {
+                localStorage.setItem('nova.listview', v);
+              } catch {
+                /* only a preference */
+              }
+            }}
             options={[
-              { value: 'table', label: t('Tabelle'), icon: 'nav' },
-              { value: 'order', label: t('Reihenfolge'), icon: 'grip' },
+              { value: 'table' as const, label: t('Liste'), icon: 'nav' },
+              ...(pro ? [{ value: 'data' as const, label: t('Daten'), icon: 'table' }] : []),
+              ...(sortable ? [{ value: 'order' as const, label: t('Reihenfolge'), icon: 'grip' }] : []),
             ]}
           />
         )}
@@ -332,6 +348,14 @@ export function CollectionList({ collection }: { collection: string }) {
           >
             {!q && !status ? tl(col.empty_hint) : t('Versuch einen anderen Suchbegriff oder Filter.')}
           </Empty>
+        ) : view === 'data' && pro ? (
+          <DataGrid
+            col={col}
+            rows={rows}
+            selection={selection}
+            onImported={() => void reload()}
+            onRow={(row) => setData((d) => (d ? { ...d, entries: d.entries.map((x) => (x.id === row.id ? row : x)) } : d))}
+          />
         ) : view === 'order' && sortable ? (
           <Reorder.Group axis="y" values={ordered} onReorder={saveOrder} className="list">
             {ordered.map((r) => (

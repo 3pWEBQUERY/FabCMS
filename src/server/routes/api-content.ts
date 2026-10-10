@@ -53,7 +53,7 @@ async function langPath(col: { route: string | null; id: string }, slug: string,
   return p === '/' ? `/${lang}` : `/${lang}${p}`;
 }
 
-function saveCtx(user: AuthUser): SaveContext {
+export function saveCtx(user: AuthUser): SaveContext {
   return {
     userId: user.id,
     canCode: can(user.role, 'dev') && user.mode === 'werkbank',
@@ -61,7 +61,7 @@ function saveCtx(user: AuthUser): SaveContext {
   };
 }
 
-function assertCanEdit(user: AuthUser, e: Pick<Entry, 'author_id'>) {
+export function assertCanEdit(user: AuthUser, e: Pick<Entry, 'author_id'>) {
   if (can(user.role, 'content.edit')) return;
   if (can(user.role, 'content.edit.own') && e.author_id === user.id) return;
   throw forbidden('Du kannst nur deine eigenen Beiträge bearbeiten.');
@@ -72,7 +72,7 @@ async function base() {
   return (s.baseUrl || env.publicUrl).replace(/\/$/, '');
 }
 
-function listRow(r: Record<string, any>) {
+export function listRow(r: Record<string, any>) {
   const { blocks: _b, seo: _s, ...rest } = (r.data ?? {}) as EntryData;
   return {
     id: r.id,

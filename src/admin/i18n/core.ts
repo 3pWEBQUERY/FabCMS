@@ -180,4 +180,43 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Un nuovo nome crea la cartella, vuoto = senza cartella.',
     en: 'A new name creates the folder, empty = no folder.',
   },
+  /* ---------- Werkbank: data view & CSV ---------- */
+  Daten: { fr: 'Données', it: 'Dati', en: 'Data' },
+  '{n} Zellen eingefügt.': { fr: '{n} cellules collées.', it: '{n} celle incollate.', en: '{n} cells pasted.' },
+  'Pfeiltasten wählen, Enter oder Tippen bearbeitet, aus Excel einfügen mit {key}+V.': {
+    fr: 'Les flèches sélectionnent, Entrée ou la saisie modifie, coller depuis Excel avec {key}+V.',
+    it: 'Le frecce selezionano, Invio o la digitazione modifica, incolla da Excel con {key}+V.',
+    en: 'Arrow keys select, Enter or typing edits, paste from Excel with {key}+V.',
+  },
+  'Dieser Inhaltstyp hat keine Felder für Spalten.': {
+    fr: 'Ce type de contenu n’a pas de champs pour des colonnes.',
+    it: 'Questo tipo di contenuto non ha campi per le colonne.',
+    en: 'This content type has no fields for columns.',
+  },
+  'Daten von {name}': { fr: 'Données de {name}', it: 'Dati di {name}', en: 'Data of {name}' },
+  '«{name}» öffnen': { fr: 'Ouvrir «{name}»', it: 'Apri «{name}»', en: 'Open “{name}”' },
+  '{a} neu, {b} geändert, {c} unverändert.': {
+    fr: '{a} nouveaux, {b} modifiés, {c} inchangés.',
+    it: '{a} nuovi, {b} modificati, {c} invariati.',
+    en: '{a} new, {b} changed, {c} unchanged.',
+  },
+  '{name} aus CSV importieren': { fr: 'Importer {name} depuis un CSV', it: 'Importa {name} da CSV', en: 'Import {name} from CSV' },
+  'Die Kopfzeile nennt die Felder (wie im Export). Zeilen mit id oder slug ändern bestehende Einträge, die anderen kommen als neue Entwürfe dazu.': {
+    fr: 'La ligne d’en-tête nomme les champs (comme dans l’export). Les lignes avec id ou slug modifient les entrées existantes, les autres sont ajoutées comme nouveaux brouillons.',
+    it: 'La riga d’intestazione indica i campi (come nell’esportazione). Le righe con id o slug modificano le voci esistenti, le altre vengono aggiunte come nuove bozze.',
+    en: 'The header row names the fields (as in the export). Rows with an id or slug change existing entries, the others are added as new drafts.',
+  },
+  'Prüfe …': { fr: 'Vérification …', it: 'Verifica …', en: 'Checking …' },
+  geändert: { fr: 'modifiés', it: 'modificati', en: 'changed' },
+  'mit Fehlern': { fr: 'avec erreurs', it: 'con errori', en: 'with errors' },
+  'Erkannte Spalten: {list}': { fr: 'Colonnes reconnues : {list}', it: 'Colonne riconosciute: {list}', en: 'Recognised columns: {list}' },
+  'Nicht übernommen: {list}': { fr: 'Non repris : {list}', it: 'Non importate: {list}', en: 'Not imported: {list}' },
+  'Zeile {n}': { fr: 'Ligne {n}', it: 'Riga {n}', en: 'Line {n}' },
+  '… und {n} weitere': { fr: '… et {n} autres', it: '… e altri {n}', en: '… and {n} more' },
+  'Neue und geänderte Einträge gleich veröffentlichen': {
+    fr: 'Publier tout de suite les entrées nouvelles et modifiées',
+    it: 'Pubblica subito le voci nuove e modificate',
+    en: 'Publish new and changed entries right away',
+  },
+  '{n} Einträge übernehmen': { fr: 'Reprendre {n} entrées', it: 'Importa {n} voci', en: 'Apply {n} entries' },
 };
