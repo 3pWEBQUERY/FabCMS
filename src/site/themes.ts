@@ -169,6 +169,8 @@ h1.el-heading{font-size:var(--step-7)}h2.el-heading{font-size:var(--step-5)}h3.e
 .el-video{margin:0}
 .el-spacer{height:var(--s-6)}.el-spacer-s{height:var(--s-4)}.el-spacer-l{height:var(--s-7)}.el-spacer-xl{height:var(--sp-m)}
 .el-divider{width:100%;border:0;border-top:1px solid var(--line);margin:0}
+.el-list{display:grid;gap:var(--s-5)}
+.el-ghost{display:contents}
 .el-empty{display:grid;place-items:center;min-height:5rem;padding:1rem;border:1px dashed var(--line);border-radius:6px;color:var(--ink-2);font-size:var(--step-n1);text-align:center}
 .el-ph{display:grid;place-items:center;min-height:10rem;margin:0;background:var(--surface);color:var(--ink-2);font-size:var(--step-n1);border-radius:var(--img-radius,0)}
 .tone-muted{background:var(--surface)}

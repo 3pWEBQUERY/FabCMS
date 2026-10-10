@@ -38,6 +38,20 @@ export function LayoutThumb({ id }: { id: string }) {
             {line(x, 32, 16, 0.45)}
           </g>
         ));
+      case 'latest':
+        return (
+          <>
+            {line(10, 7, 28)}
+            {[10, 39, 68].map((x) => (
+              <g key={x}>
+                <rect x={x} y="14" width="23" height="14" rx="2" className="img" />
+                {line(x, 32, 18)}
+                {line(x, 38, 22, 0.45)}
+                {line(x, 43, 14, 0.45)}
+              </g>
+            ))}
+          </>
+        );
       case 'cover':
         return (
           <>

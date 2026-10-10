@@ -24,7 +24,7 @@ import { changedBlockIds, postToCanvas, setIn, updateBlock } from './util';
 import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
-import type { Block } from '../../shared/types';
+import type { Block, CollectionDef } from '../../shared/types';
 import { blockCss, blockDomId, COLOR_TOKENS, designImages, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
 import { cloneEl, createEl, EL_DEFS, elementImages, elementsCss, findEl, insertEl, moveEl, removeEl, updateEl, type El, type ElKind } from '../../shared/elements';
@@ -136,6 +136,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
   const elsOf = (b: Block | null | undefined) => (b?.props.els as El[] | undefined) ?? [];
   const selectedElInfo = selectedBlock?.type === 'layout' && selectedEl ? findEl(elsOf(selectedBlock), selectedEl) : null;
+  // Elements inside a CMS list take their content from that list's content type.
+  const { data: collectionsData } = useApi<{ collections: CollectionDef[] }>('/api/collections');
+  const collections = collectionsData?.collections ?? [];
+  const listAncestor = selectedElInfo ? [...selectedElInfo.ancestors].reverse().find((a) => a.kind === 'list') : null;
+  const listSource = listAncestor ? (collections.find((c) => c.id === listAncestor.props.collection) ?? null) : null;
   const backTo = doc.collection?.id === 'pages' || !doc.collection ? '/seiten' : `/inhalte/${doc.collection.id}`;
 
   /* ---------- rendering into the canvas ---------- */
@@ -467,9 +472,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
       (els) =>
         !info
           ? insertEl(els, null, els.length, el)
-          : info.el.kind === 'box' && !after
-            ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
-            : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
+          : info.el.kind === 'list' && info.el.children?.[0] && !after
+            ? insertEl(els, info.el.children[0].id, info.el.children[0].children?.length ?? 0, el)
+            : info.el.kind === 'box' && !after
+              ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
+              : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
       el.id,
     );
     setElPicker(null);
@@ -997,6 +1004,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       onDesignState={setDesignState}
                       onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
                       pro={session.pro}
+                      collections={collections}
+                      source={listSource}
                     />
                   </TokenColors.Provider>
                 )}

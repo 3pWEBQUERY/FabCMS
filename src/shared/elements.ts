@@ -12,7 +12,7 @@ import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
 
-export const EL_KINDS = ['box', 'heading', 'text', 'image', 'button', 'icon', 'video', 'spacer', 'divider'] as const;
+export const EL_KINDS = ['box', 'heading', 'text', 'image', 'button', 'icon', 'video', 'spacer', 'divider', 'list'] as const;
 export type ElKind = (typeof EL_KINDS)[number];
 
 export interface El {
@@ -25,7 +25,14 @@ export interface El {
   children?: El[];
   /** Own name in the layers panel. */
   name?: string;
+  /** Inside a CMS list: props filled from the entry (prop → 'title' | 'url' | 'date' | 'field:key'). */
+  bind?: Record<string, string>;
 }
+
+/** What each kind can take from an entry. */
+export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
+export const LIST_SORTS = ['newest', 'oldest', 'title', 'order'] as const;
+const BIND = /^(?:title|url|date|field:[a-z][\w]{0,40})$/;
 
 export interface ElDef {
   kind: ElKind;
@@ -182,11 +189,66 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     fields: [],
     defaults: {},
   },
+  list: {
+    kind: 'list',
+    label: 'Inhalte aus dem CMS',
+    description: 'Beiträge, Produkte, Events oder eigene Inhaltstypen – als Liste oder Raster, gestaltet wie du willst.',
+    icon: 'database',
+    fields: [
+      // The choice of content types is filled in by the editor.
+      { key: 'collection', type: 'select', label: 'Inhaltstyp', options: [] },
+      { key: 'limit', type: 'number', label: 'Wie viele', min: 1, max: 48 },
+      {
+        key: 'sort',
+        type: 'select',
+        label: 'Reihenfolge',
+        options: [
+          { value: 'newest', label: 'Neueste zuerst' },
+          { value: 'oldest', label: 'Älteste zuerst' },
+          { value: 'title', label: 'Nach Titel' },
+          { value: 'order', label: 'Eigene Reihenfolge' },
+        ],
+        default: 'newest',
+      },
+      { key: 'category', type: 'text', label: 'Nur aus Kategorie', help: 'Leer = alle.' },
+    ],
+    defaults: { collection: 'posts', limit: 3, sort: 'newest', category: '' },
+  },
 };
 
 export function createEl(kind: ElKind, props: Record<string, unknown> = {}, extra: Partial<El> = {}): El {
+  if (kind === 'list' && !extra.children) return createList(props, extra);
   return { id: shortId(8), kind, props: { ...structuredClone(EL_DEFS[kind].defaults), ...props }, ...(kind === 'box' ? { children: [] } : {}), ...extra };
 }
+
+/** A CMS list with a card as its template: picture, title, short text and a link to the entry. */
+function createList(props: Record<string, unknown>, extra: Partial<El>): El {
+  const card = createEl(
+    'box',
+    {},
+    {
+      name: 'Eintrag',
+      bind: { href: 'url' },
+      design: { desktop: { gap: '$s-3' } },
+      children: [
+        createEl('image', {}, { bind: { image: 'field:cover' }, design: { desktop: { aspect: '3/2', radius: '$s-3' } } }),
+        createEl('heading', { text: 'Titel des Eintrags', level: '3' }, { bind: { text: 'title' } }),
+        createEl('text', { html: '<p>Kurzfassung des Eintrags.</p>' }, { bind: { html: 'field:excerpt' } }),
+      ],
+    },
+  );
+  return {
+    id: shortId(8),
+    kind: 'list',
+    props: { ...structuredClone(EL_DEFS.list.defaults), ...props },
+    design: { desktop: { display: 'grid', columns: 3, gap: '$s-6' }, tablet: { columns: 2 }, mobile: { columns: 1 } },
+    children: [card],
+    ...extra,
+  };
+}
+
+/** The template every entry of a list is drawn with. */
+export const listTemplate = (list: El): El | null => list.children?.[0] ?? null;
 
 /* ---------- tree helpers ---------- */
 
@@ -302,6 +364,13 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { size: one(p.size, SPACER_SIZES, 'm') };
     case 'divider':
       return {};
+    case 'list':
+      return {
+        collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',
+        limit: typeof p.limit === 'number' ? Math.min(48, Math.max(1, Math.round(p.limit))) : 3,
+        sort: one(p.sort, LIST_SORTS, 'newest'),
+        category: plain(p.category, 80),
+      };
   }
 }
 
@@ -321,7 +390,11 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
     if (isObj(raw.design)) el.design = raw.design as Design;
     if (isObj(raw.motion)) el.motion = raw.motion as Motion;
     if (typeof raw.name === 'string' && raw.name.trim()) el.name = plain(raw.name, 60);
-    if (kind === 'box') el.children = sanitizeEls(raw.children, depth + 1, budget, seen);
+    if (isObj(raw.bind)) {
+      const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
+      if (Object.keys(bind).length) el.bind = bind as Record<string, string>;
+    }
+    if (kind === 'box' || kind === 'list') el.children = sanitizeEls(raw.children, depth + 1, budget, seen);
     out.push(el);
   }
   return out;
@@ -334,7 +407,8 @@ export function elementsCss(els: El[], opts: CompileOptions & { forceHover?: str
   const out: string[] = [];
   walkEls(els, (el) => {
     if (!ID.test(el.id)) return;
-    const sel = `#e-${el.id}`;
+    // Elements inside a CMS list repeat: the class reaches every copy, :is() keeps the weight of an id.
+    const sel = `:is(#e-${el.id},.e-${el.id})`;
     const vars = motionVars(el.motion);
     const icon = el.kind === 'icon' && typeof el.props.size === 'number' ? `--isz:${Math.min(240, Math.max(12, el.props.size))}px` : '';
     out.push(designCss(sel, el.design, opts));
@@ -354,9 +428,10 @@ export function elementImages(els: El[]): string[] {
 export function elementsText(els: El[]): string {
   const out: string[] = [];
   walkEls(els, (el) => {
-    if (el.kind === 'heading') out.push(String(el.props.text ?? ''));
-    if (el.kind === 'text') out.push(stripHtml(String(el.props.html ?? '')));
-    if (el.kind === 'button') out.push(String(el.props.label ?? ''));
+    // Texts bound to entries are placeholders – what visitors read comes from the entries.
+    if (el.kind === 'heading' && !el.bind?.text) out.push(String(el.props.text ?? ''));
+    if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
+    if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
   });
   return out.filter(Boolean).join(' ');
 }
@@ -366,7 +441,7 @@ export function elementsHeadings(els: El[]): { level: number; text: string; fiel
   const visit = (list: El[], base: string) =>
     list.forEach((el, i) => {
       const path = `${base}.${i}`;
-      if (el.kind === 'heading') out.push({ level: Number(el.props.level) || 2, text: String(el.props.text ?? ''), field: `${path}.props.text` });
+      if (el.kind === 'heading' && !el.bind?.text) out.push({ level: Number(el.props.level) || 2, text: String(el.props.text ?? ''), field: `${path}.props.text` });
       if (el.children) visit(el.children, `${path}.children`);
     });
   visit(els, 'els');
@@ -496,6 +571,12 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
         },
       ),
     ],
+  },
+  {
+    id: 'latest',
+    label: 'Neueste Beiträge',
+    description: 'Die drei neuesten Beiträge als Karten – kommen von selbst nach.',
+    els: () => [createEl('heading', { text: 'Aus dem Journal', level: '2' }), createEl('list')],
   },
   {
     id: 'empty',

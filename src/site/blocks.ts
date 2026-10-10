@@ -4,12 +4,12 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
-import { BOX_TAGS, elementImages, elementsCss, SPACER_SIZES, type El } from '../shared/elements';
+import { BOX_TAGS, elementImages, elementsCss, listTemplate, SPACER_SIZES, type El } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
-import type { Block, EntryData, FormDef } from '../shared/types';
+import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
+import { publishedEntries, categoriesOf, getForm, sectionBlocks, type PublicEntry } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -18,7 +18,7 @@ import { localDay, zonedToUtc, type BookingService } from '../shared/booking';
 import { MONTHS, longDay } from '../shared/dates';
 import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
-import { entryAccess } from '../shared/members';
+import { entryAccess, mayRead } from '../shared/members';
 import { membershipBox } from './members';
 import { eventCards, upcoming } from './events';
 import { donateBlock } from './donations';
@@ -810,7 +810,7 @@ const R: Record<string, Renderer> = {
   async layout(b, ctx) {
     const p = b.props as P;
     const els = (p.els as El[]) ?? [];
-    const inner = await renderEls(els, ctx, 'els');
+    const inner = await renderEls(els, ctx, { path: 'els', edit: ctx.edit });
     const empty = ctx.edit && !els.length ? html`<div class="el-empty">${'Leeres Layout – füg über «+» das erste Element hinzu.'}</div>` : '';
     return html`<div class="${p.width === 'full' ? 'lay lay-full' : 'wrap lay'}">${inner}${empty}</div>`;
   },
@@ -826,28 +826,65 @@ const R: Record<string, Renderer> = {
 
 /* ---------- free layout: one element after the other, containers recursively ---------- */
 
-async function renderEls(els: El[], ctx: RenderContext, base: string): Promise<Html> {
+/**
+ * How an element is drawn: where it sits in the props (for editing in place),
+ * whether this copy can be edited, and the entry when it repeats in a CMS list.
+ */
+interface ElRender {
+  path: string;
+  edit: boolean;
+  entry?: { e: PublicEntry; c: CollectionDef; open: boolean };
+}
+
+async function renderEls(els: El[], ctx: RenderContext, rc: ElRender): Promise<Html> {
   const out: Html[] = [];
-  for (let i = 0; i < els.length; i++) out.push(await renderEl(els[i], ctx, `${base}.${i}`));
+  for (let i = 0; i < els.length; i++) out.push(await renderEl(els[i], ctx, { ...rc, path: `${rc.path}.${i}` }));
   return join(out);
 }
 
-async function renderEl(el: El, ctx: RenderContext, path: string): Promise<Html> {
+/** A value from the entry an element is bound to – only what the visitor may see. */
+function bound(el: El, prop: string, rc: ElRender, ctx: RenderContext): { set: boolean; value: unknown; field?: FieldDef } {
+  const src = el.bind?.[prop];
+  if (!src || !rc.entry) return { set: false, value: undefined };
+  const { e, c, open } = rc.entry;
+  if (src === 'title') return { set: true, value: e.data.title };
+  if (src === 'url') return { set: true, value: entryPath(c, e.slug) ?? '' };
+  if (src === 'date') return { set: true, value: new Date(String(e.data.date || e.published_at)).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' }) };
+  const key = src.slice(6);
+  // Members-only entries show what their paywall shows: title, short text, picture.
+  if (!open && !['excerpt', 'cover', 'image', 'intro'].includes(key)) return { set: true, value: '' };
+  const field = c.fields.find((f) => f.key === key);
+  const v = e.data[key];
+  if (field?.type === 'money' && typeof v === 'number') return { set: true, value: formatPrice(v), field };
+  if ((field?.type === 'date' || field?.type === 'datetime') && v) return { set: true, value: new Date(String(v)).toLocaleDateString(L(ctx)), field };
+  if (field?.type === 'images' && Array.isArray(v)) return { set: true, value: v[0], field };
+  if (Array.isArray(v)) return { set: true, value: v.join(', '), field };
+  return { set: true, value: v ?? '', field };
+}
+
+async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html> {
   if (!/^[\w-]{1,24}$/.test(el.id)) return html``;
   const p = (el.props ?? {}) as P;
+  const path = rc.path;
   const motion = motionAttrs(el.motion);
   if (motion) ctx.needs.add('motion');
-  // An element animates itself (data-self); a container with «nacheinander» animates its children.
+  // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
   const attrs = raw(
-    ` id="e-${el.id}"${ctx.edit ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''}`,
+    `${rc.edit || !rc.entry ? ` id="e-${el.id}"` : ''}${rc.edit ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''}`,
   );
-  const cls = (extra = '') => `el el-${el.kind}${extra ? ` ${extra}` : ''}`;
+  const cls = (extra = '') => `el el-${el.kind} e-${el.id}${extra ? ` ${extra}` : ''}`;
+  const val = (prop: string) => bound(el, prop, rc, ctx);
+  const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => (val(prop).set ? '' : field(rc.edit, `${path}.props.${prop}`, kind));
+  const hrefOf = () => {
+    const b = val('href');
+    return b.set ? String(b.value || '') : typeof p.href === 'string' ? p.href : '';
+  };
   switch (el.kind) {
     case 'box': {
       const tag = (BOX_TAGS as readonly string[]).includes(String(p.tag)) ? String(p.tag) : 'div';
       const kids = el.children ?? [];
-      const inner = kids.length ? await renderEls(kids, ctx, `${path}.children`) : ctx.edit ? html`<div class="el-empty">${'Leerer Container'}</div>` : html``;
-      const href = typeof p.href === 'string' && p.href ? p.href : '';
+      const inner = kids.length ? await renderEls(kids, ctx, { ...rc, path: `${path}.children` }) : rc.edit ? html`<div class="el-empty">Leerer Container</div>` : html``;
+      const href = hrefOf();
       return href
         ? html`<a class="${cls()}" href="${href}"${attrs}>${inner}</a>`
         : html`${raw(`<${tag} class="${cls()}"`)}${attrs}>${inner}${raw(`</${tag}>`)}`;
@@ -855,27 +892,34 @@ async function renderEl(el: El, ctx: RenderContext, path: string): Promise<Html>
     case 'heading': {
       const level = Math.min(4, Math.max(1, Number(p.level) || 2));
       if (level === 1) ctx.h1 = true;
-      return html`${raw(`<h${level} class="${cls()}"`)}${attrs}${field(ctx.edit, `${path}.props.text`)}>${p.text ?? ''}${raw(`</h${level}>`)}`;
+      const b = val('text');
+      return html`${raw(`<h${level} class="${cls()}"`)}${attrs}${editField('text')}>${b.set ? String(b.value ?? '') : (p.text ?? '')}${raw(`</h${level}>`)}`;
     }
-    case 'text':
-      return html`<div class="${cls('prose')}"${attrs}${field(ctx.edit, `${path}.props.html`, 'rich')}>${raw(sanitizeRichText(p.html ?? ''))}</div>`;
+    case 'text': {
+      const b = val('html');
+      const body = b.set ? (b.field?.type === 'richtext' ? raw(sanitizeRichText(b.value)) : b.value ? html`<p>${lines(b.value)}</p>` : html``) : raw(sanitizeRichText(p.html ?? ''));
+      return html`<div class="${cls('prose')}"${attrs}${editField('html', 'rich')}>${body}</div>`;
+    }
     case 'image': {
-      const m = await ctx.media(p.image);
-      if (!m) return ctx.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>${'Bild wählen'}</span></figure>` : html``;
+      const b = val('image');
+      const m = await ctx.media(b.set ? b.value : p.image);
+      if (!m) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Bild wählen</span></figure>` : html``;
       const pic = picture(m, { sizes: '(min-width: 64rem) 50vw, 100vw', alt: p.alt || undefined });
-      return p.href ? html`<a class="${cls()}" href="${p.href}"${attrs}>${pic}</a>` : html`<figure class="${cls()}"${attrs}>${pic}</figure>`;
+      const href = hrefOf();
+      return href ? html`<a class="${cls()}" href="${href}"${attrs}>${pic}</a>` : html`<figure class="${cls()}"${attrs}>${pic}</figure>`;
     }
     case 'button': {
-      const label = p.label ?? '';
+      const b = val('label');
+      const label = b.set ? String(b.value ?? '') : (p.label ?? '');
       const variant = p.variant === 'secondary' ? 'btn-2' : p.variant === 'link' ? 'el-link' : 'btn';
-      if (!label && !ctx.edit) return html``;
-      return html`<a class="${cls(variant)}" href="${p.href || '#'}"${attrs}><span${field(ctx.edit, `${path}.props.label`)}>${label}</span></a>`;
+      if (!label && !rc.edit) return html``;
+      return html`<a class="${cls(variant)}" href="${hrefOf() || '#'}"${attrs}><span${editField('label')}>${label}</span></a>`;
     }
     case 'icon':
       return html`<span class="${cls()}"${attrs} aria-hidden="true">${raw(siteIconSvg(String(p.icon ?? 'star')))}</span>`;
     case 'video': {
       const embed = typeof p.url === 'string' && p.url ? videoEmbed(p.url) : null;
-      if (!embed) return ctx.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>${'Video-Link einfügen'}</span></figure>` : html``;
+      if (!embed) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Video-Link einfügen</span></figure>` : html``;
       if (!ctx.settings.consent[embed.provider]) return html``;
       ctx.needs.add('consent');
       const poster = await ctx.media(p.poster);
@@ -885,8 +929,29 @@ async function renderEl(el: El, ctx: RenderContext, path: string): Promise<Html>
       return html`<div class="${cls(`el-spacer-${(SPACER_SIZES as readonly string[]).includes(String(p.size)) ? p.size : 'm'}`)}"${attrs} aria-hidden="true"></div>`;
     case 'divider':
       return html`<hr class="${cls()}"${attrs}>`;
+    case 'list':
+      return renderList(el, ctx, rc, attrs, cls());
   }
   return html``;
+}
+
+/** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
+async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const c = ctx.collections.find((x) => x.id === p.collection);
+  const template = listTemplate(el);
+  if (!c || !template || rc.entry) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
+  const sort = { newest: ['published_at', 'desc'], oldest: ['published_at', 'asc'], title: ['title', 'asc'], order: ['sort', 'asc'] }[String(p.sort)] ?? ['published_at', 'desc'];
+  const { items } = await publishedEntries(c, { limit: Math.min(48, Math.max(1, Number(p.limit) || 3)), sortField: sort[0], sortDir: sort[1] as 'asc' | 'desc', category: p.category || undefined });
+  if (!items.length) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Noch keine veröffentlichten Einträge in «${c.name}».</div>` : html``;
+  const out: Html[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const e = items[i];
+    const open = entryAccess(e.data) === 'public' || mayRead(entryAccess(e.data), ctx.member?.level ?? null);
+    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open } });
+    out.push(rc.edit && i > 0 ? html`<div class="el-ghost" data-nova-ghost>${item}</div>` : item);
+  }
+  return html`<div class="${cls}"${attrs}>${out}</div>`;
 }
 
 export function hoursTable(ctx: RenderContext): Html {

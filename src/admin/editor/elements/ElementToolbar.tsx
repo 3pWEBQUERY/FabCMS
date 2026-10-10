@@ -90,11 +90,11 @@ export function ElementToolbar({
               <Icon name="arrowDown" size="s" />
             </button>
           </Tip>
-          <Tip label={found.el.kind === 'box' ? t('Element hineinlegen') : t('Element danach einfügen')}>
+          <Tip label={['box', 'list'].includes(found.el.kind) ? t('Element hineinlegen') : t('Element danach einfügen')}>
             <button
               className="btn icon-only"
               onClick={(e) => onInsert((e.currentTarget as HTMLElement).getBoundingClientRect())}
-              aria-label={found.el.kind === 'box' ? t('Element hineinlegen') : t('Element danach einfügen')}
+              aria-label={['box', 'list'].includes(found.el.kind) ? t('Element hineinlegen') : t('Element danach einfügen')}
             >
               <Icon name="plus" size="s" />
             </button>

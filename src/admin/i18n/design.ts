@@ -428,4 +428,32 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     en: '“{name}” copied – paste with {keys}, also on another page.',
   },
   'Übergeordnetes Element wählen': { fr: 'Sélectionner l’élément parent', it: 'Seleziona l’elemento superiore', en: 'Select the parent element' },
+  /* CMS content in the free layout */
+  'Inhalte aus dem CMS': { fr: 'Contenus du CMS', it: 'Contenuti dal CMS', en: 'Content from the CMS' },
+  'Beiträge, Produkte, Events oder eigene Inhaltstypen – als Liste oder Raster, gestaltet wie du willst.': {
+    fr: 'Articles, produits, événements ou vos propres types de contenu – en liste ou en grille, mis en forme comme vous le souhaitez.',
+    it: 'Articoli, prodotti, eventi o i tuoi tipi di contenuto – come elenco o griglia, con il design che vuoi.',
+    en: 'Posts, products, events or your own content types – as a list or grid, styled however you like.',
+  },
+  'Wie viele': { fr: 'Combien', it: 'Quanti', en: 'How many' },
+  'Neueste zuerst': { fr: 'Les plus récents d’abord', it: 'Prima i più recenti', en: 'Newest first' },
+  'Älteste zuerst': { fr: 'Les plus anciens d’abord', it: 'Prima i più vecchi', en: 'Oldest first' },
+  'Nach Titel': { fr: 'Par titre', it: 'Per titolo', en: 'By title' },
+  'Eigene Reihenfolge': { fr: 'Ordre personnalisé', it: 'Ordine personalizzato', en: 'Custom order' },
+  'Nur aus Kategorie': { fr: 'Seulement de la catégorie', it: 'Solo dalla categoria', en: 'Only from category' },
+  'Leer = alle.': { fr: 'Vide = tous.', it: 'Vuoto = tutti.', en: 'Empty = all.' },
+  'Neueste Beiträge': { fr: 'Derniers articles', it: 'Ultimi articoli', en: 'Latest posts' },
+  'Die drei neuesten Beiträge als Karten – kommen von selbst nach.': {
+    fr: 'Les trois derniers articles sous forme de cartes – mis à jour automatiquement.',
+    it: 'Gli ultimi tre articoli come schede – si aggiornano da soli.',
+    en: 'The three latest posts as cards – they update by themselves.',
+  },
+  'Inhalt aus «{name}»': { fr: 'Contenu de «{name}»', it: 'Contenuto da «{name}»', en: 'Content from “{name}”' },
+  'Fest – selbst eingeben': { fr: 'Fixe – saisir soi-même', it: 'Fisso – inserisci tu', en: 'Fixed – enter yourself' },
+  'Gestaltet wird der erste Eintrag – alle anderen sehen gleich aus. Verbinde seine Elemente mit den Feldern des Inhaltstyps.': {
+    fr: 'Vous mettez en forme la première entrée – toutes les autres lui ressemblent. Reliez ses éléments aux champs du type de contenu.',
+    it: 'Progetti la prima voce – tutte le altre avranno lo stesso aspetto. Collega i suoi elementi ai campi del tipo di contenuto.',
+    en: 'You design the first entry – all others look the same. Connect its elements to the fields of the content type.',
+  },
+  'Seite des Eintrags': { fr: 'Page de l’entrée', it: 'Pagina della voce', en: 'Page of the entry' },
 };

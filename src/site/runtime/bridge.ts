@@ -48,6 +48,7 @@ a[href]{cursor:default}
 [data-nova-el-hover]{outline:1px dashed rgba(43,89,195,.7)!important;outline-offset:-1px}
 [data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
 [data-nova-el-drag]{opacity:.35}
+[data-nova-ghost]{pointer-events:none}
 `;
 d.head.append(style);
 

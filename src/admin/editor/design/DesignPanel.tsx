@@ -123,7 +123,8 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
     onChange(d);
   };
   // Containers of the free layout are flex columns until someone says otherwise.
-  const display = prop('display').value ?? prop('display').inherited ?? (kind === 'box' ? 'flex' : undefined);
+  const container = kind === 'box' || kind === 'list';
+  const display = prop('display').value ?? prop('display').inherited ?? (kind === 'box' ? 'flex' : kind === 'list' ? 'grid' : undefined);
   const count = (sec: string) => SECTIONS[sec].filter((k) => design?.[layer]?.[k] !== undefined).length;
   const show = (k: keyof StyleProps) => !hover || HOVER_KEYS.has(k);
 
@@ -248,8 +249,8 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
       )}
 
       {!block && (
-        <DesignSection id="layout" title={kind === 'box' ? t('Layout') : t('Im Container')} icon="columns" count={count('layout')} defaultOpen={kind === 'box'}>
-          {kind === 'box' &&
+        <DesignSection id="layout" title={container ? t('Layout') : t('Im Container')} icon="columns" count={count('layout')} defaultOpen={container}>
+          {container &&
             row('display', t('Anordnung'), (p) => (
               <IconChoice
                 label={t('Anordnung')}
@@ -264,7 +265,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                 ]}
               />
             ))}
-          {kind === 'box' && display === 'flex' && (
+          {container && display === 'flex' && (
             <>
               {row('direction', t('Richtung'), (p) => (
                 <IconChoice
@@ -294,12 +295,12 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
               ))}
             </>
           )}
-          {kind === 'box' &&
+          {container &&
             display === 'grid' &&
             row('columns', t('Spalten'), (p) => (
               <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Spalten')} icon="columns" />
             ))}
-          {kind === 'box' && ['flex', 'grid'].includes(String(display)) && (
+          {container && ['flex', 'grid'].includes(String(display)) && (
             <>
               {row('justify', t('Verteilen'), (p) => (
                 <IconChoice

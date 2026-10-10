@@ -1213,14 +1213,36 @@ describe('free layout', () => {
     expect(elementsText(tree())).toBe('Titel Eins Los');
     expect(elementsHeadings(tree())).toEqual([{ level: 2, text: 'Titel', field: 'els.0.props.text' }]);
     const css = elementsCss([{ id: 'q', kind: 'box', props: {}, design: { desktop: { gap: '$s-5' }, mobile: { direction: 'column' } }, motion: { enter: 'up' } }]);
-    expect(css).toContain('#e-q{gap:var(--s-5)}');
-    expect(css).toContain('@media (max-width:40rem){#e-q{flex-direction:column}}');
-    expect(css).toContain('#e-q{--anim-dur:700ms');
+    expect(css).toContain(':is(#e-q,.e-q){gap:var(--s-5)}');
+    expect(css).toContain('@media (max-width:40rem){:is(#e-q,.e-q){flex-direction:column}}');
+    expect(css).toContain(':is(#e-q,.e-q){--anim-dur:700ms');
     // A grid set on desktop changes its column count on smaller screens.
     expect(elementsCss([{ id: 'g', kind: 'box', props: {}, design: { desktop: { display: 'grid', columns: 3 }, mobile: { columns: 1 } } }])).toContain(
-      '@media (max-width:40rem){#e-g{grid-template-columns:repeat(1,minmax(0,1fr))}}',
+      '@media (max-width:40rem){:is(#e-g,.e-g){grid-template-columns:repeat(1,minmax(0,1fr))}}',
     );
     for (const p of LAYOUT_PRESETS) expect(sanitizeEls(p.els()).length).toBe(p.els().length);
+  });
+
+  it('keeps CMS lists and field bindings only in their safe form', () => {
+    const [list] = sanitizeEls([
+      {
+        kind: 'list',
+        props: { collection: 'Posts; drop', limit: 900, sort: 'random', category: '  Touren  ' },
+        children: [
+          { kind: 'heading', props: { text: 'Titel' }, bind: { text: 'title', level: 'title' } },
+          { kind: 'image', props: {}, bind: { image: 'field:cover', href: 'javascript:x' } },
+          { kind: 'text', props: { html: '<p>x</p>' }, bind: { html: 'field:../secret' } },
+        ],
+      },
+    ]);
+    expect(list.props).toEqual({ collection: 'posts', limit: 48, sort: 'newest', category: 'Touren' });
+    expect(list.children!.map((c) => c.bind)).toEqual([{ text: 'title' }, { image: 'field:cover' }, undefined]);
+    // The ready-made list carries its card template with bindings.
+    const made = createEl('list');
+    expect(made.children![0].bind).toEqual({ href: 'url' });
+    expect(made.children![0].children!.map((c) => c.bind)).toEqual([{ image: 'field:cover' }, { text: 'title' }, { html: 'field:excerpt' }]);
+    // Bound texts belong to the entries, not to the page's search text.
+    expect(elementsText([made])).toBe('');
   });
 });
 

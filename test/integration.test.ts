@@ -2092,13 +2092,13 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(saved[1].props.html).not.toMatch(/javascript|script/);
     await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
     const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
-    expect(html).toContain('<section class="el el-box" id="e-row1" data-anim="up" data-anim-items="60" data-self>');
-    expect(html).toContain('<h1 class="el el-heading" id="e-h1x">Gross &lt;b&gt;&amp; klar&lt;/b&gt;</h1>');
-    expect(html).toContain('<a class="el el-button btn-2" href="/kontakt" id="e-bt"><span>Los</span></a>');
+    expect(html).toContain('<section class="el el-box e-row1" id="e-row1" data-anim="up" data-anim-items="60" data-self>');
+    expect(html).toContain('<h1 class="el el-heading e-h1x" id="e-h1x">Gross &lt;b&gt;&amp; klar&lt;/b&gt;</h1>');
+    expect(html).toContain('<a class="el el-button e-bt btn-2" href="/kontakt" id="e-bt"><span>Los</span></a>');
     expect(html).toContain('data-loop="float"');
-    expect(html).toContain('#e-row1{display:flex;flex-direction:row;gap:var(--s-6)}');
-    expect(html).toContain('@media (max-width:40rem){#e-row1{flex-direction:column}}');
-    expect(html).toContain('#e-ic{--isz:64px}');
+    expect(html).toContain(':is(#e-row1,.e-row1){display:flex;flex-direction:row;gap:var(--s-6)}');
+    expect(html).toContain('@media (max-width:40rem){:is(#e-row1,.e-row1){flex-direction:column}}');
+    expect(html).toContain(':is(#e-ic,.e-ic){--isz:64px}');
     expect(html).not.toContain('data-nova-el');
     // Only one h1: the layout brings its own, the page doesn't add a second.
     expect(html.match(/<h1/g)?.length).toBe(1);
@@ -2108,5 +2108,48 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(canvas.data.html).toContain('data-nova-field="els.0.children.0.props.text"');
     const search = await req('GET', `/api/v1/pages/${page.data.entry.slug}`, undefined, { cookies: new Map() });
     expect(search.status).toBe(200);
+  });
+
+  it('fills a free layout with CMS entries – bound fields, paywall kept, one copy to design in the editor', async () => {
+    await req('PUT', '/api/collections/posts', { custom_fields: [{ key: 'quelle', type: 'text', label: 'Quelle' }] });
+    const post = (title: string, extra: Record<string, unknown> = {}) =>
+      req('POST', '/api/entries', { collection: 'posts', data: { title, category: 'Werkstatt', ...extra } }).then((r) =>
+        req('POST', `/api/entries/${r.data.entry.id}/publish`, {}).then(() => r.data.entry),
+      );
+    const open = await post('Hobel <& Säge>', { excerpt: 'Alles über Holz.', quelle: 'Holzfachbuch' });
+    await post('Nur drinnen', { excerpt: 'Ein Blick in die Werkstatt.', access: 'members', quelle: 'Geheimes Notizbuch' });
+    const card = {
+      id: 'card',
+      kind: 'box',
+      props: {},
+      bind: { href: 'url' },
+      children: [
+        { id: 'ti', kind: 'heading', props: { text: 'Platzhalter', level: '3' }, bind: { text: 'title' } },
+        { id: 'ex', kind: 'text', props: { html: '<p>x</p>' }, bind: { html: 'field:excerpt' } },
+        { id: 'qu', kind: 'text', props: { html: '<p>y</p>' }, bind: { html: 'field:quelle' } },
+      ],
+    };
+    const els = [{ id: 'li', kind: 'list', props: { collection: 'posts', limit: 5, sort: 'title', category: 'werkstatt' }, children: [card] }];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Werkstatt-Liste', blocks: [{ id: 'lay2', type: 'layout', props: { els } }] } });
+    expect(page.status).toBe(200);
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    // Sorted by title, only the category, links to each entry, text escaped.
+    expect(html.match(/class="el el-box e-card"/g)?.length).toBe(2);
+    expect(html.indexOf('Hobel &lt;&amp; Säge&gt;')).toBeLessThan(html.indexOf('Nur drinnen'));
+    expect(html).toContain(`href="/journal/${open.slug}"`);
+    expect(html).toContain('Alles über Holz.');
+    expect(html).toContain('Holzfachbuch');
+    expect(html).not.toContain('Platzhalter');
+    // Members-only entries show what their paywall shows – not the rest.
+    expect(html).toContain('Ein Blick in die Werkstatt.');
+    expect(html).not.toContain('Geheimes Notizbuch');
+    expect(html).not.toContain('id="e-ti"');
+    // In the editor the first entry is the one you design, the others follow as copies.
+    const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay2' });
+    expect(canvas.data.html).toContain('data-nova-el="ti"');
+    expect(canvas.data.html.match(/data-nova-el="ti"/g)?.length).toBe(1);
+    expect(canvas.data.html).toContain('data-nova-ghost');
+    await req('PUT', '/api/collections/posts', { custom_fields: [] });
   });
 });
