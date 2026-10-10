@@ -1657,4 +1657,42 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Dallo a chi deve vedere la pagina. Una nuova password esclude di nuovo tutti.',
     en: 'Give it to everyone who should see the page. A new password locks everyone out again.',
   },
+  'Geschenkgutschein angelegt und verschickt.': { fr: 'Bon cadeau créé et envoyé.', it: 'Buono regalo creato e inviato.', en: 'Gift card created and sent.' },
+  'Geschenkgutschein angelegt.': { fr: 'Bon cadeau créé.', it: 'Buono regalo creato.', en: 'Gift card created.' },
+  Geschenkgutscheine: { fr: 'Bons cadeaux', it: 'Buoni regalo', en: 'Gift cards' },
+  'Offenes Guthaben: {amount}': { fr: 'Solde ouvert : {amount}', it: 'Saldo aperto: {amount}', en: 'Open balance: {amount}' },
+  'Von Hand anlegen': { fr: 'Créer à la main', it: 'Crea a mano', en: 'Create by hand' },
+  'Noch keine Geschenkgutscheine': { fr: 'Pas encore de bons cadeaux', it: 'Ancora nessun buono regalo', en: 'No gift cards yet' },
+  'Mach ein Produkt zum Geschenkgutschein (Schalter «Geschenkgutschein» im Produkt). Nach der Zahlung geht der Code per Mail an die Käuferin.': {
+    fr: 'Fais d’un produit un bon cadeau (interrupteur «Bon cadeau» dans le produit). Après le paiement, le code est envoyé par e-mail à l’acheteuse.',
+    it: 'Trasforma un prodotto in buono regalo (interruttore «Buono regalo» nel prodotto). Dopo il pagamento il codice arriva via e-mail all’acquirente.',
+    en: 'Turn a product into a gift card (the «Gift card» switch in the product). After payment the code is emailed to the buyer.',
+  },
+  '{left} von {initial} übrig': { fr: '{left} sur {initial} restants', it: '{left} di {initial} rimasti', en: '{left} of {initial} left' },
+  'von Hand': { fr: 'à la main', it: 'a mano', en: 'by hand' },
+  'Geschenkgutschein anlegen': { fr: 'Créer un bon cadeau', it: 'Crea buono regalo', en: 'Create gift card' },
+  'Zum Beispiel am Ladentisch verkauft. Mit E-Mail-Adresse geht der Code gleich per Mail raus.': {
+    fr: 'Par exemple vendu au comptoir. Avec une adresse e-mail, le code part tout de suite.',
+    it: 'Ad esempio venduto al banco. Con un indirizzo e-mail il codice parte subito.',
+    en: 'For example sold at the counter. With an email address, the code is sent right away.',
+  },
+  'Leer = unbegrenzt': { fr: 'Vide = illimité', it: 'Vuoto = illimitato', en: 'Empty = unlimited' },
+  'Leer = nur hier sichtbar': { fr: 'Vide = visible seulement ici', it: 'Vuoto = visibile solo qui', en: 'Empty = only visible here' },
+  'Nur intern, z. B. «Ladenverkauf, bar bezahlt».': {
+    fr: 'Interne seulement, p. ex. «Vente en magasin, payé comptant».',
+    it: 'Solo interno, ad es. «Vendita in negozio, pagato in contanti».',
+    en: 'Internal only, e.g. «Shop sale, paid cash».',
+  },
+  Geschenkgutschein: { fr: 'Bon cadeau', it: 'Buono regalo', en: 'Gift card' },
+  'Nach der Zahlung bekommt die Käuferin pro Stück einen Code über den Preis, per Mail und zum Ausdrucken. Eingelöst wird er an der Kasse; was übrig bleibt, bleibt drauf. Als Zahlungsmittel meist ohne MwSt. («Keine»).':
+    {
+      fr: 'Après le paiement, l’acheteuse reçoit par pièce un code du montant du prix, par e-mail et à imprimer. Il s’utilise à la caisse ; le solde reste dessus. Comme moyen de paiement, généralement sans TVA («Aucune»).',
+      it: 'Dopo il pagamento l’acquirente riceve per pezzo un codice dell’importo del prezzo, via e-mail e da stampare. Si usa alla cassa; il resto rimane. Come mezzo di pagamento di solito senza IVA («Nessuna»).',
+      en: 'After payment the buyer gets a code worth the price for each one, by email and to print. It is redeemed at checkout; whatever is left stays on it. As a means of payment usually without VAT («None»).',
+    },
+  'Nach der Zahlung eines Geschenkgutscheins – mit Code und Link zum Ausdrucken.': {
+    fr: 'Après le paiement d’un bon cadeau – avec le code et un lien pour l’imprimer.',
+    it: 'Dopo il pagamento di un buono regalo – con codice e link per stamparlo.',
+    en: 'After a gift card is paid – with the code and a link to print it.',
+  },
 };

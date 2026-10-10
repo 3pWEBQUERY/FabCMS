@@ -187,6 +187,12 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
         ],
       },
       { key: 'digital', type: 'boolean', label: 'Digitales Produkt', help: 'Kein Versand. Die Datei wird nach der Zahlung zum Download angeboten.' },
+      {
+        key: 'giftCard',
+        type: 'boolean',
+        label: 'Geschenkgutschein',
+        help: 'Nach der Zahlung bekommt die Käuferin pro Stück einen Code über den Preis, per Mail und zum Ausdrucken. Eingelöst wird er an der Kasse; was übrig bleibt, bleibt drauf. Als Zahlungsmittel meist ohne MwSt. («Keine»).',
+      },
       { key: 'file', type: 'file', label: 'Datei zum Download', private: true, showIf: { field: 'digital', equals: [true] } },
       { key: 'weight', type: 'number', label: 'Gewicht in Gramm', min: 0, pro: true },
     ],

@@ -3243,6 +3243,82 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('sells gift cards: issued once paid, redeemed as payment at the checkout, balance kept and given back', async () => {
+    const card = (
+      await req('POST', '/api/entries', { collection: 'products', slug: 'geschenk-50', data: { title: 'Geschenkgutschein 50', price: 5000, giftCard: true, vat: 'none' } })
+    ).data.entry;
+    await req('POST', `/api/entries/${card.id}/publish`, {});
+    const [kaffee] =
+      await sql`select id, (published_data ->> 'price')::int as price from entries where collection = 'products' and status = 'published' and published_data ->> 'title' like 'Kaffee%'`;
+    const buyer = { name: 'Gina Geber', street: 'Weg 4', zip: '8000', city: 'Zürich', country: 'CH', acceptTerms: '1' };
+    const checkout = async (cookies: Map<string, string>, form: Record<string, string>) =>
+      req('POST', '/kasse', undefined, { cookies, form: { ...buyer, shippingMethod: 'ship', payment: 'invoice', ...form } });
+
+    // Bought (no shipping, no coupon on money), issued only once paid, and only once.
+    const shop = new Map<string, string>();
+    await req('POST', '/api/coupons', { code: 'ZEHN', kind: 'percent', value: 10 });
+    await req('POST', '/warenkorb/add', undefined, { cookies: shop, form: { product: card.id, qty: '2' } });
+    expect((await req('GET', '/warenkorb?gutschein=ZEHN', undefined, { cookies: shop })).data).not.toContain('Rabatt</span>');
+    await checkout(shop, { email: 'gina@example.ch', coupon: 'ZEHN' });
+    const [bought] = await sql`select id, total, discount, shipping from orders where email = 'gina@example.ch'`;
+    expect(bought).toMatchObject({ total: 10000, discount: 0, shipping: 0 });
+    expect(await sql`select 1 from gift_cards where order_id = ${bought.id}`).toHaveLength(0);
+    outbox.length = 0;
+    await req('PATCH', `/api/orders/${bought.id}`, { status: 'paid' });
+    await req('PATCH', `/api/orders/${bought.id}`, { status: 'paid' });
+    const cards = await sql`select * from gift_cards where order_id = ${bought.id} order by code`;
+    expect(cards.map((c) => [c.initial, c.balance, c.active])).toEqual([
+      [5000, 5000, true],
+      [5000, 5000, true],
+    ]);
+    expect(cards[0].code).toMatch(/^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$/);
+    const mail = outbox.find((m) => m.subject.includes('Geschenkgutscheine'))!;
+    expect(mail.text).toContain(cards[0].code);
+    expect(mail.text).toContain(`/gutschein/${cards[0].id}?code=${cards[0].code}`);
+    const print = await req('GET', `/gutschein/${cards[0].id}?code=${cards[0].code}`, undefined, { cookies: new Map() });
+    expect(print.data).toContain(cards[0].code);
+    expect((await req('GET', `/gutschein/${cards[0].id}?code=FALSCH`, undefined, { cookies: new Map() })).status).toBe(404);
+
+    // Redeemed as typed (small letters, no dashes): paid in full, the rest stays on the card; VAT as without it.
+    const typed = cards[0].code.toLowerCase().replace(/-/g, ' ');
+    const cart1 = new Map<string, string>();
+    await req('POST', '/warenkorb/add', undefined, { cookies: cart1, form: { product: kaffee.id, qty: '2' } });
+    const due = 2 * kaffee.price + 900;
+    const done = await checkout(cart1, { email: 'ida@example.ch', coupon: typed });
+    expect(done.headers.get('location')).toMatch(/^\/bestellung\//);
+    const [paidByCard] = await sql`select * from orders where email = 'ida@example.ch' order by created_at desc limit 1`;
+    expect(paidByCard).toMatchObject({ status: 'paid', gift_card: cards[0].code, gift_amount: due, total: 0, payment_ref: 'Geschenkgutschein' });
+    expect(paidByCard.vat.length).toBeGreaterThan(0);
+    expect((await sql`select balance from gift_cards where id = ${cards[0].id}`)[0].balance).toBe(5000 - due);
+
+    // More than is left: the rest is paid; a cancelled order gives the money back.
+    const cart2 = new Map<string, string>();
+    await req('POST', '/warenkorb/add', undefined, { cookies: cart2, form: { product: kaffee.id, qty: '3' } });
+    await checkout(cart2, { email: 'ida@example.ch', coupon: cards[0].code });
+    const [part] = await sql`select * from orders where email = 'ida@example.ch' order by created_at desc limit 1`;
+    expect(part).toMatchObject({ status: 'pending', gift_amount: 5000 - due, total: 3 * kaffee.price + 900 - (5000 - due) });
+    expect((await sql`select balance from gift_cards where id = ${cards[0].id}`)[0].balance).toBe(0);
+    await req('POST', '/warenkorb/add', undefined, { cookies: cart2, form: { product: kaffee.id, qty: '1' } });
+    expect((await req('GET', `/warenkorb?gutschein=${cards[0].code}`, undefined, { cookies: cart2 })).data).toContain('aufgebraucht');
+    await req('PATCH', `/api/orders/${part.id}`, { status: 'cancelled' });
+    expect((await sql`select balance from gift_cards where id = ${cards[0].id}`)[0].balance).toBe(5000 - due);
+
+    // Switched off by hand, or refunded with its order: no longer accepted.
+    await req('PATCH', `/api/gift-cards/${cards[1].id}`, { active: false });
+    const cart3 = new Map<string, string>();
+    await req('POST', '/warenkorb/add', undefined, { cookies: cart3, form: { product: kaffee.id, qty: '1' } });
+    expect((await checkout(cart3, { email: 'ida@example.ch', coupon: cards[1].code })).headers.get('location')).toContain('nicht+mehr+g%C3%BCltig');
+    await req('PATCH', `/api/orders/${bought.id}`, { status: 'refunded' });
+    expect((await sql`select bool_or(active) as any from gift_cards where order_id = ${bought.id}`)[0].any).toBe(false);
+    // Made by hand: mailed, listed for the team.
+    outbox.length = 0;
+    const manual = await req('POST', '/api/gift-cards', { amount: 2500, email: 'theo@example.ch', note: 'Ladenverkauf' });
+    expect(outbox.some((m) => m.to === 'theo@example.ch' && m.text.includes(manual.data.card.code))).toBe(true);
+    expect((await req('GET', '/api/gift-cards')).data.cards.some((c: { id: string }) => c.id === manual.data.card.id)).toBe(true);
+    await sql`delete from coupons where code = 'ZEHN'`;
+    await req('DELETE', `/api/entries/${card.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

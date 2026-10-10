@@ -883,6 +883,9 @@ if (remind) {
   name?.addEventListener('change', sync);
 }
 
+/* ---------- print buttons (gift cards) ---------- */
+d.querySelectorAll<HTMLElement>('[data-print]').forEach((b) => b.addEventListener('click', () => print()));
+
 /* ---------- buttons: busy state while a normal form submits, no double orders ---------- */
 d.addEventListener('submit', (e) => {
   if (e.defaultPrevented) return; // async forms above handle themselves

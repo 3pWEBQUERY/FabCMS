@@ -75,6 +75,14 @@ export const MAIL_KINDS: MailKind[] = [
     module: 'shop',
     sample: ['Bergkäse 250 g ist ab sofort wieder erhältlich.', 'Zum Produkt: https://…'],
   },
+  {
+    id: 'giftcard',
+    label: 'Geschenkgutschein',
+    when: 'Nach der Zahlung eines Geschenkgutscheins – mit Code und Link zum Ausdrucken.',
+    vars: ['name', 'amount'],
+    module: 'shop',
+    sample: ['7KQ4-M2XP-9HTA  ·  CHF 50.00', 'Zum Ausdrucken: https://…'],
+  },
   { id: 'donation', label: 'Spendenbestätigung', when: 'Nach jeder Spende.', vars: ['name', 'amount'], module: 'donations', sample: ['Betrag: 50.–'] },
   {
     id: 'newsletter',

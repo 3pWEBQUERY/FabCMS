@@ -1424,4 +1424,5 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Solo la o il titolare può modificarlo per il proprio ruolo.',
     en: 'Only the owner can change this for their own role.',
   },
+  'Ein Gutschein hat mindestens 1.– Wert.': { fr: 'Un bon vaut au moins 1.–.', it: 'Un buono vale almeno 1.–.', en: 'A gift card is worth at least 1.–.' },
 };

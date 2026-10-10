@@ -11,6 +11,7 @@ import { replaceApi } from './api-replace';
 import { notFoundApi } from '../notfound';
 import { popupsApi } from '../popups';
 import { cartRemindersApi } from '../cart-reminders';
+import { giftCardsApi } from '../giftcards';
 import { mediaApi } from './api-media';
 import { businessApi } from './api-business';
 import { systemApi } from './api-system';
@@ -68,6 +69,7 @@ export function apiRoutes(app: Hono<AppEnv>) {
   notFoundApi(app);
   popupsApi(app);
   cartRemindersApi(app);
+  giftCardsApi(app);
   mediaApi(app);
   businessApi(app);
   systemApi(app);

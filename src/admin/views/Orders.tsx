@@ -361,6 +361,7 @@ export function Coupons() {
           </ul>
         )}
       </section>
+      <GiftCards />
       <Dialog open={open} onOpenChange={setOpen} title={t('Neuer Gutschein')}>
         <div className="stack">
           <Field label={t('Code')} help={t('Nur Buchstaben, Zahlen, - und _.')}>
@@ -401,5 +402,119 @@ export function Coupons() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+interface GiftCard {
+  id: string;
+  code: string;
+  initial: number;
+  balance: number;
+  currency: string;
+  email: string;
+  note: string;
+  active: boolean;
+  valid_until: string | null;
+  created_at: string;
+  order_number: string | null;
+  order_id: string | null;
+  uses: number;
+}
+
+/** Gift cards sold in the shop or made by hand: what is left on each, and switching one off. */
+function GiftCards() {
+  const toast = useToast();
+  const { can } = useSession();
+  const { data, reload } = useApi<{ cards: GiftCard[] }>('/api/gift-cards');
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ amount: '50', email: '', name: '', note: '', until: '' });
+  const create = async () => {
+    try {
+      const amount = Math.round(parseFloat(f.amount.replace(',', '.')) * 100);
+      await api.post('/api/gift-cards', { amount, email: f.email || undefined, name: f.name || undefined, note: f.note || undefined, validUntil: f.until || null });
+      setOpen(false);
+      setF({ amount: '50', email: '', name: '', note: '', until: '' });
+      toast(f.email ? t('Geschenkgutschein angelegt und verschickt.') : t('Geschenkgutschein angelegt.'));
+      void reload();
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
+  const open_ = (data?.cards ?? []).filter((c) => c.active && c.balance > 0).reduce((n, c) => n + c.balance, 0);
+  return (
+    <section className="card" style={{ marginTop: '1.5rem' }} aria-labelledby="gc-h">
+      <div className="card-head">
+        <div>
+          <h2 id="gc-h">{t('Geschenkgutscheine')}</h2>
+          {Boolean(data?.cards.length) && <p className="small muted">{t('Offenes Guthaben: {amount}', { amount: formatMoney(open_) })}</p>}
+        </div>
+        {can('orders.manage') && (
+          <button className="btn s" onClick={() => setOpen(true)}>
+            <Icon name="plus" size="s" /> {t('Von Hand anlegen')}
+          </button>
+        )}
+      </div>
+      {!data ? (
+        <Skeleton />
+      ) : !data.cards.length ? (
+        <Empty title={t('Noch keine Geschenkgutscheine')}>
+          {t('Mach ein Produkt zum Geschenkgutschein (Schalter «Geschenkgutschein» im Produkt). Nach der Zahlung geht der Code per Mail an die Käuferin.')}
+        </Empty>
+      ) : (
+        <ul className="list">
+          {data.cards.map((c) => (
+            <li key={c.id} className="list-item">
+              <span className="mono" style={{ fontWeight: 650 }}>
+                {c.code}
+              </span>
+              <span className="grow small muted">
+                {t('{left} von {initial} übrig', { left: formatMoney(c.balance, c.currency), initial: formatMoney(c.initial, c.currency) })}
+                {c.order_number ? ` · ${t('Bestellung {number}', { number: c.order_number })}` : ` · ${t('von Hand')}`}
+                {c.email ? ` · ${c.email}` : ''}
+                {c.note ? ` · ${c.note}` : ''}
+                {c.valid_until ? ` · ${t('bis {date}', { date: formatDate(c.valid_until) })}` : ''}
+              </span>
+              {can('orders.manage') && (
+                <Switch label={t('{code} aktiv', { code: c.code })} checked={c.active} onChange={(v) => void api.patch(`/api/gift-cards/${c.id}`, { active: v }).then(reload)} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={t('Geschenkgutschein anlegen')}
+        description={t('Zum Beispiel am Ladentisch verkauft. Mit E-Mail-Adresse geht der Code gleich per Mail raus.')}
+      >
+        <div className="stack">
+          <div className="grid-2">
+            <Field label={t('Betrag (CHF)')}>
+              <input className="input num" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} autoFocus />
+            </Field>
+            <Field label={t('Gültig bis')} help={t('Leer = unbegrenzt')}>
+              <DateInput label={t('Gültig bis')} value={f.until} min={isoDay(new Date())} onChange={(v) => setF({ ...f, until: v })} />
+            </Field>
+            <Field label={t('E-Mail')} help={t('Leer = nur hier sichtbar')}>
+              <input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+            </Field>
+            <Field label={t('Name')}>
+              <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+            </Field>
+          </div>
+          <Field label={t('Notiz')} help={t('Nur intern, z. B. «Ladenverkauf, bar bezahlt».')}>
+            <input className="input" maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
+          </Field>
+        </div>
+        <div className="dialog-actions">
+          <button className="btn ghost" onClick={() => setOpen(false)}>
+            {t('Abbrechen')}
+          </button>
+          <button className="btn primary" onClick={create} disabled={!(parseFloat(f.amount.replace(',', '.')) >= 1)}>
+            {t('Anlegen')}
+          </button>
+        </div>
+      </Dialog>
+    </section>
   );
 }

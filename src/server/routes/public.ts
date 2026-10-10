@@ -35,6 +35,7 @@ import {
   decodeCart,
   encodeCart,
   handleStripeEvent,
+  markPaid,
   paymentOptions,
   quote,
   sendOrderMails,
@@ -726,7 +727,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
           </form>
           ${q.coupon
             ? html`<p class="${q.coupon.ok ? 'form-ok' : 'form-err'}">${q.coupon.ok ? t(ctx, 'Gutschein {code}: {message}', { code: q.coupon.code, message: q.coupon.message }) : q.coupon.message}</p>`
-            : ''}${totalsHtml(ctx, q)}
+            : ''}${q.giftCard ? html`<p class="${q.giftCard.ok ? 'form-ok' : 'form-err'}">${q.giftCard.message}</p>` : ''}${totalsHtml(ctx, { ...q, gift: q.giftCard?.applied ?? 0 })}
           <div class="actions" style="justify-content:flex-end"><a class="btn" href="/kasse${coupon ? `?gutschein=${encodeURIComponent(coupon)}` : ''}">${t(ctx, 'Zur Kasse')}</a></div>
         </div>`
       : html`<div class="wrap nf">
@@ -840,7 +841,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
                 </li>`,
             )}
           </ul>
-          ${totalsHtml(ctx, q)}
+          ${q.giftCard?.ok ? html`<p class="form-ok">${q.giftCard.message}</p>` : ''}${totalsHtml(ctx, { ...q, gift: q.giftCard?.applied ?? 0 })}
         </aside>
       </div>
     </div>`;
@@ -894,6 +895,11 @@ export function publicRoutes(app: Hono<AppEnv>) {
       const order = await createOrder(items, input);
       await saveCart(c, []);
       await cartOrdered(input.email).catch(() => {});
+      // Paid in full with a gift card: nothing left to pay online or by invoice.
+      if (order.total === 0) {
+        await markPaid(order.id, 'Geschenkgutschein');
+        return c.redirect(`/bestellung/${order.token}`, 303);
+      }
       if (input.payment === 'stripe') return c.redirect(await stripeCheckoutUrl(order.id), 303);
       void sendOrderMails(order.id);
       return c.redirect(`/bestellung/${order.token}`, 303);
@@ -948,6 +954,7 @@ export function publicRoutes(app: Hono<AppEnv>) {
         subtotal: o.subtotal,
         discount: o.discount,
         shipping: o.shipping,
+        gift: o.gift_amount,
         total: o.total,
         vat: o.vat,
         currency: o.currency,
@@ -969,6 +976,33 @@ export function publicRoutes(app: Hono<AppEnv>) {
     c.header('Cache-Control', 'no-store');
     c.header('X-Robots-Tag', 'noindex');
     return c.html((await invoiceHtml(o)).value);
+  });
+
+  /** A gift card to print or forward: id and code together, so neither alone opens it. */
+  app.get('/gutschein/:id', async (c) => {
+    const id = c.req.param('id');
+    const code = c.req.query('code') ?? '';
+    const [g] = /^[0-9a-f-]{36}$/.test(id) ? await sql`select * from gift_cards where id = ${id} and code = ${code}` : [];
+    if (!g) return notFoundPage(c);
+    const ctx = await ctxFor(c);
+    const s = ctx.settings;
+    const shop = ctx.collections.find((x) => x.id === 'products')?.list_route ?? '/';
+    const body = html`<div class="wrap" style="padding-block:var(--sp-s)">
+      <article class="giftcard" aria-labelledby="gc-h">
+        <p class="label">${s.name}</p>
+        <h1 id="gc-h">${t(ctx, 'Geschenkgutschein')}</h1>
+        <p class="gc-value">${formatMoney(g.initial as number, g.currency as string)}</p>
+        <p class="gc-code"><span class="sr">${t(ctx, 'Code')}: </span>${g.code}</p>
+        <p>${t(ctx, 'Einlösen: im Laden auf {site} aussuchen und den Code an der Kasse ins Gutscheinfeld eingeben.', { site: ctx.base.replace(/^https?:\/\//, '') + shop })}</p>
+        ${g.balance !== g.initial ? html`<p class="muted">${t(ctx, 'Noch übrig: {amount}', { amount: formatMoney(g.balance as number, g.currency as string) })}</p>` : ''}${
+          g.valid_until ? html`<p class="muted">${t(ctx, 'Gültig bis {date}', { date: new Date(g.valid_until as string).toLocaleDateString(L(ctx)) })}</p>` : ''
+        }${!g.active ? html`<p class="form-err">${t(ctx, 'Dieser Geschenkgutschein ist nicht mehr gültig.')}</p>` : ''}
+      </article>
+      <p class="gc-actions"><button type="button" class="btn" data-print>${t(ctx, 'Drucken')}</button></p>
+    </div>`;
+    c.header('Cache-Control', 'no-store');
+    c.header('Referrer-Policy', 'no-referrer');
+    return sendHtml(c, await renderSystemPage(ctx, { title: t(ctx, 'Geschenkgutschein'), body }));
   });
 
   app.get('/bestellung/:token/bezahlen', async (c) => {
@@ -1189,13 +1223,14 @@ export function publicRoutes(app: Hono<AppEnv>) {
   });
 }
 
-function totalsHtml(ctx: { lang: Lang }, q: { subtotal: number; discount: number; shipping: number; total: number; vat: { rate: number; amount: number }[]; currency: string; needsShipping: boolean }) {
+function totalsHtml(ctx: { lang: Lang }, q: { subtotal: number; discount: number; shipping: number; gift?: number; total: number; vat: { rate: number; amount: number }[]; currency: string; needsShipping: boolean }) {
   return html`<div class="totals">
     <div><span>${t(ctx, 'Zwischensumme')}</span><span>${formatPrice(q.subtotal)}</span></div>
     ${q.discount ? html`<div><span>${t(ctx, 'Rabatt')}</span><span>−${formatPrice(q.discount)}</span></div>` : ''}${q.needsShipping
       ? html`<div><span>${t(ctx, 'Versand')}</span><span>${q.shipping ? formatPrice(q.shipping) : t(ctx, 'gratis')}</span></div>`
       : ''}
-    <div class="grand"><span>${t(ctx, 'Total')} ${q.currency}</span><span>${formatPrice(q.total)}</span></div>
+    ${q.gift ? html`<div><span>${t(ctx, 'Geschenkgutschein')}</span><span>−${formatPrice(q.gift)}</span></div>` : ''}
+    <div class="grand"><span>${q.gift ? t(ctx, 'Zu bezahlen') : t(ctx, 'Total')} ${q.currency}</span><span>${formatPrice(q.total)}</span></div>
     ${q.vat.map((v) => html`<div class="muted"><span>${t(ctx, 'inkl. {rate}% MwSt.', { rate: v.rate })}</span><span>${formatPrice(v.amount)}</span></div>`)}
   </div>`;
 }

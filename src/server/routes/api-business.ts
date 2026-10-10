@@ -7,6 +7,7 @@ import { badRequest, notFound, toCsv } from '../lib/http';
 import { bumpGeneration, getSettings } from '../settings';
 import { cancelOrder, markPaid, sendOrderMails, type QuoteLine } from '../shop';
 import { slugify, shortId, formatMoney, formatPrice } from '../../shared/text';
+import { refundGiftCards } from '../giftcards';
 import type { FormDef } from '../../shared/types';
 
 const formField = z.object({
@@ -260,6 +261,7 @@ export function businessApi(app: Hono<AppEnv>) {
       const allowed: Record<string, string[]> = { paid: ['fulfilled', 'refunded'], fulfilled: ['refunded'], pending: [] };
       if (!allowed[o.status]?.includes(status)) throw badRequest('Dieser Statuswechsel ist nicht möglich.');
       await sql`update orders set status = ${status}, updated_at = now() where id = ${id}`;
+      if (status === 'refunded') await refundGiftCards(id);
     }
     if (note !== undefined) await sql`update orders set note = ${note} where id = ${id}`;
     await audit(c, 'order.update', 'order', id, { status });

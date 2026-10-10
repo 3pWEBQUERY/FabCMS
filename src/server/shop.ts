@@ -13,6 +13,8 @@ import { badRequest } from './lib/http';
 import { emit } from './events';
 import { notify } from './notify';
 import { stockAfterOrder } from './stock';
+import { giveBackGiftCard, issueGiftCards } from './giftcards';
+import { giftCardApplies, normalizeCode } from '../shared/giftcards';
 import { depositPaid } from './booking';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
@@ -72,6 +74,8 @@ export interface QuoteLine {
   digital: boolean;
   available: number | null;
   sku: string;
+  /** A gift card for sale: issued as a code once paid. */
+  giftCard?: boolean;
 }
 
 export interface Quote {
@@ -82,6 +86,8 @@ export interface Quote {
   total: number;
   vat: { rate: number; amount: number }[];
   coupon: { code: string; ok: boolean; message: string } | null;
+  /** A gift card given in the code field: a means of payment, so it lowers what is paid, not the VAT. */
+  giftCard: { code: string; ok: boolean; message: string; applied: number; balance: number } | null;
   needsShipping: boolean;
   problems: string[];
   currency: string;
@@ -137,24 +143,30 @@ export async function quote(
       qty,
       total: unit * qty,
       vatRate: s.shop.vatRates[(d.vat as 'standard' | 'reduced' | 'none') ?? 'standard'] ?? s.shop.vatRates.standard,
-      digital: Boolean(d.digital),
+      digital: Boolean(d.digital) || Boolean(d.giftCard),
       available,
       sku: variant?.sku || (d.sku as string) || '',
+      ...(d.giftCard ? { giftCard: true } : {}),
     });
   }
   const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
 
   let discount = 0;
   let coupon: Quote['coupon'] = null;
+  let card: Record<string, any> | null = null;
+  // Gift cards themselves are money: no discount on them.
+  const discountable = lines.filter((l) => !l.giftCard).reduce((sum, l) => sum + l.total, 0);
   if (opts.couponCode?.trim()) {
     const code = opts.couponCode.trim();
     const [c] = await tx`select * from coupons where upper(code) = upper(${code}) and active`;
-    if (!c) coupon = { code, ok: false, message: T('Diesen Gutscheincode kennen wir nicht.') };
+    if (!c) card = ((await tx`select * from gift_cards where code = ${normalizeCode(code)}`)[0] as Record<string, any> | undefined) ?? null;
+    if (card) coupon = null;
+    else if (!c) coupon = { code, ok: false, message: T('Diesen Gutscheincode kennen wir nicht.') };
     else if (c.valid_until && new Date(c.valid_until) < new Date()) coupon = { code, ok: false, message: T('Dieser Gutschein ist abgelaufen.') };
     else if (c.max_uses !== null && c.uses >= c.max_uses) coupon = { code, ok: false, message: T('Dieser Gutschein wurde schon zu oft eingelöst.') };
     else if (subtotal < c.min_total) coupon = { code, ok: false, message: T('Dieser Gutschein gilt ab {amount} Bestellwert.', { amount: formatMoney(c.min_total) }) };
     else {
-      discount = c.kind === 'percent' ? Math.round((subtotal * Math.min(100, c.value)) / 100) : Math.min(subtotal, c.value);
+      discount = c.kind === 'percent' ? Math.round((discountable * Math.min(100, c.value)) / 100) : Math.min(discountable, c.value);
       coupon = { code: c.code, ok: true, message: T('{amount} Rabatt', { amount: c.kind === 'percent' ? `${c.value} %` : formatMoney(c.value) }) };
     }
   }
@@ -164,7 +176,28 @@ export async function quote(
   const afterDiscount = subtotal - discount;
   const shipping =
     needsShipping && method === 'ship' ? (s.shop.shipping.freeFrom !== null && afterDiscount >= s.shop.shipping.freeFrom ? 0 : s.shop.shipping.flat) : 0;
-  const total = afterDiscount + shipping;
+  const due = afterDiscount + shipping;
+  let giftCard: Quote['giftCard'] = null;
+  if (card) {
+    const today = new Date().toISOString().slice(0, 10);
+    const balance = card.balance as number;
+    const usable = card.active && balance > 0 && !(card.valid_until && String(card.valid_until).slice(0, 10) < today);
+    const applied = usable ? giftCardApplies(balance, due) : 0;
+    giftCard = {
+      code: card.code as string,
+      ok: usable,
+      applied,
+      balance,
+      message: !card.active
+        ? T('Dieser Geschenkgutschein ist nicht mehr gültig.')
+        : balance <= 0
+          ? T('Dieser Geschenkgutschein ist aufgebraucht.')
+          : !usable
+            ? T('Dieser Gutschein ist abgelaufen.')
+            : T('Geschenkgutschein: {amount} angerechnet, danach {rest} übrig.', { amount: formatMoney(applied), rest: formatMoney(balance - applied) }),
+    };
+  }
+  const total = due - (giftCard?.applied ?? 0);
 
   // VAT is included in prices (B2C). Discounts reduce each rate proportionally,
   // shipping is taxed at the standard rate.
@@ -182,7 +215,7 @@ export async function quote(
     if (existing) existing.amount += amount;
     else vat.push({ rate, amount });
   }
-  return { lines, subtotal, discount, shipping, total, vat: vat.sort((a, b) => b.rate - a.rate), coupon, needsShipping, problems, currency: s.shop.currency };
+  return { lines, subtotal, discount, shipping, total, vat: vat.sort((a, b) => b.rate - a.rate), coupon, giftCard, needsShipping, problems, currency: s.shop.currency };
 }
 
 /* ---------- Stock ---------- */
@@ -239,6 +272,7 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
     if (!q.lines.length) throw badRequest(T('Dein Warenkorb ist leer.'));
     if (q.problems.length) throw badRequest(q.problems.join(' '));
     if (q.coupon && !q.coupon.ok) throw badRequest(q.coupon.message);
+    if (q.giftCard && !q.giftCard.ok) throw badRequest(q.giftCard.message);
     if (q.needsShipping && input.shippingMethod === 'ship' && !(input.street && input.zip && input.city))
       throw badRequest(T('Für den Versand brauchen wir Strasse, PLZ und Ort.'));
     if (q.needsShipping && input.shippingMethod === 'ship' && !s.shop.shipping.countries.includes(input.country ?? 'CH'))
@@ -246,6 +280,15 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
 
     for (const l of q.lines) if (l.available !== null) await adjustStock(tx as unknown as typeof sql, l.productId, l.variant, -l.qty);
     if (q.coupon?.ok) await tx`update coupons set uses = uses + 1 where upper(code) = upper(${q.coupon.code})`;
+    // The card's balance goes down in the same step; two orders can't spend the same money.
+    let spent: string | null = null;
+    if (q.giftCard?.applied) {
+      const [card] = await tx`
+        update gift_cards set balance = balance - ${q.giftCard.applied}
+        where code = ${q.giftCard.code} and active and balance >= ${q.giftCard.applied} returning id`;
+      if (!card) throw badRequest(T('Das Guthaben des Geschenkgutscheins hat sich eben geändert. Bitte prüf die Bestellung nochmals.'));
+      spent = card.id as string;
+    }
 
     const [{ n }] = await tx`select nextval('order_number_seq') as n`;
     const number = `${s.shop.orderPrefix}${n}`;
@@ -261,10 +304,12 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
       shippingMethod: input.shippingMethod,
     };
     const [o] = await tx`
-      insert into orders (number, token, email, customer, items, subtotal, discount, shipping, total, vat, currency, coupon, payment_method, note, lang)
+      insert into orders (number, token, email, customer, items, subtotal, discount, shipping, total, vat, currency, coupon, payment_method, note, lang, gift_card, gift_amount)
       values (${number}, ${orderToken}, ${input.email.trim().toLowerCase()}, ${json(customer)}, ${json(q.lines)}, ${q.subtotal}, ${q.discount},
-              ${q.shipping}, ${q.total}, ${json(q.vat)}, ${q.currency}, ${q.coupon?.ok ? q.coupon.code : null}, ${input.payment}, ${input.note?.trim() ?? ''}, ${storedLang()})
+              ${q.shipping}, ${q.total}, ${json(q.vat)}, ${q.currency}, ${q.coupon?.ok ? q.coupon.code : null}, ${input.payment}, ${input.note?.trim() ?? ''}, ${storedLang()},
+              ${spent ? q.giftCard!.code : null}, ${spent ? q.giftCard!.applied : 0})
       returning id`;
+    if (spent) await tx`insert into gift_card_uses (card_id, order_id, amount) values (${spent}, ${o.id}, ${-q.giftCard!.applied})`;
     bumpGeneration();
     emit('order.created', { id: o.id, number, total: q.total, email: input.email });
     return { id: o.id as string, token: orderToken, number, total: q.total, lines: q.lines };
@@ -282,6 +327,7 @@ export async function cancelOrder(orderId: string, reason: string): Promise<void
     if (!o || o.status !== 'pending') return;
     for (const l of o.items as QuoteLine[]) if (l.available !== null) await adjustStock(tx as unknown as typeof sql, l.productId, l.variant, l.qty);
     if (o.coupon) await tx`update coupons set uses = greatest(0, uses - 1) where upper(code) = upper(${o.coupon})`;
+    await giveBackGiftCard(tx as unknown as typeof sql, o);
     await tx`update orders set status = 'cancelled', note = trim(note || ' ' || ${reason}), updated_at = now() where id = ${orderId}`;
   });
   bumpGeneration();
@@ -296,6 +342,7 @@ export async function markPaid(orderId: string, ref: string): Promise<void> {
   void notify({ kind: 'paid', cap: 'orders.view', title: `Bestellung ${o.number} bezahlt`, body: `${(o.customer as { name?: string }).name || o.email} · ${formatMoney(o.total as number, o.currency as string)} – bereit zum Versand.`, href: `/bestellungen/${o.id}` });
   await sql`insert into analytics_events (kind, path, visitor, goal, value_cents) values ('goal', '/kasse', 'server', 'order', ${o.total})`;
   await sendOrderMails(o.id as string);
+  await issueGiftCards(o.id as string);
 }
 
 export async function sendOrderMails(orderId: string): Promise<void> {
@@ -315,6 +362,7 @@ export async function sendOrderMails(orderId: string): Promise<void> {
     lines,
     o.discount ? `${T('Rabatt')}  −${formatMoney(o.discount)}` : '',
     o.shipping ? `${T('Versand')}  ${formatMoney(o.shipping)}` : '',
+    o.gift_amount ? `${T('Geschenkgutschein')}  −${formatMoney(o.gift_amount)}` : '',
     `${T('Total')}  ${formatMoney(o.total)} (${T('inkl. MwSt.')})`,
     '',
     o.payment_method === 'invoice' && !paid ? `${T('Bitte überweise den Betrag innert 30 Tagen.')}\n${s.shop.invoiceNote}` : '',
@@ -359,8 +407,8 @@ export async function stripeCheckoutUrl(orderId: string): Promise<string> {
     locale: pageLang(),
   };
   const cur = String(o.currency).toLowerCase();
-  if (o.discount > 0) {
-    // Stripe needs coupon objects for discounts; one summarised line keeps totals exact.
+  if (o.discount > 0 || o.gift_amount > 0) {
+    // Stripe needs coupon objects for discounts (and knows no gift cards); one summarised line keeps totals exact.
     fields['line_items[0][price_data][currency]'] = cur;
     fields['line_items[0][price_data][unit_amount]'] = o.total;
     fields['line_items[0][price_data][product_data][name]'] = T('Bestellung {number}', { number: o.number });

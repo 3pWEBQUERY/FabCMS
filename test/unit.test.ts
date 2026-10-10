@@ -87,6 +87,7 @@ import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } fr
 import { pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
 import { starText, summarize } from '../src/shared/reviews';
 import { crossedLimit, lowStock, stockLimit } from '../src/shared/stock';
+import { giftCardApplies, giftCardCode, normalizeCode } from '../src/shared/giftcards';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -1704,5 +1705,22 @@ describe('low stock', () => {
     expect(crossedLimit(3, 2, 3)).toBe(false);
     expect(crossedLimit(9, 4, 3)).toBe(false);
     expect(crossedLimit(1, 0, 0)).toBe(true);
+  });
+});
+
+describe('gift cards', () => {
+  it('makes codes without look-alike letters and reads them back however they are typed', () => {
+    const code = giftCardCode((n) => Uint8Array.from({ length: n }, (_, i) => i * 37));
+    expect(code).toMatch(/^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$/);
+    expect(code).not.toMatch(/[01ILO]/);
+    expect(normalizeCode(code.toLowerCase().replace(/-/g, ' '))).toBe(code);
+    expect(normalizeCode(' sommer10 ')).toBe('SOMMER10');
+  });
+
+  it('pays at most its balance and never more than is due', () => {
+    expect(giftCardApplies(5000, 3880)).toBe(3880);
+    expect(giftCardApplies(1120, 5370)).toBe(1120);
+    expect(giftCardApplies(0, 100)).toBe(0);
+    expect(giftCardApplies(500, -1)).toBe(0);
   });
 });

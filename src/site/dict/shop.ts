@@ -244,4 +244,39 @@ export const shop: Record<string, { fr: string; it: string; en: string }> = {
   /* printable menu */
   'Karte – {name}': { fr: 'Carte – {name}', it: 'Menu – {name}', en: 'Menu – {name}' },
   'Drucken oder als PDF sichern': { fr: 'Imprimer ou enregistrer en PDF', it: 'Stampa o salva come PDF', en: 'Print or save as PDF' },
+  'Dein Geschenkgutschein von {site}': { fr: 'Ton bon cadeau de {site}', it: 'Il tuo buono regalo di {site}', en: 'Your gift card from {site}' },
+  'Deine Geschenkgutscheine von {site}': { fr: 'Tes bons cadeaux de {site}', it: 'I tuoi buoni regalo di {site}', en: 'Your gift cards from {site}' },
+  'Hier ist der Code – zum Verschenken oder selbst Einlösen. Er wird an der Kasse ins Gutscheinfeld eingegeben; was übrig bleibt, bleibt auf dem Gutschein.': {
+    fr: 'Voici le code – à offrir ou à utiliser toi-même. Il se saisit à la caisse dans le champ bon ; le solde reste sur le bon.',
+    it: 'Ecco il codice – da regalare o usare tu stesso. Si inserisce alla cassa nel campo buono; il resto rimane sul buono.',
+    en: 'Here is the code – to give away or use yourself. Enter it in the voucher field at checkout; whatever is left stays on the card.',
+  },
+  'Zum Ausdrucken: {url}': { fr: 'À imprimer : {url}', it: 'Da stampare: {url}', en: 'To print: {url}' },
+  Geschenkgutschein: { fr: 'Bon cadeau', it: 'Buono regalo', en: 'Gift card' },
+  Code: { fr: 'Code', it: 'Codice', en: 'Code' },
+  'Einlösen: im Laden auf {site} aussuchen und den Code an der Kasse ins Gutscheinfeld eingeben.': {
+    fr: 'Utilisation : choisir dans la boutique sur {site} et saisir le code à la caisse dans le champ bon.',
+    it: 'Come usarlo: scegli nel negozio su {site} e inserisci il codice alla cassa nel campo buono.',
+    en: 'To redeem: pick something in the shop at {site} and enter the code in the voucher field at checkout.',
+  },
+  'Noch übrig: {amount}': { fr: 'Solde : {amount}', it: 'Rimanente: {amount}', en: 'Remaining: {amount}' },
+  'Gültig bis {date}': { fr: 'Valable jusqu’au {date}', it: 'Valido fino al {date}', en: 'Valid until {date}' },
+  'Dieser Geschenkgutschein ist nicht mehr gültig.': {
+    fr: 'Ce bon cadeau n’est plus valable.',
+    it: 'Questo buono regalo non è più valido.',
+    en: 'This gift card is no longer valid.',
+  },
+  'Zu bezahlen': { fr: 'À payer', it: 'Da pagare', en: 'To pay' },
+  'Dieser Geschenkgutschein ist aufgebraucht.': { fr: 'Ce bon cadeau est épuisé.', it: 'Questo buono regalo è esaurito.', en: 'This gift card has been used up.' },
+  'Geschenkgutschein: {amount} angerechnet, danach {rest} übrig.': {
+    fr: 'Bon cadeau : {amount} déduits, il reste ensuite {rest}.',
+    it: 'Buono regalo: {amount} scalati, poi restano {rest}.',
+    en: 'Gift card: {amount} applied, {rest} left afterwards.',
+  },
+  'Das Guthaben des Geschenkgutscheins hat sich eben geändert. Bitte prüf die Bestellung nochmals.': {
+    fr: 'Le solde du bon cadeau vient de changer. Vérifie la commande encore une fois.',
+    it: 'Il saldo del buono regalo è appena cambiato. Controlla di nuovo l’ordine.',
+    en: 'The gift card balance has just changed. Please check the order again.',
+  },
+  Drucken: { fr: 'Imprimer', it: 'Stampa', en: 'Print' },
 };
