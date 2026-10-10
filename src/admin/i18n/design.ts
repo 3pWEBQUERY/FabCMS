@@ -687,4 +687,9 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'L’identificativo, p. es. «posts». Per ogni tipo di contenuto vale il modello modificato per ultimo.',
     en: 'The identifier, e.g. “posts”. For each content type the most recently changed template applies.',
   },
+  'Hat die Vorlage eine eigene Hauptüberschrift, wird der Titel in Novas Ansicht zur Zwischenüberschrift.': {
+    fr: 'Si le modèle a son propre titre principal, le titre de la vue de Nova devient un intertitre.',
+    it: 'Se il modello ha un proprio titolo principale, il titolo nella vista di Nova diventa un sottotitolo.',
+    en: 'If the template has its own main heading, the title in Nova’s view becomes a subheading.',
+  },
 };

@@ -1130,6 +1130,9 @@ export function hoursSummary(ctx: RenderContext): Html {
   );
 }
 
+/** In the editor: where an entry's own blocks sit inside its article (the bridge inserts and moves them there). */
+export const ownBlocks = (ctx: RenderContext, inner: Html): Html => (ctx.edit ? html`<div class="nova-blocks" data-nova-blocks>${inner}</div>` : inner);
+
 /** Renders a block list, wrapping each block in its section element. */
 export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth?: number }): Promise<Html> {
   const c = ctx as RenderContext;

@@ -52,6 +52,12 @@ a[href]{cursor:default}
 [data-nova-ghost]{pointer-events:none}
 .el-marquee:hover .mq-track,.el-marquee:has([data-nova-el-selected]) .mq-track,.el-marquee[data-nova-el-selected] .mq-track{animation-play-state:paused}
 [data-nova-component]{position:relative}
+.nova-blocks{display:contents}
+.nova-tpl{position:relative;cursor:default}
+.nova-tpl::before{content:"Seitenvorlage «" attr(data-nova-template) "» – Doppelklick zum Bearbeiten";position:absolute;top:8px;right:8px;z-index:6;padding:5px 8px;border-radius:5px;background:#7c4de0;color:#fff;font:600 11px/1 system-ui,sans-serif;opacity:0;transition:opacity .15s;pointer-events:none}
+.nova-tpl::after{content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed transparent;outline-offset:-1px;transition:outline-color .15s}
+.nova-tpl:hover:not(:has([data-nova-block]:hover))::after{outline-color:rgba(124,77,224,.7)}
+.nova-tpl:hover:not(:has([data-nova-block]:hover))::before{opacity:1}
 [data-nova-component][data-nova-el-hover]{outline-color:rgba(124,77,224,.75)!important}
 [data-nova-component][data-nova-el-selected]{outline-color:#7c4de0!important}
 [data-nova-component]::after{content:"◆ " attr(data-nova-component);position:absolute;top:-1px;left:-1px;z-index:3;padding:3px 7px 4px;border-radius:0 0 6px 0;background:#7c4de0;color:#fff;font:600 11px/1 system-ui,sans-serif;white-space:nowrap;opacity:0;transition:opacity .12s;pointer-events:none}
@@ -113,8 +119,10 @@ const egrip = shadow.querySelector('.egrip') as HTMLElement;
 const edrop = shadow.querySelector('.edrop') as HTMLElement;
 const edropBox = shadow.querySelector('.edrop-box') as HTMLElement;
 
-const blocks = () => [...main.querySelectorAll<HTMLElement>(':scope > [data-nova-block]')];
-const blockEl = (id: string) => main.querySelector<HTMLElement>(`:scope > [data-nova-block="${CSS.escape(id)}"]`);
+// The page's own blocks: directly in <main> on pages, inside the article (posts, products …) or a template on entries.
+const blocksHost = () => main.querySelector<HTMLElement>('[data-nova-blocks]') ?? main;
+const blocks = () => [...main.querySelectorAll<HTMLElement>('[data-nova-block]')].filter((b) => !b.parentElement?.closest('[data-nova-block]'));
+const blockEl = (id: string) => blocks().find((b) => b.dataset.novaBlock === id) ?? null;
 const rectOf = (el: Element) => {
   const r = el.getBoundingClientRect();
   return { top: r.top, left: r.left, width: r.width, height: r.height };
@@ -422,6 +430,9 @@ d.addEventListener('dblclick', (e) => {
   // Double-click opens a section or a component's original – but selects words in its texts.
   if ((e.target as HTMLElement).closest('[data-nova-field]')) return;
   const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-section]');
+  // Inside a page template: the entry's own blocks are edited here, not in the template.
+  const own = (e.target as HTMLElement).closest('[data-nova-block]');
+  if (ref && own && ref.contains(own)) return;
   if (ref) post({ t: 'section', id: ref.dataset.novaSection });
 });
 
@@ -448,7 +459,7 @@ function positionChrome(clientX: number, clientY: number) {
     }
   });
   if (!list.length) {
-    const r = main.getBoundingClientRect();
+    const r = blocksHost().getBoundingClientRect();
     best = { y: r.top + 40, index: 0 };
   }
   if (best) {
@@ -769,9 +780,9 @@ addEventListener('message', (e) => {
       if (m.index >= list.length) {
         const last = list[list.length - 1];
         if (last) last.after(next);
-        else main.append(next);
+        else blocksHost().append(next);
       } else list[m.index].before(next);
-      main.querySelector(':scope > .wrap > .nova-empty')?.parentElement?.remove();
+      main.querySelector('.wrap > .nova-empty:not([data-nova-keep])')?.parentElement?.remove();
       setupFields(next);
       setupMotion(main, true);
       setupWidgets(next, true);

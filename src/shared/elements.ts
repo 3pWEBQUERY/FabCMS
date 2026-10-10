@@ -346,6 +346,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
           { value: 'default', label: 'Novas ganze Ansicht (Kaufen, Tickets, Kommentare …)' },
         ],
         default: 'blocks',
+        help: 'Hat die Vorlage eine eigene Hauptüberschrift, wird der Titel in Novas Ansicht zur Zwischenüberschrift.',
       },
     ],
     defaults: { show: 'blocks' },

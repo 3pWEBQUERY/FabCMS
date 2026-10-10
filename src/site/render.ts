@@ -3,7 +3,7 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
-import { renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
+import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, entryTemplate, sampleEntry, type PublicEntry } from './data';
 import {
@@ -323,23 +323,49 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   };
   let main: Html;
   let crumbs: Crumb[];
-  // A page template of its own (designed in the free layout). The entry's own editor keeps Nova's
-  // view, where its blocks can be edited in place; the preview and the website show the template.
-  const tpl = !ctx.edit && c.route && c.id !== 'pages' ? await entryTemplate(c.id, ctx.preview) : null;
+  // A page template of its own (designed in the free layout). In the entry's editor the template
+  // shows too, but only the entry's own blocks are edited there – the template has its own editor.
+  const tpl = c.route && c.id !== 'pages' ? await entryTemplate(c.id, ctx.preview) : null;
   if (tpl?.blocks.length) {
     const access = entryAccess(e.data);
-    const locked = !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
+    const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
+    const edit = ctx.edit;
     crumbs = [...listCrumbs(ctx, c), { label: e.data.title, href: path }];
-    let full = false;
+    // The entry's content is drawn where the template asks for it and put in place afterwards,
+    // when it is known whether the template brings its own main heading.
+    const views: { html: Html; full: boolean }[] = [];
     ctx.entry = { e, c, open: !locked };
     ctx.entryView = async (mode) => {
-      if (mode !== 'default') return locked ? gate(ctx, access) : renderBlocks(e.data.blocks ?? [], ctx);
-      full = true;
-      return (await builtInView(ctx, c, e, image)).main;
+      const outer = ctx.edit;
+      ctx.edit = edit;
+      try {
+        const html =
+          mode === 'default' ? (await builtInView(ctx, c, e, image)).main : locked ? gate(ctx, access) : ownBlocks(ctx, await renderBlocks(e.data.blocks ?? [], ctx));
+        views.push({ html, full: mode === 'default' });
+        return raw(`<!--nova-view-${views.length - 1}-->`);
+      } finally {
+        ctx.edit = outer;
+      }
     };
-    main = await renderBlocks(tpl.blocks, ctx);
+    ctx.edit = false;
+    let body: string;
+    try {
+      body = (await renderBlocks(tpl.blocks, ctx)).value;
+    } finally {
+      ctx.edit = edit;
+    }
+    // One main heading: with the template's own, Nova's view gets a second-level one.
+    const ownH1 = /<h1[\s>]/.test(body);
+    body = body.replace(/<!--nova-view-(\d+)-->/g, (_, i: string) => {
+      const v = views[Number(i)];
+      return ownH1 && v.full ? v.html.value.replace(/<h1(?=[\s>])/g, '<h2').replace(/<\/h1>/g, '</h2>') : v.html.value;
+    });
+    // A template without the entry's content still lets its blocks be edited – below it.
+    if (edit && !views.length)
+      body += html`<div class="wrap" style="padding-block:2rem"><p class="nova-empty" data-nova-keep>Die Seitenvorlage zeigt den Inhalt des Eintrags nicht. Füg in der Vorlage das Element «Inhalt des Eintrags» ein – bis dahin stehen die Blöcke hier.</p></div>${ownBlocks(ctx, await renderBlocks(e.data.blocks ?? [], ctx))}`.value;
+    main = edit ? html`<div class="nova-tpl" data-nova-section="${tpl.id}" data-nova-template="${tpl.title}">${raw(body)}</div>` : raw(body);
     // Search engines still learn it is an article, also when the template leaves out Nova's view.
-    if (c.id === 'posts' && !full) {
+    if (c.id === 'posts' && !views.some((v) => v.full)) {
       const ld = articleLd(ctx, c, { ...e, author_name: e.author_name ?? null }, image);
       ctx.jsonLd.push(access === 'public' ? ld : { ...ld, isAccessibleForFree: false });
     }
@@ -442,7 +468,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
   const first = (d.blocks ?? []).find((b) => b.type === 'text');
   const body = locked
     ? html`${first ? html`<div class="gate-teaser" aria-hidden="false">${await renderBlocks([first], ctx)}</div>` : ''}${gate(ctx, locked)}`
-    : await renderBlocks(d.blocks ?? [], ctx);
+    : ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx));
   const tags = (d.tags as string[]) ?? [];
   let series = html``;
   if (d.series) {
@@ -547,7 +573,7 @@ async function projectTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   ].filter(Boolean);
   return html`<article><header class="wrap art-head"><h1>${d.title}</h1>${d.summary ? html`<p class="lead">${d.summary as string}</p>` : ''}${
     facts.length ? html`<div class="stats" style="margin-top:1rem">${facts}</div>` : ''
-  }</header>${cover ? html`<div class="wrap art-cover">${picture(cover, { sizes: '(min-width: 78rem) 78rem, 100vw', priority: true })}</div>` : ''}${await renderBlocks(d.blocks ?? [], ctx)}${
+  }</header>${cover ? html`<div class="wrap art-cover">${picture(cover, { sizes: '(min-width: 78rem) 78rem, 100vw', priority: true })}</div>` : ''}${ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx))}${
     imgs.length
       ? html`<section class="b sp-m"><div class="wrap"><div class="gal gal-mosaic" data-lightbox>${imgs.map(
           (m) => html`<a href="${variantUrl(m, 1920, 'webp')}" data-caption="${m.caption || m.alt}">${picture(m, { sizes: '(min-width: 56rem) 33vw, 100vw', maxWidth: 1280 })}</a>`,
@@ -676,7 +702,7 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   ctx.h1 = true;
   const parts = await fieldParts(ctx, c.fields, d, (f) => f.key === c.title_field || f.key === 'title');
   return html`<article><header class="wrap art-head"><h1>${d.title}</h1></header><div class="wrap" style="padding-top:2rem;display:grid;gap:1.25rem;max-width:var(--measure);margin-inline:auto">${parts}</div>${
-    c.has_blocks ? await renderBlocks(d.blocks ?? [], ctx) : ''
+    c.has_blocks ? ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx)) : ''
   }</article>`;
 }
 

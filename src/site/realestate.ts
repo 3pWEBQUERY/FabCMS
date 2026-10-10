@@ -1,7 +1,7 @@
 import { html, raw, type Html, hx } from './html';
 import type { RenderContext } from './context';
 import { picture, variantUrl, originalUrl } from './picture';
-import { renderBlocks } from './blocks';
+import { ownBlocks, renderBlocks } from './blocks';
 import { localized } from '../server/translations';
 import { sql } from '../server/db';
 import { entryPath } from '../shared/paths';
@@ -260,10 +260,7 @@ export async function propertyTemplate(ctx: RenderContext, c: CollectionDef, e: 
             <div><button class="btn">${t(ctx, 'Anfrage senden')}</button></div>
             <p class="muted" style="font-size:var(--step-n1);margin:0">${t(ctx, 'Deine Angaben verwenden wir nur für diese Anfrage.')} <a href="/datenschutz">${t(ctx, 'Datenschutz')}</a></p>
           </form>`
-  }${ctx.settings.business.phone ? html`<p class="re-phone">${t(ctx, 'Oder ruf an:')} <a href="tel:${ctx.settings.business.phone.replace(/[^+\d]/g, '')}">${ctx.settings.business.phone}</a></p>` : ''}</aside></div><div class="art-body">${await renderBlocks(
-    d.blocks ?? [],
-    ctx,
-  )}</div><nav class="wrap pager" aria-label="${t(ctx, 'Zurück')}"><a class="btn-2" href="${c.list_route}">${t(ctx, 'Alle Objekte')}</a></nav></article>`;
+  }${ctx.settings.business.phone ? html`<p class="re-phone">${t(ctx, 'Oder ruf an:')} <a href="tel:${ctx.settings.business.phone.replace(/[^+\d]/g, '')}">${ctx.settings.business.phone}</a></p>` : ''}</aside></div><div class="art-body">${ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx))}</div><nav class="wrap pager" aria-label="${t(ctx, 'Zurück')}"><a class="btn-2" href="${c.list_route}">${t(ctx, 'Alle Objekte')}</a></nav></article>`;
 }
 
 function propertyLd(ctx: RenderContext, c: CollectionDef, e: Item, images: string[]): Record<string, unknown> {

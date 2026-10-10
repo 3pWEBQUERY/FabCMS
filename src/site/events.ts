@@ -1,7 +1,7 @@
 import { html, raw, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture } from './picture';
-import { renderBlocks } from './blocks';
+import { ownBlocks, renderBlocks } from './blocks';
 import { localized } from '../server/translations';
 import { sql } from '../server/db';
 import { env } from '../server/env';
@@ -151,7 +151,7 @@ export async function eventTemplate(ctx: RenderContext, c: CollectionDef, e: { i
         <dd>${avail.map((a) => html`<span class="ev-price">${a.name}: ${money(ctx, a.price)}</span>`)}</dd>
       </div>`,
     );
-  const body = await renderBlocks(d.blocks ?? [], ctx);
+  const body = ownBlocks(ctx, await renderBlocks(d.blocks ?? [], ctx));
   return html`<article class="ev"><header class="wrap art-head ev-head">${d.category ? html`<a class="label" href="${c.list_route}?kategorie=${encodeURIComponent(d.category as string)}">${d.category as string}</a>` : ''}<h1${
     ctx.edit ? raw(' data-nova-entry-field="title"') : ''
   }>${d.title}</h1>${d.excerpt ? html`<p class="lead">${d.excerpt as string}</p>` : ''}${

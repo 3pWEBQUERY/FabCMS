@@ -2324,10 +2324,12 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       expect(gated).toContain('Nur ein Blick.');
       expect(gated).toContain('Weiterlesen mit deinem Konto');
       expect(gated).not.toContain('Geheimes Rezept');
-      // The entry's own editor keeps Nova's view, where its blocks are edited in place.
-      const canvas = await req('POST', '/api/render', { entryId: open.id, data: open.data });
-      expect(canvas.data.html).not.toContain('e-tt');
-      expect(canvas.data.html).toContain('data-nova-block=');
+      // The entry's editor shows the template too: its parts as one piece (double-click opens it),
+      // the entry's own blocks editable where «Inhalt des Eintrags» stands.
+      const canvas = (await req('POST', '/api/render', { entryId: open.id, data: open.data })).data.html as string;
+      expect(canvas).toContain(`<div class="nova-tpl" data-nova-section="${tpl.data.entry.id}" data-nova-template="Beitragsseite">`);
+      expect(canvas).not.toContain('data-nova-el="tt"');
+      expect(canvas).toMatch(/<div class="nova-blocks" data-nova-blocks><section class="b b-text[^"]*" id="[^"]+" data-tone="default" data-nova-block=/);
       // Designing the template shows the newest published entry of its type.
       const design = await req('POST', '/api/render', { entryId: tpl.data.entry.id, data: tpl.data.entry.data, blockId: 'tl' });
       expect(design.data.html).toContain('data-nova-el="tt"');
@@ -2341,6 +2343,9 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       const whole = await page(open.slug);
       expect(whole).toContain('class="wrap art-head"');
       expect(whole.match(/"@type":"BlogPosting"/g)?.length).toBe(1);
+      // Still one main heading: Nova's own title steps down below the template's.
+      expect(whole.match(/<h1/g)?.length).toBe(1);
+      expect(whole).toMatch(/<h2[^>]*>Vorlage &lt;offen&gt;<\/h2>/);
     } finally {
       await req('DELETE', `/api/entries/${tpl.data.entry.id}`);
     }
