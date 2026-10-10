@@ -3433,6 +3433,40 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('places forms as elements of the free layout, once per place', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const [form] = await sql`select id from forms where name = 'Kontakt'`;
+    const els = [
+      {
+        id: 'frow',
+        kind: 'box',
+        props: {},
+        children: [
+          { id: 'fhead', kind: 'heading', props: { text: 'Schreib uns', level: '2' } },
+          { id: 'fform', kind: 'form', props: { form: form.id } },
+          { id: 'fbad', kind: 'form', props: { form: '"><script>' } },
+        ],
+      },
+      { id: 'flist', kind: 'list', props: { collection: 'posts', limit: 2 }, children: [{ id: 'finlist', kind: 'form', props: { form: form.id } }] },
+    ];
+    const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Formular frei', blocks: [{ id: 'flay', type: 'layout', props: { els } }] } })).data
+      .entry;
+    const saved = page.data.blocks[0].props.els[0].children;
+    expect(saved[1].props.form).toBe(form.id);
+    expect(saved[2].props.form).toBe('');
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', `/${page.slug}`, undefined, anon)).data as string;
+    expect(html).toContain('<div class="el el-form e-fform" id="e-fform"><form class="nform" id="form-');
+    expect(html).toContain('action="/_nova/forms/' + form.id + '"');
+    // Field ids carry the element's id; the copies of a CMS list get none, an empty choice nothing.
+    expect(html).toMatch(/id="f-fform-[\w-]+"/);
+    expect(html.match(/<form class="nform"/g)).toHaveLength(1);
+    // In the editor the empty one asks for a form.
+    const canvas = await req('POST', '/api/render', { entryId: page.id, data: page.data, blockId: 'flay' });
+    expect(canvas.data.html).toContain('Formular wählen');
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

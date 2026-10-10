@@ -23,6 +23,7 @@ export const EL_KINDS = [
   'video',
   'spacer',
   'divider',
+  'form',
   'counter',
   'accordion',
   'tabs',
@@ -235,6 +236,15 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       { key: 'poster', type: 'image', label: 'Vorschaubild' },
     ],
     defaults: { url: '' },
+  },
+  form: {
+    kind: 'form',
+    group: 'interactive',
+    label: 'Formular',
+    description: 'Eines der Formulare aus «Inhalte → Formulare» – mit Spam-Schutz und Eingang im Postfach.',
+    icon: 'form',
+    fields: [{ key: 'form', type: 'form', label: 'Welches Formular?' }],
+    defaults: { form: '' },
   },
   spacer: {
     kind: 'spacer',
@@ -753,6 +763,8 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { size: one(p.size, SPACER_SIZES, 'm') };
     case 'divider':
       return {};
+    case 'form':
+      return { form: typeof p.form === 'string' && /^[\w-]{1,64}$/.test(p.form) ? p.form : '' };
     case 'counter': {
       const n = typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0;
       return {

@@ -873,4 +873,9 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     en: 'The design of this place becomes a style. Other blocks and elements can then use it; change it and they change too.',
   },
   'Diesen Namen gibt es schon.': { fr: 'Ce nom existe déjà.', it: 'Questo nome esiste già.', en: 'This name already exists.' },
+  'Eines der Formulare aus «Inhalte → Formulare» – mit Spam-Schutz und Eingang im Postfach.': {
+    fr: 'Un des formulaires de « Contenus → Formulaires » – avec protection anti-spam et réception dans la boîte.',
+    it: 'Uno dei moduli di «Contenuti → Moduli» – con protezione antispam e arrivo nella casella.',
+    en: 'One of the forms from “Content → Forms” – with spam protection and an inbox.',
+  },
 };

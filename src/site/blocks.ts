@@ -971,6 +971,13 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       return html`<div class="${cls(`el-spacer-${(SPACER_SIZES as readonly string[]).includes(String(p.size)) ? p.size : 'm'}`)}"${attrs} aria-hidden="true"></div>`;
     case 'divider':
       return html`<hr class="${cls()}"${attrs}>`;
+    case 'form': {
+      // A form once per place: copies in a CMS list would share their field ids.
+      const form = !rc.list && typeof p.form === 'string' && p.form ? await getForm(p.form) : null;
+      if (!form)
+        return rc.edit ? html`<div class="${cls('el-ph')}"${attrs}><span>${rc.list ? 'Formulare gehen nicht in eine CMS-Liste.' : 'Formular wählen'}</span></div>` : html``;
+      return html`<div class="${cls()}"${attrs}>${renderForm(form, ctx, el.id)}</div>`;
+    }
     case 'counter': {
       const value = Number(p.value) || 0;
       const dec = Math.min(2, (String(p.value ?? '').split('.')[1] ?? '').length);
