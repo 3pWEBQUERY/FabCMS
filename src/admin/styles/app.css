@@ -762,6 +762,21 @@ input[type='radio']:disabled {
   font-weight: 650;
   color: var(--ink-3);
 }
+.field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.field-chips li {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  background: var(--sunken);
+}
 .divider {
   height: 1px;
   background: var(--line);

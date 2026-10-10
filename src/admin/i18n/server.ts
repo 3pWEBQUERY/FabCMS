@@ -299,10 +299,15 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Esiste già un tipo di contenuto con questo nome.',
     en: 'A content type with this name already exists.',
   },
-  'Die Felder eingebauter Typen sind fest. Leg einen eigenen Typ an, um Felder frei zu definieren.': {
-    fr: 'Les champs des types intégrés sont fixes. Créez votre propre type pour définir librement les champs.',
-    it: 'I campi dei tipi integrati sono fissi. Crea un tuo tipo per definire liberamente i campi.',
-    en: 'The fields of built-in types are fixed. Create your own type to define fields freely.',
+  'Die eingebauten Felder sind fest. Eigene Felder kommen unter «Eigene Felder» dazu.': {
+    fr: 'Les champs intégrés sont fixes. Ajoutez les vôtres sous «Champs propres».',
+    it: 'I campi integrati sono fissi. Aggiungi i tuoi sotto «Campi propri».',
+    en: 'The built-in fields are fixed. Add your own under “Own fields”.',
+  },
+  'Ein zweiter Seiteninhalt (Blöcke) ist als eigenes Feld nicht möglich.': {
+    fr: 'Un second contenu de page (blocs) n’est pas possible comme champ propre.',
+    it: 'Un secondo contenuto di pagina (blocchi) non è possibile come campo proprio.',
+    en: 'A second page body (blocks) is not possible as an own field.',
   },
   'Das Titelfeld muss eines der Felder sein.': {
     fr: 'Le champ de titre doit faire partie des champs.',

@@ -564,6 +564,18 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
   'z. B. Zimmer': { fr: 'p. ex. Chambre', it: 'ad es. Camera', en: 'e.g. Room' },
   'Felder pro Eintrag': { fr: 'Champs par entrée', it: 'Campi per voce', en: 'Fields per entry' },
   Feld: { fr: 'Champ', it: 'Campo', en: 'Field' },
+  'Felder von Nova': { fr: 'Champs de Nova', it: 'Campi di Nova', en: 'Nova’s fields' },
+  'Diese Felder gehören zur eingebauten Vorlage und bleiben bei jedem Update erhalten.': {
+    fr: 'Ces champs font partie du modèle intégré et sont conservés à chaque mise à jour.',
+    it: 'Questi campi fanno parte del modello integrato e restano a ogni aggiornamento.',
+    en: 'These fields belong to the built-in template and are kept with every update.',
+  },
+  'Eigene Felder': { fr: 'Champs propres', it: 'Campi propri', en: 'Own fields' },
+  'Erscheinen sofort im Formular jedes Eintrags und auf der Website unter dem Inhalt.': {
+    fr: 'Apparaissent aussitôt dans le formulaire de chaque entrée et sur le site, sous le contenu.',
+    it: 'Compaiono subito nel modulo di ogni voce e sul sito, sotto il contenuto.',
+    en: 'Appear right away in every entry’s form and on the website below the content.',
+  },
   'Inhaltstyp gespeichert. Im Studio erscheint er als Formular.': {
     fr: 'Type de contenu enregistré. Il apparaît comme formulaire dans le Studio.',
     it: 'Tipo di contenuto salvato. Nello Studio appare come modulo.',

@@ -32,7 +32,11 @@ export async function syncBuiltinCollections(): Promise<void> {
 
 export async function listCollections(): Promise<CollectionDef[]> {
   if (!collectionsCache) {
-    collectionsCache = (await sql`select * from collections order by builtin desc, created_at`) as unknown as CollectionDef[];
+    const rows = (await sql`select * from collections order by builtin desc, created_at`) as unknown as CollectionDef[];
+    // Built-in types: Nova's fields first, then the site's own – one list for forms, API and pages.
+    collectionsCache = rows.map((c) =>
+      c.builtin && c.custom_fields?.length ? { ...c, fields: [...c.fields, ...c.custom_fields.filter((f) => !c.fields.some((b) => b.key === f.key))] } : c,
+    );
   }
   return collectionsCache;
 }
@@ -77,10 +81,14 @@ export async function saveCollection(input: Partial<CollectionDef> & { id: strin
   if (isNew && ['graphql', 'collections', 'sdk', 'schema'].includes(id)) throw badRequest('Dieser technische Name ist für die API reserviert.');
   if (isNew && existing) throw badRequest('Einen Inhaltstyp mit diesem Namen gibt es schon.');
   if (!isNew && !existing) throw notFound();
-  if (existing?.builtin && input.fields) throw badRequest('Die Felder eingebauter Typen sind fest. Leg einen eigenen Typ an, um Felder frei zu definieren.');
-  const fields = input.fields ?? existing?.fields ?? [{ key: 'title', type: 'text', label: 'Titel', required: true }];
-  checkFieldDefs(fields);
-  if (!fields.some((f) => f.key === (input.title_field ?? existing?.title_field ?? 'title'))) throw badRequest('Das Titelfeld muss eines der Felder sein.');
+  if (existing?.builtin && input.fields) throw badRequest('Die eingebauten Felder sind fest. Eigene Felder kommen unter «Eigene Felder» dazu.');
+  // Built-in types: Nova's fields stay as defined in code; the site adds its own next to them.
+  const builtinDef = existing?.builtin ? BUILTIN_COLLECTIONS.find((b) => b.id === id) : undefined;
+  const customFields = builtinDef ? (input.custom_fields ?? existing?.custom_fields ?? []) : [];
+  const fields = builtinDef ? builtinDef.fields : (input.fields ?? existing?.fields ?? [{ key: 'title', type: 'text', label: 'Titel', required: true }]);
+  checkFieldDefs([...fields, ...customFields]);
+  if (customFields.some((f) => f.type === 'blocks')) throw badRequest('Ein zweiter Seiteninhalt (Blöcke) ist als eigenes Feld nicht möglich.');
+  if (!builtinDef && !fields.some((f) => f.key === (input.title_field ?? existing?.title_field ?? 'title'))) throw badRequest('Das Titelfeld muss eines der Felder sein.');
   const route = input.route === undefined ? (existing?.route ?? null) : input.route || null;
   const listRoute = input.list_route === undefined ? (existing?.list_route ?? null) : input.list_route || null;
   if (route && !/^\/[a-z0-9\-/]*:slug$/.test(route)) throw badRequest('Die Detail-Adresse muss mit «/» beginnen und auf «:slug» enden, z. B. /rezepte/:slug.');
@@ -93,13 +101,13 @@ export async function saveCollection(input: Partial<CollectionDef> & { id: strin
   const name = (input.name ?? existing?.name ?? '').trim();
   if (!name) throw badRequest('Bitte gib dem Inhaltstyp einen Namen.');
   await sql`
-    insert into collections (id, name, singular, icon, fields, route, list_route, has_blocks, builtin, module, title_field, empty_hint, sort, per_page)
-    values (${id}, ${name}, ${input.singular ?? existing?.singular ?? name}, ${input.icon ?? existing?.icon ?? 'page'}, ${json(fields)},
+    insert into collections (id, name, singular, icon, fields, custom_fields, route, list_route, has_blocks, builtin, module, title_field, empty_hint, sort, per_page)
+    values (${id}, ${name}, ${input.singular ?? existing?.singular ?? name}, ${input.icon ?? existing?.icon ?? 'page'}, ${json(fields)}, ${json(customFields)},
             ${route}, ${listRoute}, ${input.has_blocks ?? existing?.has_blocks ?? false}, false, null,
             ${input.title_field ?? existing?.title_field ?? 'title'}, ${input.empty_hint ?? existing?.empty_hint ?? null},
             ${json(input.sort ?? existing?.sort ?? { field: 'created_at', dir: 'desc' })}, ${input.per_page ?? existing?.per_page ?? 12})
     on conflict (id) do update set
-      name = excluded.name, singular = excluded.singular, icon = excluded.icon, fields = excluded.fields, route = excluded.route,
+      name = excluded.name, singular = excluded.singular, icon = excluded.icon, fields = excluded.fields, custom_fields = excluded.custom_fields, route = excluded.route,
       list_route = excluded.list_route, has_blocks = excluded.has_blocks, title_field = excluded.title_field,
       empty_hint = excluded.empty_hint, sort = excluded.sort, per_page = excluded.per_page, updated_at = now()`;
   invalidateCollections();

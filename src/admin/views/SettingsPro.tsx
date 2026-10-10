@@ -216,7 +216,9 @@ export function ContentTypes() {
   const save = async () => {
     if (!edit) return;
     try {
-      const { isNew, ...body } = edit;
+      const { isNew, ...all } = edit;
+      // Built-in types: Nova's fields are fixed – only addresses and the site's own fields are saved.
+      const body = all.builtin ? { route: all.route, list_route: all.list_route, custom_fields: all.custom_fields ?? [] } : all;
       if (isNew) await api.post('/api/collections', body);
       else await api.put(`/api/collections/${edit.id}`, body);
       toast(t('Inhaltstyp gespeichert. Im Studio erscheint er als Formular.'));
@@ -285,8 +287,13 @@ export function ContentTypes() {
                     {c.builtin ? ` · ${t('eingebaut')}` : ''}
                   </div>
                 </div>
-                <button className="btn s" onClick={() => setEdit({ ...c })}>
-                  {c.builtin ? t('Adressen') : t('Bearbeiten')}
+                <button
+                  className="btn s"
+                  onClick={() =>
+                    setEdit(c.builtin ? { ...c, fields: c.fields.filter((f) => !c.custom_fields?.some((x) => x.key === f.key)), custom_fields: c.custom_fields ?? [] } : { ...c })
+                  }
+                >
+                  {t('Bearbeiten')}
                 </button>
                 {!c.builtin && (
                   <button className="btn ghost s icon-only" aria-label={t('Löschen')} onClick={() => void remove(c)}>
@@ -320,6 +327,30 @@ export function ContentTypes() {
                 <input className="input mono" value={edit.list_route ?? ''} onChange={(e) => setEdit({ ...edit, list_route: e.target.value || null })} />
               </Field>
             </div>
+            {edit.builtin && edit.id !== 'sections' && (
+              <>
+                <div className="stack" style={{ gap: '0.5rem' }}>
+                  <span className="section-title">{t('Felder von Nova')}</span>
+                  <p className="xsmall muted" style={{ margin: 0 }}>
+                    {t('Diese Felder gehören zur eingebauten Vorlage und bleiben bei jedem Update erhalten.')}
+                  </p>
+                  <ul className="field-chips">
+                    {(edit.fields ?? []).map((f) => (
+                      <li key={f.key}>
+                        {tl(f.label)} <span className="muted">· {tl(FIELD_TYPE_LABELS[f.type])}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="stack" style={{ gap: '0.5rem' }}>
+                  <span className="section-title">{t('Eigene Felder')}</span>
+                  <p className="xsmall muted" style={{ margin: 0 }}>
+                    {t('Erscheinen sofort im Formular jedes Eintrags und auf der Website unter dem Inhalt.')}
+                  </p>
+                  <FieldsBuilder fields={edit.custom_fields ?? []} onChange={(f) => setEdit({ ...edit, custom_fields: f })} />
+                </div>
+              </>
+            )}
             {!edit.builtin && (
               <>
                 <Toggle

@@ -1989,4 +1989,42 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       await req('POST', '/api/extensions/refresh');
     }
   });
+
+  it('adds own fields to built-in content types – in the form, the API and on the page – and keeps them through updates', async () => {
+    const posts = (await req('GET', '/api/collections')).data.collections.find((c: { id: string }) => c.id === 'posts');
+    const builtinKeys = posts.fields.map((f: { key: string }) => f.key);
+    // Nova's own fields stay fixed.
+    expect((await req('PUT', '/api/collections/posts', { fields: [{ key: 'title', type: 'text', label: 'Titel' }] })).status).toBe(400);
+    expect((await req('PUT', '/api/collections/posts', { custom_fields: [{ key: 'title', type: 'text', label: 'Doppelt' }] })).data.error).toMatch(/doppelt/);
+    const saved = await req('PUT', '/api/collections/posts', {
+      custom_fields: [
+        { key: 'quelle', type: 'text', label: 'Quelle' },
+        { key: 'gesponsert', type: 'boolean', label: 'Gesponsert' },
+      ],
+    });
+    expect(saved.status, JSON.stringify(saved.data)).toBe(200);
+    expect(saved.data.collection.fields.map((f: { key: string }) => f.key)).toEqual([...builtinKeys, 'quelle', 'gesponsert']);
+    // A Nova update re-syncs the built-in fields – the own ones stay.
+    await syncBuiltinCollections();
+    invalidateCollections();
+    const post = await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Mit Quelle', quelle: 'Schweizer Bauer, 3. Mai', gesponsert: true } });
+    expect(post.status).toBe(200);
+    expect(post.data.entry.data.quelle).toBe('Schweizer Bauer, 3. Mai');
+    await req('POST', `/api/entries/${post.data.entry.id}/publish`, {});
+    const page = (await req('GET', `/journal/${post.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(page).toContain('<span class="label">Quelle</span><br>Schweizer Bauer, 3. Mai');
+    expect(page).toContain('<span class="label">Gesponsert</span>');
+    const api = await req('GET', `/api/v1/posts/${post.data.entry.slug}`, undefined, { cookies: new Map() });
+    expect(api.data.data.data.quelle).toBe('Schweizer Bauer, 3. Mai');
+
+    // Dishes: short own values join the line under the dish on the menu.
+    await req('PUT', '/api/collections/dishes', { custom_fields: [{ key: 'herkunft', type: 'text', label: 'Herkunft Fleisch' }] });
+    const first = (await req('GET', '/api/entries?collection=dishes&status=published&limit=1')).data.entries[0];
+    const dish = (await req('GET', `/api/entries/${first.id}`)).data.entry;
+    expect((await req('PUT', `/api/entries/${dish.id}`, { data: { ...dish.data, herkunft: 'Thurgau' } })).status).toBe(200);
+    await req('POST', `/api/entries/${dish.id}/publish`, {});
+    expect((await req('GET', '/karte', undefined, { cookies: new Map() })).data).toContain('Herkunft Fleisch: Thurgau');
+    await req('PUT', '/api/collections/posts', { custom_fields: [] });
+    await req('PUT', '/api/collections/dishes', { custom_fields: [] });
+  });
 });

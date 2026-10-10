@@ -142,9 +142,12 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
   return (
     <div className="stack">
       {col.id === 'pages' ? (
-        <Field label={t('Titel der Seite')} htmlFor="pg-title" help={t('Erscheint in Menüs, Brotkrümeln und als Standard-Titel bei Google.')}>
-          <input id="pg-title" className="input" value={data.title} onChange={(e) => doc.setData((d) => ({ ...d, title: e.target.value }))} />
-        </Field>
+        <>
+          <Field label={t('Titel der Seite')} htmlFor="pg-title" help={t('Erscheint in Menüs, Brotkrümeln und als Standard-Titel bei Google.')}>
+            <input id="pg-title" className="input" value={data.title} onChange={(e) => doc.setData((d) => ({ ...d, title: e.target.value }))} />
+          </Field>
+          {Boolean(col.custom_fields?.length) && <FieldList fields={col.custom_fields!} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v }))} />}
+        </>
       ) : (
         <FieldList fields={col.fields} values={data} onChange={(k, v) => doc.setData((d) => ({ ...d, [k]: v, ...(k === col.title_field ? { title: String(v ?? '') } : {}) }))} />
       )}

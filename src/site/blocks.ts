@@ -4,7 +4,7 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
-import type { LinkValue } from '../shared/fields';
+import type { FieldDef, LinkValue } from '../shared/fields';
 import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
@@ -238,6 +238,31 @@ export function dishPrices(prices: { label?: string; price: number }[]): Html {
   );
 }
 
+/** Own fields on dishes: short values join the line under the dish («Herkunft: Thurgau»). */
+function ownMarks(fields: FieldDef[], d: P): Html[] {
+  return fields.flatMap((f) => {
+    const v = d[f.key];
+    if (f.private || v === undefined || v === null || v === '' || v === false || (Array.isArray(v) && !v.length)) return [];
+    const opt = (x: unknown) => f.options?.find((o) => o.value === x)?.label ?? String(x);
+    switch (f.type) {
+      case 'boolean':
+        return [html`${f.label}`];
+      case 'money':
+        return [html`${f.label}: ${formatPrice(v as number)}`];
+      case 'tags':
+      case 'multiselect':
+        return [html`${f.label}: ${(v as unknown[]).map(opt).join(', ')}`];
+      case 'text':
+      case 'number':
+      case 'select':
+      case 'textarea':
+        return [html`${f.label}: ${opt(v)}`];
+      default:
+        return [];
+    }
+  });
+}
+
 export async function renderMenu(ctx: RenderContext, p: P): Promise<Html> {
   const c = ctx.collections.find((x) => x.id === 'dishes');
   if (!c) return html``;
@@ -264,6 +289,7 @@ export async function renderMenu(ctx: RenderContext, p: P): Promise<Html> {
     });
     const marks = [
       ...tags.map((tag) => html`<b>${tag}</b>`),
+      ...ownMarks(c.custom_fields ?? [], d),
       ...(showAllergens && allergens.length ? [html`${t(ctx, 'Allergene: {list}', { list: allergens.map((a) => allergenLabel(a, 'short')).join(', ') })}`] : []),
     ];
     return html`<li class="${cx('dish', d.soldOut && 'out')}"><div class="dish-head"><span class="dish-name">${d.title}</span><span class="dish-lead" aria-hidden="true"></span><span class="dish-price">${dishPrices(d.prices)}</span></div>${

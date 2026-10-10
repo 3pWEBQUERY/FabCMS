@@ -91,6 +91,8 @@ export interface CollectionDef {
   empty_hint?: string;
   sort?: { field: string; dir: 'asc' | 'desc' };
   per_page?: number;
+  /** Built-in types: fields the site added. Already included in `fields`. */
+  custom_fields?: FieldDef[];
 }
 
 export interface OpeningHoursDay {

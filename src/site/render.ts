@@ -24,6 +24,8 @@ import { formatPrice, readingTime } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { DAYS } from '../shared/hours';
 import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
+import type { FieldDef } from '../shared/fields';
+import { siteIconSvg } from '../shared/icon-set';
 import { sql } from '../server/db';
 import { runtimeScript, runtimeVersion } from './assets';
 import { htmlClasses, pruneCss, scriptWords } from './css-prune';
@@ -285,6 +287,9 @@ async function pageCrumbs(ctx: RenderContext, slug: string, title: string): Prom
   return crumbs;
 }
 
+/** Content types with their own detail template; all others render through genericTemplate. */
+const TEMPLATED = new Set(['pages', 'posts', 'products', 'projects', 'properties', 'events', 'courses', 'profiles']);
+
 export async function renderPage(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<string> {
   const isHome = c.id === 'pages' && e.slug === '';
   const path = entryPath(c, e.slug) ?? ctx.path;
@@ -305,6 +310,9 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   let main: Html;
   let crumbs: Crumb[] = [];
   const listCrumb = c.list_route ? [{ label: t(ctx, 'Startseite'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Startseite'), href: '/' }];
+  // Own fields on a built-in type: shown below Nova's template (own types show all fields in genericTemplate).
+  const own = c.builtin && !locked && TEMPLATED.has(c.id) ? await fieldParts(ctx, c.custom_fields ?? [], e.data) : [];
+  const ownFields = own.length ? html`<section class="b sp-m own-fields"><div class="wrap" style="display:grid;gap:1.25rem;max-width:var(--measure);margin-inline:auto">${own}</div></section>` : html``;
   switch (c.id) {
     case 'pages':
       crumbs = await pageCrumbs(ctx, e.slug, e.data.title);
@@ -315,7 +323,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       break;
     case 'posts':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
-      main = await postTemplate(ctx, c, e, image, locked ? access : null);
+      main = await postTemplate(ctx, c, e, image, locked ? access : null, ownFields);
       break;
     case 'products':
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
@@ -342,10 +350,11 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
       crumbs = [...listCrumb, { label: e.data.title, href: path }];
       main = locked ? html`<div class="wrap gate-head"><h1>${e.data.title}</h1></div>${gate(ctx, access)}` : await genericTemplate(ctx, c, e);
   }
+  if (c.id !== 'posts') main = html`${main}${ownFields}`;
   return documentHtml(ctx, meta, main, crumbs);
 }
 
-async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null, locked: Access | null): Promise<Html> {
+async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry, image: string | null, locked: Access | null, ownFields: Html): Promise<Html> {
   const d = e.data;
   ctx.h1 = true;
   const cover = await ctx.media(d.cover);
@@ -376,7 +385,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
     date ? html`<time datetime="${new Date(date).toISOString().slice(0, 10)}">${new Date(date).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''
   }${e.author_name ? html`<span>${e.author_name}</span>` : ''}<span>${t(ctx, '{n} Min. Lesezeit', { n: readingTime(blocksText(d.blocks)) })}</span></div>${
     cover ? html`<figure class="art-cover">${picture(cover, { sizes: '(min-width: 78rem) 78rem, 100vw', priority: true })}${cover.caption ? html`<figcaption>${cover.caption}</figcaption>` : ''}</figure>` : ''
-  }</header><div class="art-body">${body}</div>${
+  }</header><div class="art-body">${body}</div>${ownFields}${
     tags.length ? html`<footer class="wrap"><div class="art-foot measure">${tags.map((t) => html`<a class="tag-chip" href="${c.list_route}?schlagwort=${encodeURIComponent(t)}">${t}</a>`)}</div></footer>` : ''
   }</article>${series}${commentsHtml}${
     others.length ? html`<section class="b sp-m"><div class="wrap"><header class="bh"><h2>${t(ctx, 'Weiterlesen')}</h2></header>${((ctx.hl = 3), await postTeasers(ctx, others, 'grid'))}</div></section>` : ''
@@ -487,12 +496,11 @@ async function profileTemplate(ctx: RenderContext, e: RenderEntry): Promise<Html
   }${days.length ? html`<p><span class="label">${t(ctx, 'Anwesend')}</span><br>${days.map((x) => DAYS[ctx.lang].long[x]).join(', ')}</p>` : ''}</div></div>`;
 }
 
-async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<Html> {
-  const d = e.data;
-  ctx.h1 = true;
+/** Field values as page content – for own content types and for fields added to built-in ones. */
+async function fieldParts(ctx: RenderContext, fields: FieldDef[], d: Record<string, unknown>, skip: (f: FieldDef) => boolean = () => false): Promise<Html[]> {
   const parts: Html[] = [];
-  for (const f of c.fields) {
-    if (f.key === c.title_field || f.key === 'title' || f.pro || f.private) continue;
+  for (const f of fields) {
+    if (skip(f) || f.pro || f.private) continue;
     const v = d[f.key];
     if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) continue;
     switch (f.type) {
@@ -523,6 +531,9 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
       case 'date':
         parts.push(html`<p><span class="label">${f.label}</span><br>${new Date(v as string).toLocaleDateString(L(ctx))}</p>`);
         break;
+      case 'datetime':
+        parts.push(html`<p><span class="label">${f.label}</span><br>${new Date(v as string).toLocaleString(L(ctx), { dateStyle: 'long', timeStyle: 'short' })}</p>`);
+        break;
       case 'url':
         parts.push(html`<p><a class="btn-2" href="${v as string}" rel="noopener">${f.label}</a></p>`);
         break;
@@ -536,7 +547,6 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
       case 'location':
         parts.push(html`<p><span class="label">${f.label}</span><br>${(v as { address: string }).address}</p>`);
         break;
-      case 'json':
       case 'group': {
         // Short fields read as one line («200 g Mehl»), longer ones as numbered steps.
         const sub = f.fields ?? [];
@@ -554,8 +564,26 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         parts.push(html`<section><h2>${f.label}</h2><div class="prose">${short ? html`<ul>${items}</ul>` : html`<ol>${items}</ol>`}</div></section>`);
         break;
       }
+      case 'link': {
+        const l = v as { label?: string; href?: string };
+        if (l.href) parts.push(html`<p><a class="btn-2" href="${l.href}">${l.label || f.label}</a></p>`);
+        break;
+      }
+      case 'email':
+        parts.push(html`<p><span class="label">${f.label}</span><br><a href="mailto:${String(v)}">${String(v)}</a></p>`);
+        break;
+      case 'icon':
+        parts.push(html`<p><span class="label">${f.label}</span><br>${raw(siteIconSvg(v))}</p>`);
+        break;
+      case 'color':
+        if (/^#[0-9a-f]{3,8}$/i.test(String(v)))
+          parts.push(html`<p><span class="label">${f.label}</span><br><span style="display:inline-block;width:1.5em;height:1.5em;border-radius:50%;vertical-align:middle;background:${String(v)};box-shadow:0 0 0 1px var(--line)"></span> ${String(v)}</p>`);
+        break;
+      case 'textarea':
+        parts.push(html`<p><span class="label">${f.label}</span><br>${raw(esc(String(v)).replace(/\n/g, '<br>'))}</p>`);
+        break;
+      case 'json':
       case 'relation':
-      case 'link':
       case 'form':
       case 'blocks':
         break;
@@ -563,6 +591,13 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         parts.push(html`<p><span class="label">${f.label}</span><br>${String(v)}</p>`);
     }
   }
+  return parts;
+}
+
+async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<Html> {
+  const d = e.data;
+  ctx.h1 = true;
+  const parts = await fieldParts(ctx, c.fields, d, (f) => f.key === c.title_field || f.key === 'title');
   return html`<article><header class="wrap art-head"><h1>${d.title}</h1></header><div class="wrap" style="padding-top:2rem;display:grid;gap:1.25rem;max-width:var(--measure);margin-inline:auto">${parts}</div>${
     c.has_blocks ? await renderBlocks(d.blocks ?? [], ctx) : ''
   }</article>`;
