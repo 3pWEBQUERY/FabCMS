@@ -1,4 +1,4 @@
-import { html, raw, esc, cx, field, lines, join, type Html } from './html';
+import { html, raw, esc, cx, field, lines, join, hx, type Html } from './html';
 import type { RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
@@ -36,6 +36,7 @@ function heading(ctx: RenderContext, p: P, key = 'heading', intro?: string): Htm
   const text = p[key];
   if (!text && !ctx.edit) return html``;
   ctx.sectionNo++;
+  ctx.hl = 3; // items in this block sit under this heading
   const num = ctx.theme.numbered ? html`<span class="num">${String(ctx.sectionNo).padStart(2, '0')}</span>` : '';
   return html`<header class="bh">${num}<h2${field(ctx.edit, key)}>${text ?? ''}</h2>${
     intro !== undefined && (p[intro] || ctx.edit) ? html`<p${field(ctx.edit, intro, 'multi')}>${lines(p[intro])}</p>` : ''
@@ -165,7 +166,7 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
   if (layout === 'list')
     return html`<ul class="posts-list">${items.map(
       (i) =>
-        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}"><h3>${i.data.title}${lockTag(ctx, i.data)}</h3>${
+        html`<li>${date(i)}<a href="${entryPath(posts, i.slug)}">${hx(ctx, html`${i.data.title}${lockTag(ctx, i.data)}`)}${
           i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
         }</a></li>`,
     )}</ul>`;
@@ -174,7 +175,7 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
       const img = await ctx.media(i.data.cover);
       return html`<a class="card" href="${entryPath(posts, i.slug)}">${
         img ? html`<div class="ph">${picture(img, { sizes: layout === 'feature' && idx === 0 ? '(min-width: 56rem) 60vw, 100vw' : '(min-width: 56rem) 30vw, 100vw', maxWidth: 1600, ratio: '3/2' })}</div>` : ''
-      }<div><span class="label">${(i.data.category as string) || ''}</span><h3>${i.data.title}${lockTag(ctx, i.data)}</h3>${
+      }<div><span class="label">${(i.data.category as string) || ''}</span>${hx(ctx, html`${i.data.title}${lockTag(ctx, i.data)}`)}${
         i.data.excerpt ? html`<p>${i.data.excerpt as string}</p>` : ''
       }<p class="muted" style="margin-top:.5rem">${date(i)} · ${t(ctx, '{min} Min. Lesezeit', { min: readingTime(blocksText(i.data.blocks)) })}</p></div></a>`;
     }),
@@ -193,7 +194,7 @@ export async function productCards(ctx: RenderContext, items: Awaited<ReturnType
       const soldOut = stock === 0;
       const prices = variants.map((v) => v.price ?? (i.data.price as number));
       const from = prices.length && new Set(prices).size > 1 ? Math.min(...prices) : null;
-      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 25vw, 50vw', maxWidth: 960, ratio: '4/5' })}</div>` : noPhoto(i.data.title)}<div><h3>${i.data.title}</h3><div class="price-row">${
+      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 25vw, 50vw', maxWidth: 960, ratio: '4/5' })}</div>` : noPhoto(i.data.title)}<div>${hx(ctx, i.data.title)}<div class="price-row">${
         from !== null ? html`<span>${t(ctx, 'ab {price}', { price: formatPrice(from) })}</span>` : html`<span>${formatPrice(i.data.price as number)}</span>`
       }${i.data.comparePrice ? html`<s>${formatPrice(i.data.comparePrice as number)}</s>` : ''}${soldOut ? html` <span class="badge">${t(ctx, 'Ausverkauft')}</span>` : ''}</div></div></a>`;
     }),
@@ -209,7 +210,7 @@ export async function projectCards(ctx: RenderContext, items: Awaited<ReturnType
       const img = await ctx.media(i.data.cover);
       return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 45vw, 100vw', maxWidth: 1600, ratio: '4/3' })}</div>` : noPhoto(i.data.title)}<div class="meta"><span>${
         (i.data.client as string) || (i.data.category as string) || ''
-      }</span><span>${(i.data.year as number) || ''}</span></div><h3>${i.data.title}</h3>${i.data.summary ? html`<p>${i.data.summary as string}</p>` : ''}</a>`;
+      }</span><span>${(i.data.year as number) || ''}</span></div>${hx(ctx, i.data.title)}${i.data.summary ? html`<p>${i.data.summary as string}</p>` : ''}</a>`;
     }),
   )}</div>`;
 }
@@ -222,7 +223,7 @@ export async function profileCards(ctx: RenderContext, items: Awaited<ReturnType
     items.map(async (i) => {
       const img = await ctx.media((i.data.images as string[])?.[0]);
       const today = ((i.data.availability as string[]) ?? []).includes(String(day));
-      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 22vw, 50vw', maxWidth: 960, ratio: '3/4' })}</div>` : noPhoto(i.data.title)}<h3>${i.data.title}</h3>${
+      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 22vw, 50vw', maxWidth: 960, ratio: '3/4' })}</div>` : noPhoto(i.data.title)}${hx(ctx, i.data.title)}${
         i.data.availableNow ? html`<span class="avail">${t(ctx, 'Gerade verfügbar')}</span>` : today ? html`<span class="avail">${t(ctx, 'Heute da')}</span>` : ''
       }${(i.data.languages as string[])?.length ? html`<p>${(i.data.languages as string[]).join(' · ')}</p>` : ''}</a>`;
     }),
@@ -280,11 +281,11 @@ export async function renderMenu(ctx: RenderContext, p: P): Promise<Html> {
   const today = new Date().toLocaleDateString(L(ctx), { weekday: 'long', day: 'numeric', month: 'long', timeZone: ctx.settings.timezone });
   return html`${
     daily.length
-      ? html`<section class="daily" aria-labelledby="daily-h"><span class="label">${today}</span><h3 id="daily-h">${ctx.settings.menu.dailyTitle || t(ctx, 'Heute')}</h3><ul class="mn-items">${daily.map(dish)}</ul></section>`
+      ? html`<section class="daily" aria-labelledby="daily-h"><span class="label">${today}</span>${hx(ctx, ctx.settings.menu.dailyTitle || t(ctx, 'Heute'), raw(' id="daily-h"'))}<ul class="mn-items">${daily.map(dish)}</ul></section>`
       : ''
   }${[...groups].map(
     ([cat, list]) =>
-      html`<section class="mn-cat"><h3>${cat}</h3><ul class="${cx('mn-items', list.length > 5 && 'two')}">${list.map(dish)}</ul></section>`,
+      html`<section class="mn-cat">${hx(ctx, cat)}<ul class="${cx('mn-items', list.length > 5 && 'two')}">${list.map(dish)}</ul></section>`,
   )}<div class="mn-legend">${
     showAllergens && usedAllergens.size
       ? html`<p style="margin:0">${t(ctx, 'Allergene: {list}. Bei Fragen zu Allergien und Unverträglichkeiten beraten wir dich gerne.', { list: [...usedAllergens].map((a) => allergenLabel(a, 'label')).join(', ') })}</p>`
@@ -376,7 +377,7 @@ const R: Record<string, Renderer> = {
             ? html`<source src="/media/${file.id}/video/${r.p}.mp4" type="video/mp4" media="(min-width: ${r.p >= 1080 ? 1200 : 720}px)">`
             : html`<source src="/media/${file.id}/video/${r.p}.mp4" type="video/mp4">`,
         );
-        const posterUrl = poster ? variantUrl(poster, 1280, 'jpg') : v?.poster ? `/media/${file.id}/video/poster.jpg` : '';
+        const posterUrl = poster ? variantUrl(poster, 1280, 'webp') : v?.poster ? `/media/${file.id}/video/${v.poster.split('/').pop()}` : '';
         const size = v?.width && v.height ? raw(` width="${v.width}" height="${v.height}"${v.duration ? ` data-duration="${v.duration}"` : ''}`) : '';
         return html`<div class="wrap"><figure><video class="vid" controls preload="none" playsinline${size}${posterUrl ? raw(` poster="${posterUrl}"`) : ''}>${sources}<source src="${originalUrl(file)}" type="${file.mime}"></video>${caption}</figure></div>`;
       }
@@ -394,7 +395,7 @@ const R: Record<string, Renderer> = {
     const items = (p.items as P[]) ?? [];
     return html`<div class="wrap">${heading(ctx, p, 'heading', 'intro')}<ol class="lst lst-${style}">${items.map(
       (it, i) =>
-        html`<li><div><h3${field(ctx.edit, `items.${i}.title`)}>${it.title}</h3>${
+        html`<li><div>${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
           style === 'rows' ? '' : it.text || ctx.edit ? html`<p${field(ctx.edit, `items.${i}.text`, 'multi')}>${lines(it.text)}</p>` : ''
         }${style === 'columns' && it.meta ? html`<span class="meta">${it.meta}</span>` : ''}</div>${
           style === 'rows'
@@ -456,7 +457,7 @@ const R: Record<string, Renderer> = {
     const p = b.props as P;
     return html`<div class="wrap">${heading(ctx, p, 'heading', 'intro')}<div class="plans">${((p.plans as P[]) ?? []).map(
       (pl, i) =>
-        html`<div class="${cx('plan', pl.highlight && 'hl')}"><h3><span${field(ctx.edit, `plans.${i}.name`)}>${pl.name}</span>${pl.highlight ? html`<span class="tag">${t(ctx, 'Empfohlen')}</span>` : ''}</h3><div><span class="price"${field(ctx.edit, `plans.${i}.price`)}>${pl.price}</span> <span class="per">${pl.period}</span></div>${
+        html`<div class="${cx('plan', pl.highlight && 'hl')}">${hx(ctx, html`<span${field(ctx.edit, `plans.${i}.name`)}>${pl.name}</span>${pl.highlight ? html`<span class="tag">${t(ctx, 'Empfohlen')}</span>` : ''}`)}<div><span class="price"${field(ctx.edit, `plans.${i}.price`)}>${pl.price}</span> <span class="per">${pl.period}</span></div>${
           pl.description ? html`<p class="muted" style="margin:0">${pl.description}</p>` : ''
         }<ul>${String(pl.features ?? '')
           .split('\n')
@@ -472,7 +473,7 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap">${heading(ctx, p)}${items.length ? '' : empty(ctx, 'Füge Personen hinzu.')}<div class="ppl">${await Promise.all(
       items.map(
         async (i, idx) =>
-          html`<div>${picture(await ctx.media(i.image), { sizes: '(min-width: 56rem) 22vw, 50vw', maxWidth: 960, ratio: '3/4' })}<h3${field(ctx.edit, `items.${idx}.name`)}>${i.name}</h3><p class="role"${field(ctx.edit, `items.${idx}.role`)}>${i.role}</p>${
+          html`<div>${picture(await ctx.media(i.image), { sizes: '(min-width: 56rem) 22vw, 50vw', maxWidth: 960, ratio: '3/4' })}${hx(ctx, i.name, field(ctx.edit, `items.${idx}.name`))}<p class="role"${field(ctx.edit, `items.${idx}.role`)}>${i.role}</p>${
             i.text ? html`<p${field(ctx.edit, `items.${idx}.text`, 'multi')}>${i.text}</p>` : ''
           }</div>`,
       ),
@@ -716,6 +717,8 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
     const fn = R[b.type];
     if (!def || !fn) continue;
     c.blockIndex = c.depth === 0 ? i : c.blockIndex;
+    // Items sit right under the page title unless the block brings its own heading (heading() raises this).
+    c.hl = 2;
     let inner: Html;
     try {
       inner = await fn(b, c);
@@ -787,7 +790,7 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
 
   // 1 – what
   if (services.length > 1 && !fixed) {
-    out.push(html`<section class="bk-step" aria-labelledby="bk-what"><h3 id="bk-what" class="bk-label">${table ? t(ctx, 'Bereich|Lokal') : t(ctx, 'Was möchtest du buchen?')}</h3><ul class="bk-services">${services.map(
+    out.push(html`<section class="bk-step" aria-labelledby="bk-what">${hx(ctx, table ? t(ctx, 'Bereich|Lokal') : t(ctx, 'Was möchtest du buchen?'), raw(' id="bk-what" class="bk-label"'))}<ul class="bk-services">${services.map(
       (x) =>
         html`<li><a class="bk-service" href="${link({ b_s: x.id, b_d: null, b_t: null })}"${x.id === service?.id ? raw(' aria-current="true"') : ''}><strong>${x.name}</strong><span>${[t(ctx, '{n} Min.', { n: x.duration_min }), x.price ? formatPrice(x.price) : ''].filter(Boolean).join(' · ')}</span>${
           x.description ? html`<small>${x.description}</small>` : ''
@@ -799,7 +802,7 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
   // 2 – how many
   if (table) {
     const max = Math.min(s.booking.maxParty, 10);
-    out.push(html`<section class="bk-step" aria-labelledby="bk-who"><h3 id="bk-who" class="bk-label">${t(ctx, 'Wie viele Personen?')}</h3><div class="bk-chips">${Array.from({ length: max }, (_, i) => i + 1).map(
+    out.push(html`<section class="bk-step" aria-labelledby="bk-who">${hx(ctx, t(ctx, 'Wie viele Personen?'), raw(' id="bk-who" class="bk-label"'))}<div class="bk-chips">${Array.from({ length: max }, (_, i) => i + 1).map(
       (n) => html`<a class="bk-chip" href="${link({ b_p: n, b_t: null })}"${n === party ? raw(' aria-current="true"') : ''}>${n}</a>`,
     )}</div>${s.business.phone ? html`<p class="bk-hint">${t(ctx, 'Mehr als {max}? Ruf uns an:', { max })} <a href="tel:${s.business.phone.replace(/\s/g, '')}">${s.business.phone}</a></p>` : ''}</section>`);
     if (!party) return join(out);
@@ -812,7 +815,7 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
   const chosen = days.find((d) => d.day === q.get('b_d')) ? q.get('b_d')! : null;
   const shift = (n: number) => localDay(new Date(zonedToUtc(from, 12 * 60, s.timezone).getTime() + n * 86_400_000), s.timezone).day;
   const lastDay = shift(s.booking.horizonDays);
-  out.push(html`<section class="bk-step" aria-labelledby="bk-when"><h3 id="bk-when" class="bk-label">${t(ctx, 'An welchem Tag?')}</h3><div class="bk-days">${days.map((d) => {
+  out.push(html`<section class="bk-step" aria-labelledby="bk-when">${hx(ctx, t(ctx, 'An welchem Tag?'), raw(' id="bk-when" class="bk-label"'))}<div class="bk-days">${days.map((d) => {
     const [, m, dd] = d.day.split('-').map(Number);
     const wd = cap(DAYS[ctx.lang].short[localDay(zonedToUtc(d.day, 12 * 60, s.timezone), s.timezone).weekday]);
     const inner = html`<span class="bk-wd">${d.day === today ? t(ctx, 'Heute') : wd}</span><span class="bk-dn">${ctx.lang === 'de' ? `${dd}.` : dd}</span><span class="bk-mo">${monthShort(m)}</span>`;
@@ -827,7 +830,7 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
   // 4 – what time
   const slots = await slotsFor(service.id, chosen, party, ctx.now);
   const time = slots.find((x) => x.time === q.get('b_t'))?.time ?? null;
-  out.push(html`<section class="bk-step" aria-labelledby="bk-time"><h3 id="bk-time" class="bk-label">${t(ctx, 'Um wie viel Uhr?')}</h3>${
+  out.push(html`<section class="bk-step" aria-labelledby="bk-time">${hx(ctx, t(ctx, 'Um wie viel Uhr?'), raw(' id="bk-time" class="bk-label"'))}${
     slots.length
       ? html`<div class="bk-chips">${slots.map((x) => html`<a class="bk-chip num" href="${link({ b_t: x.time })}"${x.time === time ? raw(' aria-current="true"') : ''}>${x.time}</a>`)}</div>`
       : html`<p class="bk-hint">${t(ctx, 'An diesem Tag ist leider nichts mehr frei.')}</p>`
@@ -836,7 +839,7 @@ async function bookingSteps(ctx: RenderContext, services: BookingService[], fixe
 
   // 5 – who
   const summary = [longDay(chosen, L(ctx)), t(ctx, '{time} Uhr', { time }), table ? t(ctx, party === 1 ? '{n} Person' : '{n} Personen', { n: party }) : service.name].join(' · ');
-  out.push(html`<section class="bk-step" aria-labelledby="bk-you"><h3 id="bk-you" class="bk-label">${t(ctx, 'Deine Angaben')}</h3><p class="bk-summary">${summary}</p>
+  out.push(html`<section class="bk-step" aria-labelledby="bk-you">${hx(ctx, t(ctx, 'Deine Angaben'), raw(' id="bk-you" class="bk-label"'))}<p class="bk-summary">${summary}</p>
     <form class="nform" method="post" action="/_nova/booking" data-booking>
       <input type="hidden" name="service" value="${service.id}"><input type="hidden" name="day" value="${chosen}"><input type="hidden" name="time" value="${time}"><input type="hidden" name="party" value="${party}"><input type="hidden" name="_back" value="${link({})}"><input type="hidden" name="_t" value="${Date.now().toString(36)}">
       <div class="hp" aria-hidden="true"><label>${t(ctx, 'Bitte leer lassen')} <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>

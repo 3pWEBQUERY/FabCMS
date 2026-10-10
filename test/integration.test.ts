@@ -1348,8 +1348,9 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const whole = Buffer.from(await (await app.request(`/media/${media.id}/video/270.mp4`)).arrayBuffer());
     expect(whole.indexOf('moov')).toBeGreaterThan(0);
     expect(whole.indexOf('moov')).toBeLessThan(whole.indexOf('mdat'));
-    const poster = await app.request(`/media/${media.id}/video/poster.jpg`);
-    expect(poster.headers.get('content-type')).toBe('image/jpeg');
+    const poster = await app.request(`/media/${media.id}/video/poster.webp`);
+    expect(poster.headers.get('content-type')).toBe('image/webp');
+    expect((await app.request(`/media/${media.id}/video/poster.jpg`)).status).toBe(404);
     expect((await app.request(`/media/${media.id}/video/1080.mp4`)).status).toBe(404);
 
     // The website plays the web version, the original stays as the last fallback; the admin shows the poster.
@@ -1357,10 +1358,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const block = { id: 'vid1', type: 'video', props: { file: media.id, poster: null, url: '', caption: '' }, style: {}, lock: 'none' };
     const rendered = await req('POST', '/api/render', { entryId: page.id, data: { ...page.data, blocks: [block] }, blockId: 'vid1' });
     expect(rendered.data.html).toContain(`<source src="/media/${media.id}/video/270.mp4" type="video/mp4">`);
-    expect(rendered.data.html).toContain(`poster="/media/${media.id}/video/poster.jpg"`);
+    expect(rendered.data.html).toContain(`poster="/media/${media.id}/video/poster.webp"`);
     expect(rendered.data.html).toContain('width="480" height="270" data-duration="2"');
     expect(rendered.data.html).toContain(`/media/${media.id}/file/Rundgang.mp4`);
-    expect((await req('GET', `/api/media/${media.id}`)).data.media.thumb).toBe(`/media/${media.id}/video/poster.jpg`);
+    expect((await req('GET', `/api/media/${media.id}`)).data.media.thumb).toBe(`/media/${media.id}/video/poster.webp`);
 
     // Switched off: delivered as uploaded, and it says why.
     env.video.enabled = false;
@@ -1707,5 +1708,30 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       env.google.clientId = '';
       env.google.clientSecret = '';
     }
+  });
+
+  it('keeps the heading outline without jumps: cards under the page title are h2, under a section heading h3', async () => {
+    const anon = { cookies: new Map() };
+    const list = (await req('GET', '/journal', undefined, anon)).data as string;
+    expect(list).toMatch(/<h1>[^<]*<\/h1>/);
+    expect(list).toContain('<h2 class="hi">');
+    expect(list).not.toContain('<h3 class="hi">');
+
+    const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+    const block = (heading: string) => ({ id: 'p1', type: 'posts', props: { heading, layout: 'list', count: 3 }, style: {}, lock: 'none' });
+    const render = async (heading: string) =>
+      (await req('POST', '/api/render', { entryId: page.id, data: { ...page.data, blocks: [{ id: 't1', type: 'text', props: { heading: 'Kontakt', body: '<p>Hallo</p>' } }, block(heading)] } })).data.html as string;
+    const withHeading = await render('Neu im Journal');
+    expect(withHeading).toContain('Neu im Journal</h2>');
+    expect(withHeading).toContain('<h3 class="hi">');
+    // On the website, a block without its own heading puts its items right under the page title.
+    const created = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: { title: 'Neuigkeiten', blocks: [{ id: 'h1', type: 'hero', props: { variant: 'statement', title: 'Neuigkeiten', text: '' } }, block('')] },
+    });
+    await req('POST', `/api/entries/${created.data.entry.id}/publish`, {});
+    const without = (await req('GET', `/${created.data.entry.slug}`, undefined, anon)).data as string;
+    expect(without).toContain('<h2 class="hi">');
+    expect(without).not.toContain('<h3 class="hi">');
   });
 });

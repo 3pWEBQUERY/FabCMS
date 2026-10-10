@@ -14,7 +14,7 @@ import type { MediaItem } from '../../shared/types';
 function withUrls(m: MediaItem & { private?: boolean }) {
   const image = isImage(m);
   const size = image ? effectiveSize(m) : null;
-  const poster = m.video?.status === 'ready' && m.video.poster ? `/media/${m.id}/video/poster.jpg` : null;
+  const poster = m.video?.status === 'ready' && m.video.poster ? `/media/${m.id}/video/${m.video.poster.split('/').pop()}` : null;
   return {
     ...m,
     image,

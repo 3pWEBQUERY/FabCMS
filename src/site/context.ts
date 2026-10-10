@@ -10,6 +10,8 @@ export interface Crumb {
 }
 
 export interface RenderContext {
+  /** Level for item headings (cards, menu sections): 2 under the page title, 3 under a section heading. */
+  hl?: number;
   settings: SiteSettings;
   theme: Theme;
   collections: CollectionDef[];

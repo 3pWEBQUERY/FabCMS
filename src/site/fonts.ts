@@ -128,7 +128,8 @@ export function fontFaces(keys: string[]): string {
   return out.join('');
 }
 
-export function fontPreload(key: string): string {
+export function fontPreload(key: string, style: 'normal' | 'italic' = 'normal'): string {
   const f = FONTS[key];
-  return f ? `/_nova/fonts/${fontFile(f, 'latin', 'normal')}` : '';
+  if (!f || (style === 'italic' && !f.italic)) return '';
+  return `/_nova/fonts/${fontFile(f, 'latin', style)}`;
 }

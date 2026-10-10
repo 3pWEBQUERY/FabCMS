@@ -1,4 +1,4 @@
-import { html, raw, type Html } from './html';
+import { html, raw, type Html, hx } from './html';
 import type { RenderContext } from './context';
 import { env } from '../server/env';
 import { formatMoney } from '../shared/text';
@@ -104,7 +104,7 @@ export function membershipBox(ctx: RenderContext, p: { heading?: string; intro?:
     ${head}
     <div class="plan">
       <div class="plan-head">
-        <h3>${m.planName}</h3>
+        ${hx(ctx, m.planName)}
         ${paid
           ? html`<p class="plan-price"><span class="num">${formatMoney(m.price, ctx.settings.shop.currency, L(ctx))}</span> ${m.interval === 'year' ? t(ctx, 'pro Jahr') : t(ctx, 'pro Monat')}</p>`
           : html`<p class="plan-price">${t(ctx, 'Kostenlos')}</p>`}

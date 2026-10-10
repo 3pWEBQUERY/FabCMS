@@ -1,9 +1,8 @@
 import { statsConfig, type StatsConfig } from '../shared/stats-services';
-import { html, raw, cx, esc, type Html } from './html';
+import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { themeCss, resolveTheme } from './themes';
-import { fontPreload } from './fonts';
 import { renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, type PublicEntry } from './data';
@@ -166,7 +165,7 @@ function ageGate(ctx: RenderContext): Html {
 
 export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Html, crumbs: Crumb[] = []): Promise<string> {
   const s = ctx.settings;
-  const { css, fonts } = themeCss(s);
+  const { css, preload } = themeCss(s);
   const { palette } = resolveTheme(s);
   const [hdr, ftr, logo] = await Promise.all([header(ctx), footer(ctx), ctx.media(s.logo)]);
   const crumbHtml = breadcrumbs(ctx, crumbs);
@@ -201,9 +200,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
     meta.publishedAt ? html`<meta property="article:published_time" content="${new Date(meta.publishedAt).toISOString()}">` : ''
   }<meta name="theme-color" content="${palette.bg}">${
     favicon ? html`<link rel="icon" href="${variantUrl(favicon, 160, 'webp')}" type="image/webp">` : html`<link rel="icon" href="/_nova/favicon.svg" type="image/svg+xml">`
-  }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${fonts
-    .slice(0, 1)
-    .map((f) => html`<link rel="preload" href="${fontPreload(f)}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(css)}</style>${
+  }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${preload.map((href) => html`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(css)}</style>${
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${
     stats ? html`<script type="application/json" id="nova-stats">${raw(JSON.stringify(stats).replace(/</g, '\\u003c'))}</script>` : ''
@@ -246,7 +243,7 @@ export interface RenderEntry {
 async function pageCrumbs(ctx: RenderContext, slug: string, title: string): Promise<Crumb[]> {
   const parts = slug.split('/').filter(Boolean);
   if (!parts.length) return [];
-  const crumbs: Crumb[] = [{ label: t(ctx, 'Start'), href: '/' }];
+  const crumbs: Crumb[] = [{ label: t(ctx, 'Startseite'), href: '/' }];
   const parents = parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'));
   if (parents.length) {
     const rows = await localized(
@@ -281,7 +278,7 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   const locked = !ctx.edit && !ctx.preview && !mayRead(access, ctx.member?.level ?? null);
   let main: Html;
   let crumbs: Crumb[] = [];
-  const listCrumb = c.list_route ? [{ label: t(ctx, 'Start'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Start'), href: '/' }];
+  const listCrumb = c.list_route ? [{ label: t(ctx, 'Startseite'), href: '/' }, { label: c.name, href: c.list_route }] : [{ label: t(ctx, 'Startseite'), href: '/' }];
   switch (c.id) {
     case 'pages':
       crumbs = await pageCrumbs(ctx, e.slug, e.data.title);
@@ -356,7 +353,7 @@ async function postTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry
   }</header><div class="art-body">${body}</div>${
     tags.length ? html`<footer class="wrap"><div class="art-foot measure">${tags.map((t) => html`<a class="tag-chip" href="${c.list_route}?schlagwort=${encodeURIComponent(t)}">${t}</a>`)}</div></footer>` : ''
   }</article>${series}${commentsHtml}${
-    others.length ? html`<section class="b sp-m"><div class="wrap"><header class="bh"><h2>${t(ctx, 'Weiterlesen')}</h2></header>${await postTeasers(ctx, others, 'grid')}</div></section>` : ''
+    others.length ? html`<section class="b sp-m"><div class="wrap"><header class="bh"><h2>${t(ctx, 'Weiterlesen')}</h2></header>${((ctx.hl = 3), await postTeasers(ctx, others, 'grid'))}</div></section>` : ''
   }`;
 }
 
@@ -540,7 +537,7 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
   let description = '';
   ctx.h1 = true;
   if (c.id === 'dishes') {
-    main = html`<div class="wrap art-head"><h1>${c.list_route === '/karte' ? t(ctx, 'Karte') : c.name}</h1><p class="no-print"><a class="btn-2" href="/karte/druck">${t(ctx, 'Druckversion')}</a></p></div><section class="b sp-m"><div class="wrap">${await renderMenu(ctx, { daily: true, allergens: true })}</div></section>`;
+    main = html`<div class="wrap art-head"><h1>${c.list_route === '/karte' ? t(ctx, 'Karte') : c.name}</h1><p class="no-print"><a class="btn-2" href="/karte/druck">${t(ctx, 'Druckversion')}</a></p></div><section class="b sp-m"><div class="wrap">${((ctx.hl = 2), await renderMenu(ctx, { daily: true, allergens: true }))}</div></section>`;
     const { items } = await publishedEntries(c, { limit: 500, sortField: 'sort', sortDir: 'asc' });
     ctx.jsonLd.push(menuLd(ctx, items));
     description = t(ctx, 'Karte von {site}: {dishes}.', {
@@ -562,7 +559,7 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
             (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${category.toLowerCase() === cat.toLowerCase()}">${cat}</a>`,
           )}</nav>`
         : '';
-    main = html`<div class="wrap art-head"><h1>${past ? t(ctx, 'Vergangene {name}', { name: c.name }) : c.name}</h1></div><section class="b sp-m"><div class="wrap">${filter}${await eventCards(ctx, c, items)}<p class="ev-more"><a class="btn-2" href="${c.list_route}${past ? '' : '?vergangen=1'}">${past ? t(ctx, 'Kommende {name}', { name: c.name }) : t(ctx, 'Vergangene {name}', { name: c.name })}</a></p></div></section>`;
+    main = html`<div class="wrap art-head"><h1>${past ? t(ctx, 'Vergangene {name}', { name: c.name }) : c.name}</h1></div><section class="b sp-m"><div class="wrap">${filter}${((ctx.hl = 2), await eventCards(ctx, c, items))}<p class="ev-more"><a class="btn-2" href="${c.list_route}${past ? '' : '?vergangen=1'}">${past ? t(ctx, 'Kommende {name}', { name: c.name }) : t(ctx, 'Vergangene {name}', { name: c.name })}</a></p></div></section>`;
     description = items[0]
       ? t(ctx, '{name} bei {site}: {items}.', { name: c.name, site: ctx.settings.name, items: items.slice(0, 3).map((i) => i.data.title).join(', ') })
       : t(ctx, '{name} bei {site}.', { name: c.name, site: ctx.settings.name });
@@ -596,6 +593,7 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
           }</nav>`
         : '';
     let list: Html;
+    ctx.hl = 2; // the cards sit right under the page title
     if (!items.length) list = html`<p class="muted">${t(ctx, 'Hier erscheint bald etwas.')}</p>`;
     else if (c.id === 'posts') list = await postTeasers(ctx, items, page === 1 && !category && !tag ? 'feature' : 'grid');
     else if (c.id === 'products') list = await productCards(ctx, items);
@@ -622,7 +620,7 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
     noindex: Boolean(tag),
   };
   return documentHtml(ctx, meta, main, [
-    { label: t(ctx, 'Start'), href: '/' },
+    { label: t(ctx, 'Startseite'), href: '/' },
     { label: c.id === 'dishes' ? t(ctx, 'Karte') : c.name, href: path },
   ]);
 }
@@ -634,7 +632,7 @@ async function genericCards(ctx: RenderContext, c: CollectionDef, items: PublicE
     items.map(async (i) => {
       const img = imgField ? await ctx.media(i.data[imgField.key]) : null;
       const href = entryPath(c, i.slug);
-      const inner = html`${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 30vw, 100vw', maxWidth: 960, ratio: '3/2' })}</div>` : ''}<h3>${i.data.title}</h3>${
+      const inner = html`${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 30vw, 100vw', maxWidth: 960, ratio: '3/2' })}</div>` : ''}${hx(ctx, i.data.title)}${
         textField && i.data[textField.key] ? html`<p>${String(i.data[textField.key])}</p>` : ''
       }`;
       return href ? html`<a class="card" href="${href}">${inner}</a>` : html`<div class="card">${inner}</div>`;

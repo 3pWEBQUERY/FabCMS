@@ -10,7 +10,7 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Hauptnavigation mobil': { fr: 'Navigation principale mobile', it: 'Navigazione principale mobile', en: 'Main navigation (mobile)' },
   Menü: { fr: 'Menu', it: 'Menu', en: 'Menu' },
   Brotkrümel: { fr: 'Fil d’Ariane', it: 'Percorso di navigazione', en: 'Breadcrumb' },
-  Start: { fr: 'Accueil', it: 'Home', en: 'Home' },
+  Startseite: { fr: 'Accueil', it: 'Home', en: 'Home' },
 
   // Footer
   Öffnungszeiten: { fr: 'Heures d’ouverture', it: 'Orari di apertura', en: 'Opening hours' },

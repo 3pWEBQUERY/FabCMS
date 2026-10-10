@@ -44,3 +44,17 @@ export function field(edit: boolean, path: string, kind: 'plain' | 'multi' | 'ri
 
 /** Multi-line plain text: escaped, line breaks become <br>. */
 export const lines = (s: unknown) => raw(esc(s).replace(/\n/g, '<br>'));
+
+/**
+ * Heading of an item in a list (card, menu section, plan …): one level below
+ * where it sits – h2 right under the page title, h3 under a section heading –
+ * so screen readers get an outline without jumps. The class «hi» keeps the
+ * look the same at either level (themes style `.card .hi`, not `.card h3`).
+ * attrs is trusted markup; a class in it is merged.
+ */
+export const hx = (ctx: { hl?: number }, inner: Part, attrs: Part = ''): SafeHtml => {
+  const n = ctx.hl ?? 3;
+  let a = flat(attrs);
+  a = /\sclass="/.test(a) ? a.replace(/\sclass="/, ' class="hi ') : `${a} class="hi"`;
+  return new SafeHtml(`<h${n}${a}>${flat(inner)}</h${n}>`);
+};

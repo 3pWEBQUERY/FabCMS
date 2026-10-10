@@ -1,4 +1,4 @@
-import { html, raw, type Html } from './html';
+import { html, raw, type Html, hx } from './html';
 import type { RenderContext } from './context';
 import { picture, variantUrl, originalUrl } from './picture';
 import { renderBlocks } from './blocks';
@@ -94,7 +94,7 @@ export async function propertyCards(ctx: RenderContext, items: Item[]): Promise<
           </div>
           <div class="re-body">
             <span class="re-place">${place(d)}</span>
-            <h3>${d.title}</h3>
+            ${hx(ctx, d.title)}
             <p class="re-facts">${facts.join(' · ')}</p>
             <p class="re-price num">${priceText(ctx, d)}</p>
           </div></a
@@ -142,6 +142,7 @@ export async function propertyList(ctx: RenderContext, c: CollectionDef): Promis
     <div class="re-filter-go"><button class="btn">${t(ctx, 'Suchen')}</button>${filtered ? html`<a class="btn-2" href="${c.list_route}">${t(ctx, 'Zurücksetzen')}</a>` : ''}</div>
   </form>`;
   const count = html`<p class="re-count" role="status">${items.length ? (items.length === 1 ? t(ctx, '{n} Objekt', { n: 1 }) : t(ctx, '{n} Objekte', { n: items.length })) : ''}</p>`;
+  ctx.hl = 2; // the cards sit right under the page title
   const results = items.length
     ? await propertyCards(ctx, items)
     : html`<p class="muted">

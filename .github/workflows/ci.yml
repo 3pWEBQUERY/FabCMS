@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typen, Tests, Build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nova_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # ffmpeg for the video test (it is skipped without)
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc -p tsconfig.json --noEmit --noUnusedLocals
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/nova_test
+      - run: npm run build
+
+  lighthouse:
+    name: Lighthouse (${{ matrix.theme }})
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { sector: restaurant, theme: bistro }
+          - { sector: trade, theme: kante }
+          - { sector: studio, theme: salon }
+          - { sector: blog, theme: feuilleton }
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nova
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: production
+      PORT: 3000
+      PUBLIC_URL: http://localhost:3000
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/nova
+      NOVA_SETUP_CODE: 123-456
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Nova starten
+        run: |
+          nohup node dist/server.js > nova.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:3000/healthz > /dev/null && exit 0; sleep 1; done
+          cat nova.log; exit 1
+      - name: Demo-Website einrichten (${{ matrix.sector }}, ${{ matrix.theme }})
+        run: node scripts/demo-site.mjs --sector ${{ matrix.sector }} --theme ${{ matrix.theme }} | tee urls.txt
+      - name: Lighthouse (mobil, 3 Durchläufe pro Seite)
+        run: npx --yes @lhci/cli@0.14.0 autorun $(sed 's/^/--collect.url=/' urls.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-${{ matrix.theme }}
+          path: .lighthouseci/reports
+          if-no-files-found: ignore

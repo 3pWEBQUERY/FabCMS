@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import sharp from 'sharp';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -140,8 +141,12 @@ async function transcode(id: string): Promise<void> {
       ...['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(at), '-i', src],
       ...['-frames:v', '1', '-vf', `scale='min(1280,iw)':-2`, '-q:v', '3', posterFile],
     ]);
-    const poster = `media/${id}/video/poster.jpg`;
-    if ((await stat(posterFile).catch(() => null))?.size) await storage.put(poster, await readFile(posterFile), 'image/jpeg');
+    // Stored as WebP: a third of the JPEG's size, and every browser that plays H.264 shows it.
+    let poster: string | undefined;
+    if ((await stat(posterFile).catch(() => null))?.size) {
+      poster = `media/${id}/video/poster.webp`;
+      await storage.put(poster, await sharp(posterFile).webp({ quality: 78 }).toBuffer(), 'image/webp');
+    }
 
     await setVideo(id, { status: 'ready', duration: Math.round(info.duration * 10) / 10, width: info.width, height: info.height, renditions, poster });
     bumpGeneration(); // pages showing this video pick up the web versions

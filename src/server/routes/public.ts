@@ -354,18 +354,18 @@ export function publicRoutes(app: Hono<AppEnv>) {
   });
 
   /** Web versions of a video (server/video.ts). */
-  app.get('/media/:id/video/:file{(\\d+\\.mp4|poster\\.jpg)}', async (c) => {
+  app.get('/media/:id/video/:file{(\\d+\\.mp4|poster\\.(jpg|webp))}', async (c) => {
     const id = c.req.param('id');
     if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
     const [m] = await sql`select video, private from media where id = ${id}`;
     const v = m?.video as VideoInfo | null;
     if (!m || m.private || v?.status !== 'ready') return c.notFound();
     const file = c.req.param('file');
-    if (file === 'poster.jpg') {
-      if (!v.poster) return c.notFound();
+    if (file.startsWith('poster.')) {
+      if (!v.poster || !v.poster.endsWith(`/${file}`)) return c.notFound();
       const obj = await storage.getBuffer(v.poster);
       if (!obj) return c.notFound();
-      c.header('Content-Type', 'image/jpeg');
+      c.header('Content-Type', file.endsWith('.webp') ? 'image/webp' : 'image/jpeg');
       c.header('Cache-Control', 'public, max-age=86400');
       return c.body(new Uint8Array(obj));
     }
