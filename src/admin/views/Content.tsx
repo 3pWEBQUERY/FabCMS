@@ -16,7 +16,7 @@ import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatPrice, shortId } from '../../shared/text';
-import { templateStarter } from '../../shared/elements';
+import { popupStarter, templateStarter } from '../../shared/elements';
 import type { CollectionDef, EntryStatus } from '../../shared/types';
 import type { FieldDef } from '../../shared/fields';
 
@@ -270,6 +270,17 @@ export function CollectionList({ collection }: { collection: string }) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
+  const createPopup = async () => {
+    try {
+      const r = await api.post<{ entry: { id: string } }>('/api/entries', {
+        collection: 'sections',
+        data: { title: t('Neues Pop-up'), kind: 'popup', blocks: [{ id: shortId(8), type: 'layout', props: { width: 'content', els: popupStarter() }, style: {} }] },
+      });
+      navigate(entryUrl('sections', r.entry.id));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
   const remove = (r: Row) => moveToTrash(r.id, r.title, toast, () => void reload()).catch((e: Error) => toast(e.message, { kind: 'bad' }));
 
   return (
@@ -296,6 +307,11 @@ export function CollectionList({ collection }: { collection: string }) {
             {col.route && can('content.edit') && (
               <button className="btn" onClick={() => void openTemplate()} title={t('So sehen die Seiten aller Einträge aus – frei gestaltet, mit ihren Feldern verbunden.')}>
                 <Icon name="layout" size="s" /> {t('Seitenvorlage')}
+              </button>
+            )}
+            {collection === 'sections' && can('content.edit') && (
+              <button className="btn" onClick={() => void createPopup()} title={t('Erscheint über der Seite – nach einigen Sekunden, beim Scrollen oder beim Verlassen.')}>
+                <Icon name="box" size="s" /> {t('Pop-up anlegen')}
               </button>
             )}
             {(can('content.edit') || (collection === 'posts' && can('content.edit.own'))) && (

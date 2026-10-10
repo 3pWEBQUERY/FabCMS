@@ -738,6 +738,113 @@ if (ageBox) {
   });
 }
 
+/* ---------- pop-ups: at most one per page view, when its trigger fires; this browser remembers it was seen ---------- */
+const pops = [...d.querySelectorAll<HTMLDialogElement>('dialog[data-pop]')];
+if (pops.length && !d.body.classList.contains('age-locked')) {
+  let shown = false;
+  const store = (p: HTMLDialogElement) => {
+    try {
+      return p.dataset.popFreq === 'session' ? sessionStorage : localStorage;
+    } catch {
+      return null;
+    }
+  };
+  const key = (p: HTMLDialogElement) => `nova-pop:${p.dataset.pop}`;
+  const due = (p: HTMLDialogElement) => {
+    const now = Date.now();
+    const from = Number(p.dataset.popFrom || 0);
+    const until = Number(p.dataset.popUntil || 0);
+    if ((from && from > now) || (until && until <= now)) return false;
+    // Without a place to remember it, it would come back on every page: then rather not at all.
+    let last: number;
+    try {
+      const s = store(p);
+      if (!s) return false;
+      last = Number(s.getItem(key(p)) || 0);
+    } catch {
+      return false;
+    }
+    if (!last) return true;
+    return p.dataset.popFreq === 'days' && now - last > Number(p.dataset.popDays || 14) * 86_400_000;
+  };
+  const open = (p: HTMLDialogElement) => {
+    if (shown) return;
+    // The question about statistics comes first; the pop-up waits until it is answered.
+    const consent = d.getElementById('nova-consent');
+    if (consent && !consent.hidden) {
+      new MutationObserver((_, mo) => {
+        if (!consent.hidden) return;
+        mo.disconnect();
+        open(p);
+      }).observe(consent, { attributes: true, attributeFilter: ['hidden'] });
+      return;
+    }
+    if (d.querySelector('.lb, dialog[open]')) return;
+    shown = true;
+    try {
+      store(p)?.setItem(key(p), String(Date.now()));
+    } catch {
+      /* not remembered: shows again next time */
+    }
+    // Screen readers announce it by its first heading, if it has one.
+    const heading = p.querySelector('h1, h2, h3, h4');
+    if (heading) {
+      heading.id ||= `pop-h-${p.dataset.pop}`;
+      p.setAttribute('aria-labelledby', heading.id);
+      p.removeAttribute('aria-label');
+    }
+    const before = d.activeElement as HTMLElement | null;
+    if (p.classList.contains('pop-center')) {
+      p.showModal();
+      p.addEventListener('close', () => before?.focus?.({ preventScroll: true }), { once: true });
+    } else {
+      // Beside the page it does not take the focus away from what someone is doing.
+      p.show();
+      if (before && before !== d.body) before.focus({ preventScroll: true });
+      else (d.activeElement as HTMLElement | null)?.blur();
+    }
+  };
+  pops.forEach((p) => {
+    p.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-pop-close]')) return p.close();
+      // A click on the dimmed page around a centred pop-up closes it.
+      if (t === p && p.classList.contains('pop-center')) {
+        const r = p.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) p.close();
+      }
+    });
+  });
+  d.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') pops.forEach((p) => p.open && !p.matches(':modal') && p.close());
+  });
+  for (const p of pops.filter(due)) {
+    const trigger = p.dataset.popTrigger;
+    if (trigger === 'scroll') {
+      const share = Number(p.dataset.popScroll || 50) / 100;
+      const check = () => {
+        const max = d.documentElement.scrollHeight - innerHeight;
+        if (max > 0 && scrollY / max < share) return;
+        removeEventListener('scroll', check);
+        open(p);
+      };
+      addEventListener('scroll', check, { passive: true });
+      // A page too short to scroll counts as read after a moment.
+      setTimeout(check, 4000);
+    } else if (trigger === 'exit') {
+      // Only a mouse leaving towards the tab bar says «about to go»; on touch screens it stays away.
+      if (!matchMedia('(pointer: fine)').matches) continue;
+      const since = Date.now();
+      const leave = (e: MouseEvent) => {
+        if (e.relatedTarget || e.clientY > 0 || Date.now() - since < 3000) return;
+        d.removeEventListener('mouseout', leave);
+        open(p);
+      };
+      d.addEventListener('mouseout', leave);
+    } else setTimeout(() => open(p), Number(p.dataset.popDelay || 8) * 1000);
+  }
+}
+
 /* ---------- buttons: busy state while a normal form submits, no double orders ---------- */
 d.addEventListener('submit', (e) => {
   if (e.defaultPrevented) return; // async forms above handle themselves

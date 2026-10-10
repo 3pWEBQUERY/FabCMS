@@ -84,6 +84,7 @@ import { pickTemplate, templateSeed } from '../src/server/seed';
 import { SECTORS } from '../src/shared/collections';
 import { THEMES } from '../src/site/themes';
 import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
+import { pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -1612,5 +1613,56 @@ describe('text contrast', () => {
     expect(contrastRatio(composite({ ...hex(muted), a: 0.72 }, bg), bg)).toBeGreaterThanOrEqual(4.5);
     // Half-transparent text on mid grey can't reach it either way.
     expect(fixColor({ ...hex('#000000'), a: 0.1 }, hex('#777777'), 4.5)).toBeNull();
+  });
+});
+
+describe('pop-ups', () => {
+  it('checks every setting and fills in the rest', () => {
+    expect(popupConf({})).toMatchObject({
+      trigger: 'delay',
+      delay: 8,
+      scroll: 50,
+      frequency: 'days',
+      days: 14,
+      position: 'center',
+      size: 'm',
+      paths: [],
+      skip: [],
+      from: null,
+      until: null,
+    });
+    const c = popupConf({
+      popup_trigger: 'hover',
+      popup_delay: '-3',
+      popup_scroll: 250,
+      popup_days: 0,
+      popup_position: 'bar',
+      popup_size: 'xl',
+      popup_from: 'morgen',
+      popup_until: '2026-12-24T18:00:00',
+    });
+    expect(c).toMatchObject({ trigger: 'delay', delay: 0, scroll: 100, days: 1, position: 'bar', size: 'm', from: null, until: '2026-12-24T18:00' });
+  });
+
+  it('reads one address per line and matches below a star', () => {
+    expect(pathList('shop/*\n https://www.beispiel.ch/kontakt/ \n\n/\n/shop/*')).toEqual(['/shop/*', '/kontakt', '/']);
+    expect(pathMatches('/shop/*', '/shop')).toBe(true);
+    expect(pathMatches('/shop/*', '/shop/kaese')).toBe(true);
+    expect(pathMatches('/shop/*', '/shopping')).toBe(false);
+    expect(pathMatches('/kontakt', '/kontakt/')).toBe(true);
+    expect(pathMatches('/', '/kontakt')).toBe(false);
+    expect(pathMatches('/*', '/kontakt')).toBe(true);
+  });
+
+  it("shows only on its pages and in its time, in the site's time zone", () => {
+    const conf = popupConf({ popup_paths: '/blog/*', popup_skip: '/blog/intern', popup_from: '2026-12-01T08:00', popup_until: '2026-12-24T00:00' });
+    const at = (iso: string) => new Date(iso);
+    expect(popupShowsOn(conf, '/blog/neu', at('2026-12-10T12:00Z'), 'Europe/Zurich')).toBe(true);
+    expect(popupShowsOn(conf, '/blog/intern', at('2026-12-10T12:00Z'), 'Europe/Zurich')).toBe(false);
+    expect(popupShowsOn(conf, '/', at('2026-12-10T12:00Z'), 'Europe/Zurich')).toBe(false);
+    // 08:00 in Zurich is 07:00 UTC in winter.
+    expect(popupShowsOn(conf, '/blog/neu', at('2026-12-01T06:59Z'), 'Europe/Zurich')).toBe(false);
+    expect(popupShowsOn(conf, '/blog/neu', at('2026-12-01T07:00Z'), 'Europe/Zurich')).toBe(true);
+    expect(popupShowsOn(conf, '/blog/neu', at('2026-12-23T23:00Z'), 'Europe/Zurich')).toBe(false);
   });
 });

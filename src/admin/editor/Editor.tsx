@@ -161,7 +161,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   );
   // Sections are whole blocks; components are elements of the free layout.
   const components = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'component' && s.id !== id);
-  const sections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind !== 'component' && s.id !== id);
+  const sections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind !== 'component' && s.fields?.kind !== 'popup' && s.id !== id);
   const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
   // In a component's original: the variant being designed.
   const [variant, setVariant] = useState<string | null>(null);

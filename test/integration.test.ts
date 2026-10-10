@@ -2798,6 +2798,57 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('PATCH', '/api/settings', { mail: { logo: true, color: '', signature: '', footer: '', texts: {} } });
   });
 
+  it('shows published pop-ups on the pages they are meant for, closed until their trigger fires', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const shortBlock = () => Math.random().toString(36).slice(2, 10);
+    const mk = async (title: string, extra: Record<string, unknown>) => {
+      const e = (
+        await req('POST', '/api/entries', {
+          collection: 'sections',
+          data: { title, kind: 'popup', blocks: [{ id: shortBlock(), type: 'text', props: { heading: title, body: '<p>Jetzt anmelden.</p>' } }], ...extra },
+        })
+      ).data.entry;
+      return e;
+    };
+    const news = await mk('Newsletter', { popup_trigger: 'scroll', popup_scroll: 300, popup_frequency: 'session', popup_position: 'corner', popup_skip: '/kontakt\n' });
+    const shop = await mk('Shop-Aktion', { popup_paths: 'https://example.ch/shop/*', popup_delay: -5 });
+    const old = await mk('Vorbei', { popup_until: '2020-01-01T00:00' });
+    const soon = await mk('Bald', { popup_from: '2999-01-01T00:00' });
+    const draft = await mk('Entwurf', {});
+    for (const e of [news, shop, old, soon]) await req('POST', `/api/entries/${e.id}/publish`, {});
+
+    const home = (await req('GET', '/', undefined, anon)).data as string;
+    const dialogs = [...home.matchAll(/<dialog class="pop ([^"]+)" ([^>]*)>([\s\S]*?)<\/dialog>/g)];
+    const byId = (id: string) => dialogs.find((m) => m[2].includes(`data-pop="${id}"`));
+    // The newsletter as set, its values checked: never more than the whole page.
+    expect(byId(news.id)?.[1]).toBe('pop-corner pop-m');
+    for (const a of ['data-pop-trigger="scroll"', 'data-pop-scroll="100"', 'data-pop-freq="session"']) expect(byId(news.id)?.[2]).toContain(a);
+    // Its blocks render like on a page, but never as the page's main heading; closing has a name.
+    expect(byId(news.id)?.[3]).toContain('Jetzt anmelden.');
+    expect(byId(news.id)?.[3]).not.toContain('<h1');
+    expect(byId(news.id)?.[3]).toContain('data-pop-close aria-label="Schliessen"');
+    expect(home.match(/<h1[\s>]/g)?.length).toBe(1);
+    // Only below /shop; over; drafts never.
+    expect(byId(shop.id)).toBeUndefined();
+    expect(byId(old.id)).toBeUndefined();
+    expect(byId(draft.id)).toBeUndefined();
+    // A cached page must not miss its start: it comes along with its time, the browser decides.
+    expect(byId(soon.id)?.[2]).toMatch(/data-pop-from="\d{13,}"/);
+    expect(home).toContain('/_nova/site.js');
+
+    const contact = (await req('GET', '/kontakt', undefined, anon)).data as string;
+    expect(contact).not.toContain(`data-pop="${news.id}"`);
+    // Pages kept out of search (cart, account …) stay free of them.
+    const hidden = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Intern', seo: { noindex: true } }, slug: 'intern' })).data.entry;
+    await req('POST', `/api/entries/${hidden.id}/publish`, {});
+    expect((await req('GET', '/intern', undefined, anon)).data).not.toContain('<dialog class="pop');
+    // In the editor the pop-up is designed in its frame; pages there carry none.
+    const canvas = await req('POST', '/api/render', { entryId: news.id, data: { title: 'Newsletter', kind: 'popup', popup_position: 'corner', blocks: [] } });
+    expect(canvas.data.html).toContain('class="pop-stage pop-stage-corner"');
+    for (const e of [news, shop, old, soon, draft, hidden]) await req('DELETE', `/api/entries/${e.id}`);
+    expect((await req('GET', '/', undefined, anon)).data).not.toContain('<dialog class="pop');
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

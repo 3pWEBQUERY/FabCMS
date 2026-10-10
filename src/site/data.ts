@@ -95,6 +95,16 @@ export async function expandComponents(blocks: Block[] | undefined, preview = fa
   return Promise.all(list.map(async (b) => (b.type === 'layout' ? { ...b, props: { ...b.props, els: await expand((b.props.els as El[]) ?? [], 0) } } : b)));
 }
 
+/** Published pop-ups (sections of kind «popup») in the page's language, newest change first. */
+export async function livePopups(): Promise<{ id: string; title: string; data: EntryData }[]> {
+  const rows = await sql`
+    select id, published_data as data from entries
+    where collection = 'sections' and status = 'published' and published_data ->> 'kind' = 'popup'
+    order by updated_at desc limit 10`;
+  const list = await Promise.all(rows.map((r) => localizedOne({ id: r.id as string, data: r.data as EntryData }, 'sections')));
+  return list.filter((x): x is NonNullable<typeof x> => Boolean(x)).map((x) => ({ id: x.id, title: x.data.title, data: x.data }));
+}
+
 /** The page template of a content type: the most recently changed «sections» entry of kind «template» for it. */
 export async function entryTemplate(collection: string, preview: boolean): Promise<{ id: string; title: string; blocks: Block[] } | null> {
   const col = preview ? sql`data` : sql`published_data`;

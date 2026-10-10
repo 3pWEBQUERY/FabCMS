@@ -5,7 +5,8 @@ import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
 import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, entryTemplate, expandComponents, sampleEntry, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
+import { popupConf, popupOnPath, popupWindow } from '../shared/popups';
 import {
   articleLd,
   breadcrumbLd,
@@ -208,7 +209,9 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   const gate = ageGate(ctx);
   // Behind the e-ID gate the page carries no content at all – not even hidden under the overlay.
   const withheld = ctx.ageEid && Boolean(gate.value);
-  const runtime = s.analytics.enabled || Boolean(stats) || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
+  // Pop-ups: not in the editor or previews, not behind the age check, not on pages kept out of search (cart, checkout, account).
+  const pops = ctx.edit || ctx.preview || gate.value || meta.noindex ? html`` : await popups(ctx);
+  const runtime = s.analytics.enabled || Boolean(stats) || ctx.needs.size > 0 || s.modules.includes('shop') || fields || Boolean(pops.value) || /<textarea|type="search"|<video/.test(main.value);
   const blog = ctx.collections.find((c) => c.id === 'posts');
   // Other languages: canonical is the translated address; an untranslated page points to the original and stays out of the index.
   const here = ctx.alternates.find((a) => a.lang === ctx.lang);
@@ -239,7 +242,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
     stats ? html`<script type="application/json" id="nova-stats">${raw(JSON.stringify(stats).replace(/</g, '\\u003c'))}</script>` : ''
   }${
     runtime ? html`<script src="/_nova/site.js?v=${runtimeVersion('site')}" defer></script>` : ''
-  }${fields ? html`<script src="/_nova/fields.js?v=${runtimeVersion('fields')}" defer></script>` : ''}${ctx.edit ? html`<script src="/_nova/bridge.js?v=${runtimeVersion('bridge')}" defer></script>` : ''}`;
+  }${fields || /<select[\s>]|type="(?:date|number|file)"/.test(pops.value) ? html`<script src="/_nova/fields.js?v=${runtimeVersion('fields')}" defer></script>` : ''}${ctx.edit ? html`<script src="/_nova/bridge.js?v=${runtimeVersion('bridge')}" defer></script>` : ''}`;
   const bodyAttrs = raw(
     [
       gate.value ? ' class="age-locked"' : '',
@@ -247,12 +250,38 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
+  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}${pops}</body></html>`;
   // Only the rules this page can use – not in the editor or previews, and not when own scripts may add classes.
   const lean = ctx.edit || ctx.preview || s.security.allowCustomScripts ? css : parts.fixed + pruneCss(parts.nova, htmlClasses(doc, new Set(await scriptClasses()))) + parts.own;
   // Animations bring their own rules (classes set by the runtime, never pruned); the editor may add some at any time.
   const motion = ctx.needs.has('motion') || ctx.edit ? minifyCss(MOTION_CSS) : '';
   return doc.replace(STYLE_MARK, () => lean + motion);
+}
+
+/** The page's pop-ups, closed; site.js opens one when its trigger fires and remembers it was seen. */
+async function popups(ctx: RenderContext): Promise<Html> {
+  const now = ctx.now.getTime();
+  const out: Html[] = [];
+  for (const p of await livePopups()) {
+    const conf = popupConf(p.data);
+    const win = popupWindow(conf, ctx.settings.timezone);
+    if (!p.data.blocks?.length || !popupOnPath(conf, ctx.path) || (win.until !== null && win.until <= now)) continue;
+    // Its blocks as on any page – but never the page's main heading, and without section numbers.
+    const sub: RenderContext = { ...ctx, h1: true, blockIndex: 1, depth: 0, jsonLd: [], theme: { ...ctx.theme, numbered: false } };
+    const body = await renderBlocks(p.data.blocks, sub);
+    const attrs = [
+      `data-pop="${esc(p.id)}"`,
+      `data-pop-trigger="${conf.trigger}"`,
+      `data-pop-delay="${conf.delay}"`,
+      `data-pop-scroll="${conf.scroll}"`,
+      `data-pop-freq="${conf.frequency}"`,
+      `data-pop-days="${conf.days}"`,
+      win.from !== null ? `data-pop-from="${win.from}"` : '',
+      win.until !== null ? `data-pop-until="${win.until}"` : '',
+    ].filter(Boolean).join(' ');
+    out.push(html`<dialog class="pop pop-${conf.position} pop-${conf.size}" ${raw(attrs)} aria-label="${p.title}"><button type="button" class="pop-x" data-pop-close aria-label="${t(ctx, 'Schliessen')}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button><div class="pop-body">${body}</div></dialog>`);
+  }
+  return html`${out}`;
 }
 
 const STYLE_MARK = '/*nova-css*/';
@@ -377,6 +406,11 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
     main = e.data.blocks?.length
       ? await renderBlocks(e.data.blocks, ctx)
       : html`<div class="wrap" style="padding-block:4rem"><div class="nova-empty">Hier ist noch nichts. Füg oben den ersten Block hinzu.</div></div>`;
+    // A pop-up is designed in its frame, as wide as it will be, over a dimmed page.
+    if (e.data.kind === 'popup') {
+      const conf = popupConf(e.data);
+      main = html`<div class="pop-stage pop-stage-${conf.position}"><div class="pop pop-${conf.position} pop-${conf.size}"><div class="pop-body" data-nova-blocks>${main}</div></div></div>`;
+    }
   } else ({ main, crumbs } = await builtInView(ctx, c, e, image));
   return documentHtml(ctx, meta, main, crumbs);
 }

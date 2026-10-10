@@ -224,4 +224,5 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Vorschau – noch nicht veröffentlicht.': { fr: 'Aperçu – pas encore publié.', it: 'Anteprima – non ancora pubblicata.', en: 'Preview – not published yet.' },
   'Link gültig bis {date}.': { fr: 'Lien valable jusqu’au {date}.', it: 'Link valido fino al {date}.', en: 'Link valid until {date}.' },
+  Schliessen: { fr: 'Fermer', it: 'Chiudi', en: 'Close' },
 };

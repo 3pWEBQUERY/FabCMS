@@ -919,6 +919,18 @@ export interface LayoutPreset {
   els: () => El[];
 }
 
+/** What a new pop-up starts with: a heading, a sentence and a button, centred. */
+export const popupStarter = (): El[] => [
+  box(
+    [
+      createEl('heading', { text: 'Schön, dass du da bist', level: '2' }),
+      createEl('text', { html: '<p>Ein, zwei Sätze zu deinem Angebot – kurz, denn ein Pop-up unterbricht.</p>' }),
+      createEl('button', { label: 'Mehr erfahren' }),
+    ],
+    { desktop: { gap: '$s-4', align: 'center', textAlign: 'center' } },
+  ),
+];
+
 export const LAYOUT_PRESETS: LayoutPreset[] = [
   {
     id: 'split',
