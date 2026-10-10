@@ -5629,6 +5629,16 @@ body.scrubbing.v * {
   max-width: calc(100% - 16px);
   background: #1e3f8f;
 }
+.el-toolbar .el-count {
+  padding: 0.15rem 0.5rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .el-crumbs {
   display: flex;
   align-items: center;

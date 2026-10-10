@@ -1,10 +1,11 @@
 import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BLOCK_MAP } from '../../../shared/blocks';
+import type { AlignHow } from '../../../shared/canvas';
 import { EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, type El, type ElKind, type Found } from '../../../shared/elements';
 import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
-import { Tip } from '../../ui/kit';
+import { Menu, Tip } from '../../ui/kit';
 
 export const elLabel = (el: El) => el.name || tl(EL_DEFS[el.kind].label);
 
@@ -27,6 +28,7 @@ export function ElementToolbar({
   onWrap,
   onComponent,
   onRemove,
+  canvas,
 }: {
   found: Found;
   top: number;
@@ -44,6 +46,8 @@ export function ElementToolbar({
   /** Saves the element as a component – or, for an instance, opens its original. */
   onComponent: () => void;
   onRemove: () => void;
+  /** On a free canvas: how many are chosen, and lining them up. */
+  canvas?: { count: number; onAlign: (how: AlignHow) => void };
 }) {
   const siblings = found.parent ? (found.parent.children?.length ?? 1) : null;
   const items = ITEM_CONTAINERS.includes(found.el.kind);
@@ -86,6 +90,7 @@ export function ElementToolbar({
           {elLabel(found.el)}
         </span>
       </nav>
+      {canvas && canvas.count > 1 && <span className="el-count">{t('{n} gewählt', { n: canvas.count })}</span>}
       <span className="sep" />
       <button className="btn" onClick={onEdit}>
         <Icon name="settings" size="s" /> {t('Bearbeiten')}
@@ -102,6 +107,21 @@ export function ElementToolbar({
               <Icon name="arrowDown" size="s" />
             </button>
           </Tip>
+          {canvas && (
+            <Menu
+              align="start"
+              trigger={
+                <button className="btn icon-only" aria-label={canvas.count > 1 ? t('Ausrichten') : t('Auf der Fläche ausrichten')}>
+                  <Icon name="justCenter" size="s" />
+                </button>
+              }
+              items={[
+                ...ALIGN.map((a) => ({ label: tl(a.label), icon: a.icon, onSelect: () => canvas.onAlign(a.how) })),
+                'sep' as const,
+                ...SPACE.map((a) => ({ label: tl(a.label), icon: a.icon, onSelect: () => canvas.onAlign(a.how), hidden: canvas.count < 3 })),
+              ]}
+            />
+          )}
           <Tip label={insertLabel}>
             <button className="btn icon-only" onClick={(e) => (items ? onAddItem() : onInsert((e.currentTarget as HTMLElement).getBoundingClientRect()))} aria-label={insertLabel}>
               <Icon name="plus" size="s" />
@@ -132,6 +152,20 @@ export function ElementToolbar({
     </motion.div>
   );
 }
+
+/** One element lines up with the canvas, several with each other. */
+const ALIGN: { how: AlignHow; label: string; icon: string }[] = [
+  { how: 'left', label: 'Links ausrichten', icon: 'justStart' },
+  { how: 'center', label: 'Horizontal zentrieren', icon: 'justCenter' },
+  { how: 'right', label: 'Rechts ausrichten', icon: 'justEnd' },
+  { how: 'top', label: 'Oben ausrichten', icon: 'alignTop' },
+  { how: 'middle', label: 'Vertikal zentrieren', icon: 'alignMiddle' },
+  { how: 'bottom', label: 'Unten ausrichten', icon: 'alignBottom' },
+];
+const SPACE: { how: AlignHow; label: string; icon: string }[] = [
+  { how: 'hspace', label: 'Horizontal gleich verteilen', icon: 'dirRow' },
+  { how: 'vspace', label: 'Vertikal gleich verteilen', icon: 'dirColumn' },
+];
 
 /** The kinds of elements, to insert one – and the site's own components. */
 export function ElementPicker({

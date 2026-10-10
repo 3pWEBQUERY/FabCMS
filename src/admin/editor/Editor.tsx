@@ -141,6 +141,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
   // Free layout: the selected element inside the selected block, and where to insert a new one.
   const [selectedEl, setSelectedEl] = useState<string | null>(null);
+  /** Elements of a free canvas chosen together with Shift-click (the selected one first). */
+  const [multi, setMulti] = useState<string[]>([]);
   const [elRect, setElRect] = useState<Rect | null>(null);
   const [elPicker, setElPicker] = useState<Rect | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
@@ -248,7 +250,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           // Scrolling the page moves things away from the menu: it closes.
           if (ctx && Date.now() - ctxAt.current > 300) setCtx(null);
           break;
+        case 'multi':
+          setMulti(m.els ?? []);
+          break;
         case 'select-el':
+          setMulti([]);
           if (m.block) setSelected(m.block);
           if (m.blockRect) setRect(m.blockRect);
           setSelectedEl(m.el ?? null);
@@ -274,8 +280,22 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           const info = b && findEl(elsOf(b), m.el);
           if (!info) break;
           let design: Design = info.el.design ?? {};
-          for (const k of ['left', 'top', 'width'] as const) if (typeof m[k] === 'string') design = setDesign(design, device, k, m[k]);
+          for (const k of ['left', 'top', 'width', 'height'] as const) if (typeof m[k] === 'string') design = setDesign(design, device, k, m[k]);
           changeElement(m.block, { ...info.el, design });
+          break;
+        }
+        case 'el-pos-many': {
+          // Several elements moved or aligned together: one change, one step to undo.
+          const b = blocksRef.current.find((x) => x.id === m.block);
+          if (!b) break;
+          let els = elsOf(b);
+          for (const it of m.items as { el: string; left?: string; top?: string }[])
+            els = updateEl(els, it.el, (el) => {
+              let design: Design = el.design ?? {};
+              for (const k of ['left', 'top'] as const) if (typeof it[k] === 'string' && it[k]) design = setDesign(design, device, k, it[k]);
+              return { ...el, design };
+            });
+          changeBlock({ ...b, props: { ...b.props, els } });
           break;
         }
         case 'edit':
@@ -314,6 +334,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           else if (m.key === 'save') void doc.saveNow();
           else if (m.key === 'mode') void session.setMode(session.mode === 'studio' ? 'werkbank' : 'studio');
           else if (['duplicate', 'copy', 'paste', 'copy-style', 'paste-style', 'move-up', 'move-down', 'help'].includes(m.key)) runAction(m.key as EditorAction);
+          else if (m.key === 'delete' && selected && multi.length > 1) removeElements(selected, multi);
           else if (m.key === 'delete' && selectedEl && selected) removeElement(selected, selectedEl);
           else if (m.key === 'delete' && selected) void removeBlock(selected);
           break;
@@ -604,6 +625,18 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], [role="dialog"]')) return;
+      // Arrow keys move what is chosen on a free canvas, also while the focus sits in the toolbar.
+      if (
+        e.key.startsWith('Arrow') &&
+        !e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        selectedElInfo?.parent?.kind === 'canvas' &&
+        !(e.target as HTMLElement).closest('[role="menu"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="slider"]')
+      ) {
+        e.preventDefault();
+        return postToCanvas(frame.current, { t: 'nudge', key: e.key, shift: e.shiftKey });
+      }
       const a = shortcutAction(e, isMac);
       if (!a) return;
       e.preventDefault();
@@ -759,6 +792,16 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
     changeEls(blockId, (els) => removeEl(els, elId), info.parent?.id ?? null);
     toast(t('«{name}» entfernt.', { name: elLabel(info.el) }), { action: { label: t('Rückgängig'), run: () => doc.undo() } });
+  };
+
+  const removeElements = (blockId: string, ids: string[]) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    if (!b) return;
+    if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
+    const parent = findEl(elsOf(b), ids[0])?.parent?.id ?? null;
+    changeEls(blockId, (els) => ids.reduce((acc, id) => removeEl(acc, id), els), parent);
+    setMulti([]);
+    toast(t('{n} Elemente entfernt.', { n: ids.length }), { action: { label: t('Rückgängig'), run: () => doc.undo() } });
   };
 
   const moveElementBy = (blockId: string, elId: string, dir: -1 | 1) => {
@@ -989,7 +1032,12 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                         ? openComponent(String(selectedElInfo.el.props.ref))
                         : setComponentFor({ block: selectedBlock.id, el: selectedElInfo.el.id })
                     }
-                    onRemove={() => removeElement(selectedBlock.id, selectedElInfo.el.id)}
+                    onRemove={() => (multi.length > 1 ? removeElements(selectedBlock.id, multi) : removeElement(selectedBlock.id, selectedElInfo.el.id))}
+                    canvas={
+                      selectedElInfo.parent?.kind === 'canvas'
+                        ? { count: Math.max(1, multi.length), onAlign: (how) => postToCanvas(frame.current, { t: 'align', how }) }
+                        : undefined
+                    }
                   />
                 )}
                 {selectedBlock && !selectedElInfo && toolbarPos && !picker && (

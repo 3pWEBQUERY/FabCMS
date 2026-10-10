@@ -17,6 +17,7 @@ import { entryAccess, mayRead, memberLevel } from '../src/shared/members';
 import { orderSlots, foodTotals } from '../src/shared/ordering';
 import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv, sniffDelimiter } from '../src/server/importer/parse';
 import { cellText, matchColumns, parseCell, tableFields } from '../src/shared/datatable';
+import { alignRects, snapLines, snapTo } from '../src/shared/canvas';
 import { CAP_INFO, DEFAULT_ROLE_MODES, can, capsOf, modesOf, setCustomRoles } from '../src/shared/roles';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
@@ -1491,5 +1492,28 @@ describe('own roles', () => {
     const caps = CAP_INFO.map((c) => c.cap);
     expect(new Set(caps).size).toBe(caps.length);
     expect(caps.sort()).toEqual([...capsOf('owner')].sort());
+  });
+});
+
+describe('free canvas geometry', () => {
+  const r = (l: number, t: number, w: number, h: number) => ({ l, t, w, h });
+  it('lines one element up with the canvas, several with each other', () => {
+    expect(alignRects([r(10, 10, 20, 10)], 'center')).toEqual([r(40, 10, 20, 10)]);
+    expect(alignRects([r(10, 10, 20, 10)], 'bottom')).toEqual([r(10, 90, 20, 10)]);
+    const two = alignRects([r(10, 10, 20, 10), r(50, 30, 10, 10)], 'right');
+    expect(two.map((b) => b.l)).toEqual([40, 50]);
+    expect(alignRects([r(10, 10, 20, 10), r(50, 30, 10, 30)], 'middle').map((b) => b.t)).toEqual([30, 20]);
+  });
+  it('spaces three or more by their middles, the outer ones stay', () => {
+    const spaced = alignRects([r(0, 0, 10, 10), r(70, 0, 10, 10), r(20, 0, 30, 10)], 'hspace');
+    expect(spaced.map((b) => b.l + b.w / 2)).toEqual([5, 75, 40]);
+    // Two are left as they are.
+    expect(alignRects([r(0, 0, 10, 10), r(70, 0, 10, 10)], 'vspace').map((b) => b.t)).toEqual([0, 0]);
+  });
+  it('snaps to the nearest edge or middle within range', () => {
+    const lines = snapLines([r(30, 20, 10, 10)], 'x');
+    expect(lines).toEqual([0, 50, 100, 30, 35, 40]);
+    expect(snapTo([29.4, 34.4, 39.4], lines, 1)).toEqual({ by: expect.closeTo(0.6), at: 30 });
+    expect(snapTo([60, 61, 62], lines, 1)).toBeNull();
   });
 });

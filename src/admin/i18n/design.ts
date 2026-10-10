@@ -752,4 +752,16 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Auf der freien Fläche verschieben': { fr: 'Déplacer sur la surface libre', it: 'Sposta sulla superficie libera', en: 'Move on the free canvas' },
   'Ohne Einrasten ziehen': { fr: 'Glisser sans aimantation', it: 'Trascina senza aggancio', en: 'Drag without snapping' },
+  /* ---------- free canvas: several elements, align ---------- */
+  '{n} gewählt': { fr: '{n} sélectionnés', it: '{n} selezionati', en: '{n} selected' },
+  'Auf der Fläche ausrichten': { fr: 'Aligner sur la surface', it: 'Allinea sulla superficie', en: 'Align on the canvas' },
+  'Links ausrichten': { fr: 'Aligner à gauche', it: 'Allinea a sinistra', en: 'Align left' },
+  'Horizontal zentrieren': { fr: 'Centrer horizontalement', it: 'Centra orizzontalmente', en: 'Centre horizontally' },
+  'Rechts ausrichten': { fr: 'Aligner à droite', it: 'Allinea a destra', en: 'Align right' },
+  'Oben ausrichten': { fr: 'Aligner en haut', it: 'Allinea in alto', en: 'Align top' },
+  'Vertikal zentrieren': { fr: 'Centrer verticalement', it: 'Centra verticalmente', en: 'Centre vertically' },
+  'Unten ausrichten': { fr: 'Aligner en bas', it: 'Allinea in basso', en: 'Align bottom' },
+  'Horizontal gleich verteilen': { fr: 'Répartir horizontalement', it: 'Distribuisci orizzontalmente', en: 'Distribute horizontally' },
+  'Vertikal gleich verteilen': { fr: 'Répartir verticalement', it: 'Distribuisci verticalmente', en: 'Distribute vertically' },
+  '{n} Elemente entfernt.': { fr: '{n} éléments supprimés.', it: '{n} elementi rimossi.', en: '{n} elements removed.' },
 };

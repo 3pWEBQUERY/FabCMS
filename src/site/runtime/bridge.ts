@@ -8,6 +8,7 @@ import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 import { replay, setupMotion } from './motion';
 import { activeTab, reveal, setupWidgets, showTab } from './widgets';
 import { shortcutAction } from '../../shared/shortcuts';
+import { alignRects, snapLines, snapTo, type AlignHow, type Rect } from '../../shared/canvas';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -48,6 +49,7 @@ a[href]{cursor:default}
 [data-nova-el]{transition:outline-color .12s}
 [data-nova-el-hover]{outline:1px dashed rgba(43,89,195,.7)!important;outline-offset:-1px}
 [data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
+[data-nova-el-multi]{outline:2px dashed #2b59c3!important;outline-offset:-1px}
 [data-nova-el-drag]{opacity:.35}
 [data-nova-ghost]{pointer-events:none}
 .el-marquee:hover .mq-track,.el-marquee:has([data-nova-el-selected]) .mq-track,.el-marquee[data-nova-el-selected] .mq-track{animation-play-state:paused}
@@ -265,7 +267,30 @@ function restoreWidgets(block: HTMLElement, st: WidgetState) {
 let selectedEl: string | null = null;
 const elEl = (id: string) => main.querySelector<HTMLElement>(`[data-nova-el="${CSS.escape(id)}"]`);
 
+/** More elements of the same canvas, added with Shift-click: moved, nudged and aligned together. */
+const multi = new Set<string>();
+function clearMulti() {
+  multi.forEach((id) => elEl(id)?.removeAttribute('data-nova-el-multi'));
+  multi.clear();
+}
+/** The selected element and the ones added to it. */
+function group(): HTMLElement[] {
+  const first = selectedEl ? elEl(selectedEl) : null;
+  if (!first) return [];
+  return [first, ...[...multi].map(elEl).filter((x): x is HTMLElement => Boolean(x))];
+}
+function toggleMulti(el: HTMLElement) {
+  const id = el.dataset.novaEl!;
+  if (multi.delete(id)) el.removeAttribute('data-nova-el-multi');
+  else {
+    multi.add(id);
+    el.setAttribute('data-nova-el-multi', '');
+  }
+  post({ t: 'multi', block: selected, els: group().map((x) => x.dataset.novaEl) });
+}
+
 function selectEl(id: string | null, notify: boolean) {
+  if (id !== selectedEl) clearMulti();
   if (selectedEl) elEl(selectedEl)?.removeAttribute('data-nova-el-selected');
   selectedEl = id;
   const el = id ? elEl(id) : null;
@@ -398,21 +423,32 @@ function onCanvas(el: HTMLElement | null): boolean {
   return Boolean(el?.parentElement?.matches('[data-nova-kind-el="canvas"]'));
 }
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
-let free: { el: HTMLElement; canvas: DOMRect; x: number; y: number; left: number; top: number; width: number; height: number; mode: 'move' | 'size'; moved: boolean } | null = null;
+/** Elements with a height of their own; text keeps growing with its words. */
+const twoD = (el: HTMLElement) => /^(shape|image|box|video|spacer|icon)$/.test(el.dataset.novaKindEl ?? '');
+interface Box extends Rect {
+  el: HTMLElement;
+}
+/** Place and size of an element in percent of its canvas. */
+function boxOf(el: HTMLElement, cr: DOMRect): Box {
+  const r = el.getBoundingClientRect();
+  return { el, l: ((r.left - cr.left) / cr.width) * 100, t: ((r.top - cr.top) / cr.height) * 100, w: (r.width / cr.width) * 100, h: (r.height / cr.height) * 100 };
+}
+let free: { el: HTMLElement; canvas: DOMRect; x: number; y: number; items: Box[]; others: Box[]; mode: 'move' | 'size'; moved: boolean } | null = null;
+/** A drag ends in a click – on the handle or on one element of several; it must not change the selection. */
+let afterDrag = false;
 
 function startFree(e: PointerEvent, el: HTMLElement, mode: 'move' | 'size') {
   e.preventDefault();
   const cr = el.parentElement!.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
+  const members = mode === 'move' && group().includes(el) ? group() : [el];
   free = {
     el,
     canvas: cr,
     x: e.clientX,
     y: e.clientY,
-    left: ((r.left - cr.left) / cr.width) * 100,
-    top: ((r.top - cr.top) / cr.height) * 100,
-    width: (r.width / cr.width) * 100,
-    height: (r.height / cr.height) * 100,
+    items: members.map((x) => boxOf(x, cr)),
+    // Everything else on the canvas offers its edges and middles to snap to.
+    others: [...el.parentElement!.children].filter((x): x is HTMLElement => x instanceof HTMLElement && x.hasAttribute('data-nova-el') && !members.includes(x)).map((x) => boxOf(x, cr)),
     mode,
     moved: false,
   };
@@ -423,33 +459,53 @@ function startFree(e: PointerEvent, el: HTMLElement, mode: 'move' | 'size') {
 
 function moveFree(e: PointerEvent) {
   if (!free) return;
-  const { el, canvas: cr } = free;
+  const { el, canvas: cr, items } = free;
   const dx = ((e.clientX - free.x) / cr.width) * 100;
   const dy = ((e.clientY - free.y) / cr.height) * 100;
   if (!free.moved && Math.abs(e.clientX - free.x) + Math.abs(e.clientY - free.y) < 3) return;
   free.moved = true;
-  el.setAttribute('data-nova-free', '');
+  guideV.classList.remove('on');
+  guideH.classList.remove('on');
   if (free.mode === 'size') {
-    const w = Math.max(2, free.width + dx);
+    const it = items[0];
+    const w = Math.max(2, it.w + dx);
+    el.setAttribute('data-nova-free', '');
     el.style.width = pct(w);
-    epos.textContent = `${pct(w)} breit`;
+    if (twoD(el)) {
+      // Shift keeps the proportions.
+      const h = e.shiftKey ? w * (it.h / it.w) : Math.max(2, it.h + dy);
+      el.style.height = pct(h);
+      epos.textContent = `${pct(w)} × ${pct(h)}`;
+    } else epos.textContent = `${pct(w)} breit`;
   } else {
-    let left = free.left + dx;
-    let top = free.top + dy;
-    // Snaps to the middle and the edges of the canvas; Alt moves freely.
-    const snapX = !e.altKey && Math.abs(left + free.width / 2 - 50) < 1.2;
-    const snapY = !e.altKey && Math.abs(top + free.height / 2 - 50) < 1.6;
-    if (snapX) left = 50 - free.width / 2;
-    if (snapY) top = 50 - free.height / 2;
-    if (!e.altKey && Math.abs(left) < 1) left = 0;
-    if (!e.altKey && Math.abs(top) < 1) top = 0;
-    el.style.left = pct(left);
-    el.style.top = pct(top);
-    Object.assign(guideV.style, { left: `${cr.left + cr.width / 2}px`, top: `${cr.top + scrollY}px`, height: `${cr.height}px` });
-    Object.assign(guideH.style, { top: `${cr.top + cr.height / 2 + scrollY}px`, left: `${cr.left}px`, width: `${cr.width}px` });
-    guideV.classList.toggle('on', snapX);
-    guideH.classList.toggle('on', snapY);
-    epos.textContent = `${pct(left)} · ${pct(top)}`;
+    // The selection as one box: it snaps with its edges and middle; Alt moves freely.
+    const L = Math.min(...items.map((b) => b.l)) + dx;
+    const T = Math.min(...items.map((b) => b.t)) + dy;
+    const W = Math.max(...items.map((b) => b.l + b.w)) - Math.min(...items.map((b) => b.l));
+    const H = Math.max(...items.map((b) => b.t + b.h)) - Math.min(...items.map((b) => b.t));
+    let sx = 0;
+    let sy = 0;
+    if (!e.altKey) {
+      // Within six pixels of a line.
+      const hx = snapTo([L, L + W / 2, L + W], snapLines(free.others, 'x'), (6 / cr.width) * 100);
+      const hy = snapTo([T, T + H / 2, T + H], snapLines(free.others, 'y'), (6 / cr.height) * 100);
+      if (hx) {
+        sx = hx.by;
+        Object.assign(guideV.style, { left: `${cr.left + (hx.at / 100) * cr.width}px`, top: `${cr.top + scrollY}px`, height: `${cr.height}px` });
+        guideV.classList.add('on');
+      }
+      if (hy) {
+        sy = hy.by;
+        Object.assign(guideH.style, { top: `${cr.top + (hy.at / 100) * cr.height + scrollY}px`, left: `${cr.left}px`, width: `${cr.width}px` });
+        guideH.classList.add('on');
+      }
+    }
+    for (const b of items) {
+      b.el.setAttribute('data-nova-free', '');
+      b.el.style.left = pct(b.l + dx + sx);
+      b.el.style.top = pct(b.t + dy + sy);
+    }
+    epos.textContent = `${pct(L + sx)} · ${pct(T + sy)}`;
   }
   const r = el.getBoundingClientRect();
   Object.assign(epos.style, { top: `${r.bottom + scrollY + 8}px`, left: `${r.left}px` });
@@ -463,15 +519,34 @@ function endFree() {
   guideH.classList.remove('on');
   epos.classList.remove('on');
   if (!free) return;
-  const { el, moved, mode } = free;
+  const { el, moved, mode, items } = free;
   free = null;
   if (!moved) return;
+  afterDrag = true;
+  setTimeout(() => (afterDrag = false), 0);
   const block = el.closest<HTMLElement>('[data-nova-block]');
-  post(
-    mode === 'size'
-      ? { t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, width: el.style.width }
-      : { t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, left: el.style.left, top: el.style.top },
-  );
+  if (mode === 'size') return post({ t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, width: el.style.width, height: el.style.height || undefined });
+  postPlaces(block, items.map((b) => b.el));
+}
+
+/** Where elements sit now, in one change (one step to undo). */
+function postPlaces(block: HTMLElement | null | undefined, els: HTMLElement[]) {
+  post({ t: 'el-pos-many', block: block?.dataset.novaBlock, items: els.map((x) => ({ el: x.dataset.novaEl, left: x.style.left, top: x.style.top })) });
+}
+
+/** Lines up the selection (see alignRects) and keeps the new places. */
+function align(how: AlignHow) {
+  const members = group().filter(onCanvas);
+  if (!members.length) return;
+  const cr = members[0].parentElement!.getBoundingClientRect();
+  const boxes = alignRects(members.map((x) => boxOf(x, cr)), how);
+  for (const b of boxes) {
+    b.el.setAttribute('data-nova-free', '');
+    b.el.style.left = pct(b.l);
+    b.el.style.top = pct(b.t);
+  }
+  placeEgrip();
+  postPlaces(members[0].closest<HTMLElement>('[data-nova-block]'), members);
 }
 
 eresize.addEventListener('pointerdown', (e) => {
@@ -484,29 +559,31 @@ d.addEventListener(
   'pointerdown',
   (e) => {
     const t = e.target as HTMLElement;
-    const el = selectedEl ? elEl(selectedEl) : null;
-    if (!el || e.button !== 0 || !onCanvas(el) || !el.contains(t) || t.closest('[data-nova-field]')) return;
+    // Any element of the selection drags all of it along.
+    const el = group().find((x) => x.contains(t));
+    if (!el || e.button !== 0 || e.shiftKey || !onCanvas(el) || t.closest('[data-nova-field]')) return;
     const block = el.closest<HTMLElement>('[data-nova-block]');
     if (block && lockOf(block) === 'none') startFree(e, el, 'move');
   },
   true,
 );
 
-/** Arrow keys move a canvas element by half a percent, with Shift by five. */
-function nudge(e: KeyboardEvent): boolean {
-  const el = selectedEl ? elEl(selectedEl) : null;
-  if (!el || !onCanvas(el) || e.altKey || e.metaKey || e.ctrlKey) return false;
+/** Arrow keys move the selection on a canvas by half a percent, with Shift by five. */
+function nudge(e: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'metaKey' | 'ctrlKey'>): boolean {
+  const els = group();
+  if (!els.length || !onCanvas(els[0]) || e.altKey || e.metaKey || e.ctrlKey) return false;
   const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
   if (!dir) return false;
-  const cr = el.parentElement!.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
+  const cr = els[0].parentElement!.getBoundingClientRect();
   const step = e.shiftKey ? 5 : 0.5;
-  el.style.left = pct(((r.left - cr.left) / cr.width) * 100 + dir[0] * step);
-  el.style.top = pct(((r.top - cr.top) / cr.height) * 100 + dir[1] * step);
-  el.setAttribute('data-nova-free', '');
+  for (const el of els) {
+    const b = boxOf(el, cr);
+    el.style.left = pct(b.l + dir[0] * step);
+    el.style.top = pct(b.t + dir[1] * step);
+    el.setAttribute('data-nova-free', '');
+  }
   placeEgrip();
-  const block = el.closest<HTMLElement>('[data-nova-block]');
-  post({ t: 'el-pos', block: block?.dataset.novaBlock, el: el.dataset.novaEl, left: el.style.left, top: el.style.top });
+  postPlaces(els[0].closest<HTMLElement>('[data-nova-block]'), els);
   return true;
 }
 
@@ -540,6 +617,16 @@ d.addEventListener(
     }
     const block = t.closest<HTMLElement>('[data-nova-block]');
     const el = t.closest<HTMLElement>('[data-nova-el]');
+    const first = selectedEl ? elEl(selectedEl) : null;
+    // The click that ends a drag or a resize changes nothing.
+    if (afterDrag) {
+      afterDrag = false;
+      return e.preventDefault();
+    }
+    if (el && first && e.shiftKey && el !== first && onCanvas(el) && el.parentElement === first.parentElement) {
+      e.preventDefault();
+      return toggleMulti(el);
+    }
     if (el && block?.contains(el)) {
       // Writing a question doesn't fold its answer away; the sign beside it still does.
       if (t.closest('summary') && t.closest('[data-nova-field]')) e.preventDefault();
@@ -916,6 +1003,7 @@ addEventListener('message', (e) => {
         sel?.setAttribute('data-nova-el-selected', '');
         if (sel) reveal(sel);
       }
+      multi.forEach((id) => elEl(id)?.setAttribute('data-nova-el-multi', ''));
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
       paintComments();
       paintPeers();
@@ -996,6 +1084,7 @@ addEventListener('message', (e) => {
       if (selected && blockEl(selected)) blockEl(selected)!.setAttribute('data-nova-selected', '');
       if (selectedEl) elEl(selectedEl)?.setAttribute('data-nova-el-selected', '');
       else select(null, true);
+      multi.forEach((id) => elEl(id)?.setAttribute('data-nova-el-multi', ''));
       paintComments();
       paintPeers();
       sendRect();
@@ -1067,12 +1156,20 @@ addEventListener('message', (e) => {
           x.style.removeProperty('left');
           x.style.removeProperty('top');
           x.style.removeProperty('width');
+          x.style.removeProperty('height');
           x.removeAttribute('data-nova-free');
         });
       placeEgrip();
       sendRect();
       break;
     }
+    case 'align':
+      align(m.how as AlignHow);
+      break;
+    case 'nudge':
+      // Arrow keys pressed in the admin around the canvas.
+      nudge({ key: String(m.key), shiftKey: Boolean(m.shift), altKey: false, metaKey: false, ctrlKey: false });
+      break;
     case 'select-el': {
       if (m.block && selected !== m.block) select(m.block, false);
       selectEl(m.el ?? null, false);
