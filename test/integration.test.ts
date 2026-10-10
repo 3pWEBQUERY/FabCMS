@@ -2994,6 +2994,58 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('PATCH', '/api/settings', { shop: { cartReminders: { enabled: false, hours: 4 } } });
   });
 
+  it('warns once when an order takes a product below its stock limit', async () => {
+    const shopper = new Map<string, string>();
+    const mk = async (title: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'products', data: { title, price: 1000, ...data } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const honig = await mk('Waldhonig', { stock: 6, stockAlert: 5 });
+    const salz = await mk('Kräutersalz', { stock: 20 });
+    await req('PATCH', '/api/settings', { shop: { lowStock: { threshold: 3, email: true } }, business: { email: 'laden@example.ch' } });
+    const buy = async (id: string, qty: number) => {
+      await req('POST', '/warenkorb/add', undefined, { cookies: shopper, form: { product: id, qty: String(qty) } });
+      await req('POST', '/kasse', undefined, {
+        cookies: shopper,
+        form: { name: 'Ida', email: 'ida@example.ch', street: 'Weg 3', zip: '8000', city: 'Zürich', country: 'CH', shippingMethod: 'pickup', payment: 'invoice', acceptTerms: '1' },
+      });
+    };
+    const settle = () => new Promise((r) => setTimeout(r, 150));
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 40 && !ok(); i++) await settle();
+    };
+    const warned = () => outbox.filter((m) => m.subject.startsWith('Wenig an Lager'));
+    const before = warned().length;
+    await buy(honig.id, 1);
+    await buy(salz.id, 2);
+    await until(() => warned().length > before);
+    await settle();
+    // Honey crossed its own limit (6 → 5), salt is far from the shop's.
+    expect(warned().length - before).toBe(1);
+    const mail = warned().at(-1)!;
+    expect(mail.to).toBe('laden@example.ch');
+    expect(mail.text).toContain('Waldhonig: noch 5');
+    const [bell] = await sql`select title, href from notifications where kind = 'stock' order by created_at desc limit 1`;
+    expect(bell).toMatchObject({ title: 'Nur noch 5 an Lager: Waldhonig', href: `/inhalte/products/${honig.id}` });
+    // Already below: no second warning; on the dashboard it stays listed.
+    await buy(honig.id, 1);
+    await settle();
+    expect(warned().length - before).toBe(1);
+    const dash = await req('GET', '/api/dashboard');
+    expect(dash.data.lowStock).toEqual(expect.arrayContaining([{ id: honig.id, title: 'Waldhonig', variant: null, stock: 4, limit: 5 }]));
+    expect(dash.data.lowStock.some((x: { id: string }) => x.id === salz.id)).toBe(false);
+    // Mail off: the bell still rings.
+    await req('PATCH', '/api/settings', { shop: { lowStock: { threshold: 17, email: false } } });
+    await buy(salz.id, 1);
+    const latest = async () => (await sql`select title from notifications where kind = 'stock' order by created_at desc limit 1`)[0].title as string;
+    for (let i = 0; i < 40 && (await latest()) !== 'Nur noch 17 an Lager: Kräutersalz'; i++) await settle();
+    expect(await latest()).toBe('Nur noch 17 an Lager: Kräutersalz');
+    expect(warned().length - before).toBe(1);
+    await req('PATCH', '/api/settings', { shop: { lowStock: { threshold: 3, email: true } } });
+    for (const e of [honig, salz]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

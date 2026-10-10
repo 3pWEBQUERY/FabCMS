@@ -1600,4 +1600,29 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Alcune ore dopo un ordine non completato – solo se la persona lo ha chiesto.',
     en: 'A few hours after an unfinished order – only if the person asked for it.',
   },
+  'Wenig an Lager': { fr: 'Stock bas', it: 'Scorte basse', en: 'Low stock' },
+  'noch {n}': { fr: 'encore {n}', it: 'ancora {n}', en: '{n} left' },
+  Lager: { fr: 'Stock', it: 'Magazzino', en: 'Stock' },
+  'Sinkt der Bestand durch eine Bestellung auf diese Zahl oder darunter, meldet sich Nova – einmal pro Produkt und Variante.': {
+    fr: 'Si une commande fait descendre le stock à ce nombre ou en dessous, Nova te prévient – une fois par produit et variante.',
+    it: 'Se un ordine porta le scorte a questo numero o sotto, Nova ti avvisa – una volta per prodotto e variante.',
+    en: 'When an order brings stock down to this number or below, Nova lets you know – once per product and variant.',
+  },
+  'Warnen ab Bestand': { fr: 'Alerter dès un stock de', it: 'Avvisa da una scorta di', en: 'Warn at stock' },
+  'Pro Produkt lässt sich eine eigene Grenze setzen.': {
+    fr: 'Chaque produit peut avoir sa propre limite.',
+    it: 'Ogni prodotto può avere un proprio limite.',
+    en: 'Each product can have its own limit.',
+  },
+  'Leer = wie in den Shop-Einstellungen.': {
+    fr: 'Vide = comme dans les réglages de la boutique.',
+    it: 'Vuoto = come nelle impostazioni del negozio.',
+    en: 'Empty = as in the shop settings.',
+  },
+  'Auch per E-Mail melden': { fr: 'Prévenir aussi par e-mail', it: 'Avvisa anche via e-mail', en: 'Also notify by email' },
+  'An die Adresse für Bestellungen, sonst an die Kontakt-E-Mail.': {
+    fr: 'À l’adresse pour les commandes, sinon à l’e-mail de contact.',
+    it: 'All’indirizzo per gli ordini, altrimenti all’e-mail di contatto.',
+    en: 'To the address for orders, otherwise to the contact email.',
+  },
 };

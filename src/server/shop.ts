@@ -12,6 +12,7 @@ import { sign, unsign, token } from './lib/crypto';
 import { badRequest } from './lib/http';
 import { emit } from './events';
 import { notify } from './notify';
+import { stockAfterOrder } from './stock';
 import { depositPaid } from './booking';
 import { sendMail } from './mail';
 import { formatMoney } from '../shared/text';
@@ -271,13 +272,7 @@ export async function createOrder(items: CartItem[], input: CheckoutInput): Prom
   // Told after the commit, so nobody is notified about an order that was rolled back.
   const pay = input.payment === 'invoice' ? 'auf Rechnung' : 'online, Zahlung offen';
   void notify({ kind: 'order', cap: 'orders.view', title: `Neue Bestellung ${result.number}`, body: `${input.name.trim()} · ${formatMoney(result.total, s.shop.currency)} · ${pay}`, href: `/bestellungen/${result.id}` });
-  for (const l of result.lines) {
-    if (l.available === null) continue;
-    const left = Math.max(0, l.available - l.qty);
-    if (left > 3) continue;
-    const what = `${l.title}${l.variantName ? ` (${l.variantName})` : ''}`;
-    void notify({ kind: 'stock', cap: 'orders.view', title: left === 0 ? `Ausverkauft: ${what}` : `Nur noch ${left} an Lager: ${what}`, body: 'Bestand im Produkt anpassen, sobald Nachschub da ist.', href: `/inhalte/products/${l.productId}` });
-  }
+  void stockAfterOrder(result.lines).catch((e) => console.error('[lager]', e));
   return { id: result.id, token: result.token, number: result.number, total: result.total };
 }
 

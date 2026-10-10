@@ -18,6 +18,7 @@ interface DashboardData {
   recent: { id: string; collection: string; slug: string; status: EntryStatus; title: string; updated_at: string; author_name: string }[];
   checklist: { id: string; label: string; done: boolean; href: string }[];
   stats: { totals: { visitors: number; pageviews: number; visitorsPrev: number }; series: DayPoint[] } | null;
+  lowStock: { id: string; title: string; variant: string | null; stock: number; limit: number }[];
   sessions: number;
   site: { name: string; baseUrl: string };
 }
@@ -218,6 +219,27 @@ export function Dashboard() {
               <p className="card-pad muted small">{t('Nichts offen. Schön.')}</p>
             )}
           </section>
+          {Boolean(data?.lowStock.length) && (
+            <section className="card" aria-labelledby="low-h">
+              <div className="card-head">
+                <h2 id="low-h">{t('Wenig an Lager')}</h2>
+              </div>
+              <ul className="list">
+                {data!.lowStock.map((p) => (
+                  <li key={`${p.id}-${p.variant ?? ''}`}>
+                    <Link to={entryUrl('products', p.id)} className="list-item">
+                      <Icon name="bag" className="faint" />
+                      <span className="grow ellipsis">
+                        {p.title}
+                        {p.variant && <span className="muted"> · {p.variant}</span>}
+                      </span>
+                      <span className={`badge ${p.stock === 0 ? 'bad' : 'warn'}`}>{p.stock === 0 ? t('ausverkauft') : t('noch {n}', { n: p.stock })}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="card card-pad stack tight">
             <h2 className="section-title">{t('Schnell erledigt')}</h2>
             <div className="row wrap">

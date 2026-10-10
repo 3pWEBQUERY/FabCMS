@@ -86,6 +86,7 @@ import { THEMES } from '../src/site/themes';
 import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
 import { pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
 import { starText, summarize } from '../src/shared/reviews';
+import { crossedLimit, lowStock, stockLimit } from '../src/shared/stock';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -1674,5 +1675,34 @@ describe('product reviews', () => {
     expect(summarize([])).toEqual({ count: 0, average: 0, spread: [0, 0, 0, 0, 0] });
     expect(starText(4.3)).toBe('★★★★☆');
     expect(starText(4.5)).toBe('★★★★★');
+  });
+});
+
+describe('low stock', () => {
+  it("warns at the product's own limit or the shop's, per variant, never for unlimited stock", () => {
+    const list = lowStock(
+      [
+        { id: 'a', title: 'Käse', stock: 3 },
+        { id: 'b', title: 'Brot', stock: 4 },
+        { id: 'c', title: 'Wein', stock: 9, stockAlert: 10 },
+        { id: 'd', title: 'Honig', stock: null },
+        { id: 'e', title: 'Shirt', variants: [{ name: 'S', stock: 0 }, { name: 'M', stock: 8 }, { name: 'L' }] },
+      ],
+      3,
+    );
+    expect(list.map((x) => [x.title, x.variant, x.stock, x.limit])).toEqual([
+      ['Shirt', 'S', 0, 3],
+      ['Käse', null, 3, 3],
+      ['Wein', null, 9, 10],
+    ]);
+    expect(stockLimit({ stockAlert: -2 }, 3)).toBe(0);
+    expect(stockLimit({ stockAlert: null }, 3)).toBe(3);
+  });
+
+  it('tells only when an order crosses the limit', () => {
+    expect(crossedLimit(5, 3, 3)).toBe(true);
+    expect(crossedLimit(3, 2, 3)).toBe(false);
+    expect(crossedLimit(9, 4, 3)).toBe(false);
+    expect(crossedLimit(1, 0, 0)).toBe(true);
   });
 });

@@ -153,6 +153,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
         default: 'standard',
         width: 'half',
       },
+      { key: 'stockAlert', type: 'number', label: 'Warnen ab Bestand', help: 'Leer = wie in den Shop-Einstellungen.', min: 0, width: 'half' },
       {
         key: 'variants',
         type: 'group',

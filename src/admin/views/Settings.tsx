@@ -1209,6 +1209,26 @@ function ShopSettings() {
             />
           </Field>
         </Section>
+        <Section title={t('Lager')} sub={t('Sinkt der Bestand durch eine Bestellung auf diese Zahl oder darunter, meldet sich Nova – einmal pro Produkt und Variante.')}>
+          <Field label={t('Warnen ab Bestand')} htmlFor="ls-n" help={t('Pro Produkt lässt sich eine eigene Grenze setzen.')}>
+            <input
+              id="ls-n"
+              className="input num"
+              type="number"
+              min={0}
+              max={9999}
+              style={{ maxWidth: '7rem' }}
+              value={sh.lowStock.threshold}
+              onChange={(e) => setS({ lowStock: { ...sh.lowStock, threshold: Math.max(0, Math.min(9999, Math.round(Number(e.target.value) || 0))) } })}
+            />
+          </Field>
+          <Toggle
+            checked={sh.lowStock.email}
+            onChange={(v) => setS({ lowStock: { ...sh.lowStock, email: v } })}
+            label={t('Auch per E-Mail melden')}
+            help={t('An die Adresse für Bestellungen, sonst an die Kontakt-E-Mail.')}
+          />
+        </Section>
         <Section
           title={t('Bewertungen')}
           sub={t('Kundinnen und Kunden vergeben Sterne und schreiben dazu. Du gibst jede Bewertung frei; Google zeigt die Sterne in den Suchergebnissen.')}

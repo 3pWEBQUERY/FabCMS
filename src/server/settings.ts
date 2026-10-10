@@ -76,6 +76,7 @@ export function defaultSettings(): SiteSettings {
       notifyEmail: '',
       reviews: false,
       cartReminders: { enabled: false, hours: 4 },
+      lowStock: { threshold: 3, email: true },
     },
     booking: {
       mode: 'table',

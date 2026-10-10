@@ -39,6 +39,7 @@ import { GA4_ID } from '../../shared/stats-services';
 import { defaultLang, isLang, LANGS } from '../../shared/i18n';
 import { checkHookCode, runHook } from '../hooks';
 import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
+import { lowStockList } from '../stock';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme']);
@@ -430,7 +431,8 @@ export function systemApi(app: Hono<AppEnv>) {
       { id: 'publish', label: 'Website veröffentlichen', done: Boolean(s.firstPublishedAt), href: home ? `/admin/seiten/${home.id}` : '/admin/seiten' },
     ];
     const st = can(user.role, 'settings.manage') || can(user.role, 'leads.view') ? await stats(7, s.timezone) : null;
-    return c.json({ counts, recent, checklist, stats: st, sessions: user.sessions_count, site: { name: s.name, baseUrl: await publicBase() } });
+    const lowStock = can(user.role, 'orders.view') ? (await lowStockList()).slice(0, 8) : [];
+    return c.json({ counts, recent, checklist, stats: st, lowStock, sessions: user.sessions_count, site: { name: s.name, baseUrl: await publicBase() } });
   });
 
   app.get('/api/stats', async (c) => {

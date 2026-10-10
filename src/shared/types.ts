@@ -218,6 +218,8 @@ export interface SiteSettings {
     reviews: boolean;
     /** One mail for a cart left at the checkout – only for those who tick the box there. */
     cartReminders: { enabled: boolean; hours: number };
+    /** Warn from this stock on (products may set their own); by mail too when `email`. */
+    lowStock: { threshold: number; email: boolean };
   };
   booking: {
     /** «table» asks for the number of people; «appointment» for a service and optionally a person. */
