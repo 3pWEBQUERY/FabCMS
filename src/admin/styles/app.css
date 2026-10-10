@@ -118,6 +118,12 @@ body,
 #root {
   height: 100%;
 }
+/* The page behind everything follows the admin's own theme, not the device's: with the
+   phone in dark mode and the admin set to light, the boot style's dark html showed
+   wherever the content scrolls past the first screen. (:root outranks that html rule.) */
+:root {
+  background: var(--bg);
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -428,6 +434,9 @@ p {
 }
 /* Own select (Radix): looks like the inputs, opens our own list instead of the OS picker. */
 .sel-trigger {
+  /* Long choices are cut with … instead of widening the form (and the page) on phones. */
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 0.5rem;
