@@ -1688,6 +1688,16 @@ button.list-item {
   display: grid;
   place-items: center;
 }
+.tiles.templates {
+  margin-top: 0.25rem;
+}
+.tiles.templates .tile:disabled {
+  cursor: progress;
+}
+.ob-label {
+  display: block;
+  margin-bottom: -1.5rem;
+}
 .style-previews {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
@@ -1718,7 +1728,7 @@ button.list-item {
   width: 1160px;
   height: 1700px;
   border: 0;
-  transform: scale(0.25);
+  transform: scale(var(--preview-scale, 0.25));
   transform-origin: 0 0;
   pointer-events: none;
 }

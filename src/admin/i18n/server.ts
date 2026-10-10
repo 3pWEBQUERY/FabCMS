@@ -760,6 +760,8 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Die Einrichtung ist schon abgeschlossen.': { fr: 'La configuration est déjà terminée.', it: 'La configurazione è già conclusa.', en: 'Setup is already complete.' },
   'Unbekannter Stil.': { fr: 'Style inconnu.', it: 'Stile sconosciuto.', en: 'Unknown style.' },
+  'Unbekannte Vorlage.': { fr: 'Modèle inconnu.', it: 'Modello sconosciuto.', en: 'Unknown template.' },
+  'Wähl mindestens eine Sparte.': { fr: 'Choisissez au moins un secteur.', it: 'Scegli almeno un settore.', en: 'Choose at least one sector.' },
   'Die Domain muss wie «https://www.beispiel.ch» aussehen.': {
     fr: 'Le domaine doit ressembler à «https://www.exemple.ch».',
     it: 'Il dominio deve essere come «https://www.esempio.ch».',

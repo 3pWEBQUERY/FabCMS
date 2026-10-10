@@ -41,6 +41,9 @@ import { plannedSizes } from '../src/server/video';
 import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
 import { deflateSync } from 'node:zlib';
+import { TEMPLATES, templatesFor } from '../src/shared/templates';
+import { pickTemplate } from '../src/server/seed';
+import { THEMES } from '../src/site/themes';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -624,6 +627,31 @@ describe('website translations', () => {
       price: 1800,
       prices: [{ label: 'grand', price: 2400 }],
     });
+  });
+});
+
+describe('starter templates', () => {
+  it('offers three templates in two existing styles for every P0 Sparte', () => {
+    for (const sector of ['restaurant', 'shop', 'blog', 'landing', 'portfolio']) {
+      const list = templatesFor(sector);
+      expect(list).toHaveLength(3);
+      for (const x of list) {
+        expect(new Set(x.themes).size).toBe(2);
+        for (const th of x.themes) expect(THEMES.some((y) => y.id === th)).toBe(true);
+      }
+    }
+    expect(new Set(TEMPLATES.map((x) => x.id)).size).toBe(TEMPLATES.length);
+  });
+
+  it('only uses a template of the first Sparte', () => {
+    expect(pickTemplate(['shop', 'restaurant'], 'cafe')?.id).toBe('manufaktur');
+    expect(pickTemplate(['shop'], 'boutique')?.id).toBe('boutique');
+    expect(pickTemplate(['club'], 'boutique')).toBeUndefined();
+  });
+
+  it('has French, Italian and English for every template name and description', () => {
+    const missing = TEMPLATES.flatMap((x) => [x.name, x.description]).filter((k) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en);
+    expect(missing).toEqual([]);
   });
 });
 

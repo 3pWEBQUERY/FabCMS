@@ -1,62 +1,16 @@
 import { sql, json } from './db';
-import { createBlock } from '../shared/blocks';
 import { SECTOR_MAP } from '../shared/collections';
 import { slugify, shortId } from '../shared/text';
-import type { Block, FormFieldDef, NavItem, SiteSettings } from '../shared/types';
+import type { Block, NavItem, SiteSettings } from '../shared/types';
+import { b, f, chf, contactForm, contactPage, type Seed } from './seed-kit';
+import { architecture, boutique, cafe, coaching, expertBlog, farmShop, fineDining, photography, productLaunch, travelBlog } from './seed-templates';
+import { templatesFor } from '../shared/templates';
 import { bumpGeneration, getSettings, updateSettings } from './settings';
 
 /**
  * Starter content for the setup assistant. Realistic Swiss examples the
  * owner replaces with their own – never lorem ipsum.
  */
-
-const b = (type: string, props: Record<string, unknown> = {}, style: Block['style'] = {}): Block => ({ ...createBlock(type, props), style });
-const f = (type: FormFieldDef['type'], label: string, required = false, extra: Partial<FormFieldDef> = {}): FormFieldDef => ({
-  id: shortId(8),
-  type,
-  label,
-  name: slugify(label).replace(/-/g, '_'),
-  required,
-  ...extra,
-});
-
-interface Seed {
-  home: Block[];
-  pages: { slug: string; title: string; blocks: Block[]; access?: 'members' | 'paid' }[];
-  nav: NavItem[];
-  forms: { key: string; name: string; fields: FormFieldDef[]; success: string; submit: string }[];
-  entries: { collection: string; data: Record<string, unknown> }[];
-  tagline: string;
-  footer: string;
-  /** Mitglieder: e.g. a club invites its members instead of open sign-up. */
-  members?: { registration: 'open' | 'invite' };
-  /** Reservation & Termine: what can be booked, with what or whom. */
-  booking?: {
-    mode: 'table' | 'appointment';
-    services: { name: string; description?: string; duration: number; buffer?: number; price?: number }[];
-    resources: { name: string; kind: 'table' | 'staff' | 'room'; capacity: number }[];
-  };
-}
-
-const contactForm = {
-  key: 'kontakt',
-  name: 'Kontakt',
-  submit: 'Nachricht senden',
-  success: 'Danke für deine Nachricht! Wir antworten in der Regel innert eines Arbeitstages.',
-  fields: [f('text', 'Name', true), f('email', 'E-Mail', true), f('tel', 'Telefon'), f('textarea', 'Nachricht', true)],
-};
-
-const contactPage = (formKey = 'kontakt', heading = 'Schreib uns') => ({
-  slug: 'kontakt',
-  title: 'Kontakt',
-  blocks: [
-    b('contact', { heading: 'So erreichst du uns', showHours: true }),
-    b('form', { heading, intro: 'Wir melden uns so schnell wie möglich.', form: `@form:${formKey}` }),
-    b('map'),
-  ],
-});
-
-const chf = (francs: number) => Math.round(francs * 100);
 
 function restaurant(name: string): Seed {
   const dish = (title: string, category: string, prices: [string, number][], extra: Record<string, unknown> = {}) => ({
@@ -1088,6 +1042,26 @@ const SEEDS: Record<string, (name: string) => Seed> = {
   adult,
 };
 
+/** Alternative starter templates, keyed like TEMPLATES. The first template of a Sparte is its SEEDS entry. */
+const TEMPLATE_SEEDS: Partial<Record<string, (name: string) => Seed>> = {
+  'fine-dining': fineDining,
+  cafe,
+  boutique,
+  hofladen: farmShop,
+  reise: travelBlog,
+  fach: expertBlog,
+  coaching,
+  produkt: productLaunch,
+  fotografie: photography,
+  architektur: architecture,
+};
+
+/** The template a setup uses for its first Sparte: the requested one if it belongs there, else the Sparte's first. */
+export function pickTemplate(sectors: string[], template?: string) {
+  const own = templatesFor(sectors[0] ?? '');
+  return own.find((t) => t.id === template) ?? own[0];
+}
+
 /** Replaces form placeholders («@form:key») with real IDs. */
 function linkForms(blocks: Block[], forms: Map<string, string>): Block[] {
   return blocks.map((bl) => {
@@ -1097,8 +1071,9 @@ function linkForms(blocks: Block[], forms: Map<string, string>): Block[] {
   });
 }
 
-export async function seedSite(sectors: string[], siteName: string, userId: string): Promise<{ tagline: string; footer: string; nav: NavItem[] }> {
-  const seeds = sectors.filter((s) => SEEDS[s]).map((s) => SEEDS[s](siteName));
+export async function seedSite(sectors: string[], siteName: string, userId: string, template?: string): Promise<{ tagline: string; footer: string; nav: NavItem[] }> {
+  const alt = TEMPLATE_SEEDS[pickTemplate(sectors, template)?.id ?? ''];
+  const seeds = sectors.filter((s) => SEEDS[s]).map((s, i) => (i === 0 && alt ? alt : SEEDS[s])(siteName));
   if (!seeds.length) seeds.push(landing());
   const primary = seeds[0];
   const formIds = new Map<string, string>();
@@ -1182,9 +1157,10 @@ export type StarterImport = { description?: string; business?: Partial<SiteSetti
  * Step 2 of the setup assistant: starter content for the chosen Sparten and
  * the settings that go with it. Also used for demo sites (previews, CI).
  */
-export async function applyStarter(sectors: string[], name: string, userId: string, imp: StarterImport = {}) {
+export async function applyStarter(sectors: string[], name: string, userId: string, imp: StarterImport = {}, template?: string) {
   const s = await getSettings();
-  const seeded = await seedSite(sectors, name, userId);
+  const seeded = await seedSite(sectors, name, userId, template);
+  const picked = pickTemplate(sectors, template);
   const business = { ...s.business, type: SECTOR_MAP[sectors[0]]?.businessType ?? 'LocalBusiness', legalName: name };
   if (imp.business) for (const [k, v] of Object.entries(imp.business)) if (typeof v === 'string' && v) (business as Record<string, unknown>)[k] = v;
   const adult = sectors.includes('adult');
@@ -1198,9 +1174,23 @@ export async function applyStarter(sectors: string[], name: string, userId: stri
     hours: imp.hours ?? s.hours,
     nav: seeded.nav,
     footer: { text: seeded.footer, columns: [] },
-    theme: { ...s.theme, id: first?.themes[0] ?? 'kante', palette: 'default' },
+    theme: { ...s.theme, id: picked?.themes[0] ?? first?.themes[0] ?? 'kante', palette: 'default' },
     seo: { ...s.seo, defaultDescription: imp.description ?? '', adult },
     ageGate: { ...s.ageGate, enabled: adult },
   });
-  return { business, first };
+  return { business, first, template: picked, themes: picked ? [...picked.themes] : (first?.themes ?? ['kante', 'bistro', 'feuilleton']) };
+}
+
+/**
+ * Removes what the setup assistant created, so a different template or
+ * Sparte starts clean. Only ever called before the setup is finished – at
+ * that point nothing on the site is the owner's own work yet.
+ */
+export async function resetStarter() {
+  await sql.begin(async (tx) => {
+    await tx`delete from entries`;
+    await tx`delete from forms`;
+    await tx`delete from booking_services`;
+    await tx`delete from booking_resources`;
+  });
 }

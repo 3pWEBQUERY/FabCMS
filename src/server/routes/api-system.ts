@@ -11,7 +11,8 @@ import { getSettings, updateSettings, bumpGeneration } from '../settings';
 import { activeCollections, listCollections, uniqueSlug } from '../content';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/http';
 import { stats } from '../analytics';
-import { applyStarter, type StarterImport } from '../seed';
+import { applyStarter, resetStarter, type StarterImport } from '../seed';
+import { TEMPLATES, templatesFor } from '../../shared/templates';
 import { legalPages } from '../legal';
 import { createBackup, restoreBackup } from '../backup';
 import { exportZip } from '../export';
@@ -310,17 +311,22 @@ export function systemApi(app: Hono<AppEnv>) {
         sectors: z.array(z.string()).min(1, 'Wähl mindestens eine Sparte.').max(4),
         name: z.string().trim().min(1, 'Wie heisst dein Projekt?').max(80),
         imported: z.record(z.string(), z.unknown()).optional(),
+        template: z.string().optional(),
       })
       .parse(await c.req.json());
     const s = await getSettings();
     if (s.setupDone) throw badRequest('Die Einrichtung ist schon abgeschlossen.');
     const sectors = body.sectors.filter((x) => SECTOR_MAP[x]);
-    const { business, first } = await applyStarter(sectors, body.name, user.id, body.imported as StarterImport | undefined);
+    if (!sectors.length) throw badRequest('Wähl mindestens eine Sparte.');
+    if (body.template && !TEMPLATES.some((t) => t.id === body.template)) throw badRequest('Unbekannte Vorlage.');
+    // Running the step again (other Sparten, other template) replaces the starter content instead of piling it up.
+    await resetStarter();
+    const { business, template, themes } = await applyStarter(sectors, body.name, user.id, body.imported as StarterImport | undefined, body.template);
     if (business.city) {
       const geo = await geocode(await getSettings());
       if (geo) await updateSettings({ business: { ...business, ...geo } });
     }
-    return c.json({ themes: first?.themes ?? ['kante', 'bistro', 'feuilleton'] });
+    return c.json({ themes, template: template?.id ?? null, templates: templatesFor(sectors[0]) });
   });
 
   app.post('/api/onboarding/finish', async (c) => {

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LoadingFrame } from '../ui/loading';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { Field, motion, AnimatePresence } from '../ui/kit';
 import { Icon, NovaMark } from '../ui/icons';
 import { SECTORS } from '../../shared/collections';
+import type { TemplateDef } from '../../shared/templates';
 import { useToast } from '../ui/toast';
 import { t, tl } from '../lib/i18n';
 
@@ -14,7 +15,9 @@ import { t, tl } from '../lib/i18n';
  */
 type Imported = { name?: string; description?: string; business?: Record<string, string>; hours?: unknown; themeColor?: string } | null;
 
-const STEPS = ['Sparte', 'Name', 'Stil', 'Adresse', 'Modus'];
+const STEPS = ['Sparte', 'Name', 'Vorlage & Stil', 'Adresse', 'Modus'];
+
+type Seeded = { themes: string[]; template: string | null; templates: TemplateDef[] };
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const { bundle, reloadSettings, user } = useSession();
@@ -32,6 +35,21 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<'studio' | 'werkbank'>('studio');
   const [busy, setBusy] = useState(false);
   const [seededFor, setSeededFor] = useState('');
+  const [templates, setTemplates] = useState<TemplateDef[]>([]);
+  const [template, setTemplate] = useState<string | null>(null);
+  // Bumped after every seed so the style previews reload the new start page.
+  const [version, setVersion] = useState(0);
+
+  // The previews render the page 1160px wide and scale it down to the card, whatever its width.
+  const fitPreviews = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const frame = el.querySelector<HTMLElement>('.frame');
+      if (frame) el.style.setProperty('--preview-scale', String(frame.clientWidth / 1160));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const toggleSector = (id: string) => setSectors((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < 4 ? [...s, id] : s));
 
@@ -49,25 +67,29 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     }
   };
 
-  const next = async () => {
-    if (step === 1) {
-      const key = `${sectors.join(',')}|${name}`;
-      if (seededFor !== key) {
-        setBusy(true);
-        try {
-          const r = await api.post<{ themes: string[] }>('/api/onboarding/seed', { sectors, name, imported: imported ?? undefined });
-          setThemes(r.themes);
-          setTheme(r.themes[0]);
-          setSeededFor(key);
-          await reloadSettings();
-        } catch (e) {
-          toast((e as Error).message, { kind: 'bad' });
-          setBusy(false);
-          return;
-        }
-        setBusy(false);
-      }
+  /** Creates the starter content; again with another template replaces it. */
+  const seed = async (withTemplate: string | null) => {
+    setBusy(true);
+    try {
+      const r = await api.post<Seeded>('/api/onboarding/seed', { sectors, name, imported: imported ?? undefined, template: withTemplate ?? undefined });
+      setThemes(r.themes);
+      setTheme(r.themes[0]);
+      setTemplates(r.templates);
+      setTemplate(r.template);
+      setSeededFor(`${sectors.join(',')}|${name}`);
+      setVersion((v) => v + 1);
+      await reloadSettings();
+      return true;
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+      return false;
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const next = async () => {
+    if (step === 1 && seededFor !== `${sectors.join(',')}|${name}` && !(await seed(template))) return;
     if (step === 4) {
       setBusy(true);
       try {
@@ -191,9 +213,24 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
           {step === 2 && (
             <>
-              <h1>{t('Welcher Stil passt zu dir?')}</h1>
+              <h1>{templates.length > 1 ? t('Wie soll deine Website aussehen?') : t('Welcher Stil passt zu dir?')}</h1>
               <p className="lede">{t('Das ist deine echte Startseite – mit deinem Namen. Farben und Schriften kannst du später anpassen.')}</p>
-              <div className="style-previews">
+              {templates.length > 1 && (
+                <div className="stack tight" style={{ margin: '1.75rem 0 2.5rem' }}>
+                  <strong className="small">{t('Vorlage')}</strong>
+                  <div className="tiles templates" role="group" aria-label={t('Vorlage')}>
+                    {templates.map((x) => (
+                      <button key={x.id} type="button" className="tile" aria-pressed={template === x.id} disabled={busy} onClick={() => template !== x.id && void seed(x.id)}>
+                        <strong>{tl(x.name)}</strong>
+                        <span>{tl(x.description)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="small faint">{t('Jede Vorlage bringt eigene Seiten und Beispielinhalte mit – du ersetzt sie später durch deine.')}</span>
+                </div>
+              )}
+              {templates.length > 1 && <strong className="small ob-label">{t('Stil')}</strong>}
+              <div className="style-previews" aria-busy={busy} ref={fitPreviews}>
                 {themes.map((id) => {
                   const th = bundle?.themes.find((x) => x.id === id);
                   return (
@@ -201,7 +238,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                       <div className="frame">
                         <LoadingFrame
                           title={t('Vorschau {name}', { name: th?.name ?? '' })}
-                          src={`/_nova/theme-preview?theme=${id}&palette=${theme === id ? palette : 'default'}`}
+                          src={`/_nova/theme-preview?theme=${id}&palette=${theme === id ? palette : 'default'}&v=${version}`}
                           loading="lazy"
                           tabIndex={-1}
                           label=""

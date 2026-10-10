@@ -96,9 +96,21 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
   });
 
   it('seeds a restaurant with shop and renders it', async () => {
+    // Another template replaces the starter content instead of adding to it.
+    const alt = await req('POST', '/api/onboarding/seed', { sectors: ['restaurant', 'shop'], name: 'Gasthaus Linde', template: 'fine-dining' });
+    expect(alt.status).toBe(200);
+    expect(alt.data.templates.map((x: { id: string }) => x.id)).toEqual(['wirtshaus', 'fine-dining', 'cafe']);
+    expect(alt.data).toMatchObject({ template: 'fine-dining', themes: ['salon', 'feuilleton'] });
+    expect((await req('GET', '/')).data).toContain('Sieben Gänge');
+    expect((await req('GET', '/gutscheine')).status).toBe(200);
+    expect((await req('POST', '/api/onboarding/seed', { sectors: ['restaurant'], name: 'X', template: 'gibt-es-nicht' })).status).toBe(400);
     const seed = await req('POST', '/api/onboarding/seed', { sectors: ['restaurant', 'shop'], name: 'Gasthaus Linde' });
     expect(seed.status).toBe(200);
     expect(seed.data.themes[0]).toBe('bistro');
+    expect(seed.data.template).toBe('wirtshaus');
+    expect((await req('GET', '/gutscheine')).status).toBe(404);
+    const [{ n: forms }] = await sql`select count(*)::int as n from forms where name like 'Gutschein%'`;
+    expect(forms).toBe(0);
     const fin = await req('POST', '/api/onboarding/finish', { theme: 'bistro', palette: 'default', mode: 'studio' });
     expect(fin.status).toBe(200);
     // Before the first publish visitors only see the holding page …
