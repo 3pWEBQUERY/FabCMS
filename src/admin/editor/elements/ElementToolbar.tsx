@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BLOCK_MAP } from '../../../shared/blocks';
-import { EL_DEFS, EL_KINDS, type El, type ElKind, type Found } from '../../../shared/elements';
+import { EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, type El, type ElKind, type Found } from '../../../shared/elements';
 import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Tip } from '../../ui/kit';
@@ -22,6 +22,7 @@ export function ElementToolbar({
   onEdit,
   onMove,
   onInsert,
+  onAddItem,
   onDuplicate,
   onWrap,
   onRemove,
@@ -35,11 +36,15 @@ export function ElementToolbar({
   onEdit: () => void;
   onMove: (dir: -1 | 1) => void;
   onInsert: (anchor: DOMRect) => void;
+  /** Entry containers (questions, tabs, slides): one more entry. */
+  onAddItem: () => void;
   onDuplicate: () => void;
   onWrap: () => void;
   onRemove: () => void;
 }) {
   const siblings = found.parent ? (found.parent.children?.length ?? 1) : null;
+  const items = ITEM_CONTAINERS.includes(found.el.kind);
+  const insertLabel = items ? addItemLabel(found.el.kind) : found.el.kind === 'box' || found.el.kind === 'list' ? t('Element hineinlegen') : t('Element danach einfügen');
   // Stays inside the canvas: shifts left when the element sits far right.
   const ref = useRef<HTMLDivElement>(null);
   const [x, setX] = useState(left);
@@ -90,12 +95,8 @@ export function ElementToolbar({
               <Icon name="arrowDown" size="s" />
             </button>
           </Tip>
-          <Tip label={['box', 'list'].includes(found.el.kind) ? t('Element hineinlegen') : t('Element danach einfügen')}>
-            <button
-              className="btn icon-only"
-              onClick={(e) => onInsert((e.currentTarget as HTMLElement).getBoundingClientRect())}
-              aria-label={['box', 'list'].includes(found.el.kind) ? t('Element hineinlegen') : t('Element danach einfügen')}
-            >
+          <Tip label={insertLabel}>
+            <button className="btn icon-only" onClick={(e) => (items ? onAddItem() : onInsert((e.currentTarget as HTMLElement).getBoundingClientRect()))} aria-label={insertLabel}>
               <Icon name="plus" size="s" />
             </button>
           </Tip>
@@ -125,14 +126,22 @@ export function ElementPicker({ onPick, into }: { onPick: (kind: ElKind) => void
   return (
     <div className="el-picker">
       <span className="dp-menu-head">{into ? t('In «{name}» einfügen', { name: into }) : t('Element einfügen')}</span>
-      <div className="el-picker-grid">
-        {EL_KINDS.map((k) => (
-          <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
-            <Icon name={EL_DEFS[k].icon} />
-            <span>{tl(EL_DEFS[k].label)}</span>
-          </button>
-        ))}
-      </div>
+      {EL_GROUPS.map((g) => (
+        <section key={g} className="el-picker-group">
+          <h3 className="el-picker-title">{tl(EL_GROUP_LABELS[g])}</h3>
+          <div className="el-picker-grid">
+            {EL_KINDS.filter((k) => EL_DEFS[k].group === g).map((k) => (
+              <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
+                <Icon name={EL_DEFS[k].icon} />
+                <span>{tl(EL_DEFS[k].label)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
+
+export const addItemLabel = (kind: ElKind) =>
+  kind === 'accordion' ? t('Frage hinzufügen') : kind === 'tabs' ? t('Reiter hinzufügen') : kind === 'slider' ? t('Folie hinzufügen') : t('Eintrag hinzufügen');

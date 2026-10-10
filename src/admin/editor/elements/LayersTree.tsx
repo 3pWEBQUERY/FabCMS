@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { EL_DEFS, type El } from '../../../shared/elements';
+import { EL_DEFS, isContainer, type El } from '../../../shared/elements';
 import { stripHtml } from '../../../shared/text';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
@@ -56,7 +56,7 @@ export function LayersTree({
       const row = rows.find((x) => x.el.id === n.dataset.row)!;
       if (row.el.id === drag) return null;
       const f = (y - r.top) / r.height;
-      if (row.el.kind === 'box' && f > 0.28 && f < 0.72) return { id: row.el.id, where: 'inside' };
+      if (isContainer(row.el.kind) && row.el.kind !== 'list' && f > 0.28 && f < 0.72) return { id: row.el.id, where: 'inside' };
       return { id: row.el.id, where: f < 0.5 ? 'before' : 'after' };
     }
     return null;

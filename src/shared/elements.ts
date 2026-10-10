@@ -12,8 +12,18 @@ import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
 
-export const EL_KINDS = ['box', 'heading', 'text', 'image', 'button', 'icon', 'video', 'spacer', 'divider', 'list'] as const;
+export const EL_KINDS = ['box', 'heading', 'text', 'image', 'button', 'icon', 'video', 'spacer', 'divider', 'counter', 'accordion', 'tabs', 'slider', 'marquee', 'list'] as const;
 export type ElKind = (typeof EL_KINDS)[number];
+
+/** Kinds that hold other elements. */
+export const CONTAINERS: readonly ElKind[] = ['box', 'list', 'accordion', 'tabs', 'slider', 'marquee'];
+/** Containers made of entries (questions, tabs, slides …): «+» adds one more like the last. */
+export const ITEM_CONTAINERS: readonly ElKind[] = ['accordion', 'tabs', 'slider', 'marquee'];
+export const isContainer = (kind: ElKind) => CONTAINERS.includes(kind);
+/** Where the picker shows a kind. */
+export const EL_GROUPS = ['basic', 'media', 'interactive', 'cms'] as const;
+export type ElGroup = (typeof EL_GROUPS)[number];
+export const EL_GROUP_LABELS: Record<ElGroup, string> = { basic: 'Grundlagen', media: 'Medien', interactive: 'Interaktiv', cms: 'Aus dem CMS' };
 
 export interface El {
   id: string;
@@ -39,6 +49,7 @@ export interface ElDef {
   label: string;
   description: string;
   icon: string;
+  group: ElGroup;
   fields: FieldDef[];
   defaults: Record<string, unknown>;
 }
@@ -46,10 +57,13 @@ export interface ElDef {
 export const BOX_TAGS = ['div', 'section', 'article', 'header', 'footer', 'figure', 'aside', 'nav'] as const;
 export const BUTTON_VARIANTS = ['primary', 'secondary', 'link'] as const;
 export const SPACER_SIZES = ['s', 'm', 'l', 'xl'] as const;
+export const TAB_STYLES = ['line', 'pill'] as const;
+export const MARQUEE_SPEEDS = ['slow', 'medium', 'fast'] as const;
 
 export const EL_DEFS: Record<ElKind, ElDef> = {
   box: {
     kind: 'box',
+    group: 'basic',
     label: 'Container',
     description: 'Hält andere Elemente – untereinander, nebeneinander oder im Raster.',
     icon: 'box',
@@ -75,6 +89,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   heading: {
     kind: 'heading',
+    group: 'basic',
     label: 'Überschrift',
     description: 'Ein Titel – von der Seitenüberschrift bis zum Zwischentitel.',
     icon: 'type',
@@ -98,6 +113,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   text: {
     kind: 'text',
+    group: 'basic',
     label: 'Text',
     description: 'Absätze mit Fett, Kursiv, Links und Listen.',
     icon: 'text',
@@ -106,6 +122,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   image: {
     kind: 'image',
+    group: 'media',
     label: 'Bild',
     description: 'Ein Bild in jeder Grösse, auf Wunsch mit Link.',
     icon: 'image',
@@ -118,6 +135,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   button: {
     kind: 'button',
+    group: 'basic',
     label: 'Knopf',
     description: 'Ein Knopf oder Link, der irgendwohin führt.',
     icon: 'button',
@@ -140,6 +158,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   icon: {
     kind: 'icon',
+    group: 'media',
     label: 'Symbol',
     description: 'Ein Symbol aus der Sammlung, in Akzentfarbe.',
     icon: 'star',
@@ -151,6 +170,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   video: {
     kind: 'video',
+    group: 'media',
     label: 'Video',
     description: 'YouTube oder Vimeo – lädt erst nach Klick.',
     icon: 'video',
@@ -162,6 +182,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   spacer: {
     kind: 'spacer',
+    group: 'basic',
     label: 'Abstand',
     description: 'Leerer Raum zwischen zwei Elementen.',
     icon: 'spacing',
@@ -183,14 +204,109 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   },
   divider: {
     kind: 'divider',
+    group: 'basic',
     label: 'Linie',
     description: 'Eine feine Trennlinie.',
     icon: 'divider',
     fields: [],
     defaults: {},
   },
+  counter: {
+    kind: 'counter',
+    group: 'interactive',
+    label: 'Zähler',
+    description: 'Eine grosse Zahl, die hochzählt, sobald man sie sieht.',
+    icon: 'counter',
+    fields: [
+      { key: 'value', type: 'number', label: 'Zahl', min: -1e9, max: 1e9 },
+      { key: 'prefix', type: 'text', label: 'Davor', maxLength: 12 },
+      { key: 'suffix', type: 'text', label: 'Danach', help: 'Zum Beispiel «+», «%» oder « Jahre».', maxLength: 12 },
+      { key: 'duration', type: 'number', label: 'Dauer in Sekunden', min: 0.3, max: 6 },
+    ],
+    defaults: { value: 1200, prefix: '', suffix: '+', duration: 1.6 },
+  },
+  accordion: {
+    kind: 'accordion',
+    group: 'interactive',
+    label: 'Akkordeon',
+    description: 'Fragen und Antworten zum Aufklappen. Jeder Eintrag ist ein Container: das erste Element ist die Frage, der Rest die Antwort.',
+    icon: 'accordion',
+    fields: [
+      { key: 'single', type: 'boolean', label: 'Nur ein Eintrag offen' },
+      { key: 'first', type: 'boolean', label: 'Ersten Eintrag offen zeigen' },
+      { key: 'faq', type: 'boolean', label: 'Für Google als FAQ auszeichnen', help: 'Fragen und Antworten können direkt in den Suchergebnissen erscheinen.' },
+    ],
+    defaults: { single: true, first: false, faq: true },
+  },
+  tabs: {
+    kind: 'tabs',
+    group: 'interactive',
+    label: 'Reiter',
+    description: 'Inhalte zum Umschalten. Jeder Reiter ist ein Container, sein Name steht auf dem Knopf.',
+    icon: 'tabs',
+    fields: [
+      {
+        key: 'style',
+        type: 'select',
+        label: 'Art',
+        options: [
+          { value: 'line', label: 'Unterstrichen' },
+          { value: 'pill', label: 'Knöpfe' },
+        ],
+        default: 'line',
+      },
+    ],
+    defaults: { style: 'line' },
+  },
+  slider: {
+    kind: 'slider',
+    group: 'interactive',
+    label: 'Slider',
+    description: 'Bilder oder Karten zum Blättern – auf dem Handy mit dem Finger.',
+    icon: 'slider',
+    fields: [
+      { key: 'perView', type: 'number', label: 'Wie viele nebeneinander', help: 'Auf dem Tablet höchstens zwei, auf dem Handy eine.', min: 1, max: 4 },
+      { key: 'autoplay', type: 'number', label: 'Automatisch weiter nach Sekunden', help: '0 = nur von Hand. Hält an, solange jemand mit der Maus darauf zeigt.', min: 0, max: 20 },
+      { key: 'arrows', type: 'boolean', label: 'Pfeile zeigen' },
+      { key: 'dots', type: 'boolean', label: 'Punkte zeigen' },
+    ],
+    defaults: { perView: 1, autoplay: 0, arrows: true, dots: true },
+  },
+  marquee: {
+    kind: 'marquee',
+    group: 'interactive',
+    label: 'Laufband',
+    description: 'Texte oder Logos, die endlos durchlaufen.',
+    icon: 'marquee',
+    fields: [
+      {
+        key: 'speed',
+        type: 'select',
+        label: 'Tempo',
+        options: [
+          { value: 'slow', label: 'Gemächlich' },
+          { value: 'medium', label: 'Mittel' },
+          { value: 'fast', label: 'Schnell' },
+        ],
+        default: 'medium',
+      },
+      {
+        key: 'direction',
+        type: 'select',
+        label: 'Richtung',
+        options: [
+          { value: 'left', label: 'Nach links' },
+          { value: 'right', label: 'Nach rechts' },
+        ],
+        default: 'left',
+      },
+      { key: 'pause', type: 'boolean', label: 'Anhalten, wenn jemand darauf zeigt' },
+    ],
+    defaults: { speed: 'medium', direction: 'left', pause: true },
+  },
   list: {
     kind: 'list',
+    group: 'cms',
     label: 'Inhalte aus dem CMS',
     description: 'Beiträge, Produkte, Events oder eigene Inhaltstypen – als Liste oder Raster, gestaltet wie du willst.',
     icon: 'database',
@@ -218,7 +334,59 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
 
 export function createEl(kind: ElKind, props: Record<string, unknown> = {}, extra: Partial<El> = {}): El {
   if (kind === 'list' && !extra.children) return createList(props, extra);
-  return { id: shortId(8), kind, props: { ...structuredClone(EL_DEFS[kind].defaults), ...props }, ...(kind === 'box' ? { children: [] } : {}), ...extra };
+  const el: El = { id: shortId(8), kind, props: { ...structuredClone(EL_DEFS[kind].defaults), ...props }, ...(isContainer(kind) ? { children: [] } : {}), ...extra };
+  // Entry containers start with something to see.
+  if ((ITEM_CONTAINERS as readonly string[]).includes(kind) && !extra.children) el.children = STARTERS[kind as keyof typeof STARTERS]();
+  return el;
+}
+
+const textEl = (html: string, extra: Partial<El> = {}) => createEl('text', { html }, extra);
+const STARTERS = {
+  accordion: () =>
+    [
+      ['Wie lange dauert es?', 'Meist zwei bis drei Wochen – je nach Umfang.'],
+      ['Was kostet es?', 'Du bekommst vorher ein festes Angebot, ohne Überraschungen.'],
+      ['Kann ich etwas ändern?', 'Ja, bis kurz vor dem Start jederzeit.'],
+    ].map(([q, a]) => accordionItem(q, a)),
+  tabs: () =>
+    ['Übersicht', 'Details', 'Preise'].map((name) =>
+      createEl('box', {}, { name, children: [createEl('heading', { text: name, level: '3' }), textEl('<p>Was in diesem Reiter steht.</p>')] }),
+    ),
+  slider: () =>
+    [1, 2, 3].map((n) =>
+      createEl(
+        'box',
+        {},
+        {
+          name: `Folie ${n}`,
+          children: [createEl('image', {}, { design: { desktop: { aspect: '16/9', radius: '$s-3' } } }), createEl('heading', { text: `Folie ${n}`, level: '3' })],
+        },
+      ),
+    ),
+  marquee: () =>
+    ['Regional', 'Saisonal', 'Handgemacht', 'Seit 1998'].map((w) => textEl(`<p>${w}</p>`, { design: { desktop: { fontSize: '$step-4', weight: 600, font: 'display' } } })),
+};
+
+/** One question of an accordion: the first element is the question, the rest the answer. */
+export const accordionItem = (q: string, a: string) => createEl('box', {}, { name: 'Frage', children: [createEl('heading', { text: q, level: '3' }), textEl(`<p>${a}</p>`)] });
+
+/** One more entry for an entry container: a copy of the last one, or a fresh one. */
+export function newItem(container: El): El {
+  const last = container.children?.[container.children.length - 1];
+  if (last) {
+    const copy = cloneEl(last);
+    if (container.kind === 'tabs' || container.kind === 'slider') copy.name = `${container.kind === 'tabs' ? 'Reiter' : 'Folie'} ${(container.children?.length ?? 0) + 1}`;
+    return copy;
+  }
+  const fresh = STARTERS[container.kind as keyof typeof STARTERS]?.()[0];
+  return fresh ?? createEl('box');
+}
+
+/** The text on a tab's button: its name, else its first heading. */
+export function itemLabel(el: El, index: number): string {
+  if (el.name) return el.name;
+  const h = el.kind === 'heading' ? el : el.children?.find((c) => c.kind === 'heading');
+  return (h && String(h.props.text ?? '').trim()) || `Reiter ${index + 1}`;
 }
 
 /** A CMS list with a card as its template: picture, title, short text and a link to the entry. */
@@ -364,6 +532,28 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { size: one(p.size, SPACER_SIZES, 'm') };
     case 'divider':
       return {};
+    case 'counter': {
+      const n = typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0;
+      return {
+        value: Math.min(1e9, Math.max(-1e9, Math.round(n * 100) / 100)),
+        prefix: plain(p.prefix, 12),
+        suffix: plain(p.suffix, 12),
+        duration: typeof p.duration === 'number' ? Math.min(6, Math.max(0.3, p.duration)) : 1.6,
+      };
+    }
+    case 'accordion':
+      return { single: p.single !== false, first: p.first === true, faq: p.faq !== false };
+    case 'tabs':
+      return { style: one(p.style, TAB_STYLES, 'line') };
+    case 'slider':
+      return {
+        perView: typeof p.perView === 'number' ? Math.min(4, Math.max(1, Math.round(p.perView))) : 1,
+        autoplay: typeof p.autoplay === 'number' ? Math.min(20, Math.max(0, Math.round(p.autoplay))) : 0,
+        arrows: p.arrows !== false,
+        dots: p.dots !== false,
+      };
+    case 'marquee':
+      return { speed: one(p.speed, MARQUEE_SPEEDS, 'medium'), direction: p.direction === 'right' ? 'right' : 'left', pause: p.pause !== false };
     case 'list':
       return {
         collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',
@@ -394,7 +584,7 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;
     }
-    if (kind === 'box' || kind === 'list') el.children = sanitizeEls(raw.children, depth + 1, budget, seen);
+    if (isContainer(kind)) el.children = sanitizeEls(raw.children, depth + 1, budget, seen);
     out.push(el);
   }
   return out;
@@ -410,11 +600,19 @@ export function elementsCss(els: El[], opts: CompileOptions & { forceHover?: str
     // Elements inside a CMS list repeat: the class reaches every copy, :is() keeps the weight of an id.
     const sel = `:is(#e-${el.id},.e-${el.id})`;
     const vars = motionVars(el.motion);
-    const icon = el.kind === 'icon' && typeof el.props.size === 'number' ? `--isz:${Math.min(240, Math.max(12, el.props.size))}px` : '';
+    const own = ownVars(el);
     out.push(designCss(sel, el.design, opts));
-    if (vars || icon) out.push(`${sel}{${[vars, icon].filter(Boolean).join(';')}}`);
+    if (vars || own) out.push(`${sel}{${[vars, own].filter(Boolean).join(';')}}`);
   });
   return out.join('');
+}
+
+/** Settings of a kind that the CSS reads as variables (no inline styles on the page). */
+function ownVars(el: El): string {
+  const n = (v: unknown, min: number, max: number, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback);
+  if (el.kind === 'icon' && typeof el.props.size === 'number') return `--isz:${n(el.props.size, 12, 240, 40)}px`;
+  if (el.kind === 'slider') return `--per-d:${Math.round(n(el.props.perView, 1, 4, 1))}`;
+  return '';
 }
 
 export function elementImages(els: El[]): string[] {
@@ -537,22 +735,46 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
   {
     id: 'stats',
     label: 'Zahlen',
-    description: 'Vier grosse Zahlen mit kurzer Erklärung.',
+    description: 'Vier grosse Zahlen, die hochzählen, mit kurzer Erklärung.',
     els: () => [
       box(
         [
-          ['25', 'Jahre Erfahrung'],
-          ['1200', 'zufriedene Kunden'],
-          ['4.9', 'Sterne bei Google'],
-          ['24 h', 'Antwortzeit'],
-        ].map(([n, l]) =>
-          box([createEl('heading', { text: n, level: '3' }, { design: { desktop: { fontSize: '$step-7', color: '$accent' } } }), createEl('text', { html: `<p>${l}</p>` })], {
-            desktop: { gap: '$s-1' },
+          ['25', '', 'Jahre Erfahrung'],
+          ['1200', '+', 'zufriedene Kunden'],
+          ['4.9', '', 'Sterne bei Google'],
+          ['24', ' h', 'Antwortzeit'],
+        ].map(([n, suffix, l]) =>
+          box([createEl('counter', { value: Number(n), suffix }, { design: { desktop: { color: '$accent' } } }), createEl('text', { html: `<p>${l}</p>` })], {
+            desktop: { gap: '$s-2', align: 'center' },
           }),
         ),
         { desktop: { display: 'grid', columns: 4, gap: '$s-6', textAlign: 'center' }, tablet: { columns: 2 }, mobile: { columns: 2, gap: '$s-5' } },
       ),
     ],
+  },
+  {
+    id: 'faq',
+    label: 'Häufige Fragen',
+    description: 'Fragen zum Aufklappen – erscheinen als FAQ auch bei Google.',
+    els: () => [box([createEl('heading', { text: 'Häufige Fragen', level: '2' }), createEl('accordion')], { desktop: { gap: '$s-5', maxWidth: '48rem', ml: 'auto', mr: 'auto' } })],
+  },
+  {
+    id: 'slides',
+    label: 'Bilder-Slider',
+    description: 'Grosse Bilder zum Durchblättern, mit Pfeilen und Punkten.',
+    els: () => [createEl('slider')],
+  },
+  {
+    id: 'tabbed',
+    label: 'Reiter',
+    description: 'Drei Inhalte nebeneinander zum Umschalten.',
+    els: () => [createEl('tabs')],
+  },
+  {
+    id: 'ticker',
+    label: 'Laufband',
+    description: 'Ein Band mit Stichworten oder Logos, das endlos durchläuft.',
+    els: () => [createEl('marquee')],
   },
   {
     id: 'cover',

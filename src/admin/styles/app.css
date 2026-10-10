@@ -5677,6 +5677,76 @@ body.scrubbing.v * {
 .el-picker-grid .icon {
   color: var(--sel);
 }
+.el-picker-group + .el-picker-group {
+  margin-top: 0.55rem;
+}
+.el-picker-title {
+  margin: 0 0 0.35rem;
+  padding: 0 0.25rem;
+  color: var(--ink-3);
+  font: 600 var(--t-xs) / 1.2 var(--font);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- entries of accordion, tabs, slider, marquee ---------- */
+
+.items-ed {
+  display: grid;
+  gap: 0.55rem;
+}
+.items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.items-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.items-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+.items-num {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 600 var(--t-xs) / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    color 0.12s;
+}
+.items-num:hover,
+.items-num:focus-visible {
+  border-color: var(--sel);
+  color: var(--sel);
+}
+.items-acts {
+  display: flex;
+  gap: 0.1rem;
+}
+.items-add {
+  justify-self: start;
+}
+@media (pointer: coarse) {
+  .items-num {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
 
 /* ---------- layers: elements of a free layout in the structure panel ---------- */
 

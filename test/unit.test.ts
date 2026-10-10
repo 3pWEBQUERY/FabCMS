@@ -40,8 +40,10 @@ import {
   elementsText,
   findEl,
   insertEl,
+  itemLabel,
   LAYOUT_PRESETS,
   moveEl,
+  newItem,
   removeEl,
   sanitizeEls,
   type El,
@@ -1243,6 +1245,44 @@ describe('free layout', () => {
     expect(made.children![0].children!.map((c) => c.bind)).toEqual([{ image: 'field:cover' }, { text: 'title' }, { html: 'field:excerpt' }]);
     // Bound texts belong to the entries, not to the page's search text.
     expect(elementsText([made])).toBe('');
+  });
+
+  it('keeps the settings of counters, accordions, tabs, sliders and marquees in bounds', () => {
+    const [counter, acc, tabs, slider, mq] = sanitizeEls([
+      { kind: 'counter', props: { value: 1e12, prefix: '  CHF ', suffix: '+', duration: 60 } },
+      { kind: 'accordion', props: { single: 'nein', first: 1, faq: false }, children: [{ kind: 'box', props: {}, children: [{ kind: 'heading', props: { text: 'F?' } }] }] },
+      { kind: 'tabs', props: { style: 'neon' }, children: [{ kind: 'box', props: {}, name: 'Preise' }] },
+      { kind: 'slider', props: { perView: 9, autoplay: -4, arrows: false } },
+      { kind: 'marquee', props: { speed: 'warp', direction: 'up', pause: false }, children: [{ kind: 'text', props: { html: '<p>Hi</p>' } }] },
+    ]);
+    expect(counter.props).toEqual({ value: 1e9, prefix: 'CHF', suffix: '+', duration: 6 });
+    // Anything but a clear «false» keeps the safe default.
+    expect(acc.props).toEqual({ single: true, first: false, faq: false });
+    expect(acc.children![0].children![0].kind).toBe('heading');
+    expect(tabs.props.style).toBe('line');
+    expect(slider.props).toEqual({ perView: 4, autoplay: 0, arrows: false, dots: true });
+    expect(mq.props).toEqual({ speed: 'medium', direction: 'left', pause: false });
+    expect(mq.children).toHaveLength(1);
+    // The number of slides side by side is a CSS variable, no inline style.
+    expect(elementsCss([slider])).toContain(`:is(#e-${slider.id},.e-${slider.id}){--per-d:4}`);
+  });
+
+  it('starts entry containers filled and adds entries like the last one', () => {
+    const acc = createEl('accordion');
+    expect(acc.children).toHaveLength(3);
+    expect(acc.children!.every((c) => c.kind === 'box' && c.children![0].kind === 'heading')).toBe(true);
+    const tabs = createEl('tabs');
+    expect(tabs.children!.map((c, i) => itemLabel(c, i))).toEqual(['Übersicht', 'Details', 'Preise']);
+    // Without a name the first heading labels the tab, without that its number.
+    expect(itemLabel({ id: 'a', kind: 'box', props: {}, children: [createEl('heading', { text: 'Menü' })] }, 0)).toBe('Menü');
+    expect(itemLabel({ id: 'b', kind: 'box', props: {}, children: [] }, 3)).toBe('Reiter 4');
+    const styled = { ...tabs, children: [...tabs.children!.slice(0, 2), { ...tabs.children![2], design: { desktop: { bg: '$surface' } } }] };
+    const next = newItem(styled);
+    expect(next.id).not.toBe(styled.children[2].id);
+    expect(next.design).toEqual({ desktop: { bg: '$surface' } });
+    expect(next.name).toBe('Reiter 4');
+    expect(newItem({ ...createEl('marquee'), children: [] }).kind).toBe('text');
+    expect(elementsText([createEl('accordion')])).toContain('Wie lange dauert es?');
   });
 });
 

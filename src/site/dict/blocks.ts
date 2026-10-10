@@ -18,6 +18,7 @@ export const blocks: Record<string, { fr: string; it: string; en: string }> = {
   'Bitte wählen': { fr: 'Veuillez choisir', it: 'Seleziona', en: 'Please choose' },
   'Bitte leer lassen': { fr: 'Veuillez laisser vide', it: 'Lascia vuoto', en: 'Please leave empty' },
   Zurück: { fr: 'Retour', it: 'Indietro', en: 'Back' },
+  'Folie {n}': { fr: 'Diapositive {n}', it: 'Diapositiva {n}', en: 'Slide {n}' },
   Weiter: { fr: 'Suivant', it: 'Avanti', en: 'Next' },
   Senden: { fr: 'Envoyer', it: 'Invia', en: 'Send' },
   'Mit dem Absenden werden deine Angaben zur Bearbeitung der Anfrage gespeichert. Mehr in der <a href="/datenschutz">Datenschutzerklärung</a>.': {

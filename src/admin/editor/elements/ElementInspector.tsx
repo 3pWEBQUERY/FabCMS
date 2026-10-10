@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { isEmptyDesign, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, EL_DEFS, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -9,6 +9,7 @@ import { FieldList } from '../../ui/FieldInput';
 import { Field, Segmented, Select } from '../../ui/kit';
 import { DesignPanel } from '../design/DesignPanel';
 import { MotionPanel } from '../design/MotionPanel';
+import { ItemsEditor } from './ItemsEditor';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -22,6 +23,8 @@ export function ElementInspector({
   pro,
   collections,
   source,
+  onSelect,
+  locked,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -35,6 +38,9 @@ export function ElementInspector({
   collections: CollectionDef[];
   /** Inside a CMS list: the content type its entries come from. */
   source: CollectionDef | null;
+  /** Selects another element (an entry of tabs, accordion, slider). */
+  onSelect: (id: string) => void;
+  locked: boolean;
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
@@ -81,6 +87,7 @@ export function ElementInspector({
             skip={Object.keys(el.bind ?? {})}
             onChange={(k, v) => onChange({ ...el, props: { ...el.props, [k]: v } })}
           />
+          {ITEM_CONTAINERS.includes(el.kind) && <ItemsEditor el={el} onChange={onChange} onSelect={onSelect} locked={locked} />}
           {el.kind === 'list' && (
             <p className="xsmall faint">{t('Gestaltet wird der erste Eintrag – alle anderen sehen gleich aus. Verbinde seine Elemente mit den Feldern des Inhaltstyps.')}</p>
           )}

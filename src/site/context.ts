@@ -38,7 +38,7 @@ export interface RenderContext {
   preloadMedia: (ids: unknown[]) => Promise<void>;
   /** Image to preload for LCP. */
   lcpImage: string | null;
-  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare' | 'age' | 'motion'>;
+  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare' | 'age' | 'motion' | 'widgets'>;
   /** Signed age gate already passed. */
   ageOk: boolean;
   /** The age gate asks for the Swiss e-ID (and the page withholds its content until then). */

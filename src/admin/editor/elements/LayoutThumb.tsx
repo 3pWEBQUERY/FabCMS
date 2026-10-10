@@ -52,6 +52,53 @@ export function LayoutThumb({ id }: { id: string }) {
             ))}
           </>
         );
+      case 'faq':
+        return (
+          <>
+            {line(10, 7, 30)}
+            {[15, 26, 37].map((y, i) => (
+              <g key={y}>
+                <rect x="10" y={y} width="80" height="0.8" opacity="0.4" />
+                {line(10, y + 4, i === 0 ? 40 : 32)}
+                <path d={`M86 ${y + 4.5}h4${i === 0 ? '' : `M88 ${y + 2.5}v4`}`} className="plus" />
+              </g>
+            ))}
+            {line(10, 47, 52, 0.45)}
+          </>
+        );
+      case 'slides':
+        return (
+          <>
+            <rect x="4" y="8" width="14" height="30" rx="3" className="img" opacity="0.5" />
+            <rect x="22" y="8" width="56" height="30" rx="3" className="img" />
+            <rect x="82" y="8" width="14" height="30" rx="3" className="img" opacity="0.5" />
+            <rect x="42" y="45" width="8" height="3" rx="1.5" className="acc" />
+            <circle cx="54" cy="46.5" r="1.5" opacity="0.4" />
+            <circle cx="59" cy="46.5" r="1.5" opacity="0.4" />
+          </>
+        );
+      case 'tabbed':
+        return (
+          <>
+            {[10, 32, 54].map((x, i) => (
+              <rect key={x} x={x} y="10" width="18" height="3" rx="1.5" opacity={i === 0 ? 1 : 0.45} />
+            ))}
+            <rect x="10" y="17" width="18" height="1.5" className="acc" />
+            <rect x="10" y="18" width="80" height="0.6" opacity="0.4" />
+            {line(10, 26, 46)}
+            {line(10, 33, 64, 0.45)}
+            {line(10, 39, 58, 0.45)}
+          </>
+        );
+      case 'ticker':
+        return (
+          <>
+            {[2, 30, 58, 86].map((x) => (
+              <rect key={x} x={x} y="20" width="20" height="5" rx="2.5" opacity={x < 10 || x > 80 ? 0.35 : 1} />
+            ))}
+            <path d="M40 34h20M56 31l4 3-4 3" className="plus" />
+          </>
+        );
       case 'cover':
         return (
           <>

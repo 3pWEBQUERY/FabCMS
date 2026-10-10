@@ -27,7 +27,23 @@ import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block, CollectionDef } from '../../shared/types';
 import { blockCss, blockDomId, COLOR_TOKENS, designImages, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
-import { cloneEl, createEl, EL_DEFS, elementImages, elementsCss, findEl, insertEl, moveEl, removeEl, updateEl, type El, type ElKind } from '../../shared/elements';
+import {
+  cloneEl,
+  createEl,
+  EL_DEFS,
+  elementImages,
+  elementsCss,
+  findEl,
+  insertEl,
+  isContainer,
+  ITEM_CONTAINERS,
+  moveEl,
+  newItem,
+  removeEl,
+  updateEl,
+  type El,
+  type ElKind,
+} from '../../shared/elements';
 import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
 import { ContextMenu, KEYS, ShortcutsDialog, type CtxItem } from './ContextMenu';
@@ -474,7 +490,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           ? insertEl(els, null, els.length, el)
           : info.el.kind === 'list' && info.el.children?.[0] && !after
             ? insertEl(els, info.el.children[0].id, info.el.children[0].children?.length ?? 0, el)
-            : info.el.kind === 'box' && !after
+            : (info.el.kind === 'box' || ITEM_CONTAINERS.includes(info.el.kind)) && !after
               ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
               : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
       el.id,
@@ -585,6 +601,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         run: () => (el ? removeElement(selectedBlock.id, el.el.id) : void removeBlock(selectedBlock.id)),
       },
     ];
+  };
+
+  /** One more question, tab, slide or marquee entry – like the last one. */
+  const addItem = (blockId: string, elId: string) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    const item = newItem(info.el);
+    changeEls(blockId, (els) => insertEl(els, elId, info.el.children?.length ?? 0, item), item.id);
   };
 
   const duplicateElement = (blockId: string, elId: string) => {
@@ -815,6 +840,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                         height: r.height,
                       })
                     }
+                    onAddItem={() => addItem(selectedBlock.id, selectedElInfo.el.id)}
                     onDuplicate={() => duplicateElement(selectedBlock.id, selectedElInfo.el.id)}
                     onWrap={() => wrapElement(selectedBlock.id, selectedElInfo.el.id)}
                     onRemove={() => removeElement(selectedBlock.id, selectedElInfo.el.id)}
@@ -910,7 +936,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </RPopover.Anchor>
                 <RPopover.Portal>
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    <ElementPicker onPick={insertElement} into={selectedElInfo?.el.kind === 'box' ? elLabel(selectedElInfo.el) : null} />
+                    <ElementPicker
+                      onPick={insertElement}
+                      into={selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null}
+                    />
                   </RPopover.Content>
                 </RPopover.Portal>
               </RPopover.Root>
@@ -1006,6 +1035,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       pro={session.pro}
                       collections={collections}
                       source={listSource}
+                      onSelect={selectElement}
+                      locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
                     />
                   </TokenColors.Provider>
                 )}

@@ -6,6 +6,7 @@
  */
 import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 import { replay, setupMotion } from './motion';
+import { activeTab, reveal, setupWidgets, showTab } from './widgets';
 import { shortcutAction } from '../../shared/shortcuts';
 
 type Msg = Record<string, any>;
@@ -49,6 +50,7 @@ a[href]{cursor:default}
 [data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
 [data-nova-el-drag]{opacity:.35}
 [data-nova-ghost]{pointer-events:none}
+.el-marquee:hover .mq-track,.el-marquee:has([data-nova-el-selected]) .mq-track,.el-marquee[data-nova-el-selected] .mq-track{animation-play-state:paused}
 `;
 d.head.append(style);
 
@@ -198,6 +200,31 @@ d.addEventListener('paste', (e) => {
 
 /* ---------- elements of the free layout ---------- */
 
+/** Open questions, the shown tab and where a slider stands survive the block being drawn anew. */
+type WidgetState = { open: Map<string, boolean>; tabs: Map<string, number>; scroll: Map<string, number> };
+function widgetState(block: HTMLElement): WidgetState {
+  const st: WidgetState = { open: new Map(), tabs: new Map(), scroll: new Map() };
+  block.querySelectorAll<HTMLDetailsElement>('details[data-nova-el]').forEach((x) => st.open.set(x.dataset.novaEl!, x.open));
+  block.querySelectorAll<HTMLElement>('[data-tabs][data-nova-el]').forEach((x) => st.tabs.set(x.dataset.novaEl!, activeTab(x)));
+  block.querySelectorAll<HTMLElement>('[data-slider][data-nova-el]').forEach((x) => st.scroll.set(x.dataset.novaEl!, x.querySelector('.sl-track')?.scrollLeft ?? 0));
+  return st;
+}
+function restoreWidgets(block: HTMLElement, st: WidgetState) {
+  block.querySelectorAll<HTMLDetailsElement>('details[data-nova-el]').forEach((x) => {
+    const open = st.open.get(x.dataset.novaEl!);
+    if (open !== undefined) x.open = open;
+  });
+  block.querySelectorAll<HTMLElement>('[data-tabs][data-nova-el]').forEach((x) => {
+    const i = st.tabs.get(x.dataset.novaEl!);
+    if (i) showTab(x, i);
+  });
+  block.querySelectorAll<HTMLElement>('[data-slider][data-nova-el]').forEach((x) => {
+    const left = st.scroll.get(x.dataset.novaEl!);
+    const track = x.querySelector<HTMLElement>('.sl-track');
+    if (left && track) track.scrollTo({ left, behavior: 'auto' });
+  });
+}
+
 let selectedEl: string | null = null;
 const elEl = (id: string) => main.querySelector<HTMLElement>(`[data-nova-el="${CSS.escape(id)}"]`);
 
@@ -206,6 +233,7 @@ function selectEl(id: string | null, notify: boolean) {
   selectedEl = id;
   const el = id ? elEl(id) : null;
   el?.setAttribute('data-nova-el-selected', '');
+  if (el) reveal(el);
   placeEgrip();
   if (!notify) return;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
@@ -250,10 +278,12 @@ function dropTarget(x: number, y: number): { parent: string | null; index: numbe
   const under = d.elementsFromPoint(x, y).find((n) => block.contains(n) && !el.contains(n)) as HTMLElement | undefined;
   if (!under) return null;
   // The innermost container under the pointer, or the layout itself.
-  const box = under.closest<HTMLElement>('[data-nova-kind-el="box"]');
-  const container = box && block.contains(box) && !el.contains(box) ? box : block.querySelector<HTMLElement>('.lay');
+  let box = under.closest<HTMLElement>('[data-nova-box]');
+  while (box && (!block.contains(box) || el.contains(box))) box = box.parentElement?.closest<HTMLElement>('[data-nova-box]') ?? null;
+  const container = box ?? block.querySelector<HTMLElement>('.lay');
   if (!container) return null;
-  const kids = [...container.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute('data-nova-el') && c !== el);
+  // Hidden tabs and closed answers take no place – they are skipped, not counted out.
+  const kids = [...container.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute('data-nova-el') && c !== el && c.getClientRects().length > 0);
   const cs = getComputedStyle(container);
   const rowish = (cs.display.includes('flex') && cs.flexDirection.startsWith('row')) || cs.display.includes('grid');
   let index = kids.length;
@@ -268,7 +298,8 @@ function dropTarget(x: number, y: number): { parent: string | null; index: numbe
   // Index among all children, the dragged one included (the editor removes it first).
   const all = [...container.children].filter((c) => c instanceof HTMLElement && c.hasAttribute('data-nova-el'));
   const ref = kids[index] ?? null;
-  const realIndex = ref ? all.indexOf(ref) : all.length;
+  // An accordion's answer starts after its question (the first element sits in the summary).
+  const realIndex = (ref ? all.indexOf(ref) : all.length) + (Number(container.dataset.novaOffset) || 0);
   const cr = container.getBoundingClientRect();
   let line: DOMRect;
   if (ref) {
@@ -278,7 +309,7 @@ function dropTarget(x: number, y: number): { parent: string | null; index: numbe
     const r = kids[kids.length - 1].getBoundingClientRect();
     line = rowish && !cs.display.includes('grid') ? new DOMRect(r.right + 1, r.top, 3, r.height) : new DOMRect(r.left, r.bottom + 1, r.width, 3);
   } else line = new DOMRect(cr.left + 8, cr.top + cr.height / 2, cr.width - 16, 3);
-  return { parent: container.dataset.novaEl ?? null, index: realIndex, line, container };
+  return { parent: container.dataset.novaBox ?? null, index: realIndex, line, container };
 }
 
 egrip.addEventListener('pointerdown', (e) => {
@@ -350,6 +381,8 @@ d.addEventListener(
     const block = t.closest<HTMLElement>('[data-nova-block]');
     const el = t.closest<HTMLElement>('[data-nova-el]');
     if (el && block?.contains(el)) {
+      // Writing a question doesn't fold its answer away; the sign beside it still does.
+      if (t.closest('summary') && t.closest('[data-nova-field]')) e.preventDefault();
       select(block.dataset.novaBlock!, false);
       return selectEl(el.dataset.novaEl!, true);
     }
@@ -706,10 +739,17 @@ addEventListener('message', (e) => {
       const next = htmlToElement(m.html);
       if (!old || !next) break;
       if (old.classList.contains('nova-hover')) next.classList.add('nova-hover');
+      const state = widgetState(old);
       old.replaceWith(next);
-      if (selectedEl) elEl(selectedEl)?.setAttribute('data-nova-el-selected', '');
       setupFields(next);
       setupMotion(next.parentElement ?? main, true);
+      setupWidgets(next, true);
+      restoreWidgets(next, state);
+      if (selectedEl) {
+        const sel = elEl(selectedEl);
+        sel?.setAttribute('data-nova-el-selected', '');
+        if (sel) reveal(sel);
+      }
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
       paintComments();
       paintPeers();
@@ -727,6 +767,7 @@ addEventListener('message', (e) => {
       main.querySelector(':scope > .wrap > .nova-empty')?.parentElement?.remove();
       setupFields(next);
       setupMotion(main, true);
+      setupWidgets(next, true);
       select(m.id, true);
       next.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
       animateIn(next);
@@ -775,6 +816,7 @@ addEventListener('message', (e) => {
       if (ftr) d.querySelector('[data-nova-global="footer"]')?.replaceWith(ftr);
       setupFields(main);
       setupMotion(main, true);
+      setupWidgets(main, true);
       scrollTo(0, y);
       for (const id of (m.changed as string[]) ?? []) {
         const el = blockEl(id);
@@ -890,4 +932,5 @@ addEventListener('message', (e) => {
 });
 
 setupMotion(main, true);
+setupWidgets(main, true);
 post({ t: 'ready', blocks: blocks().map((b) => b.dataset.novaBlock) });

@@ -2152,4 +2152,67 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(canvas.data.html).toContain('data-nova-ghost');
     await req('PUT', '/api/collections/posts', { custom_fields: [] });
   });
+
+  it('draws counters, accordions, tabs, sliders and marquees – working without JavaScript, editable in the editor', async () => {
+    const box = (id: string, name: string, kids: unknown[]) => ({ id, kind: 'box', props: {}, name, children: kids });
+    const els = [
+      { id: 'cn', kind: 'counter', props: { value: 1200.5, prefix: '', suffix: '+', duration: 2 } },
+      {
+        id: 'ac',
+        kind: 'accordion',
+        props: { single: true, first: false, faq: true },
+        children: [
+          box('q1', 'Frage', [
+            { id: 'q1h', kind: 'heading', props: { text: 'Gibt es Parkplätze?', level: '3' } },
+            { id: 'q1a', kind: 'text', props: { html: '<p>Ja, zwölf <b>gratis</b>.</p>' } },
+          ]),
+        ],
+      },
+      {
+        id: 'tb',
+        kind: 'tabs',
+        props: { style: 'pill' },
+        children: [
+          box('t1', 'Mittag <&>', [{ id: 't1h', kind: 'heading', props: { text: 'Mittag', level: '3' } }]),
+          box('t2', '', [{ id: 't2h', kind: 'heading', props: { text: 'Abend', level: '3' } }]),
+        ],
+      },
+      { id: 'sl', kind: 'slider', props: { perView: 3, autoplay: 5, arrows: true, dots: true }, children: [box('s1', 'Folie 1', []), box('s2', 'Folie 2', [])] },
+      { id: 'mq', kind: 'marquee', props: { speed: 'fast', direction: 'right', pause: true }, children: [{ id: 'mw', kind: 'text', props: { html: '<p>Regional</p>' } }] },
+    ];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Widgets', blocks: [{ id: 'lay3', type: 'layout', props: { els } }] } });
+    expect(page.status).toBe(200);
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    // Counter: the final number is in the page (search engines, no JavaScript), formatted Swiss.
+    expect(html).toContain('data-count="1200.5" data-dec="1" data-dur="2000"><span class="cnt-num">1’200.5</span><span class="cnt-fix">+</span>');
+    // Accordion: native <details> grouped by name, FAQ for Google from its texts.
+    expect(html).toContain('<details class="el el-box e-q1 acc-item" id="e-q1" name="acc-ac"><summary><h3 class="el el-heading e-q1h" id="e-q1h">Gibt es Parkplätze?</h3>');
+    expect(html).toMatch(/"@type":"FAQPage".*"name":"Gibt es Parkplätze\?".*"text":"Ja, zwölf gratis\."/);
+    // Tabs: buttons named after the tabs (escaped), the heading when there is no name.
+    expect(html).toContain('<button type="button" class="tab" role="tab" aria-selected="true">Mittag &lt;&amp;&gt;</button>');
+    expect(html).toContain('<button type="button" class="tab" role="tab" aria-selected="false">Abend</button>');
+    expect(html).toContain('id="e-t1" role="tabpanel" data-tab-panel');
+    // Slider: autoplay, labelled arrows and dots, slides per view as a CSS variable.
+    expect(html).toContain('data-slider data-autoplay="5"><div class="sl-track">');
+    expect(html).toContain('aria-label="Weiter"');
+    expect(html).toContain('data-label="Folie {n}"');
+    expect(html).toContain(':is(#e-sl,.e-sl){--per-d:3}');
+    // Marquee: the second run is hidden from screen readers and carries no ids.
+    expect(html).toContain('class="el el-marquee e-mq mq-fast mq-right mq-pause"');
+    expect(html).toContain('<div class="mq-group" aria-hidden="true" inert><div class="el el-text e-mw prose"><p>Regional</p></div></div>');
+    expect(html.match(/id="e-mw"/g)?.length).toBe(1);
+    // The CSS of the widgets survives pruning, the runtime script is loaded.
+    expect(html).toContain('.sl-track{');
+    expect(html).toContain('.mq-track{');
+    expect(html).toMatch(/<script src="\/_nova\/site\.js\?v=\w+" defer>/);
+    // In the editor: drop targets for every container, no autoplay, editable tab names.
+    const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay3' });
+    const ed = canvas.data.html as string;
+    expect(ed).toContain('data-nova-box="q1" data-nova-offset="1"');
+    expect(ed).toContain('<div class="sl-track" data-nova-box="sl">');
+    expect(ed).not.toContain('data-autoplay');
+    expect(ed).toContain('data-nova-field="els.2.children.0.name"');
+    expect(ed).toMatch(/<details[^>]+data-nova-el="q1"[^>]* open/);
+  });
 });

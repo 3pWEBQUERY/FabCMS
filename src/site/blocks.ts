@@ -4,7 +4,7 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
-import { BOX_TAGS, elementImages, elementsCss, listTemplate, SPACER_SIZES, type El } from '../shared/elements';
+import { BOX_TAGS, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, SPACER_SIZES, type El } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
@@ -834,13 +834,37 @@ interface ElRender {
   path: string;
   edit: boolean;
   entry?: { e: PublicEntry; c: CollectionDef; open: boolean };
+  /** A repeat only for the eye (the second run of a marquee): no id, no handles. */
+  copy?: boolean;
+  /** Extra attributes for this one element (a tab's panel). */
+  extra?: string;
 }
 
-async function renderEls(els: El[], ctx: RenderContext, rc: ElRender): Promise<Html> {
+/** Elements one after the other; `start` is the index of the first in its container. */
+async function renderEls(els: El[], ctx: RenderContext, rc: ElRender, start = 0): Promise<Html> {
   const out: Html[] = [];
-  for (let i = 0; i < els.length; i++) out.push(await renderEl(els[i], ctx, { ...rc, path: `${rc.path}.${i}` }));
+  for (let i = 0; i < els.length; i++) out.push(await renderEl(els[i], ctx, { ...rc, extra: undefined, path: `${rc.path}.${i + start}` }));
   return join(out);
 }
+
+/**
+ * The attributes every element carries: id (first copy), editor handles, animation.
+ * `box`: its children sit directly inside (where the editor drops elements).
+ */
+function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'box'): Html {
+  const motion = motionAttrs(el.motion);
+  if (motion) ctx.needs.add('motion');
+  const handles = rc.edit && !rc.copy;
+  // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
+  return raw(
+    `${!rc.copy && (rc.edit || !rc.entry) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
+      motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
+    }${rc.extra ?? ''}`,
+  );
+}
+
+const chevron = (dir: 'left' | 'right') =>
+  raw(`<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${dir === 'left' ? 'M12.5 4.5 7 10l5.5 5.5' : 'M7.5 4.5 13 10l-5.5 5.5'}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 
 /** A value from the entry an element is bound to – only what the visitor may see. */
 function bound(el: El, prop: string, rc: ElRender, ctx: RenderContext): { set: boolean; value: unknown; field?: FieldDef } {
@@ -866,12 +890,8 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
   if (!/^[\w-]{1,24}$/.test(el.id)) return html``;
   const p = (el.props ?? {}) as P;
   const path = rc.path;
-  const motion = motionAttrs(el.motion);
-  if (motion) ctx.needs.add('motion');
-  // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
-  const attrs = raw(
-    `${rc.edit || !rc.entry ? ` id="e-${el.id}"` : ''}${rc.edit ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''}`,
-  );
+  const attrs = elAttrs(el, ctx, rc);
+  const handles = rc.edit && !rc.copy;
   const cls = (extra = '') => `el el-${el.kind} e-${el.id}${extra ? ` ${extra}` : ''}`;
   const val = (prop: string) => bound(el, prop, rc, ctx);
   const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => (val(prop).set ? '' : field(rc.edit, `${path}.props.${prop}`, kind));
@@ -929,10 +949,96 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       return html`<div class="${cls(`el-spacer-${(SPACER_SIZES as readonly string[]).includes(String(p.size)) ? p.size : 'm'}`)}"${attrs} aria-hidden="true"></div>`;
     case 'divider':
       return html`<hr class="${cls()}"${attrs}>`;
+    case 'counter': {
+      const value = Number(p.value) || 0;
+      const dec = Math.min(2, (String(p.value ?? '').split('.')[1] ?? '').length);
+      ctx.needs.add('widgets');
+      return html`<span class="${cls()}"${attrs} data-count="${value}" data-dec="${dec}" data-dur="${Math.round((Number(p.duration) || 1.6) * 1000)}">${
+        p.prefix ? html`<span class="cnt-fix"${editField('prefix')}>${p.prefix}</span>` : ''
+      }<span class="cnt-num">${value.toLocaleString(L(ctx), { minimumFractionDigits: dec, maximumFractionDigits: dec })}</span>${
+        p.suffix ? html`<span class="cnt-fix"${editField('suffix')}>${p.suffix}</span>` : ''
+      }</span>`;
+    }
+    case 'accordion':
+      return renderAccordion(el, ctx, rc, attrs, cls());
+    case 'tabs': {
+      const kids = el.children ?? [];
+      ctx.needs.add('widgets');
+      // In the editor the labels are written in place (they are the entries' names).
+      const tabs = kids.map((c, i) =>
+        handles
+          ? html`<span class="tab" role="tab" tabindex="0" aria-selected="${String(i === 0)}"${field(true, `${path}.children.${i}.name`)}>${itemLabel(c, i)}</span>`
+          : html`<button type="button" class="tab" role="tab" aria-selected="${String(i === 0)}">${itemLabel(c, i)}</button>`,
+      );
+      const panels: Html[] = [];
+      for (let i = 0; i < kids.length; i++) panels.push(await renderEl(kids[i], ctx, { ...rc, path: `${path}.children.${i}`, extra: ' role="tabpanel" data-tab-panel' }));
+      return html`<div class="${cls(`tabs-${p.style === 'pill' ? 'pill' : 'line'}`)}"${attrs}${handles ? raw(` data-nova-box="${el.id}"`) : ''} data-tabs><div class="tabs-list" role="tablist">${tabs}</div>${panels}</div>`;
+    }
+    case 'slider': {
+      ctx.needs.add('widgets');
+      const track = await renderEls(el.children ?? [], ctx, { ...rc, path: `${path}.children` });
+      const auto = Number(p.autoplay) || 0;
+      const ctrl =
+        p.arrows !== false || p.dots !== false
+          ? html`<div class="sl-ctrl">${p.arrows !== false ? html`<button type="button" class="sl-btn sl-prev" aria-label="${t(ctx, 'Zurück')}">${chevron('left')}</button>` : ''}${
+              p.dots !== false ? html`<div class="sl-dots" data-label="${t(ctx, 'Folie {n}', { n: '{n}' })}"></div>` : ''
+            }${p.arrows !== false ? html`<button type="button" class="sl-btn sl-next" aria-label="${t(ctx, 'Weiter')}">${chevron('right')}</button>` : ''}</div>`
+          : '';
+      return html`<div class="${cls()}"${attrs} data-slider${auto && !rc.edit ? raw(` data-autoplay="${auto}"`) : ''}><div class="sl-track"${
+        handles ? raw(` data-nova-box="${el.id}"`) : ''
+      }>${track}</div>${ctrl}</div>`;
+    }
+    case 'marquee': {
+      const kids = el.children ?? [];
+      const speed = (MARQUEE_SPEEDS as readonly string[]).includes(String(p.speed)) ? String(p.speed) : 'medium';
+      const group = await renderEls(kids, ctx, { ...rc, path: `${path}.children` });
+      // The second run makes the loop seamless – for the eye only.
+      const copy = await renderEls(kids, ctx, { ...rc, path: `${path}.children`, edit: false, copy: true });
+      return html`<div class="${cls(`mq-${speed}${p.direction === 'right' ? ' mq-right' : ''}${p.pause !== false ? ' mq-pause' : ''}`)}"${attrs}><div class="mq-track"><div class="mq-group"${
+        handles ? raw(` data-nova-box="${el.id}"`) : ''
+      }>${group}</div><div class="mq-group" aria-hidden="true" inert>${copy}</div></div></div>`;
+    }
     case 'list':
       return renderList(el, ctx, rc, attrs, cls());
   }
   return html``;
+}
+
+/**
+ * Accordion: each container entry becomes a <details> – its first element is
+ * the question, the rest the answer. Works without JavaScript.
+ */
+async function renderAccordion(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const kids = el.children ?? [];
+  const handles = rc.edit && !rc.copy;
+  const items: Html[] = [];
+  const faq: { q: string; a: string }[] = [];
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i];
+    const cp = `${rc.path}.children.${i}`;
+    if (c.kind !== 'box' || !c.children?.length) {
+      items.push(await renderEl(c, ctx, { ...rc, extra: undefined, path: cp }));
+      continue;
+    }
+    const open = handles ? i === 0 : p.first === true && i === 0;
+    const summary = await renderEl(c.children[0], ctx, { ...rc, extra: undefined, path: `${cp}.children.0` });
+    const body = await renderEls(c.children.slice(1), ctx, { ...rc, path: `${cp}.children` }, 1);
+    const own = elAttrs(c, ctx, { ...rc, extra: undefined }, false);
+    items.push(
+      html`<details class="el el-box e-${c.id} acc-item"${own}${open ? raw(' open') : ''}${p.single !== false ? raw(` name="acc-${el.id}"`) : ''}><summary>${summary}<span class="acc-icon" aria-hidden="true"></span></summary><div class="acc-body"${
+        handles ? raw(` data-nova-box="${c.id}" data-nova-offset="1"`) : ''
+      }>${body}</div></details>`,
+    );
+    faq.push({ q: elementsText([c.children[0]]), a: elementsText(c.children.slice(1)) });
+  }
+  if (p.faq !== false && !rc.edit && !rc.entry && !rc.copy && faq.some((f) => f.q && f.a))
+    ctx.jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faq.filter((f) => f.q && f.a).map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    });
+  return html`<div class="${cls}"${attrs}${handles ? raw(` data-nova-box="${el.id}"`) : ''}>${items}</div>`;
 }
 
 /** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
