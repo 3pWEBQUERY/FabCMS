@@ -39,6 +39,13 @@ export function ContentHub() {
   const mods = settings?.modules ?? [];
   const cols = (data?.collections ?? []).filter((c) => c.active && c.id !== 'pages');
   const extra = [
+    {
+      to: '/kalender',
+      icon: 'calendar',
+      name: t('Redaktionskalender'),
+      sub: t('Erschienen, geplant, läuft ab – nach Tagen'),
+      show: can('content.edit') || can('content.edit.own'),
+    },
     { to: '/medien', icon: 'image', name: t('Mediathek'), sub: t('Bilder, Videos, Dokumente'), show: can('media.upload') },
     { to: '/formulare', icon: 'form', name: t('Formulare'), sub: t('Felder und Einträge'), show: can('forms.manage'), n: counts?.counts.unread },
     { to: '/kontakte', icon: 'people', name: t('Kontakte'), sub: t('Anfragen als Pipeline'), show: can('leads.view') && mods.includes('leads'), n: counts?.counts.new_leads },

@@ -332,6 +332,28 @@ export function contentApi(app: Hono<AppEnv>) {
     return c.json({ ok: true, trash: true });
   });
 
+  /* ---------- editorial calendar: what went online, what is planned, what expires ---------- */
+
+  app.get('/api/calendar', async (c) => {
+    const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const q = z.object({ from: z.string().date(), to: z.string().date() }).parse(c.req.query());
+    const from = new Date(`${q.from}T00:00:00Z`);
+    const to = new Date(new Date(`${q.to}T00:00:00Z`).getTime() + 86_400_000);
+    if (to.getTime() - from.getTime() > 100 * 86_400_000) throw badRequest('Höchstens 100 Tage auf einmal.');
+    const own = can(user.role, 'content.edit') ? sql`` : sql`and author_id = ${user.id}`;
+    const rows = await sql`
+      select id, collection, slug, status, data ->> 'title' as title, 'published' as kind, published_at as at from entries
+        where status = 'published' and published_at >= ${from} and published_at < ${to} and collection <> 'sections' ${own}
+      union all
+      select id, collection, slug, status, data ->> 'title', 'scheduled', publish_at from entries
+        where status = 'scheduled' and publish_at >= ${from} and publish_at < ${to} ${own}
+      union all
+      select id, collection, slug, status, data ->> 'title', 'expires', unpublish_at from entries
+        where unpublish_at >= ${from} and unpublish_at < ${to} ${own}
+      order by at`;
+    return c.json({ items: rows });
+  });
+
   /* ---------- bulk: many entries at once, each checked like a single one ---------- */
 
   app.post('/api/entries/bulk', async (c) => {

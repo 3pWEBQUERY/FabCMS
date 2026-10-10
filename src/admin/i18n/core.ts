@@ -82,4 +82,29 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Kein Ablaufdatum': { fr: 'Pas de date d’expiration', it: 'Nessuna scadenza', en: 'No expiry date' },
   Festlegen: { fr: 'Définir', it: 'Imposta', en: 'Set' },
   'bis {date}': { fr: 'jusqu’au {date}', it: 'fino al {date}', en: 'until {date}' },
+  /* editorial calendar */
+  '«{name}» verschoben auf {when}.': { fr: '«{name}» déplacé au {when}.', it: '«{name}» spostato al {when}.', en: '“{name}” moved to {when}.' },
+  'Läuft ab': { fr: 'Expire', it: 'Scade', en: 'Expires' },
+  Redaktionskalender: { fr: 'Calendrier éditorial', it: 'Calendario editoriale', en: 'Editorial calendar' },
+  'Was online ging, was geplant ist und was abläuft. Geplantes ziehst du auf einen anderen Tag.': {
+    fr: 'Ce qui a été publié, ce qui est planifié et ce qui expire. Faites glisser le planifié sur un autre jour.',
+    it: 'Ciò che è andato online, ciò che è pianificato e ciò che scade. Trascina il pianificato su un altro giorno.',
+    en: 'What went online, what is planned and what expires. Drag planned items to another day.',
+  },
+  Anzeigen: { fr: 'Afficher', it: 'Mostra', en: 'Show' },
+  Alles: { fr: 'Tout', it: 'Tutto', en: 'Everything' },
+  'Nur Geplantes': { fr: 'Seulement le planifié', it: 'Solo pianificati', en: 'Planned only' },
+  'Voriger Monat': { fr: 'Mois précédent', it: 'Mese precedente', en: 'Previous month' },
+  'In diesem Monat ist nichts geplant oder erschienen.': {
+    fr: 'Rien de planifié ni de publié ce mois-ci.',
+    it: 'Niente di pianificato o pubblicato questo mese.',
+    en: 'Nothing planned or published this month.',
+  },
+  'Erschienen, geplant, läuft ab – nach Tagen': {
+    fr: 'Publié, planifié, expire – par jour',
+    it: 'Pubblicato, pianificato, in scadenza – per giorno',
+    en: 'Published, planned, expiring – by day',
+  },
+  '+ {n} weitere': { fr: '+ {n} autres', it: '+ altri {n}', en: '+ {n} more' },
+  weniger: { fr: 'moins', it: 'meno', en: 'less' },
 };

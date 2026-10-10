@@ -2488,4 +2488,24 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(n.title).toBe('«Aktion bis Sonntag» ist abgelaufen und offline.');
     await req('DELETE', `/api/entries/${e.id}`);
   });
+
+  it('shows the editorial calendar: online, planned and expiring by day', async () => {
+    const plan = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Kalender geplant' } })).data.entry;
+    const at = new Date(Date.now() + 3 * 86_400_000);
+    await req('POST', `/api/entries/${plan.id}/publish`, { at: at.toISOString() });
+    const live = (await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Kalender online' } })).data.entry;
+    await req('POST', `/api/entries/${live.id}/publish`, {});
+    await req('POST', `/api/entries/${live.id}/expiry`, { at: new Date(Date.now() + 5 * 86_400_000).toISOString() });
+    const d = (x: Date) => x.toISOString().slice(0, 10);
+    const cal = await req('GET', `/api/calendar?from=${d(new Date(Date.now() - 86_400_000))}&to=${d(new Date(Date.now() + 7 * 86_400_000))}`);
+    const kinds = (id: string) =>
+      cal.data.items
+        .filter((i: { id: string }) => i.id === id)
+        .map((i: { kind: string }) => i.kind)
+        .sort();
+    expect(kinds(plan.id)).toEqual(['scheduled']);
+    expect(kinds(live.id)).toEqual(['expires', 'published']);
+    expect((await req('GET', '/api/calendar?from=2026-01-01&to=2026-12-31')).status).toBe(400);
+    for (const e of [plan, live]) await req('DELETE', `/api/entries/${e.id}`);
+  });
 });

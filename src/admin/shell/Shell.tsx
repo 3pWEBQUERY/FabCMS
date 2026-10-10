@@ -25,6 +25,7 @@ const OrderDetail = lazy(() => import('../views/Orders').then((m) => ({ default:
 const Coupons = lazy(() => import('../views/Orders').then((m) => ({ default: m.Coupons })));
 const Comments = lazy(() => import('../views/Comments').then((m) => ({ default: m.Comments })));
 const Trash = lazy(() => import('../views/Trash').then((m) => ({ default: m.Trash })));
+const Calendar = lazy(() => import('../views/Calendar').then((m) => ({ default: m.Calendar })));
 const Settings = lazy(() => import('../views/Settings').then((m) => ({ default: m.Settings })));
 const Account = lazy(() => import('../views/Account').then((m) => ({ default: m.Account })));
 const Stats = lazy(() => import('../views/Stats').then((m) => ({ default: m.Stats })));
@@ -194,6 +195,7 @@ export function Shell() {
                   { path: '/kueche', render: () => <Kitchen /> },
                   { path: '/kommentare', render: () => <Comments /> },
                   { path: '/papierkorb', render: () => <Trash /> },
+                  { path: '/kalender', render: () => <Calendar /> },
                   { path: '/einstellungen', render: () => <Settings section="website" /> },
                   { path: '/einstellungen/:section', render: (p) => <Settings section={p.section} /> },
                   { path: '/konto', render: () => <Account /> },
