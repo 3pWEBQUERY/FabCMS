@@ -3137,6 +3137,22 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [glas, loeffel, leer, brot, tuch, kerze]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('shows the stars of approved reviews on product cards', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const p = (await req('POST', '/api/entries', { collection: 'products', data: { title: 'Sternenkäse', price: 800 }, slug: 'sternenkaese' })).data.entry;
+    await req('POST', `/api/entries/${p.id}/publish`, {});
+    await sql`insert into comments (entry_id, name, body, rating, status) values
+      (${p.id}, 'A', '', 5, 'approved'), (${p.id}, 'B', '', 4, 'approved'), (${p.id}, 'C', '', 1, 'pending')`;
+    await req('PATCH', '/api/settings', { shop: { reviews: true } });
+    const list = (await req('GET', '/laden', undefined, anon)).data as string;
+    const card = list.slice(list.indexOf('href="/laden/sternenkaese"'));
+    expect(card.slice(0, card.indexOf('</a>'))).toContain('aria-label="4.5 von 5 Sternen, 2 Bewertungen"');
+    // Off: no stars anywhere.
+    await req('PATCH', '/api/settings', { shop: { reviews: false } });
+    expect((await req('GET', '/laden', undefined, anon)).data).not.toContain('card-stars');
+    await req('DELETE', `/api/entries/${p.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

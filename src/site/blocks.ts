@@ -9,7 +9,7 @@ import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { publishedEntries, categoriesOf, getForm, sectionBlocks } from './data';
+import { publishedEntries, categoriesOf, getForm, ratingSummaries, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -188,9 +188,15 @@ export async function postTeasers(ctx: RenderContext, items: Awaited<ReturnType<
   return html`<div class="cards ${layout === 'feature' ? 'feature' : ''}">${cards}</div>`;
 }
 
+/** Five stars filled to the average (4.5 → four and a half), for the eye only – the label goes on the parent. */
+export const starsMeter = (n: number) =>
+  html`<span class="stars-m" aria-hidden="true">★★★★★<span style="width:${Math.round(Math.max(0, Math.min(5, n)) * 20)}%">★★★★★</span></span>`;
+
 export async function productCards(ctx: RenderContext, items: Awaited<ReturnType<typeof publishedEntries>>['items']): Promise<Html> {
   const c = ctx.collections.find((x) => x.id === 'products')!;
   await ctx.preloadMedia(items.map((i) => (i.data.images as string[])?.[0]));
+  // Customers' stars, when reviews are on and there are some.
+  const ratings = ctx.settings.shop.reviews ? await ratingSummaries(items.map((i) => i.id)) : new Map<string, { average: number; count: number }>();
   const cards = await Promise.all(
     items.map(async (i) => {
       const img = await ctx.media((i.data.images as string[])?.[0]);
@@ -199,7 +205,11 @@ export async function productCards(ctx: RenderContext, items: Awaited<ReturnType
       const soldOut = stock === 0;
       const prices = variants.map((v) => v.price ?? (i.data.price as number));
       const from = prices.length && new Set(prices).size > 1 ? Math.min(...prices) : null;
-      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 25vw, 50vw', maxWidth: 960, ratio: '4/5' })}</div>` : noPhoto(i.data.title)}<div>${hx(ctx, i.data.title)}<div class="price-row">${
+      const r = ratings.get(i.id);
+      const rated = r
+        ? html`<p class="card-stars" role="img" aria-label="${r.count === 1 ? t(ctx, '{n} von 5 Sternen, 1 Bewertung', { n: r.average.toLocaleString(L(ctx)) }) : t(ctx, '{n} von 5 Sternen, {count} Bewertungen', { n: r.average.toLocaleString(L(ctx)), count: r.count })}">${starsMeter(r.average)} <span aria-hidden="true">${r.count}</span></p>`
+        : '';
+      return html`<a class="card" href="${entryPath(c, i.slug)}">${img ? html`<div class="ph">${picture(img, { sizes: '(min-width: 56rem) 25vw, 50vw', maxWidth: 960, ratio: '4/5' })}</div>` : noPhoto(i.data.title)}<div>${hx(ctx, i.data.title)}${rated}<div class="price-row">${
         from !== null ? html`<span>${t(ctx, 'ab {price}', { price: formatPrice(from) })}</span>` : html`<span>${formatPrice(i.data.price as number)}</span>`
       }${i.data.comparePrice ? html`<s>${formatPrice(i.data.comparePrice as number)}</s>` : ''}${soldOut ? html` <span class="badge">${t(ctx, 'Ausverkauft')}</span>` : ''}</div></div></a>`;
     }),

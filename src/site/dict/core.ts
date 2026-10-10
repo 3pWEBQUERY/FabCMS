@@ -304,4 +304,6 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     en: 'We sent you this one message because you asked for it. We have since deleted your address.',
   },
   'Passt dazu': { fr: 'Va bien avec', it: 'Si abbina a', en: 'Goes well with' },
+  '{n} von 5 Sternen, 1 Bewertung': { fr: '{n} étoiles sur 5, 1 avis', it: '{n} stelle su 5, 1 recensione', en: '{n} out of 5 stars, 1 review' },
+  '{n} von 5 Sternen, {count} Bewertungen': { fr: '{n} étoiles sur 5, {count} avis', it: '{n} stelle su 5, {count} recensioni', en: '{n} out of 5 stars, {count} reviews' },
 };

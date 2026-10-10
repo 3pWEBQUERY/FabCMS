@@ -171,6 +171,15 @@ export async function approvedComments(entryId: string) {
   return sql`select id, name, body, created_at from comments where entry_id = ${entryId} and status = 'approved' and rating is null order by created_at`;
 }
 
+/** Average stars and count of approved reviews for several products at once. */
+export async function ratingSummaries(ids: string[]): Promise<Map<string, { average: number; count: number }>> {
+  if (!ids.length) return new Map();
+  const rows = await sql`
+    select entry_id, round(avg(rating)::numeric, 1)::float as average, count(*)::int as count from comments
+    where entry_id = any(${ids}::uuid[]) and status = 'approved' and rating is not null group by entry_id`;
+  return new Map(rows.map((r) => [r.entry_id as string, { average: r.average as number, count: r.count as number }]));
+}
+
 /** Approved reviews of a product, newest first. */
 export async function approvedReviews(entryId: string): Promise<Review[]> {
   const rows = await sql`

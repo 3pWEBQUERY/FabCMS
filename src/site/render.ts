@@ -3,7 +3,7 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
-import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
+import { ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { popupConf, popupOnPath, popupWindow } from '../shared/popups';
@@ -630,7 +630,7 @@ function reviewsSection(ctx: RenderContext, productId: string, reviews: Review[]
   const choice = [5, 4, 3, 2, 1].map((n) => html`<input type="radio" id="rv-${n}" name="rating" value="${n}" required><label for="rv-${n}"><span aria-hidden="true">★</span><span class="sr">${n === 1 ? t(ctx, '1 Stern') : t(ctx, '{n} Sterne', { n })}</span></label>`);
   return html`<section class="b sp-m" id="bewertungen" aria-labelledby="rv-h"><div class="wrap reviews"><h2 id="rv-h">${t(ctx, 'Bewertungen')}</h2>${
     sum.count
-      ? html`<p class="rv-sum">${stars(ctx, sum.average)} <strong>${sum.average.toLocaleString(L(ctx))}</strong> <span>${sum.count === 1 ? t(ctx, '1 Bewertung') : t(ctx, '{n} Bewertungen', { n: sum.count })}</span></p>`
+      ? html`<p class="rv-sum"><span role="img" aria-label="${t(ctx, '{n} von 5 Sternen', { n: sum.average.toLocaleString(L(ctx)) })}">${starsMeter(sum.average)}</span> <strong>${sum.average.toLocaleString(L(ctx))}</strong> <span>${sum.count === 1 ? t(ctx, '1 Bewertung') : t(ctx, '{n} Bewertungen', { n: sum.count })}</span></p>`
       : html`<p class="muted">${t(ctx, 'Noch keine Bewertungen.')}</p>`
   }${reviews.slice(0, 30).map(
     (r) =>
