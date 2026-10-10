@@ -1808,6 +1808,11 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       await req('POST', '/_nova/age', undefined, { ...anon, form: { ok: '1', back: '/' } });
       expect(anon.cookies.has('nova_age')).toBe(false);
       expect((await req('GET', '/api/v1/pages', undefined, anon)).status).toBe(403);
+      // Pictures are content too – only the logo stays public.
+      const [pic] = await sql`select id, version from media where mime like 'image/%' and not private limit 1`;
+      const picUrl = `/media/${pic.id}/v${pic.version}/320.webp`;
+      expect((await req('GET', picUrl, undefined, anon)).status).toBe(403);
+      expect((await req('GET', picUrl)).status).not.toBe(403);
 
       // Step 1: a request for «age_over_18 = true» from the accepted issuer, as QR code.
       const start = await req('POST', '/_nova/age/eid', undefined, anon);
@@ -1841,6 +1846,9 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       const open = (await req('GET', '/', undefined, anon)).data as string;
       expect(open).not.toContain('data-age-eid');
       expect(open).not.toContain('<main id="inhalt"></main>');
+      const pic2 = await req('GET', picUrl, undefined, anon);
+      expect(pic2.status).not.toBe(403);
+      expect(pic2.headers.get('cache-control')).toBe('private, max-age=3000');
 
       // Raising the limit to 20 asks again – now for the birth date.
       await req('PATCH', '/api/settings', { ageGate: { enabled: true, minAge: 20, method: 'eid' } });

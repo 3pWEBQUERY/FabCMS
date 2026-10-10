@@ -30,6 +30,7 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Conferma la tua età con la tua e-ID nell’app swiyu. Controlliamo solo la tua data di nascita e non la salviamo.',
     en: 'Confirm your age with your e-ID in the swiyu app. We only check your date of birth and do not store it.',
   },
+  'Nur nach der Altersprüfung.': { fr: 'Uniquement après la vérification de l’âge.', it: 'Solo dopo la verifica dell’età.', en: 'Only after the age check.' },
   'Mit E-ID bestätigen': { fr: 'Confirmer avec l’e-ID', it: 'Conferma con l’e-ID', en: 'Confirm with e-ID' },
   'In swiyu öffnen': { fr: 'Ouvrir dans swiyu', it: 'Apri in swiyu', en: 'Open in swiyu' },
   'Scanne den Code mit der App swiyu – oder öffne sie auf diesem Gerät.': {

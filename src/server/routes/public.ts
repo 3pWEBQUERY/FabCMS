@@ -304,6 +304,18 @@ export function publicRoutes(app: Hono<AppEnv>) {
   });
 
   /* media */
+  // Behind the e-ID gate pictures, files and videos are content too: only after the check (or for the team),
+  // and never in a shared cache. Logo and favicon stay public.
+  app.use('/media/*', async (c, next) => {
+    const s = await getSettings();
+    if (!eidGate(s)) return next();
+    const id = c.req.path.split('/')[2];
+    const open = id === s.logo || id === s.favicon || Boolean(c.get('user')) || ageAccepted(unsign(getCookie(c, AGE_COOKIE), await appSecret()), s);
+    if (!open) return c.text(T('Nur nach der Altersprüfung.'), 403, { 'Cache-Control': 'no-store' });
+    await next();
+    if (id !== s.logo && id !== s.favicon) c.res.headers.set('Cache-Control', 'private, max-age=3000');
+  });
+
   app.get('/media/:id/:ver{v\\d+}/:file{\\d+\\.(avif|webp|jpg)}', async (c) => {
     const id = c.req.param('id');
     if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
