@@ -1,3 +1,4 @@
+import { statsConfig, statsCsp } from '../shared/stats-services';
 import { Hono } from 'hono';
 import { compress } from 'hono/compress';
 import { ZodError } from 'zod';
@@ -83,7 +84,8 @@ function buildApp() {
       c.header('X-Frame-Options', 'DENY');
     } else {
       const s = await getSettings();
-      const scripts = ["'self'", 'https://challenges.cloudflare.com', ...(s.security.allowCustomScripts ? ["'unsafe-inline'", 'https:'] : [])];
+      const stats = statsCsp(statsConfig(s));
+      const scripts = ["'self'", 'https://challenges.cloudflare.com', ...stats.script, ...(s.security.allowCustomScripts ? ["'unsafe-inline'", 'https:'] : [])];
       c.header(
         'Content-Security-Policy',
         [
@@ -92,7 +94,7 @@ function buildApp() {
           "style-src 'self' 'unsafe-inline'",
           `script-src ${scripts.join(' ')}`,
           "font-src 'self'",
-          "connect-src 'self'",
+          `connect-src ${["'self'", ...stats.connect].join(' ')}`,
           'frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.openstreetmap.org https://challenges.cloudflare.com',
           "media-src 'self' https:",
           // Only Nova's own admin may frame pages (canvas, previews).

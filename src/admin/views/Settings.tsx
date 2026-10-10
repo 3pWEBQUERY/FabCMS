@@ -679,6 +679,64 @@ function SeoSettings() {
               help={t('Ohne Einwilligungsbanner zulässig: keine Cookies, keine IP-Speicherung, keine Wiedererkennung über Tage.')}
             />
           </Section>
+          <Section
+            title={t('Weitere Statistik-Dienste')}
+            sub={t(
+              'Optional, zusätzlich zur eigenen Statistik. Was Cookies setzt, lädt erst nach Einwilligung – Besucher sehen dafür einen Hinweis mit «Nein, danke» und «Einverstanden». Danach die Datenschutzerklärung unter Rechtliches neu erzeugen.',
+            )}
+          >
+            <div className="grid-2">
+              <Field label={t('Plausible: Domain')} help={t('Wie bei Plausible eingetragen. Keine Cookies, kein Hinweis nötig.')}>
+                <input
+                  className="input mono"
+                  value={draft.analytics.plausible.domain}
+                  placeholder="beispiel.ch"
+                  onChange={(e) => set('analytics', { ...draft.analytics, plausible: { ...draft.analytics.plausible, domain: e.target.value } })}
+                />
+              </Field>
+              <Field label={t('Eigener Plausible-Server')} help={t('Leer lassen für plausible.io.')}>
+                <input
+                  className="input mono"
+                  value={draft.analytics.plausible.host}
+                  placeholder="https://plausible.io"
+                  onChange={(e) => set('analytics', { ...draft.analytics, plausible: { ...draft.analytics.plausible, host: e.target.value } })}
+                />
+              </Field>
+            </div>
+            <div className="grid-2">
+              <Field label={t('Matomo: Adresse')}>
+                <input
+                  className="input mono"
+                  value={draft.analytics.matomo.url}
+                  placeholder="https://statistik.beispiel.ch"
+                  onChange={(e) => set('analytics', { ...draft.analytics, matomo: { ...draft.analytics.matomo, url: e.target.value } })}
+                />
+              </Field>
+              <Field label={t('Matomo: Site-ID')}>
+                <input
+                  className="input mono"
+                  inputMode="numeric"
+                  value={draft.analytics.matomo.siteId}
+                  placeholder="1"
+                  onChange={(e) => set('analytics', { ...draft.analytics, matomo: { ...draft.analytics.matomo, siteId: e.target.value } })}
+                />
+              </Field>
+            </div>
+            <Toggle
+              checked={draft.analytics.matomo.cookies}
+              onChange={(v) => set('analytics', { ...draft.analytics, matomo: { ...draft.analytics.matomo, cookies: v } })}
+              label={t('Matomo mit Cookies')}
+              help={t('Erkennt Besucher über Tage wieder, läuft dafür erst nach Einwilligung. Ohne Cookies zählt Matomo ab dem ersten Aufruf.')}
+            />
+            <Field label={t('Google Analytics 4: Mess-ID')} help={t('Lädt erst nach Einwilligung. Ohne Einwilligung wird nichts an Google übertragen.')}>
+              <input
+                className="input mono"
+                value={draft.analytics.ga4.id}
+                placeholder="G-XXXXXXXXXX"
+                onChange={(e) => set('analytics', { ...draft.analytics, ga4: { id: e.target.value } })}
+              />
+            </Field>
+          </Section>
         </div>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />

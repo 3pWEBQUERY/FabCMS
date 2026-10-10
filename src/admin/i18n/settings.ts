@@ -1119,4 +1119,33 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Per un controllo antivirus con firme, aggiungi un servizio ClamAV e imposta {var}.',
     en: 'For a signature-based virus check, add a ClamAV service and set {var}.',
   },
+  'Weitere Statistik-Dienste': { fr: 'Autres services de statistiques', it: 'Altri servizi di statistica', en: 'Other analytics services' },
+  'Optional, zusätzlich zur eigenen Statistik. Was Cookies setzt, lädt erst nach Einwilligung – Besucher sehen dafür einen Hinweis mit «Nein, danke» und «Einverstanden». Danach die Datenschutzerklärung unter Rechtliches neu erzeugen.':
+    {
+      fr: 'Facultatif, en plus des statistiques propres. Ce qui dépose des cookies ne se charge qu’après consentement – les visiteurs voient pour cela un avis avec « Non, merci » et « D’accord ». Ensuite, régénérez la déclaration de protection des données sous Mentions légales.',
+      it: 'Facoltativo, in aggiunta alla statistica propria. Ciò che imposta cookie si carica solo dopo il consenso – i visitatori vedono un avviso con «No, grazie» e «Va bene». Poi rigenera l’informativa sulla privacy in Note legali.',
+      en: 'Optional, in addition to the built-in statistics. Anything that sets cookies only loads after consent – visitors see a notice with “No, thanks” and “Agree”. Afterwards, regenerate the privacy policy under Legal.',
+    },
+  'Plausible: Domain': { fr: 'Plausible : domaine', it: 'Plausible: dominio', en: 'Plausible: domain' },
+  'Wie bei Plausible eingetragen. Keine Cookies, kein Hinweis nötig.': {
+    fr: 'Comme saisi chez Plausible. Pas de cookies, pas d’avis nécessaire.',
+    it: 'Come registrato su Plausible. Nessun cookie, nessun avviso necessario.',
+    en: 'As entered at Plausible. No cookies, no notice needed.',
+  },
+  'Eigener Plausible-Server': { fr: 'Serveur Plausible propre', it: 'Server Plausible proprio', en: 'Self-hosted Plausible server' },
+  'Leer lassen für plausible.io.': { fr: 'Laisser vide pour plausible.io.', it: 'Lascia vuoto per plausible.io.', en: 'Leave empty for plausible.io.' },
+  'Matomo: Adresse': { fr: 'Matomo : adresse', it: 'Matomo: indirizzo', en: 'Matomo: address' },
+  'Matomo: Site-ID': { fr: 'Matomo : ID du site', it: 'Matomo: ID sito', en: 'Matomo: site ID' },
+  'Matomo mit Cookies': { fr: 'Matomo avec cookies', it: 'Matomo con cookie', en: 'Matomo with cookies' },
+  'Erkennt Besucher über Tage wieder, läuft dafür erst nach Einwilligung. Ohne Cookies zählt Matomo ab dem ersten Aufruf.': {
+    fr: 'Reconnaît les visiteurs sur plusieurs jours, mais ne fonctionne qu’après consentement. Sans cookies, Matomo compte dès la première visite.',
+    it: 'Riconosce i visitatori per più giorni, ma funziona solo dopo il consenso. Senza cookie Matomo conta dalla prima visita.',
+    en: 'Recognises visitors across days, but only runs after consent. Without cookies Matomo counts from the first visit.',
+  },
+  'Google Analytics 4: Mess-ID': { fr: 'Google Analytics 4 : ID de mesure', it: 'Google Analytics 4: ID di misurazione', en: 'Google Analytics 4: measurement ID' },
+  'Lädt erst nach Einwilligung. Ohne Einwilligung wird nichts an Google übertragen.': {
+    fr: 'Ne se charge qu’après consentement. Sans consentement, rien n’est transmis à Google.',
+    it: 'Si carica solo dopo il consenso. Senza consenso non viene trasmesso nulla a Google.',
+    en: 'Only loads after consent. Without consent nothing is sent to Google.',
+  },
 };

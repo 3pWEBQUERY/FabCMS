@@ -171,7 +171,16 @@ export interface SiteSettings {
     indexNowKey: string;
     adult: boolean;
   };
-  analytics: { enabled: boolean; goals: { id: string; label: string; event: string }[] };
+  analytics: {
+    enabled: boolean;
+    goals: { id: string; label: string; event: string }[];
+    /** Cookieless, no consent needed. Host only for a self-hosted Plausible. */
+    plausible: { domain: string; host: string };
+    /** Without cookies no consent is needed; with cookies only after consent. */
+    matomo: { url: string; siteId: string; cookies: boolean };
+    /** Google Analytics 4 measurement id (G-…); only after consent. */
+    ga4: { id: string };
+  };
   consent: { youtube: boolean; vimeo: boolean; maps: boolean };
   ageGate: { enabled: boolean; minAge: number; text: string };
   /** KI-Assistent: only suggestions, never applied on its own. Needs ANTHROPIC_API_KEY. */

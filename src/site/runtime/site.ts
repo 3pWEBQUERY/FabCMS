@@ -126,6 +126,114 @@ if (d.body.dataset.a) {
   else send();
 }
 
+/* ---------- statistics services: Plausible, Matomo, Google Analytics ---------- */
+const statsEl = d.getElementById('nova-stats');
+if (statsEl) {
+  type Cfg = { plausible?: { domain: string; src: string }; matomo?: { url: string; siteId: string; cookies: boolean }; ga4?: { id: string }; consent: string[]; key: string };
+  const cfg = JSON.parse(statsEl.textContent || '{}') as Cfg;
+  const w = window as unknown as Record<string, any>;
+  const load = (src: string, attrs: Record<string, string> = {}) => {
+    const el = d.createElement('script');
+    el.src = src;
+    el.async = true;
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    d.head.append(el);
+  };
+  const goals = () => [...d.querySelectorAll<HTMLElement>('[data-goal]')].map((el) => el.dataset.goal!);
+  const started = new Set<string>();
+  const plausible = () => {
+    if (!cfg.plausible || started.has('plausible')) return;
+    started.add('plausible');
+    w.plausible ??= function (...args: unknown[]) {
+      (w.plausible.q = w.plausible.q || []).push(args);
+    };
+    load(cfg.plausible.src, { 'data-domain': cfg.plausible.domain, defer: '' });
+    for (const g of goals()) w.plausible(g);
+  };
+  const matomo = () => {
+    if (!cfg.matomo || started.has('matomo')) return;
+    started.add('matomo');
+    const q = (w._paq = w._paq || []);
+    if (!cfg.matomo.cookies) q.push(['disableCookies']);
+    q.push(['setTrackerUrl', `${cfg.matomo.url}matomo.php`], ['setSiteId', cfg.matomo.siteId], ['trackPageView'], ['enableLinkTracking']);
+    for (const g of goals()) q.push(['trackEvent', 'Nova', g]);
+    load(`${cfg.matomo.url}matomo.js`);
+  };
+  const ga4 = () => {
+    if (!cfg.ga4 || started.has('ga4')) return;
+    started.add('ga4');
+    w.dataLayer = w.dataLayer || [];
+    // gtag needs the arguments object itself, not an array.
+    w.gtag = function () {
+      w.dataLayer.push(arguments);
+    };
+    w.gtag('js', new Date());
+    w.gtag('config', cfg.ga4.id);
+    for (const g of goals()) w.gtag('event', g);
+    load(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(cfg.ga4.id)}`);
+  };
+  const withConsent = () => {
+    ga4();
+    if (cfg.matomo?.cookies) matomo();
+  };
+  // Without cookies, no consent needed.
+  plausible();
+  if (cfg.matomo && !cfg.matomo.cookies) matomo();
+
+  if (cfg.consent.length) {
+    const KEY = 'nova-consent';
+    const read = (): boolean | null => {
+      try {
+        const v = JSON.parse(localStorage.getItem(KEY) || 'null') as { key: string; ok: boolean } | null;
+        return v && v.key === cfg.key ? v.ok : null;
+      } catch {
+        return null;
+      }
+    };
+    const save = (ok: boolean) => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ key: cfg.key, ok, at: new Date().toISOString() }));
+      } catch {
+        /* private mode: asked again next time */
+      }
+    };
+    const bar = d.getElementById('nova-consent');
+    const show = () => {
+      if (!bar) return;
+      bar.hidden = false;
+      bar.querySelector<HTMLElement>('[data-consent-no]')?.focus({ preventScroll: true });
+    };
+    // Cookies the services set, on this host and the ones above it.
+    const forget = () => {
+      const hosts = location.hostname.split('.').map((_, i, a) => a.slice(i).join('.')).filter((h) => h.includes('.'));
+      for (const c of d.cookie.split(';')) {
+        const name = c.split('=')[0].trim();
+        if (!/^(_ga|_gid|_gat|_pk_|mtm_|MATOMO_)/.test(name)) continue;
+        for (const h of ['', ...hosts.map((x) => `;domain=.${x}`)]) d.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/${h}`;
+      }
+    };
+    const answer = (ok: boolean) => {
+      const before = read();
+      save(ok);
+      if (bar) bar.hidden = true;
+      if (ok) withConsent();
+      else if (before) {
+        // Scripts that already run can't be unloaded: remove their cookies and start over without them.
+        forget();
+        location.reload();
+      }
+    };
+    bar?.querySelector('[data-consent-yes]')?.addEventListener('click', () => answer(true));
+    bar?.querySelector('[data-consent-no]')?.addEventListener('click', () => answer(false));
+    d.querySelectorAll('[data-consent-open]').forEach((b) => b.addEventListener('click', show));
+    const stored = read();
+    // Global Privacy Control counts as «no» – and then there is nothing to ask.
+    const gpc = (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
+    if (stored === true) withConsent();
+    else if (stored === null && !gpc) show();
+  }
+}
+
 /* ---------- two-click embeds ---------- */
 const store = {
   get: (k: string) => {

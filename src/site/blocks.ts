@@ -79,7 +79,7 @@ function consentBox(ctx: RenderContext, kind: keyof typeof PROVIDER_NAMES, src: 
 export function renderForm(form: FormDef, ctx: RenderContext, blockId: string): Html {
   const sent = ctx.query.get('gesendet') === form.id;
   if (sent)
-    return html`<div class="form-ok" role="status" id="form-${form.id}"><p style="margin:0">${form.settings.successMessage || t(ctx, 'Danke! Wir melden uns bald.')}</p></div>`;
+    return html`<div class="form-ok" role="status" id="form-${form.id}" data-goal="form"><p style="margin:0">${form.settings.successMessage || t(ctx, 'Danke! Wir melden uns bald.')}</p></div>`;
   ctx.needs.add('form');
   const error = ctx.query.get('formfehler') === form.id ? ctx.query.get('meldung') : null;
   const groups: (typeof form.fields)[] = [[]];

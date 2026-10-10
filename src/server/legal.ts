@@ -1,3 +1,4 @@
+import { statsConfig, type StatsConfig } from '../shared/stats-services';
 import type { SiteSettings } from '../shared/types';
 import { createBlock } from '../shared/blocks';
 import { env } from './env';
@@ -39,6 +40,7 @@ export function impressum(s: SiteSettings): string {
 export function datenschutz(s: SiteSettings): string {
   const b = s.business;
   const m = new Set(s.modules);
+  const stats = statsConfig(s);
   const parts: string[] = [
     p(`Diese Datenschutzerklärung beschreibt, welche Personendaten wir beim Besuch von ${esc(s.name)} bearbeiten. Sie richtet sich nach dem Schweizer Datenschutzgesetz (DSG) und, soweit anwendbar, nach der EU-Datenschutz-Grundverordnung (DSGVO).`),
     h('Verantwortliche Stelle'),
@@ -47,15 +49,24 @@ export function datenschutz(s: SiteSettings): string {
     p(
       'Diese Website wird bei Railway Corporation (USA) betrieben; Daten und Dateien liegen in Rechenzentren des Anbieters. Beim Aufruf werden technisch notwendige Daten (IP-Adresse, Zeitpunkt, aufgerufene Seite, Browser) kurzzeitig in Server-Protokollen verarbeitet. Die Übermittlung in die USA erfolgt gestützt auf Standardvertragsklauseln bzw. das Swiss-U.S. Data Privacy Framework.',
     ),
-    h('Statistik ohne Cookies'),
-    s.analytics.enabled
-      ? p(
-          'Wir zählen Seitenaufrufe mit einer eigenen, cookielosen Statistik. Dabei wird aus IP-Adresse und Browserkennung zusammen mit einem täglich wechselnden Zufallswert eine Kennung berechnet; die IP-Adresse selbst wird nicht gespeichert. Ein Wiedererkennen über mehrere Tage ist nicht möglich. Es werden keine Daten an Dritte weitergegeben.',
-        )
-      : p('Wir führen keine Besucherstatistik.'),
+    ...(s.analytics.enabled
+      ? [
+          h('Statistik ohne Cookies'),
+          p(
+            'Wir zählen Seitenaufrufe mit einer eigenen, cookielosen Statistik. Dabei wird aus IP-Adresse und Browserkennung zusammen mit einem täglich wechselnden Zufallswert eine Kennung berechnet; die IP-Adresse selbst wird nicht gespeichert. Ein Wiedererkennen über mehrere Tage ist nicht möglich. Es werden keine Daten an Dritte weitergegeben.',
+          ),
+        ]
+      : stats
+        ? []
+        : [h('Statistik'), p('Wir führen keine Besucherstatistik.')]),
+    ...statsSections(stats),
     h('Cookies'),
     p(
-      `Wir setzen nur technisch notwendige Cookies: für die Anmeldung im Verwaltungsbereich${m.has('shop') ? ', für den Warenkorb' : ''}${s.ageGate.enabled ? ', für die Bestätigung der Altersprüfung' : ''}. Für Statistik oder Werbung verwenden wir keine Cookies.`,
+      `Wir setzen technisch notwendige Cookies: für die Anmeldung im Verwaltungsbereich${m.has('shop') ? ', für den Warenkorb' : ''}${s.ageGate.enabled ? ', für die Bestätigung der Altersprüfung' : ''}. ${
+        stats?.consent.length
+          ? `Cookies für Statistik (${stats.consent.join(' und ')}) setzen wir nur mit deiner Einwilligung. Deine Entscheidung speichert dein Browser lokal; ändern kannst du sie jederzeit über «Statistik-Einstellungen» in der Fusszeile.`
+          : 'Für Statistik oder Werbung verwenden wir keine Cookies.'
+      }`,
     ),
     h('Kontaktformulare'),
     p(
@@ -140,4 +151,40 @@ export function legalPages(s: SiteSettings) {
   ];
   if (s.modules.includes('shop')) pages.push({ slug: 'agb', title: 'Allgemeine Geschäftsbedingungen', body: agb(s) });
   return pages.map((x) => ({ ...x, blocks: [createBlock('text', { heading: x.title, body: x.body, width: 'narrow' })] }));
+}
+
+/** What the privacy policy has to say about statistics services from outside. */
+function statsSections(stats: StatsConfig | null): string[] {
+  if (!stats) return [];
+  const out: string[] = [];
+  if (stats.plausible) {
+    const own = !stats.plausible.src.startsWith('https://plausible.io/');
+    out.push(
+      h('Statistik mit Plausible'),
+      p(
+        `Wir zählen Besuche zusätzlich mit Plausible Analytics${
+          own ? ` auf einem eigenen Server (${esc(new URL(stats.plausible.src).host)})` : ' (Plausible Insights OÜ, Estland; Daten in der EU)'
+        }. Plausible setzt keine Cookies und speichert keine IP-Adressen; aus IP-Adresse und Browserkennung wird eine täglich wechselnde Kennung berechnet. Erfasst werden aufgerufene Seite, Herkunftsseite, Browser, Betriebssystem, Gerätetyp und Land. Eine Wiedererkennung über mehrere Tage ist nicht möglich.`,
+      ),
+    );
+  }
+  if (stats.matomo) {
+    const host = esc(new URL(stats.matomo.url).host);
+    out.push(
+      h('Statistik mit Matomo'),
+      p(
+        stats.matomo.cookies
+          ? `Mit deiner Einwilligung werten wir Besuche mit Matomo aus, betrieben auf ${host}. Matomo setzt dann Cookies (_pk_id, _pk_ses), um dich bei späteren Besuchen wiederzuerkennen (bis zu 13 Monate). Übertragen werden IP-Adresse, aufgerufene Seiten, Herkunftsseite, Browser, Betriebssystem und Bildschirmgrösse. Ohne Einwilligung wird Matomo nicht geladen. Die Einwilligung kannst du jederzeit über «Statistik-Einstellungen» in der Fusszeile widerrufen.`
+          : `Wir werten Besuche mit Matomo aus, betrieben auf ${host}, ohne Cookies. Übertragen werden IP-Adresse, aufgerufene Seiten, Herkunftsseite, Browser, Betriebssystem und Bildschirmgrösse; eine Wiedererkennung über Cookies findet nicht statt.`,
+      ),
+    );
+  }
+  if (stats.ga4)
+    out.push(
+      h('Google Analytics'),
+      p(
+        'Mit deiner Einwilligung nutzen wir Google Analytics 4 von Google Ireland Limited (Irland) bzw. Google LLC (USA), um zu verstehen, wie die Website genutzt wird. Google Analytics setzt Cookies (_ga, _ga_*), die bis zu zwei Jahre gespeichert bleiben, und überträgt Nutzungsdaten wie aufgerufene Seiten, Gerät, Browser und den ungefähren Standort an Google; dabei können Daten in die USA gelangen (Swiss-U.S. bzw. EU-U.S. Data Privacy Framework). IP-Adressen speichert Google Analytics 4 nach Angaben von Google nicht. Ohne Einwilligung wird Google Analytics nicht geladen und es werden keine Daten an Google übertragen. Die Einwilligung kannst du jederzeit über «Statistik-Einstellungen» in der Fusszeile widerrufen; die Cookies werden dann gelöscht.',
+      ),
+    );
+  return out;
 }

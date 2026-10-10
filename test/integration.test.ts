@@ -1459,4 +1459,52 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       env.clamav.host = '';
     }
   });
+
+  it('adds Plausible, Matomo and Google Analytics – and asks first where cookies are involved', async () => {
+    const anon = { cookies: new Map() };
+    const patch = (analytics: unknown) => req('PATCH', '/api/settings', { analytics });
+    expect((await patch({ ga4: { id: 'UA-12345-1' } })).status).toBe(400);
+    expect((await patch({ matomo: { url: 'http://stats.example.ch', siteId: '1', cookies: false } })).status).toBe(400);
+    expect((await patch({ plausible: { domain: 'kein domain', host: '' } })).status).toBe(400);
+
+    // Plausible alone: no cookies, nothing to ask.
+    const saved = await patch({ plausible: { domain: 'https://Gasthaus-Linde.ch/', host: '' } });
+    expect(saved.data.settings.analytics.plausible.domain).toBe('gasthaus-linde.ch');
+    let home = await req('GET', '/', undefined, anon);
+    expect(home.data).toContain('<script type="application/json" id="nova-stats">');
+    expect(home.data).toContain('"plausible":{"domain":"gasthaus-linde.ch","src":"https://plausible.io/js/script.js"}');
+    expect(home.data).not.toContain('id="nova-consent"');
+    expect(home.data).not.toContain('data-consent-open');
+    expect(home.headers.get('content-security-policy')).toMatch(/script-src [^;]*https:\/\/plausible\.io/);
+
+    // Google Analytics and Matomo with cookies: only after consent, with a way back in the footer.
+    const both = await patch({ ga4: { id: 'g-abc123xyz' }, matomo: { url: 'https://stats.example.ch/matomo.php', siteId: '3', cookies: true } });
+    expect(both.data.settings.analytics.ga4.id).toBe('G-ABC123XYZ');
+    expect(both.data.settings.analytics.matomo.url).toBe('https://stats.example.ch');
+    home = await req('GET', '/', undefined, anon);
+    expect(home.data).toContain('"consent":["Google Analytics","Matomo"]');
+    expect(home.data).toContain('Mit deiner Einwilligung nutzen wir Google Analytics und Matomo');
+    expect(home.data).toMatch(/<section class="cbar" id="nova-consent"[^>]*hidden>/);
+    expect(home.data).toContain('data-consent-no>Nein, danke</button><button type="button" class="btn" data-consent-yes>Einverstanden</button>');
+    expect(home.data).toContain('data-consent-open>Statistik-Einstellungen</button>');
+    // Nothing from Google in the HTML itself: the script is only added after «Einverstanden».
+    expect(home.data).not.toContain('googletagmanager.com/gtag');
+    const csp = home.headers.get('content-security-policy')!;
+    expect(csp).toMatch(/script-src [^;]*https:\/\/www\.googletagmanager\.com/);
+    expect(csp).toMatch(/connect-src [^;]*https:\/\/stats\.example\.ch/);
+    expect(csp).toMatch(/connect-src [^;]*https:\/\/\*\.google-analytics\.com/);
+
+    // The privacy policy says what runs.
+    expect((await req('POST', '/api/legal/generate')).status).toBe(200);
+    const [privacy] = await sql`select data from entries where collection = 'pages' and slug = 'datenschutz'`;
+    const text = JSON.stringify(privacy.data);
+    expect(text).toContain('Google Analytics 4 von Google Ireland Limited');
+    expect(text).toContain('Matomo setzt dann Cookies');
+    expect(text).toContain('Plausible setzt keine Cookies');
+    expect(text).toContain('Cookies für Statistik (Google Analytics und Matomo) setzen wir nur mit deiner Einwilligung');
+
+    await patch({ plausible: { domain: '', host: '' }, matomo: { url: '', siteId: '', cookies: false }, ga4: { id: '' } });
+    home = await req('GET', '/', undefined, anon);
+    expect(home.data).not.toContain('nova-stats');
+  });
 });

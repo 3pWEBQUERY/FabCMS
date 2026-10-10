@@ -1159,4 +1159,25 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Il controllo antivirus non è riuscito a verificare il file. Riprova o chiedi alla persona che gestisce Nova.',
     en: 'The virus check couldn’t check the file. Try again or ask the person who runs Nova.',
   },
+  'Die Mess-ID von Google Analytics sieht so aus: G-XXXXXXXXXX.': {
+    fr: 'L’ID de mesure Google Analytics ressemble à ceci : G-XXXXXXXXXX.',
+    it: 'L’ID di misurazione di Google Analytics ha questo aspetto: G-XXXXXXXXXX.',
+    en: 'A Google Analytics measurement ID looks like this: G-XXXXXXXXXX.',
+  },
+  'Die Matomo-Adresse muss mit https:// beginnen, z. B. https://statistik.beispiel.ch.': {
+    fr: 'L’adresse Matomo doit commencer par https://, p. ex. https://statistik.beispiel.ch.',
+    it: 'L’indirizzo di Matomo deve iniziare con https://, p. es. https://statistik.beispiel.ch.',
+    en: 'The Matomo address must start with https://, e.g. https://statistik.beispiel.ch.',
+  },
+  'Die Site-ID von Matomo ist eine Zahl.': { fr: 'L’ID du site Matomo est un nombre.', it: 'L’ID sito di Matomo è un numero.', en: 'The Matomo site ID is a number.' },
+  'Gib bei Plausible die Domain ohne https:// an, z. B. beispiel.ch.': {
+    fr: 'Pour Plausible, indiquez le domaine sans https://, p. ex. beispiel.ch.',
+    it: 'Per Plausible indica il dominio senza https://, p. es. beispiel.ch.',
+    en: 'For Plausible, enter the domain without https://, e.g. beispiel.ch.',
+  },
+  'Der eigene Plausible-Server muss mit https:// beginnen, z. B. https://plausible.beispiel.ch.': {
+    fr: 'Le serveur Plausible propre doit commencer par https://, p. ex. https://plausible.beispiel.ch.',
+    it: 'Il server Plausible proprio deve iniziare con https://, p. es. https://plausible.beispiel.ch.',
+    en: 'The self-hosted Plausible server must start with https://, e.g. https://plausible.beispiel.ch.',
+  },
 };

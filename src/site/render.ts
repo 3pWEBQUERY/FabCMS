@@ -1,3 +1,4 @@
+import { statsConfig, type StatsConfig } from '../shared/stats-services';
 import { html, raw, cx, esc, type Html } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
@@ -142,7 +143,9 @@ async function footer(ctx: RenderContext): Promise<Html> {
     s.social.length ? html`<div><h2>${t(ctx, 'Folgen')}</h2><ul>${s.social.map((l) => html`<li><a href="${l.href}" rel="noopener me">${l.label}</a></li>`)}</ul></div>` : ''
   }</div><div class="ftr-bottom"><span>© ${new Date().getFullYear()} ${b.legalName || s.name}</span><ul>${legal.map(
     (l) => html`<li><a href="/${l.slug}">${l.data.title}</a></li>`,
-  )}</ul></div></div></footer>`;
+  )}${
+    !ctx.edit && !ctx.preview && statsConfig(s)?.consent.length ? html`<li><button type="button" class="btn-2 ftr-consent" data-consent-open>${t(ctx, 'Statistik-Einstellungen')}</button></li>` : ''
+  }</ul></div></div></footer>`;
 }
 
 function breadcrumbs(ctx: RenderContext, crumbs: Crumb[]): Html {
@@ -172,7 +175,9 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   // Own selects, calendars, steppers and file pickers only where such fields exist.
   const fields = /<select[\s>]|type="(?:date|number|file)"/.test(main.value);
   // site.js also carries the text-field helpers (growing textareas, search clear button, messages) and the video player.
-  const runtime = s.analytics.enabled || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
+  // Statistics services from outside (Plausible, Matomo, Google Analytics) – never in the editor or a preview.
+  const stats = ctx.edit || ctx.preview ? null : statsConfig(s);
+  const runtime = s.analytics.enabled || Boolean(stats) || ctx.needs.size > 0 || s.modules.includes('shop') || fields || /<textarea|type="search"|<video/.test(main.value);
   const gate = ageGate(ctx);
   const blog = ctx.collections.find((c) => c.id === 'posts');
   // Other languages: canonical is the translated address; an untranslated page points to the original and stays out of the index.
@@ -201,6 +206,8 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
     .map((f) => html`<link rel="preload" href="${fontPreload(f)}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(css)}</style>${
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${
+    stats ? html`<script type="application/json" id="nova-stats">${raw(JSON.stringify(stats).replace(/</g, '\\u003c'))}</script>` : ''
+  }${
     runtime ? html`<script src="/_nova/site.js?v=${runtimeVersion('site')}" defer></script>` : ''
   }${fields ? html`<script src="/_nova/fields.js?v=${runtimeVersion('fields')}" defer></script>` : ''}${ctx.edit ? html`<script src="/_nova/bridge.js?v=${runtimeVersion('bridge')}" defer></script>` : ''}`;
   const bodyAttrs = raw(
@@ -210,7 +217,18 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${crumbHtml}${main}</main>${ftr}</body></html>`;
+  return `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${crumbHtml}${main}</main>${ftr}${consentBar(ctx, stats)}</body></html>`;
+}
+
+/** Asks once whether statistics services that set cookies may run. Both answers weigh the same; the footer brings it back. */
+function consentBar(ctx: RenderContext, stats: StatsConfig | null): Html {
+  if (!stats?.consent.length) return html``;
+  const services = stats.consent.join(` ${t(ctx, 'und')} `);
+  return html`<section class="cbar" id="nova-consent" aria-labelledby="cbar-h" hidden><p class="cbar-h" id="cbar-h">${t(ctx, 'Darf diese Website Besuche auswerten?')}</p><p>${t(
+    ctx,
+    'Mit deiner Einwilligung nutzen wir {services}, um zu sehen, welche Seiten gelesen werden. Dabei werden Cookies gesetzt und Daten an den Anbieter übertragen. Du kannst das jederzeit in der Fusszeile ändern.',
+    { services },
+  )} <a href="/datenschutz">${t(ctx, 'Mehr dazu')}</a></p><div class="cbar-actions"><button type="button" class="btn" data-consent-no>${t(ctx, 'Nein, danke')}</button><button type="button" class="btn" data-consent-yes>${t(ctx, 'Einverstanden')}</button></div></section>`;
 }
 
 /* ---------- Pages & entries ---------- */

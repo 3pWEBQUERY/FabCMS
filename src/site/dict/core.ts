@@ -147,4 +147,22 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   'Für Mitglieder': { fr: 'Pour les membres', it: 'Per i membri', en: 'For members' },
   'Du bist dabei. Danke!': { fr: 'Vous êtes membre. Merci!', it: 'Sei dei nostri. Grazie!', en: 'You’re in. Thank you!' },
   Kostenlos: { fr: 'Gratuit', it: 'Gratuito', en: 'Free' },
+
+  // Consent for statistics services
+  'Statistik-Einstellungen': { fr: 'Paramètres de statistiques', it: 'Impostazioni statistiche', en: 'Analytics settings' },
+  und: { fr: 'et', it: 'e', en: 'and' },
+  'Darf diese Website Besuche auswerten?': {
+    fr: 'Ce site peut-il analyser les visites ?',
+    it: 'Questo sito può analizzare le visite?',
+    en: 'May this website analyse visits?',
+  },
+  'Mit deiner Einwilligung nutzen wir {services}, um zu sehen, welche Seiten gelesen werden. Dabei werden Cookies gesetzt und Daten an den Anbieter übertragen. Du kannst das jederzeit in der Fusszeile ändern.':
+    {
+      fr: 'Avec votre accord, nous utilisons {services} pour voir quelles pages sont lues. Des cookies sont alors déposés et des données transmises au fournisseur. Vous pouvez changer d’avis à tout moment dans le pied de page.',
+      it: 'Con il tuo consenso usiamo {services} per vedere quali pagine vengono lette. Vengono impostati cookie e trasmessi dati al fornitore. Puoi cambiare idea in qualsiasi momento nel piè di pagina.',
+      en: 'With your consent we use {services} to see which pages get read. This sets cookies and sends data to the provider. You can change this at any time in the footer.',
+    },
+  'Mehr dazu': { fr: 'En savoir plus', it: 'Maggiori informazioni', en: 'More about this' },
+  'Nein, danke': { fr: 'Non, merci', it: 'No, grazie', en: 'No, thanks' },
+  Einverstanden: { fr: 'D’accord', it: 'Va bene', en: 'Agree' },
 };

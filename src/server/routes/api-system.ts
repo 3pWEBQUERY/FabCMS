@@ -30,6 +30,7 @@ import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { EntryData, SiteSettings } from '../../shared/types';
 import { HOOK_EVENTS } from '../../shared/hooks';
+import { GA4_ID } from '../../shared/stats-services';
 import { defaultLang, isLang, LANGS } from '../../shared/i18n';
 import { checkHookCode, runHook } from '../hooks';
 
@@ -102,6 +103,26 @@ export function systemApi(app: Hono<AppEnv>) {
         if (!/^https:\/\//.test(w.url)) throw badRequest('Webhooks müssen eine https-Adresse haben.');
         w.id ||= shortId();
         w.secret ||= token(24);
+      }
+    }
+    if (patch.analytics) {
+      const a = patch.analytics;
+      if (a.ga4?.id) {
+        a.ga4.id = a.ga4.id.trim().toUpperCase();
+        if (!GA4_ID.test(a.ga4.id)) throw badRequest('Die Mess-ID von Google Analytics sieht so aus: G-XXXXXXXXXX.');
+      }
+      if (a.matomo?.url) {
+        a.matomo.url = a.matomo.url.trim().replace(/(matomo|piwik|index)\.php$/, '').replace(/\/+$/, '');
+        if (!/^https:\/\/[^\s/]+(\/[^\s]*)?$/.test(a.matomo.url)) throw badRequest('Die Matomo-Adresse muss mit https:// beginnen, z. B. https://statistik.beispiel.ch.');
+      }
+      if (a.matomo?.siteId && !/^\d+$/.test((a.matomo.siteId = String(a.matomo.siteId).trim()))) throw badRequest('Die Site-ID von Matomo ist eine Zahl.');
+      if (a.plausible?.domain) {
+        a.plausible.domain = a.plausible.domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(a.plausible.domain)) throw badRequest('Gib bei Plausible die Domain ohne https:// an, z. B. beispiel.ch.');
+      }
+      if (a.plausible?.host) {
+        a.plausible.host = a.plausible.host.trim().replace(/\/+$/, '');
+        if (!/^https:\/\/[^\s/]+$/.test(a.plausible.host)) throw badRequest('Der eigene Plausible-Server muss mit https:// beginnen, z. B. https://plausible.beispiel.ch.');
       }
     }
     if (patch.languages) {
