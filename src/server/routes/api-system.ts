@@ -39,7 +39,7 @@ import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme']);
-const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security']);
+const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security', 'extensionCss']);
 
 async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | null> {
   const q = [s.business.street, s.business.zip, s.business.city, s.business.country].filter(Boolean).join(', ');

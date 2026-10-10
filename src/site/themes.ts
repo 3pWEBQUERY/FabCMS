@@ -1167,7 +1167,7 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
   const parts = {
     fixed: minify([fontFaces([pair.display, pair.body]), root].join('\n')),
     nova: minify([BASE, theme.css].join('\n')),
-    own: minify([overrides ? `:root{${overrides}}` : '', custom].join('\n')),
+    own: minify([overrides ? `:root{${overrides}}` : '', ...(settings.extensionCss ?? []).map((x) => x.css.replace(/<\/?style/gi, '')), custom].join('\n')),
   };
   // What the first screen needs: display and body font, and the italic display cut where titles use it.
   const preload = [fontPreload(pair.display), ...(theme.italicDisplay ? [fontPreload(pair.display, 'italic')] : []), fontPreload(pair.body)];

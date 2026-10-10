@@ -96,6 +96,7 @@ export function defaultSettings(): SiteSettings {
     roleModes: DEFAULT_ROLE_MODES,
     webhooks: [],
     hooks: [],
+    extensionCss: [],
     security: { allowCustomScripts: false },
     firstPublishedAt: null,
     setupDone: false,

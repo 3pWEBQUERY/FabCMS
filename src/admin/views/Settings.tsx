@@ -19,6 +19,7 @@ import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
+import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { t, tl, tm } from '../lib/i18n';
 
@@ -49,6 +50,7 @@ const SECTIONS: Section[] = [
   { id: 'code', label: () => t('CSS & Tokens'), icon: 'code', cap: 'dev', pro: true },
   { id: 'api', label: () => t('API & Webhooks'), icon: 'webhook', cap: 'dev', pro: true },
   { id: 'hooks', label: () => t('Hooks'), icon: 'code', cap: 'dev', pro: true },
+  { id: 'erweiterungen', label: () => t('Erweiterungen'), icon: 'grid', cap: 'dev', pro: true },
   { id: 'weiterleitungen', label: () => t('Weiterleitungen'), icon: 'arrowRight', cap: 'settings.manage', pro: true },
   { id: 'sql', label: () => t('SQL-Abfrage'), icon: 'database', cap: 'data.sql', pro: true },
   { id: 'protokoll', label: () => t('Protokoll'), icon: 'history', cap: 'audit.view', pro: true },
@@ -114,6 +116,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'code' && <CodeSettings />}
           {current.id === 'api' && <ApiSettings />}
           {current.id === 'hooks' && <HooksSettings />}
+          {current.id === 'erweiterungen' && <ExtensionsSettings />}
           {current.id === 'weiterleitungen' && <Redirects />}
           {current.id === 'sql' && <SqlConsole />}
           {current.id === 'protokoll' && <AuditLog />}

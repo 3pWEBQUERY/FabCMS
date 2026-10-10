@@ -1252,4 +1252,137 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     },
   'Selbstauskunft mit einem Klick': { fr: 'Auto-déclaration en un clic', it: 'Autodichiarazione con un clic', en: 'Self-declaration with one click' },
   'E-ID des Bundes (swiyu)': { fr: 'e-ID de la Confédération (swiyu)', it: 'e-ID della Confederazione (swiyu)', en: 'Federal e-ID (swiyu)' },
+  // Erweiterungen (Marktplatz)
+  Erweiterungen: { fr: 'Extensions', it: 'Estensioni', en: 'Extensions' },
+  Erweiterung: { fr: 'Extension', it: 'Estensione', en: 'Extension' },
+  'Kommt mit einer Erweiterung und wird bei deren Aktualisierung ersetzt.': {
+    fr: 'Fourni par une extension et remplacé lors de sa mise à jour.',
+    it: 'Arriva con un’estensione e viene sostituito quando questa si aggiorna.',
+    en: 'Comes with an extension and is replaced when it updates.',
+  },
+  'Fertige Pakete aus Inhaltstypen, Hooks, Formularen, Sektionen und Gestaltung. Erweiterungen führen keinen eigenen Servercode aus – ihre Hooks laufen in derselben Sandbox wie deine.':
+    {
+      fr: 'Des paquets prêts à l’emploi composés de types de contenu, hooks, formulaires, sections et mise en forme. Les extensions n’exécutent aucun code serveur propre – leurs hooks tournent dans le même bac à sable que les vôtres.',
+      it: 'Pacchetti pronti fatti di tipi di contenuto, hook, moduli, sezioni e grafica. Le estensioni non eseguono codice server proprio – i loro hook girano nella stessa sandbox dei tuoi.',
+      en: 'Ready-made packages of content types, hooks, forms, sections and styling. Extensions run no server code of their own – their hooks run in the same sandbox as yours.',
+    },
+  'Katalog neu laden': { fr: 'Recharger le catalogue', it: 'Ricarica il catalogo', en: 'Reload catalogue' },
+  'Eigener Katalog:': { fr: 'Catalogue propre :', it: 'Catalogo proprio:', en: 'Own catalogue:' },
+  'Eigener Katalog': { fr: 'Catalogue propre', it: 'Catalogo proprio', en: 'Own catalogue' },
+  Installiert: { fr: 'Installées', it: 'Installate', en: 'Installed' },
+  'Noch nichts installiert': { fr: 'Rien d’installé pour l’instant', it: 'Ancora niente installato', en: 'Nothing installed yet' },
+  'Nichts in dieser Kategorie': { fr: 'Rien dans cette catégorie', it: 'Niente in questa categoria', en: 'Nothing in this category' },
+  'Wähle oben «Alle», um den ganzen Katalog zu sehen.': {
+    fr: 'Choisissez « Toutes » en haut pour voir tout le catalogue.',
+    it: 'Scegli «Tutte» in alto per vedere l’intero catalogo.',
+    en: 'Choose “All” above to see the whole catalogue.',
+  },
+  'Version {version} installiert': { fr: 'Version {version} installée', it: 'Versione {version} installata', en: 'Version {version} installed' },
+  'Version {version}': { fr: 'Version {version}', it: 'Versione {version}', en: 'Version {version}' },
+  'Von Nova geprüft': { fr: 'Vérifiée par Nova', it: 'Verificata da Nova', en: 'Reviewed by Nova' },
+  'Das kommt dazu': { fr: 'Ce qui s’ajoute', it: 'Cosa si aggiunge', en: 'What it adds' },
+  'Das kommt dazu:': { fr: 'Ce qui s’ajoute :', it: 'Cosa si aggiunge:', en: 'What it adds:' },
+  'Lizenz: {license}': { fr: 'Licence : {license}', it: 'Licenza: {license}', en: 'Licence: {license}' },
+  Weniger: { fr: 'Moins', it: 'Meno', en: 'Less' },
+  Installieren: { fr: 'Installer', it: 'Installa', en: 'Install' },
+  'Auf {version} aktualisieren': { fr: 'Mettre à jour vers {version}', it: 'Aggiorna a {version}', en: 'Update to {version}' },
+  '«{name}» installieren?': { fr: 'Installer « {name} » ?', it: 'Installare «{name}»?', en: 'Install “{name}”?' },
+  '«{name}» entfernen?': { fr: 'Retirer « {name} » ?', it: 'Rimuovere «{name}»?', en: 'Remove “{name}”?' },
+  'Hooks und Gestaltung der Erweiterung verschwinden. Inhaltstypen mit Einträgen, Formulare mit Eingängen und eingesetzte Sektionen bleiben – als deine eigenen.': {
+    fr: 'Les hooks et la mise en forme de l’extension disparaissent. Les types de contenu avec des entrées, les formulaires avec des envois et les sections utilisées restent – comme les vôtres.',
+    it: 'Gli hook e la grafica dell’estensione spariscono. I tipi di contenuto con voci, i moduli con invii e le sezioni in uso restano – come tuoi.',
+    en: 'The extension’s hooks and styling go. Content types with entries, forms with submissions and sections in use stay – as your own.',
+  },
+  'Entfernt.': { fr: 'Retirée.', it: 'Rimossa.', en: 'Removed.' },
+  'Entfernt. Behalten: {kept}': { fr: 'Retirée. Conservé : {kept}', it: 'Rimossa. Conservato: {kept}', en: 'Removed. Kept: {kept}' },
+  '«{name}» ist installiert.': { fr: '« {name} » est installée.', it: '«{name}» è installata.', en: '“{name}” is installed.' },
+  'Auf Version {version} aktualisiert.': { fr: 'Mise à jour vers la version {version}.', it: 'Aggiornata alla versione {version}.', en: 'Updated to version {version}.' },
+  Inhaltstyp: { fr: 'Type de contenu', it: 'Tipo di contenuto', en: 'Content type' },
+  Gestaltung: { fr: 'Mise en forme', it: 'Grafica', en: 'Styling' },
+
+  // Nova’s own extensions (server/extensions-catalogue.ts)
+  Rezepte: { fr: 'Recettes', it: 'Ricette', en: 'Recipes' },
+  'Ein Inhaltstyp für Rezepte mit Zutaten, Schritten, Zeit und Portionen.': {
+    fr: 'Un type de contenu pour des recettes avec ingrédients, étapes, durée et portions.',
+    it: 'Un tipo di contenuto per ricette con ingredienti, passaggi, tempo e porzioni.',
+    en: 'A content type for recipes with ingredients, steps, time and servings.',
+  },
+  'Für Restaurants, Hofläden und Foodblogs: Jedes Rezept bekommt eine eigene Seite unter /rezepte, mit Zutatenliste und nummerierten Arbeitsschritten. Rezepte lassen sich wie Beiträge verschlagworten.':
+    {
+      fr: 'Pour restaurants, magasins à la ferme et blogs culinaires : chaque recette a sa propre page sous /rezepte, avec liste d’ingrédients et étapes numérotées. Les recettes se classent par mots-clés comme les articles.',
+      it: 'Per ristoranti, spacci agricoli e food blog: ogni ricetta ha una pagina propria sotto /rezepte, con lista degli ingredienti e passaggi numerati. Le ricette si possono etichettare come gli articoli.',
+      en: 'For restaurants, farm shops and food blogs: every recipe gets its own page under /rezepte, with an ingredient list and numbered steps. Recipes can be tagged like posts.',
+    },
+  Stellenangebote: { fr: 'Offres d’emploi', it: 'Offerte di lavoro', en: 'Job openings' },
+  'Offene Stellen mit Pensum, Aufgaben und Profil – und ein Bewerbungsformular mit Lebenslauf.': {
+    fr: 'Postes ouverts avec taux d’occupation, tâches et profil – et un formulaire de candidature avec CV.',
+    it: 'Posti aperti con grado d’occupazione, mansioni e profilo – e un modulo di candidatura con CV.',
+    en: 'Open positions with workload, tasks and profile – plus an application form with CV upload.',
+  },
+  'Jede Stelle bekommt eine Seite unter /stellen. Veröffentlicht wird nur, was Pensum und Kontaktadresse hat. Bewerbungen kommen über ein eigenes Formular mit Dateiupload ins Postfach – die Unterlagen bleiben privat.':
+    {
+      fr: 'Chaque poste a une page sous /stellen. Seul ce qui a un taux d’occupation et une adresse de contact est publié. Les candidatures arrivent par un formulaire propre avec envoi de fichiers – les documents restent privés.',
+      it: 'Ogni posto ha una pagina sotto /stellen. Si pubblica solo ciò che ha grado d’occupazione e indirizzo di contatto. Le candidature arrivano tramite un modulo proprio con caricamento di file – i documenti restano privati.',
+      en: 'Every position gets a page under /stellen. Only openings with a workload and a contact address go online. Applications arrive through their own form with file upload – the documents stay private.',
+    },
+  Stellen: { fr: 'Postes', it: 'Posti', en: 'Jobs' },
+  'Stellen: Pensum und Kontakt verlangen': { fr: 'Postes : exiger taux et contact', it: 'Posti: richiedere grado e contatto', en: 'Jobs: require workload and contact' },
+  Bewerbung: { fr: 'Candidature', it: 'Candidatura', en: 'Application' },
+  'Link-Spam abfangen': { fr: 'Bloquer le spam à liens', it: 'Bloccare lo spam di link', en: 'Catch link spam' },
+  'Formularnachrichten mit mehr als zwei Links landen still im Spam.': {
+    fr: 'Les messages de formulaire avec plus de deux liens finissent discrètement dans le spam.',
+    it: 'I messaggi dei moduli con più di due link finiscono silenziosamente nello spam.',
+    en: 'Form messages with more than two links quietly go to spam.',
+  },
+  'Die meisten Spam-Nachrichten wollen Links unterbringen. Echte Anfragen enthalten fast nie mehr als zwei. Abgefangene Nachrichten werden nicht zugestellt; der Absender sieht trotzdem die normale Bestätigung.':
+    {
+      fr: 'La plupart des spams veulent placer des liens. Les vraies demandes en contiennent presque jamais plus de deux. Les messages interceptés ne sont pas transmis ; l’expéditeur voit tout de même la confirmation habituelle.',
+      it: 'La maggior parte dello spam vuole piazzare link. Le richieste vere non ne contengono quasi mai più di due. I messaggi intercettati non vengono recapitati; il mittente vede comunque la conferma normale.',
+      en: 'Most spam wants to place links. Real enquiries almost never contain more than two. Caught messages are not delivered; the sender still sees the normal confirmation.',
+    },
+  'Formulare: mehr als zwei Links sind Spam': { fr: 'Formulaires : plus de deux liens = spam', it: 'Moduli: più di due link sono spam', en: 'Forms: more than two links is spam' },
+  'Schweizer Schreibweise': { fr: 'Orthographe suisse', it: 'Ortografia svizzera', en: 'Swiss spelling' },
+  'Ersetzt beim Speichern jedes «ß» durch «ss» – in Titeln, Texten und allen Blöcken.': {
+    fr: 'Remplace chaque « ß » par « ss » à l’enregistrement – dans les titres, les textes et tous les blocs.',
+    it: 'Sostituisce ogni «ß» con «ss» al salvataggio – nei titoli, nei testi e in tutti i blocchi.',
+    en: 'Replaces every “ß” with “ss” when saving – in titles, texts and all blocks.',
+  },
+  'In der Schweiz gibt es kein Eszett. Kopierte Texte aus Deutschland bringen es trotzdem mit. Diese Erweiterung korrigiert es bei jedem Speichern, auch über die API.': {
+    fr: 'Il n’y a pas d’eszett en Suisse. Les textes copiés d’Allemagne l’apportent quand même. Cette extension le corrige à chaque enregistrement, aussi via l’API.',
+    it: 'In Svizzera non esiste l’eszett. I testi copiati dalla Germania lo portano comunque con sé. Questa estensione lo corregge a ogni salvataggio, anche tramite l’API.',
+    en: 'Switzerland has no eszett. Texts copied from Germany bring it along anyway. This extension corrects it on every save, via the API too.',
+  },
+  'Schweizer Schreibweise: ß wird ss': { fr: 'Orthographe suisse : ß devient ss', it: 'Ortografia svizzera: ß diventa ss', en: 'Swiss spelling: ß becomes ss' },
+  'Vollständige Beiträge': { fr: 'Articles complets', it: 'Articoli completi', en: 'Complete posts' },
+  'Beiträge gehen nur mit Titelbild und Kurzfassung online.': {
+    fr: 'Les articles ne sont publiés qu’avec image de titre et résumé.',
+    it: 'Gli articoli vanno online solo con immagine di copertina e riassunto.',
+    en: 'Posts only go online with a cover image and a summary.',
+  },
+  'Ohne Bild und Kurzfassung sehen Beiträge in Übersichten, Newsletter und Social Media leer aus. Die Erweiterung erinnert beim Veröffentlichen daran – Entwürfe speichern geht weiterhin.':
+    {
+      fr: 'Sans image ni résumé, les articles paraissent vides dans les aperçus, la newsletter et les réseaux sociaux. L’extension le rappelle à la publication – enregistrer des brouillons reste possible.',
+      it: 'Senza immagine e riassunto gli articoli sembrano vuoti nelle panoramiche, nella newsletter e sui social. L’estensione lo ricorda alla pubblicazione – salvare bozze resta possibile.',
+      en: 'Without an image and a summary, posts look empty in overviews, newsletters and social media. The extension reminds you when publishing – saving drafts still works.',
+    },
+  'Beiträge: Titelbild und Kurzfassung verlangen': {
+    fr: 'Articles : exiger image et résumé',
+    it: 'Articoli: richiedere immagine e riassunto',
+    en: 'Posts: require cover image and summary',
+  },
+  'Sektionen für die Gastronomie': { fr: 'Sections pour la restauration', it: 'Sezioni per la ristorazione', en: 'Sections for restaurants' },
+  'Betriebsferien, Mittagsmenü und Reservationshinweis als fertige Sektionen.': {
+    fr: 'Vacances annuelles, menu de midi et invitation à réserver comme sections prêtes.',
+    it: 'Ferie aziendali, menù di mezzogiorno e invito a prenotare come sezioni pronte.',
+    en: 'Holiday closure, lunch menu and a reservation prompt as ready-made sections.',
+  },
+  'Drei wiederverwendbare Abschnitte, die du auf beliebigen Seiten einsetzt und an einer Stelle änderst: ein Ferienhinweis, der mit einem Enddatum nach den Ferien von selbst verschwindet, das Mittagsmenü und eine Einladung zur Reservation.':
+    {
+      fr: 'Trois sections réutilisables à placer sur n’importe quelle page et à modifier à un seul endroit : un avis de vacances qui, avec une date de fin, disparaît tout seul après les vacances, le menu de midi et une invitation à réserver.',
+      it: 'Tre sezioni riutilizzabili da inserire in qualsiasi pagina e modificare in un solo punto: un avviso di ferie che, con una data di fine, sparisce da solo dopo le ferie, il menù di mezzogiorno e un invito a prenotare.',
+      en: 'Three reusable sections to place on any page and edit in one place: a holiday notice that, given an end date, disappears by itself after the holidays, the lunch menu and an invitation to book.',
+    },
+  Betriebsferien: { fr: 'Vacances annuelles', it: 'Ferie aziendali', en: 'Holiday closure' },
+  Mittagsmenü: { fr: 'Menu de midi', it: 'Menù di mezzogiorno', en: 'Lunch menu' },
+  'Reservation empfohlen': { fr: 'Réservation recommandée', it: 'Prenotazione consigliata', en: 'Booking recommended' },
 };

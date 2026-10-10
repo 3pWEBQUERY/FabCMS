@@ -89,6 +89,11 @@ export const env = {
       .map((x) => x.trim())
       .filter(Boolean),
   },
+  /** Optional own extension catalogue (Marktplatz): its address and the Ed25519 public key it is signed with. */
+  extensions: {
+    url: e.NOVA_EXTENSIONS_URL ?? '',
+    key: e.NOVA_EXTENSIONS_KEY ?? '',
+  },
   /** Optional Google OAuth client for the Search Console connection. */
   google: {
     clientId: e.GOOGLE_CLIENT_ID ?? '',

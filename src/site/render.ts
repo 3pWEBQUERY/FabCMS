@@ -537,7 +537,23 @@ async function genericTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         parts.push(html`<p><span class="label">${f.label}</span><br>${(v as { address: string }).address}</p>`);
         break;
       case 'json':
-      case 'group':
+      case 'group': {
+        // Short fields read as one line («200 g Mehl»), longer ones as numbered steps.
+        const sub = f.fields ?? [];
+        const short = sub.every((x) => ['text', 'number', 'money', 'date', 'select'].includes(x.type));
+        const items = (v as Record<string, unknown>[]).map((item) => {
+          const line = sub
+            .filter((x) => ['text', 'number', 'select'].includes(x.type) && item[x.key] !== undefined && item[x.key] !== '')
+            .map((x) => String(item[x.key]))
+            .join(' ');
+          const long = sub.filter((x) => (x.type === 'textarea' || x.type === 'richtext') && item[x.key]);
+          return short || !long.length
+            ? html`<li>${line}</li>`
+            : html`<li>${line ? html`<strong>${line}</strong>` : ''}${long.map((x) => (x.type === 'richtext' ? raw(String(item[x.key])) : html`<p>${String(item[x.key])}</p>`))}</li>`;
+        });
+        parts.push(html`<section><h2>${f.label}</h2><div class="prose">${short ? html`<ul>${items}</ul>` : html`<ol>${items}</ol>`}</div></section>`);
+        break;
+      }
       case 'relation':
       case 'link':
       case 'form':

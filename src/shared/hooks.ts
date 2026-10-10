@@ -10,6 +10,8 @@ export interface ServerHook {
   collection: string;
   code: string;
   active: boolean;
+  /** Installed by this extension (Marktplatz); it comes and goes with it. */
+  ext?: string;
 }
 
 export const HOOK_EVENTS: { value: HookEvent; label: string; help: string; template: string }[] = [

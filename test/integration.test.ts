@@ -1875,4 +1875,117 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       await req('PATCH', '/api/settings', { ageGate: { enabled: false, minAge: 18, method: 'self' } });
     }
   });
+
+  it('installs extensions from the Marktplatz, takes back exactly what they added and trusts only signed catalogues', async () => {
+    const list = await req('GET', '/api/extensions');
+    expect(list.status).toBe(200);
+    expect(list.data.catalogue.map((x: { id: string }) => x.id)).toEqual(expect.arrayContaining(['rezepte', 'stellen', 'link-spam', 'schweizer-schreibweise', 'gastro-sektionen']));
+
+    // Rezepte: a content type with its own address; groups show as list and steps.
+    expect((await req('POST', '/api/extensions/rezepte/install')).status).toBe(200);
+    expect((await req('POST', '/api/extensions/rezepte/install')).status).toBe(400);
+    const recipe = await req('POST', '/api/entries', {
+      collection: 'rezepte',
+      data: { title: 'Zürcher Geschnetzeltes', servings: 4, ingredients: [{ amount: '600 g', item: 'Kalbfleisch' }, { amount: '2 dl', item: 'Rahm' }], steps: [{ text: 'Fleisch scharf anbraten.' }, { text: 'Mit Rahm ablöschen.' }] },
+    });
+    expect(recipe.status).toBe(200);
+    await req('POST', `/api/entries/${recipe.data.entry.id}/publish`, {});
+    const page = (await req('GET', `/rezepte/${recipe.data.entry.slug}`)).data as string;
+    expect(page).toContain('<li>600 g Kalbfleisch</li>');
+    expect(page).toContain('<ol><li><p>Fleisch scharf anbraten.</p></li>');
+
+    // Stellen: hook and form come along – and go again.
+    await req('POST', '/api/extensions/stellen/install');
+    const settings = (await req('GET', '/api/settings')).data.settings;
+    expect(settings.hooks.find((h: { ext?: string }) => h.ext === 'stellen')).toMatchObject({ event: 'entry.beforePublish', collection: 'stellen', active: true });
+    const job = await req('POST', '/api/entries', { collection: 'stellen', data: { title: 'Koch/Köchin' } });
+    const refused = await req('POST', `/api/entries/${job.data.entry.id}/publish`, {});
+    expect(refused.data.error).toMatch(/Pensum/);
+    expect((await sql`select 1 from forms where name = 'Bewerbung'`).length).toBe(1);
+    await req('DELETE', `/api/entries/${job.data.entry.id}`);
+    const gone = await req('DELETE', '/api/extensions/stellen');
+    expect(gone.data.removed).toEqual(expect.arrayContaining(['Inhaltstyp «Stellen»', 'Formular «Bewerbung»']));
+    expect(gone.data.kept).toEqual([]);
+    expect((await req('GET', '/api/settings')).data.settings.hooks.some((h: { ext?: string }) => h.ext === 'stellen')).toBe(false);
+    expect((await sql`select 1 from forms where name = 'Bewerbung'`).length).toBe(0);
+
+    // What people wrote stays: removing Rezepte keeps the content type with its entry.
+    const kept = await req('DELETE', '/api/extensions/rezepte');
+    expect(kept.data.kept).toEqual(['Inhaltstyp «Rezepte» mit 1 Eintrag']);
+    expect((await req('GET', `/rezepte/${recipe.data.entry.slug}`)).status).toBe(200);
+
+    // Swiss spelling while saving.
+    await req('POST', '/api/extensions/schweizer-schreibweise/install');
+    const greeting = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Grüße aus der Straße', blocks: [{ id: 'x1', type: 'text', props: { heading: 'Gruß', body: '<p>Maß halten.</p>' } }] } });
+    expect(greeting.data.entry.data.title).toBe('Grüsse aus der Strasse');
+    expect(greeting.data.entry.data.blocks[0].props).toMatchObject({ heading: 'Gruss', body: '<p>Mass halten.</p>' });
+    await req('DELETE', '/api/extensions/schweizer-schreibweise');
+
+    // Link spam goes quietly.
+    await req('POST', '/api/extensions/link-spam/install');
+    const [form] = await sql`select id from forms where name = 'Kontakt'`;
+    const send = (nachricht: string) =>
+      req('POST', `/_nova/forms/${form.id}`, undefined, {
+        cookies: new Map(),
+        headers: { Accept: 'application/json', 'X-Forwarded-For': '203.0.113.42' },
+        form: { _t: (Date.now() - 5000).toString(36), name: 'Max', e_mail: 'x@example.ch', nachricht },
+      });
+    const before = (await sql`select count(*)::int as n from submissions`)[0].n;
+    expect((await send('Super Angebot https://a.example https://b.example www.c.example')).data.ok).toBe(true);
+    expect((await sql`select count(*)::int as n from submissions`)[0].n).toBe(before);
+    expect((await send('Gibt es am Samstag noch einen Tisch? Siehe https://example.ch/menu')).data.ok).toBe(true);
+    expect((await sql`select count(*)::int as n from submissions`)[0].n).toBe(before + 1);
+    await req('DELETE', '/api/extensions/link-spam');
+
+    // Sections in use stay when the extension goes.
+    await req('POST', '/api/extensions/gastro-sektionen/install');
+    const [ferien] = await sql`select id from entries where collection = 'sections' and data ->> 'title' = 'Betriebsferien'`;
+    await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Mit Ferienhinweis', blocks: [{ id: 's1', type: 'section', props: { section: ferien.id } }] } });
+    const sections = await req('DELETE', '/api/extensions/gastro-sektionen');
+    expect(sections.data.kept).toEqual(['Sektion «Betriebsferien», auf 1 Seite eingesetzt']);
+    expect(sections.data.removed).toEqual(['Sektion «Mittagsmenü»', 'Sektion «Reservation empfohlen»']);
+
+    // An own catalogue counts only with a valid signature.
+    const { generateKeyPairSync, sign } = await import('node:crypto');
+    const keys = generateKeyPairSync('ed25519');
+    const manifest = { id: 'rahmen', name: 'Feiner Rahmen', version: '1.0.0', summary: 'Ein Rahmen um Bilder.', description: '', author: 'Agentur Muster', license: 'MIT', category: 'gestaltung', provides: { css: '.fig img{outline:1px solid var(--line)}' } };
+    let catalogue = JSON.stringify([manifest]);
+    let signature = sign(null, Buffer.from(catalogue), keys.privateKey).toString('base64');
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) =>
+      String(url) === 'https://katalog.test/nova.json' ? Response.json({ extensions: catalogue, signature }) : realFetch(url, init)) as typeof fetch;
+    Object.assign(env.extensions, { url: 'https://katalog.test/nova.json', key: keys.publicKey.export({ type: 'spki', format: 'der' }).toString('base64') });
+    try {
+      await req('POST', '/api/extensions/refresh');
+      const withOwn = await req('GET', '/api/extensions');
+      expect(withOwn.data.catalogue.find((x: { id: string }) => x.id === 'rahmen')).toMatchObject({ source: 'katalog', effects: [{ kind: 'css' }] });
+      await req('POST', '/api/extensions/rahmen/install');
+      expect((await req('GET', '/', undefined, { cookies: new Map() })).data).toContain('.fig img{outline:1px solid var(--line)}');
+      // Newer version: CSS replaced, nothing doubled.
+      catalogue = JSON.stringify([{ ...manifest, version: '1.1.0', provides: { css: '.fig img{outline:2px solid var(--accent)}' } }]);
+      signature = sign(null, Buffer.from(catalogue), keys.privateKey).toString('base64');
+      await req('POST', '/api/extensions/refresh');
+      expect((await req('GET', '/api/extensions')).data.catalogue.find((x: { id: string }) => x.id === 'rahmen').update).toBe('1.1.0');
+      expect((await req('POST', '/api/extensions/rahmen/update')).status).toBe(200);
+      const home = (await req('GET', '/', undefined, { cookies: new Map() })).data as string;
+      expect(home).toContain('.fig img{outline:2px solid var(--accent)}');
+      expect(home).not.toContain('.fig img{outline:1px');
+      // Tampered: the catalogue disappears, with a reason.
+      catalogue = catalogue.replace('Feiner', 'Böser');
+      await req('POST', '/api/extensions/refresh');
+      const tampered = await req('GET', '/api/extensions');
+      expect(tampered.data.error).toMatch(/Signatur/);
+      expect(tampered.data.catalogue.some((x: { id: string }) => x.id === 'rahmen')).toBe(false);
+      // Still installed, so it can still be removed.
+      expect(tampered.data.orphans.map((x: { id: string }) => x.id)).toEqual(['rahmen']);
+      const removed = await req('DELETE', '/api/extensions/rahmen');
+      expect(removed.status, JSON.stringify(removed.data)).toBe(200);
+      expect((await req('GET', '/api/settings')).data.settings.extensionCss).toEqual([]);
+      expect((await req('GET', '/', undefined, { cookies: new Map() })).data).not.toContain('.fig img{outline');
+    } finally {
+      globalThis.fetch = realFetch;
+      Object.assign(env.extensions, { url: '', key: '' });
+      await req('POST', '/api/extensions/refresh');
+    }
+  });
 });

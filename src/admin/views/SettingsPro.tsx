@@ -1007,6 +1007,11 @@ export function HooksSettings() {
                   onChange={(e) => setHook(i, { name: e.target.value })}
                 />
                 <div className="row">
+                  {h.ext && (
+                    <span className="badge" title={t('Kommt mit einer Erweiterung und wird bei deren Aktualisierung ersetzt.')}>
+                      {t('Erweiterung')}
+                    </span>
+                  )}
                   <Toggle checked={h.active} onChange={(v) => setHook(i, { active: v })} label={t('aktiv')} />
                   <button
                     className="btn ghost s icon-only"

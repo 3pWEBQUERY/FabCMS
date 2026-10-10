@@ -4104,3 +4104,58 @@ button.list-item {
   background: var(--sel-soft);
   color: var(--sel);
 }
+
+/* extensions (Marktplatz) */
+.ext-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+}
+.ext-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.1rem 1.2rem;
+}
+.ext-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ext-head h3 {
+  margin: 0;
+  font-size: var(--t-m);
+}
+.ext-head .badge {
+  flex: none;
+}
+.ext-effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: var(--t-s);
+}
+.ext-effects li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.ext-effects .icon {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--ink-3);
+}
+.ext-more p {
+  margin: 0 0 0.5rem;
+}
+.ext-foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

@@ -55,7 +55,7 @@ export function invalidateCollections() {
 
 const FIELD_KEY = /^[a-z][a-zA-Z0-9_]{0,40}$/;
 
-function checkFieldDefs(fields: FieldDef[], depth = 0): void {
+export function checkFieldDefs(fields: FieldDef[], depth = 0): void {
   const keys = new Set<string>();
   for (const f of fields) {
     if (!FIELD_KEY.test(f.key)) throw badRequest(`Der Feldschlüssel «${f.key}» ist ungültig. Erlaubt: Buchstaben, Zahlen, _ – beginnend mit einem Kleinbuchstaben.`);

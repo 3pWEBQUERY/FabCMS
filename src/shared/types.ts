@@ -264,6 +264,8 @@ export interface SiteSettings {
   roleModes: Record<Role, Mode[]>;
   webhooks: Webhook[];
   hooks: ServerHook[];
+  /** CSS of installed extensions, by extension id. */
+  extensionCss: { id: string; css: string }[];
   security: { allowCustomScripts: boolean };
   firstPublishedAt: string | null;
   setupDone: boolean;

@@ -42,6 +42,10 @@ import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
 import { deflateSync } from 'node:zlib';
 import { TEMPLATES, templatesFor } from '../src/shared/templates';
+import { BUILTIN_EXTENSIONS } from '../src/server/extensions-catalogue';
+import { validateManifest, verifyCatalogue } from '../src/server/extensions';
+import { compareVersions, EXTENSION_CATEGORIES, extensionEffects } from '../src/shared/extensions';
+import { generateKeyPairSync, sign as edSign } from 'node:crypto';
 import { htmlClasses, pruneCss, requiredClasses, scriptWords } from '../src/site/css-prune';
 import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-verify';
 import { pickTemplate, templateSeed } from '../src/server/seed';
@@ -630,6 +634,66 @@ describe('website translations', () => {
       price: 1800,
       prices: [{ label: 'grand', price: 2400 }],
     });
+  });
+});
+
+describe('extensions', () => {
+  const base = BUILTIN_EXTENSIONS.find((x) => x.id === 'link-spam')!;
+  it('accepts Nova’s own extensions and rejects broken ones before anything is written', async () => {
+    for (const m of BUILTIN_EXTENSIONS) await expect(validateManifest(m)).resolves.toMatchObject({ id: m.id });
+    const broken = (patch: object) => validateManifest({ ...base, ...patch });
+    await expect(broken({ id: 'Böse ID' })).rejects.toThrow(/Kennung/);
+    await expect(broken({ version: '1.0' })).rejects.toThrow(/Version/);
+    await expect(broken({ provides: { hooks: [{ key: 'x1', name: 'X', event: 'form.beforeSubmit', code: 'function nope() {}' }] } })).rejects.toThrow(/hook\(event\)/);
+    await expect(broken({ provides: { hooks: [{ key: 'x1', name: 'X', event: 'server.start', code: 'function hook() {}' }] } })).rejects.toThrow(/ungültig/);
+    await expect(broken({ provides: { sections: [{ key: 's1', title: 'S', blocks: [{ id: 'a', type: 'iframe-anything', props: {} }] }] } })).rejects.toThrow(/iframe-anything/);
+    await expect(broken({ provides: { css: '@import url(https://evil.example/x.css);' } })).rejects.toThrow(/von aussen/);
+    await expect(broken({ provides: { css: 'body{background:url(https://tracker.example/p.gif)}' } })).rejects.toThrow(/von aussen/);
+    await expect(
+      broken({
+        provides: {
+          collections: [
+            {
+              id: 'x_y',
+              name: 'X',
+              singular: 'X',
+              icon: 'page',
+              fields: [{ key: 'slug', type: 'text', label: 'S' }],
+              route: null,
+              list_route: null,
+              has_blocks: false,
+              title_field: 'slug',
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow(/reserviert/);
+  });
+
+  it('trusts an own catalogue only with a matching Ed25519 signature', () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const pub = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+    const list = JSON.stringify([base]);
+    const sig = edSign(null, Buffer.from(list), privateKey).toString('base64');
+    expect(verifyCatalogue(list, sig, pub)).toBe(true);
+    expect(verifyCatalogue(list.replace('Link-Spam', 'Link-Spom'), sig, pub)).toBe(false);
+    expect(verifyCatalogue(list, sig, generateKeyPairSync('ed25519').publicKey.export({ type: 'spki', format: 'der' }).toString('base64'))).toBe(false);
+    expect(verifyCatalogue(list, 'kaputt', 'auch kaputt')).toBe(false);
+  });
+
+  it('compares versions and says what an extension adds', () => {
+    expect(compareVersions('1.10.0', '1.9.3')).toBeGreaterThan(0);
+    expect(compareVersions('2.0.0', '2.0.0')).toBe(0);
+    expect(extensionEffects(BUILTIN_EXTENSIONS.find((x) => x.id === 'stellen')!).map((e) => e.kind)).toEqual(['collection', 'hook', 'form']);
+  });
+
+  it('has French, Italian and English for the texts of Nova’s own extensions', () => {
+    const texts = [
+      ...BUILTIN_EXTENSIONS.flatMap((m) => [m.name, m.summary, m.description, ...extensionEffects(m).map((e) => e.label)]),
+      ...EXTENSION_CATEGORIES.map((c) => c.label),
+    ];
+    const missing = texts.filter((k) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en);
+    expect(missing).toEqual([]);
   });
 });
 

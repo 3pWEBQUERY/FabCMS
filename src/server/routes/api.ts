@@ -17,6 +17,7 @@ import { importApi } from './api-import';
 import { commentsApi } from './api-comments';
 import { aiApi } from './api-ai';
 import { gscApi } from './api-gsc';
+import { extensionsApi } from './api-extensions';
 
 /**
  * CSRF protection for the admin API: state-changing requests must carry the
@@ -57,4 +58,5 @@ export function apiRoutes(app: Hono<AppEnv>) {
   commentsApi(app);
   aiApi(app);
   gscApi(app);
+  extensionsApi(app);
 }
