@@ -5677,3 +5677,243 @@ body.scrubbing.v * {
 .el-picker-grid .icon {
   color: var(--sel);
 }
+
+/* ---------- layers: elements of a free layout in the structure panel ---------- */
+
+.layer-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.layer-block .rev > span {
+  overflow: hidden;
+}
+.layer-toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-3);
+  font: 600 var(--t-xs) / 1 var(--font);
+  cursor: pointer;
+}
+.layer-toggle:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+.layers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 1px;
+  margin: 0 0 0.35rem 0.6rem;
+  padding: 0.2rem 0 0.2rem 0;
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+.layer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  min-height: 1.875rem;
+  padding-right: 0.25rem;
+  border-radius: 6px;
+}
+.layer:hover {
+  background: var(--hover);
+}
+.layer[aria-selected='true'] {
+  background: var(--sel-soft);
+}
+.layer[aria-selected='true'] .layer-name {
+  color: var(--sel);
+}
+.layer.dragging {
+  opacity: 0.4;
+}
+.layer.drop-before::before,
+.layer.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--sel);
+}
+.layer.drop-before::before {
+  top: -1px;
+}
+.layer.drop-after::after {
+  bottom: -1px;
+}
+.layer.drop-inside {
+  box-shadow: inset 0 0 0 2px var(--sel);
+}
+.layer-twist {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.layer-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 1.875rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 var(--t-s) / 1 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.layer-main > .icon {
+  flex: none;
+  color: var(--ink-3);
+}
+.layer-name {
+  flex: none;
+  font-weight: 600;
+}
+.layer-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+}
+.layer-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.5rem;
+  color: var(--ink-3);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+}
+.layer:hover .layer-grip,
+.layer.dragging .layer-grip {
+  opacity: 1;
+}
+@media (hover: none) {
+  .layer-grip {
+    opacity: 1;
+  }
+}
+
+/* ---------- context menu on the canvas, shortcut overview ---------- */
+
+.ctx-menu {
+  position: absolute;
+  z-index: 30;
+  min-width: 15rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow-3);
+  pointer-events: auto;
+  animation: ctx-in 0.12s ease-out;
+}
+@keyframes ctx-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.ctx-menu button {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  height: 1.9rem;
+  padding: 0 0.55rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: 500 var(--t-s) / 1 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.ctx-menu button:hover:not(:disabled),
+.ctx-menu button:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+.ctx-menu button:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+.ctx-menu button .icon {
+  color: var(--ink-3);
+}
+.ctx-menu button.danger {
+  color: var(--bad);
+}
+.ctx-menu button.danger .icon {
+  color: var(--bad);
+}
+.ctx-menu kbd,
+.keys kbd {
+  font: 500 0.6875rem / 1 var(--mono);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.ctx-menu hr {
+  height: 1px;
+  margin: 0.25rem 0.4rem;
+  border: 0;
+  background: var(--line);
+}
+.keys {
+  display: grid;
+  gap: 1.1rem;
+}
+.keys dl {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0.4rem 0 0;
+}
+.keys dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-s);
+}
+.keys dd {
+  margin: 0;
+}
+.keys kbd {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--ink);
+  white-space: nowrap;
+}

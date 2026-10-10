@@ -691,6 +691,12 @@ const P: Record<string, ReactNode> = {
       <path d="M3.25 6V3.25H6M14 3.25h2.75V6M16.75 14v2.75H14M6 16.75H3.25V14" />
     </>
   ),
+  keyboard: (
+    <>
+      <rect x="2.75" y="5.25" width="14.5" height="9.5" rx="1.75" />
+      <path d="M5.75 8.25h.01M8.75 8.25h.01M11.25 8.25h.01M14.25 8.25h.01M5.75 11.75h.01M14.25 11.75h.01M8.25 11.75h3.5" />
+    </>
+  ),
   box: (
     <>
       <rect x="3.25" y="3.25" width="13.5" height="13.5" rx="2" />

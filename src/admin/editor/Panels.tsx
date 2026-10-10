@@ -15,6 +15,8 @@ import { blocksImages, blocksText, BLOCK_MAP } from '../../shared/blocks';
 import { excerpt, relativeTime } from '../../shared/text';
 import type { Block, CollectionDef, EntryData } from '../../shared/types';
 import type { EntryDoc } from '../lib/useEntryDoc';
+import { countEls, type El } from '../../shared/elements';
+import { LayersTree } from './elements/LayersTree';
 
 /* ---------- SEO coach ---------- */
 
@@ -170,38 +172,91 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
 
 /* ---------- structure (layers) ---------- */
 
+export interface LayerActions {
+  selectedEl: string | null;
+  onSelectEl: (blockId: string, elId: string) => void;
+  onHoverEl: (elId: string | null) => void;
+  onMoveEl: (blockId: string, elId: string, parent: string | null, index: number) => void;
+}
+
 export function StructurePanel({
   blocks,
   selected,
   onSelect,
   onReorder,
+  layers,
 }: {
   blocks: Block[];
   selected: string | null;
   onSelect: (id: string) => void;
   onReorder: (b: Block[]) => void;
+  layers: LayerActions;
 }) {
   const { pro } = useSession();
+  // Free layouts show their elements; the selected one is open from the start.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(selected ? [selected] : []));
+  useEffect(() => {
+    if (selected) setOpen((s) => (s.has(selected) ? s : new Set(s).add(selected)));
+  }, [selected]);
   return (
     <Reorder.Group axis="y" values={blocks} onReorder={onReorder} style={{ padding: 0, margin: 0, display: 'grid', gap: 4 }}>
       {blocks.map((b, i) => {
         const def = BLOCK_MAP[b.type];
         const text = def?.text?.(b.props) ?? '';
         const locked = !pro && b.lock && b.lock !== 'none';
+        const els = b.type === 'layout' ? ((b.props.els as El[] | undefined) ?? []) : null;
+        const isOpen = Boolean(els?.length) && open.has(b.id);
         return (
           <Reorder.Item key={b.id} value={b} drag={locked ? false : 'y'} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-3)', zIndex: 4 }}>
-            <button type="button" className="rev" aria-pressed={selected === b.id} onClick={() => onSelect(b.id)} style={{ gridTemplateColumns: 'auto 1fr auto' }}>
-              <Icon name={def?.icon ?? 'page'} className="faint" />
-              <span style={{ minWidth: 0 }}>
-                <span className="small" style={{ fontWeight: 600, display: 'block' }}>
-                  {i + 1}. {def ? tl(def.label) : b.type}
+            <div className="layer-block">
+              <button
+                type="button"
+                className="rev"
+                aria-pressed={selected === b.id && !layers.selectedEl}
+                onClick={() => onSelect(b.id)}
+                style={{ gridTemplateColumns: 'auto 1fr auto' }}
+              >
+                <Icon name={def?.icon ?? 'page'} className="faint" />
+                <span style={{ minWidth: 0 }}>
+                  <span className="small" style={{ fontWeight: 600, display: 'block' }}>
+                    {i + 1}. {def ? tl(def.label) : b.type}
+                  </span>
+                  <span className="xsmall muted ellipsis" style={{ display: 'block' }}>
+                    {excerpt(text, 60) || '–'}
+                  </span>
                 </span>
-                <span className="xsmall muted ellipsis" style={{ display: 'block' }}>
-                  {excerpt(text, 60) || '–'}
-                </span>
-              </span>
-              {locked ? <Icon name="lock" size="s" className="faint" /> : <Icon name="grip" size="s" className="faint" />}
-            </button>
+                {locked ? <Icon name="lock" size="s" className="faint" /> : <Icon name="grip" size="s" className="faint" />}
+              </button>
+              {Boolean(els?.length) && (
+                <button
+                  type="button"
+                  className="layer-toggle"
+                  aria-expanded={isOpen}
+                  aria-label={isOpen ? t('Elemente ausblenden') : t('Elemente zeigen')}
+                  onClick={() =>
+                    setOpen((s) => {
+                      const n = new Set(s);
+                      if (n.has(b.id)) n.delete(b.id);
+                      else n.add(b.id);
+                      return n;
+                    })
+                  }
+                >
+                  <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size="s" />
+                  {t('{n} Elemente', { n: countEls(els!) })}
+                </button>
+              )}
+              {isOpen && (
+                <LayersTree
+                  els={els!}
+                  selected={selected === b.id ? layers.selectedEl : null}
+                  onSelect={(id) => layers.onSelectEl(b.id, id)}
+                  onHover={layers.onHoverEl}
+                  onMove={(id, parent, index) => layers.onMoveEl(b.id, id, parent, index)}
+                  locked={Boolean(locked)}
+                />
+              )}
+            </div>
           </Reorder.Item>
         );
       })}

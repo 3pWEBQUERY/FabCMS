@@ -30,6 +30,7 @@ import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
+import { shortcutAction } from '../src/shared/shortcuts';
 import {
   cloneEl,
   createEl,
@@ -1220,5 +1221,28 @@ describe('free layout', () => {
       '@media (max-width:40rem){#e-g{grid-template-columns:repeat(1,minmax(0,1fr))}}',
     );
     for (const p of LAYOUT_PRESETS) expect(sanitizeEls(p.els()).length).toBe(p.els().length);
+  });
+});
+
+describe('editor shortcuts', () => {
+  const k = (key: string, code: string, m: Partial<{ meta: boolean; ctrl: boolean; alt: boolean; shift: boolean }> = {}) => ({
+    key,
+    code,
+    metaKey: Boolean(m.meta),
+    ctrlKey: Boolean(m.ctrl),
+    altKey: Boolean(m.alt),
+    shiftKey: Boolean(m.shift),
+  });
+  it('reads the same keys on Mac and Windows, Alt combinations by physical key', () => {
+    expect(shortcutAction(k('d', 'KeyD', { meta: true }), true)).toBe('duplicate');
+    expect(shortcutAction(k('d', 'KeyD', { ctrl: true }), false)).toBe('duplicate');
+    expect(shortcutAction(k('d', 'KeyD', { ctrl: true }), true)).toBeNull();
+    // ⌥⌘C types «ç» on a Mac – still «copy design».
+    expect(shortcutAction(k('ç', 'KeyC', { meta: true, alt: true }), true)).toBe('copy-style');
+    expect(shortcutAction(k('v', 'KeyV', { ctrl: true }), false)).toBe('paste');
+    expect(shortcutAction(k('ArrowUp', 'ArrowUp', { alt: true }), false)).toBe('move-up');
+    expect(shortcutAction(k('?', 'Minus', { shift: true }), false)).toBe('help');
+    expect(shortcutAction(k('c', 'KeyC'), false)).toBeNull();
+    expect(shortcutAction(k('z', 'KeyZ', { ctrl: true, shift: true }), false)).toBeNull();
   });
 });

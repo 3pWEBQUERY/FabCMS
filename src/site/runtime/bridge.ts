@@ -6,6 +6,7 @@
  */
 import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
 import { replay, setupMotion } from './motion';
+import { shortcutAction } from '../../shared/shortcuts';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -172,6 +173,14 @@ d.addEventListener('keydown', (e) => {
     } else select(null, true);
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && !field && selected && !(t instanceof HTMLInputElement)) {
     post({ t: 'key', key: 'delete' });
+  } else if (!field && !(t instanceof HTMLInputElement) && !(t instanceof HTMLTextAreaElement)) {
+    // Copy and paste of text stay the browser's; with nothing marked they mean the block or element.
+    const action = shortcutAction(e, navigator.platform.includes('Mac'));
+    const marked = !(d.getSelection()?.isCollapsed ?? true);
+    if (action && !(marked && action === 'copy')) {
+      e.preventDefault();
+      post({ t: 'key', key: action });
+    }
   }
 });
 
@@ -351,6 +360,24 @@ d.addEventListener(
   },
   true,
 );
+
+// Right click: select what is under the pointer and let the editor show its menu.
+d.addEventListener('contextmenu', (e) => {
+  const t = e.target as HTMLElement;
+  if (t.closest('[data-nova-field]:focus')) return;
+  const block = t.closest<HTMLElement>('[data-nova-block]');
+  if (!block) return;
+  e.preventDefault();
+  const el = t.closest<HTMLElement>('[data-nova-el]');
+  if (el && block.contains(el)) {
+    select(block.dataset.novaBlock!, false);
+    selectEl(el.dataset.novaEl!, true);
+  } else {
+    if (selectedEl) selectEl(null, false);
+    select(block.dataset.novaBlock!, true);
+  }
+  post({ t: 'context', x: e.clientX, y: e.clientY });
+});
 
 d.addEventListener('dblclick', (e) => {
   const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-section]');
@@ -832,6 +859,13 @@ addEventListener('message', (e) => {
       const el = m.el ? elEl(m.el) : null;
       if (el && m.scroll) el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
       sendRect();
+      break;
+    }
+    case 'hover-el': {
+      // The layers panel points at an element on the page.
+      hoverEl?.removeAttribute('data-nova-el-hover');
+      hoverEl = m.el ? elEl(m.el) : null;
+      if (hoverEl && m.el !== selectedEl) hoverEl.setAttribute('data-nova-el-hover', '');
       break;
     }
     case 'motion-play-el': {

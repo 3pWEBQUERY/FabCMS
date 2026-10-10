@@ -7,7 +7,7 @@ import { useEntryDoc } from '../lib/useEntryDoc';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
 import { navigate, usePath } from '../lib/router';
-import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
+import { useApi, useHotkey, modKey, useMediaQuery, isMac } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { CommentsPanel, useComments } from './Comments';
 import { Presence } from '../ui/Presence';
@@ -30,6 +30,29 @@ import { TokenColors } from './design/controls';
 import { cloneEl, createEl, EL_DEFS, elementImages, elementsCss, findEl, insertEl, moveEl, removeEl, updateEl, type El, type ElKind } from '../../shared/elements';
 import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
+import { ContextMenu, KEYS, ShortcutsDialog, type CtxItem } from './ContextMenu';
+import { shortcutAction, type EditorAction } from '../../shared/shortcuts';
+import type { Design } from '../../shared/design';
+
+/** Blocks and elements on the clipboard – kept in the browser, so they reach other pages too. */
+type Clip = { kind: 'block'; block: Block } | { kind: 'el'; el: El };
+const CLIPBOARD = 'nova-clipboard';
+const DESIGN_CLIPBOARD = 'nova-design-clipboard';
+function writeClip(c: Clip) {
+  try {
+    localStorage.setItem(CLIPBOARD, JSON.stringify(c));
+  } catch {
+    /* storage unavailable */
+  }
+}
+function readClip(): Clip | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLIPBOARD) ?? 'null');
+    return c && (c.kind === 'block' ? typeof c.block?.type === 'string' && BLOCK_MAP[c.block.type] : c.kind === 'el' && typeof c.el?.kind === 'string') ? c : null;
+  } catch {
+    return null;
+  }
+}
 
 /** The theme's colours as the canvas page really uses them. */
 function readTokenColors(frame: HTMLIFrameElement | null): Record<string, string> {
@@ -99,6 +122,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [selectedEl, setSelectedEl] = useState<string | null>(null);
   const [elRect, setElRect] = useState<Rect | null>(null);
   const [elPicker, setElPicker] = useState<Rect | null>(null);
+  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
+  const [help, setHelp] = useState(false);
+  const ctxAt = useRef(0);
   const [canvasKey, setCanvasKey] = useState(0);
   const glide = useAnimationControls();
   const renderSeq = useRef<Record<string, number>>({});
@@ -182,6 +208,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'rect':
           if (m.id === selected) setRect(m.rect);
+          // Scrolling the page moves things away from the menu: it closes.
+          if (ctx && Date.now() - ctxAt.current > 300) setCtx(null);
           break;
         case 'select-el':
           if (m.block) setSelected(m.block);
@@ -193,6 +221,12 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'el-rect':
           if (m.el === selectedEl) setElRect(m.rect);
+          break;
+        case 'context':
+          setPicker(null);
+          setElPicker(null);
+          setCtx({ x: m.x, y: m.y });
+          ctxAt.current = Date.now();
           break;
         case 'el-move':
           changeEls(m.block, (els) => moveEl(els, m.el, m.parent ?? null, m.index), m.el);
@@ -232,6 +266,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           else if (m.key === 'palette') onOpenPalette();
           else if (m.key === 'save') void doc.saveNow();
           else if (m.key === 'mode') void session.setMode(session.mode === 'studio' ? 'werkbank' : 'studio');
+          else if (['duplicate', 'copy', 'paste', 'copy-style', 'paste-style', 'move-up', 'move-down', 'help'].includes(m.key)) runAction(m.key as EditorAction);
           else if (m.key === 'delete' && selectedEl && selected) removeElement(selected, selectedEl);
           else if (m.key === 'delete' && selected) void removeBlock(selected);
           break;
@@ -350,8 +385,14 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const duplicateBlock = async (blockId: string) => {
     const index = blocksRef.current.findIndex((x) => x.id === blockId);
     const b = blocksRef.current[index];
-    if (!b) return;
+    if (b) await insertBlockCopy(b, index + 1);
+  };
+
+  /** A copy of a block at `index` – from duplicating or from the clipboard, also of another page. */
+  const insertBlockCopy = async (b: Block, at: number) => {
+    const index = at - 1;
     const copy: Block = { ...structuredClone(b), id: shortId(8), lock: 'none' };
+    if (copy.type === 'layout') copy.props = { ...copy.props, els: elsOf(copy).map(cloneEl) };
     doc.setData((d) => {
       const list = [...(d.blocks ?? [])];
       list.splice(index + 1, 0, copy);
@@ -360,6 +401,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     blocksRef.current = [...blocksRef.current.slice(0, index + 1), copy, ...blocksRef.current.slice(index + 1)];
     const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current }, blockId: copy.id });
     postToCanvas(frame.current, { t: 'insert', index: index + 1, html: r.html, id: copy.id });
+    setSelected(copy.id);
+    setSelectedEl(null);
     afterStructureChange();
   };
 
@@ -407,21 +450,134 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   /** New element: into the selected container, after the selected element, or at the end. */
   const insertElement = (kind: ElKind) => {
-    if (!selectedBlock) return;
-    const el = createEl(kind);
+    placeElement(createEl(kind));
+    if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
+  };
+
+  /** Puts an element where the selection says; outside a free layout it brings its own. */
+  const placeElement = (el: El, after = false) => {
+    if (!selectedBlock || selectedBlock.type !== 'layout') {
+      const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) + 1 : blocksRef.current.length;
+      void insertBlock('layout', index, { els: [el] });
+      return;
+    }
     const info = selectedElInfo;
     changeEls(
       selectedBlock.id,
       (els) =>
         !info
           ? insertEl(els, null, els.length, el)
-          : info.el.kind === 'box'
+          : info.el.kind === 'box' && !after
             ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
             : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
       el.id,
     );
     setElPicker(null);
-    if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
+  };
+
+  /* ---------- clipboard and shortcuts ---------- */
+
+  const copySelection = () => {
+    const clip: Clip | null = selectedElInfo ? { kind: 'el', el: selectedElInfo.el } : selectedBlock ? { kind: 'block', block: selectedBlock } : null;
+    if (!clip) return;
+    writeClip(clip);
+    toast(
+      t('«{name}» kopiert – mit {keys} einfügen, auch auf einer anderen Seite.', {
+        name: clip.kind === 'el' ? elLabel(clip.el) : tl(BLOCK_MAP[clip.block.type]?.label),
+        keys: KEYS.paste,
+      }),
+    );
+  };
+
+  const pasteClipboard = () => {
+    const clip = readClip();
+    if (!clip) return toast(t('Nichts zum Einfügen. Kopiere zuerst einen Block oder ein Element.'));
+    if (clip.kind === 'block') {
+      const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) + 1 : blocksRef.current.length;
+      void insertBlockCopy(clip.block, index);
+    } else placeElement(cloneEl(clip.el), clip.el.id === selectedElInfo?.el.id);
+  };
+
+  /** Design of the selection – shares the clipboard with «Design kopieren» in the panel. */
+  const copyStyle = () => {
+    const design = selectedElInfo ? selectedElInfo.el.design : selectedBlock?.style?.design;
+    if (!selectedBlock) return;
+    try {
+      localStorage.setItem(DESIGN_CLIPBOARD, JSON.stringify(design ?? {}));
+      toast(t('Design kopiert.'));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  const pasteStyle = () => {
+    if (!selectedBlock) return;
+    let design: Design | null = null;
+    try {
+      design = JSON.parse(localStorage.getItem(DESIGN_CLIPBOARD) ?? 'null');
+    } catch {
+      /* nothing stored */
+    }
+    if (!design) return toast(t('Kein Design kopiert.'));
+    if (selectedElInfo) changeElement(selectedBlock.id, { ...selectedElInfo.el, design });
+    else changeBlock({ ...selectedBlock, style: { ...(selectedBlock.style ?? {}), design } });
+    toast(t('Design eingefügt.'));
+  };
+
+  const runAction = (a: EditorAction) => {
+    if (a === 'help') return setHelp(true);
+    if (a === 'paste') return pasteClipboard();
+    if (!selectedBlock) return;
+    if (a === 'copy') copySelection();
+    else if (a === 'copy-style') copyStyle();
+    else if (a === 'paste-style') pasteStyle();
+    else if (a === 'duplicate') selectedElInfo ? duplicateElement(selectedBlock.id, selectedElInfo.el.id) : void duplicateBlock(selectedBlock.id);
+    else if (a === 'move-up' || a === 'move-down') {
+      const dir = a === 'move-up' ? -1 : 1;
+      if (selectedElInfo) moveElementBy(selectedBlock.id, selectedElInfo.el.id, dir);
+      else moveBlock(selectedBlock.id, dir);
+    }
+  };
+
+  // The same shortcuts in the admin around the canvas (the canvas sends its own).
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], [role="dialog"]')) return;
+      const a = shortcutAction(e, isMac);
+      if (!a) return;
+      e.preventDefault();
+      runAction(a);
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  });
+
+  const contextItems = (): (CtxItem | 'sep')[] => {
+    if (!selectedBlock) return [];
+    const el = selectedElInfo;
+    const locked = studio && (selectedBlock.lock ?? 'none') !== 'none';
+    return [
+      { label: t('Bearbeiten'), icon: 'settings', run: () => setPanel('inspector') },
+      'sep',
+      { label: t('Duplizieren'), icon: 'copy', keys: KEYS.duplicate, run: () => runAction('duplicate'), disabled: locked },
+      { label: t('Kopieren'), icon: 'copy', keys: KEYS.copy, run: copySelection },
+      { label: t('Einfügen'), icon: 'download', keys: KEYS.paste, run: pasteClipboard },
+      'sep',
+      { label: t('Design kopieren'), icon: 'style', keys: KEYS.copyStyle, run: copyStyle },
+      { label: t('Design einfügen'), icon: 'style', keys: KEYS.pasteStyle, run: pasteStyle, disabled: locked },
+      ...(el ? [{ label: t('In Container packen'), icon: 'box', run: () => wrapElement(selectedBlock.id, el.el.id), disabled: locked }] : []),
+      'sep',
+      { label: el ? t('Nach vorne') : t('Nach oben'), icon: 'arrowUp', keys: KEYS.up, run: () => runAction('move-up'), disabled: locked },
+      { label: el ? t('Nach hinten') : t('Nach unten'), icon: 'arrowDown', keys: KEYS.down, run: () => runAction('move-down'), disabled: locked },
+      'sep',
+      {
+        label: t('Entfernen'),
+        icon: 'trash',
+        keys: KEYS.remove,
+        danger: true,
+        disabled: locked,
+        run: () => (el ? removeElement(selectedBlock.id, el.el.id) : void removeBlock(selectedBlock.id)),
+      },
+    ];
   };
 
   const duplicateElement = (blockId: string, elId: string) => {
@@ -605,6 +761,12 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               </Tip>
             ))}
         </div>
+        <Tip label={t('Tastenkürzel')} keys="?">
+          <button className="btn ghost icon-only hide-m" onClick={() => setHelp(true)} aria-label={t('Tastenkürzel')}>
+            <Icon name="keyboard" />
+          </button>
+        </Tip>
+        <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
         <span className="hide-m">
           <ModeSwitch />
         </span>
@@ -734,6 +896,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   </motion.div>
                 )}
               </AnimatePresence>
+              {ctx && selectedBlock && <ContextMenu x={ctx.x} y={ctx.y} items={contextItems()} onClose={() => setCtx(null)} />}
               <RPopover.Root open={Boolean(elPicker)} onOpenChange={(o) => !o && setElPicker(null)}>
                 <RPopover.Anchor asChild>
                   <span style={{ position: 'absolute', top: elPicker?.top ?? 0, left: elPicker?.left ?? 0, width: elPicker?.width ?? 0, height: elPicker?.height ?? 0 }} />
@@ -857,7 +1020,22 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
                 {panel === 'structure' && (
                   <div className="stack">
-                    <StructurePanel blocks={doc.data.blocks ?? []} selected={selected} onSelect={(bid) => selectBlock(bid)} onReorder={reorderAll} />
+                    <StructurePanel
+                      blocks={doc.data.blocks ?? []}
+                      selected={selected}
+                      onSelect={(bid) => selectBlock(bid)}
+                      onReorder={reorderAll}
+                      layers={{
+                        selectedEl,
+                        onSelectEl: (bid, elId) => {
+                          setSelected(bid);
+                          setSelectedEl(elId);
+                          postToCanvas(frame.current, { t: 'select-el', block: bid, el: elId, scroll: true });
+                        },
+                        onHoverEl: (elId) => postToCanvas(frame.current, { t: 'hover-el', el: elId }),
+                        onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => moveEl(els, elId, parent, index), elId),
+                      }}
+                    />
                     <button
                       className="btn"
                       style={{ justifySelf: 'start' }}
