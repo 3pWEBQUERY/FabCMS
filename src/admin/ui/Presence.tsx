@@ -11,7 +11,7 @@ const initials = (name: string) =>
     .join('');
 
 /** Who else is here (one avatar per person) and whether changes reach them live. */
-export function Presence({ peers, link }: { peers: Peer[]; link: EntryDoc['link'] }) {
+export function Presence({ peers, link, local }: { peers: Peer[]; link: EntryDoc['link']; local?: boolean }) {
   const people = [...new Map(peers.map((p) => [p.id, p])).values()];
   return (
     <div className="presence" aria-live="polite">
@@ -27,7 +27,15 @@ export function Presence({ peers, link }: { peers: Peer[]; link: EntryDoc['link'
         </span>
       ))}
       {people.length > 4 && <span className="avatar more">+{people.length - 4}</span>}
-      {link === 'offline' && (
+      {link === 'offline' && local && (
+        <span
+          className="link-state offline"
+          title={t('Keine Verbindung. Deine Änderungen sind in diesem Browser gesichert und werden zusammengeführt, sobald du wieder online bist.')}
+        >
+          {t('Offline · lokal gesichert')}
+        </span>
+      )}
+      {link === 'offline' && !local && (
         <span className="link-state offline" title={t('Keine Live-Verbindung – Änderungen werden direkt gespeichert, die anderen sehen sie nach dem Neuladen.')}>
           {t('Nicht live')}
         </span>

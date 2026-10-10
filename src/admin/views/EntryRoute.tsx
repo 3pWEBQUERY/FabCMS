@@ -113,7 +113,7 @@ function EntryForm({ id, lang }: { id: string; lang: string | null }) {
                 <Icon name="undo" />
               </button>
             </Tip>
-            <Presence peers={doc.peers} link={doc.link} />
+            <Presence peers={doc.peers} link={doc.link} local={doc.local} />
             <StatusBadge status={doc.entry.status} />
             <LangSwitch doc={doc} />
             <PublishControls doc={doc} />

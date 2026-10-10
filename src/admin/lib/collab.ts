@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { IndexeddbPersistence } from 'y-indexeddb';
 import * as syncProtocol from 'y-protocols/sync';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as encoding from 'lib0/encoding';
@@ -7,8 +8,10 @@ import type { Entry } from '../../shared/types';
 
 /**
  * Connection to the real-time room of one entry (see server/collab.ts):
- * Yjs sync and awareness over a WebSocket. One session = one connection;
- * after a disconnect the editor starts a new one with a fresh document.
+ * Yjs sync and awareness over a WebSocket. With `keep` set (the document
+ * has been in sync with the server in this browser), it stays usable when
+ * the connection drops and reconnects on its own; the copy in IndexedDB
+ * survives a reload, so edits made offline are merged later.
  */
 
 const MSG_SYNC = 0;
@@ -36,6 +39,13 @@ export class CollabSession {
   private ws: WebSocket | null = null;
   private closed = false;
   private synced = false;
+  private retry = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private local: IndexeddbPersistence | null = null;
+  /** Keep the document and reconnect when the link drops (instead of giving up). */
+  keep = false;
+  /** Has been live at least once. */
+  everLive = false;
   private waiters: ((ok: boolean) => void)[] = [];
 
   constructor(
@@ -61,6 +71,10 @@ export class CollabSession {
       encoding.writeVarUint8Array(e, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [...added, ...updated, ...removed]));
       this.send(encoding.toUint8Array(e));
     });
+  }
+
+  /** Opens the connection (after the local copy is loaded, if any). */
+  start() {
     this.connect();
   }
 
@@ -110,8 +124,9 @@ export class CollabSession {
       this.emitPeers();
       for (const w of this.waiters.splice(0)) w(false);
       if (this.closed) return;
-      // The editor decides how to go on (save the old way, start a fresh session later).
       this.setState('offline');
+      // With a usable document: try again, a little later each time. Otherwise the editor decides.
+      if (this.keep) this.timer = setTimeout(() => this.connect(), Math.min(20_000, 1000 * 2 ** this.retry++) + Math.random() * 400);
     };
   }
 
@@ -125,6 +140,8 @@ export class CollabSession {
       if (encoding.length(reply) > 1) this.send(encoding.toUint8Array(reply));
       if (kind === syncProtocol.messageYjsSyncStep2 && !this.synced) {
         this.synced = true;
+        this.retry = 0;
+        this.everLive = true;
         this.setState('live');
       }
     } else if (type === MSG_AWARENESS) {
@@ -143,6 +160,21 @@ export class CollabSession {
       peers.push({ clientId, id: st.user.id, name: st.user.name, color: st.user.color, block: st.block ?? null });
     }
     this.on.peers(peers);
+  }
+
+  /** Keeps the document in IndexedDB (resolves when the stored copy is loaded). */
+  persist(name: string): Promise<void> {
+    if (this.local) return Promise.resolve();
+    this.local = new IndexeddbPersistence(name, this.doc);
+    return this.local.whenSynced.then(() => undefined);
+  }
+
+  /** Try now (back online). */
+  reconnect() {
+    if (this.closed || this.ws) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.retry = 0;
+    this.connect();
   }
 
   /** Which block I'm on – the others see it outlined in my colour. */
@@ -167,7 +199,9 @@ export class CollabSession {
 
   destroy() {
     this.closed = true;
+    if (this.timer) clearTimeout(this.timer);
     this.ws?.close();
+    void this.local?.destroy();
     this.awareness.destroy();
     this.doc.destroy();
   }

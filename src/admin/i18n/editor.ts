@@ -466,4 +466,15 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'No live connection – changes are saved directly; others will see them after reloading.',
   },
   'Nicht live': { fr: 'Pas en direct', it: 'Non in diretta', en: 'Not live' },
+  'Keine Verbindung. Deine Änderungen sind in diesem Browser gesichert und werden zusammengeführt, sobald du wieder online bist.': {
+    fr: 'Pas de connexion. Vos modifications sont enregistrées dans ce navigateur et seront fusionnées dès que vous serez de nouveau en ligne.',
+    it: 'Nessuna connessione. Le tue modifiche sono salvate in questo browser e verranno unite appena torni online.',
+    en: 'No connection. Your changes are kept in this browser and will be merged as soon as you are back online.',
+  },
+  'Offline · lokal gesichert': { fr: 'Hors ligne · enregistré localement', it: 'Offline · salvato in locale', en: 'Offline · saved locally' },
+  'Offline – veröffentlichen geht wieder, sobald die Verbindung zurück ist. Deine Änderungen sind in diesem Browser gesichert.': {
+    fr: 'Hors ligne – la publication sera possible dès le retour de la connexion. Vos modifications sont enregistrées dans ce navigateur.',
+    it: 'Offline – potrai pubblicare appena torna la connessione. Le tue modifiche sono salvate in questo browser.',
+    en: 'Offline – publishing works again once the connection is back. Your changes are kept in this browser.',
+  },
 };

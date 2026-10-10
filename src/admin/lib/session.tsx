@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from './api';
+import { clearOffline } from './offline';
 import type { Capability } from '../../shared/roles';
 import type { Mode, SiteSettings, User } from '../../shared/types';
 
@@ -50,11 +51,14 @@ export function SessionProvider({ user: initial, caps, children, onLogout }: { u
   useEffect(() => {
     void reloadSettings();
   }, [reloadSettings]);
-  const setMode = useCallback(async (m: Mode) => {
-    if (!user.allowed_modes.includes(m)) return;
-    setUser((u) => ({ ...u, mode: m }));
-    await api.patch('/api/me', { mode: m });
-  }, [user.allowed_modes]);
+  const setMode = useCallback(
+    async (m: Mode) => {
+      if (!user.allowed_modes.includes(m)) return;
+      setUser((u) => ({ ...u, mode: m }));
+      await api.patch('/api/me', { mode: m });
+    },
+    [user.allowed_modes],
+  );
   const value: SessionValue = {
     user,
     caps,
@@ -69,6 +73,7 @@ export function SessionProvider({ user: initial, caps, children, onLogout }: { u
     setSettings: (s) => setBundle((b) => (b ? { ...b, settings: s } : b)),
     logout: async () => {
       await api.post('/api/logout');
+      await clearOffline();
       onLogout();
     },
   };

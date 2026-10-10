@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './styles/app.css';
 import { api } from './lib/api';
 import { loadAdminLang, pickAdminLang, t, tm } from './lib/i18n';
+import { registerOffline } from './lib/offline';
 import { SessionProvider, type SessionUser } from './lib/session';
 import { ToastProvider } from './ui/toast';
 import { TooltipProvider } from './ui/kit';
@@ -88,6 +89,8 @@ function App() {
     </SessionProvider>
   );
 }
+
+registerOffline();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

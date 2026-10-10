@@ -31,6 +31,8 @@ export function adminRoutes(app: Hono<AppEnv>) {
       const ext = file.slice(file.lastIndexOf('.'));
       c.header('Content-Type', TYPES[ext] ?? 'application/octet-stream');
       c.header('Cache-Control', rel.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
+      // The offline worker also serves the canvas (/_nova/…), so it may control the whole origin.
+      if (rel === 'sw.js') c.header('Service-Worker-Allowed', '/');
       return c.body(Readable.toWeb(createReadStream(file)) as ReadableStream);
     }
     c.header('Cache-Control', 'no-cache');

@@ -218,7 +218,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   useEffect(() => {
     if (!doc.externalChange) return;
     const changed = changedBlockIds(prevBlocks.current, blocksRef.current);
-    void renderAll(changed).catch(() => {});
+    // Offline the server can't render: at least the texts on the canvas follow the local copy.
+    void renderAll(changed).catch(() => postToCanvas(frame.current, { t: 'patch-fields', blocks: blocksRef.current.map((b) => ({ id: b.id, props: b.props })) }));
   }, [doc.externalChange]);
   useEffect(() => {
     prevBlocks.current = doc.data?.blocks ?? [];
@@ -381,7 +382,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           <strong className="ellipsis">{doc.data?.title || '…'}</strong>
           <span className="ellipsis mono">{doc.path ?? ''}</span>
         </div>
-        <Presence peers={doc.peers} link={doc.link} />
+        <Presence peers={doc.peers} link={doc.link} local={doc.local} />
         <SaveStatus
           state={doc.saveState}
           error={doc.error}

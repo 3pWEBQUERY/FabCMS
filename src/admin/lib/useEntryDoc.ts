@@ -3,7 +3,8 @@ import * as Y from 'yjs';
 import { api, ApiError } from './api';
 import { addNavigationGuard } from './router';
 import { useSession } from './session';
-import { tm } from './i18n';
+import { t, tm } from './i18n';
+import { docStoreName, markSynced, wasSynced } from './offline';
 import { CollabSession, type LinkState, type Peer } from './collab';
 import { applyData, changedBlocks, dataMap, toData } from '../../shared/collab-doc';
 import type { CollectionDef, Entry, EntryData } from '../../shared/types';
@@ -35,6 +36,8 @@ export interface EntryDoc {
   remote: { seq: number; changed: string[]; structure: boolean };
   /** Real-time link: live = changes go to everyone at once and the server saves. */
   link: LinkState | 'off';
+  /** Edits are kept in this browser too (offline-capable). */
+  local: boolean;
   /** Others editing this entry right now. */
   peers: Peer[];
   /** Tell the others which block I'm on. */
@@ -96,6 +99,9 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
   const session = useRef<CollabSession | null>(null);
   const undoer = useRef<Y.UndoManager | null>(null);
   const live = useRef(false);
+  /** Edits go into the shared document (live, or offline with a copy that will be merged). */
+  const docMode = useRef(false);
+  const [local, setLocal] = useState(false);
   /** Local changes not yet confirmed saved (REST or room). */
   const dirty = useRef(false);
 
@@ -202,7 +208,8 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     dirty.current = true;
     setSaveState('dirty');
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void (live.current ? flushLive() : doSave()), SAVE_DELAY);
+    // Offline with the shared document: it is kept locally, the room saves once the link is back.
+    timer.current = setTimeout(() => void (live.current ? flushLive() : docMode.current ? null : doSave()), SAVE_DELAY);
   }, [doSave, flushLive]);
 
   useEffect(() => {
@@ -210,8 +217,36 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     let stopped = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
+    const store = docStoreName(id, lang);
 
-    const start = () => {
+    const enterDocMode = (s: CollabSession) => {
+      if (docMode.current) return;
+      docMode.current = true;
+      setLocal(true);
+      const um = new Y.UndoManager(dataMap(s.doc), { trackedOrigins: new Set([LOCAL]), captureTimeout: 800 });
+      const onStack = () => setHist({ past: um.undoStack.length, future: um.redoStack.length });
+      um.on('stack-item-added', onStack);
+      um.on('stack-item-popped', onStack);
+      undoer.current = um;
+      past.current = [];
+      future.current = [];
+      setHist({ past: 0, future: 0 });
+    };
+    /** Takes over the document's content – or puts unsaved edits into it. */
+    const adopt = (s: CollabSession) => {
+      if (dirty.current && dataRef.current) {
+        applyData(s.doc, dataRef.current, LOCAL);
+        return;
+      }
+      const d = toData(s.doc);
+      if (JSON.stringify(d) !== JSON.stringify(dataRef.current)) {
+        dataRef.current = d;
+        setDataState(d);
+        setExternalChange((n) => n + 1);
+      }
+    };
+
+    const start = async () => {
       if (stopped) return;
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       const s = new CollabSession(
@@ -223,38 +258,32 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
             if (st === 'live') {
               attempt = 0;
               live.current = true;
-              // Changes made before the link was up (or while it was down) go into the shared document.
-              if (dirty.current && dataRef.current) applyData(s.doc, dataRef.current, LOCAL);
-              else {
-                const d = toData(s.doc);
-                if (JSON.stringify(d) !== JSON.stringify(dataRef.current)) {
-                  dataRef.current = d;
-                  setDataState(d);
-                  setExternalChange((n) => n + 1);
-                }
+              if (!docMode.current) {
+                adopt(s);
+                enterDocMode(s);
+              } else {
+                // Back after offline: the canvas couldn't render block previews meanwhile.
+                setExternalChange((n) => n + 1);
               }
-              const um = new Y.UndoManager(dataMap(s.doc), { trackedOrigins: new Set([LOCAL]), captureTimeout: 800 });
-              const onStack = () => setHist({ past: um.undoStack.length, future: um.redoStack.length });
-              um.on('stack-item-added', onStack);
-              um.on('stack-item-popped', onStack);
-              undoer.current = um;
-              setHist({ past: 0, future: 0 });
+              // From now on this browser keeps a copy that shares the server's history.
+              s.keep = true;
+              if (!wasSynced(store)) {
+                markSynced(store);
+                void s.persist(store);
+              }
               setLink('live');
               if (dirty.current) void flushLive();
             } else if (st === 'offline') {
               live.current = false;
-              undoer.current?.destroy();
-              undoer.current = null;
-              past.current = [];
-              future.current = [];
-              setHist({ past: 0, future: 0 });
               setPeers([]);
               setLink('offline');
+              // With the shared document: keep editing, it is kept locally and merged when the link is back.
+              if (docMode.current) return;
+              // Never live and no local copy (WebSocket blocked): save the old way, try a fresh session later.
               s.destroy();
               session.current = null;
-              // Unsaved changes go the old way; a fresh session is tried a bit later.
               if (dirty.current) void doSave();
-              retry = setTimeout(start, Math.min(30_000, 3000 * 2 ** attempt++));
+              retry = setTimeout(() => void start(), Math.min(30_000, 3000 * 2 ** attempt++));
             }
           },
           status: (st) => {
@@ -278,7 +307,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
       session.current = s;
       setLink('connecting');
       s.doc.on('afterTransaction', (tr: Y.Transaction) => {
-        if (!live.current || session.current !== s || tr.origin === LOCAL || !tr.changed.size) return;
+        if (!docMode.current || session.current !== s || tr.origin === LOCAL || !tr.changed.size) return;
         const prev = dataRef.current;
         const next = toData(s.doc);
         dataRef.current = next;
@@ -292,13 +321,27 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
           setRemote((r) => ({ seq: r.seq + 1, ...diff }));
         }
       });
+      // A copy kept from an earlier visit shares the server's history: usable at once, also offline.
+      if (wasSynced(store)) {
+        await s.persist(store);
+        if (stopped || session.current !== s) return;
+        if (dataMap(s.doc).size) {
+          s.keep = true;
+          adopt(s);
+          enterDocMode(s);
+        }
+      }
+      s.start();
     };
-    start();
+    void start();
     const onOnline = () => {
-      if (session.current || stopped) return;
-      if (retry) clearTimeout(retry);
-      attempt = 0;
-      start();
+      if (stopped) return;
+      if (session.current) session.current.reconnect();
+      else {
+        if (retry) clearTimeout(retry);
+        attempt = 0;
+        void start();
+      }
     };
     window.addEventListener('online', onOnline);
     return () => {
@@ -310,6 +353,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
       session.current?.destroy();
       session.current = null;
       live.current = false;
+      docMode.current = false;
     };
     // One session per loaded entry; reload() of the same entry keeps it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,7 +367,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
       if (!cur) return;
       const next = fn(cur);
       if (next === cur) return;
-      if (live.current && session.current) {
+      if (docMode.current && session.current) {
         dataRef.current = next;
         setDataState(next);
         if (opts.history === false) {
@@ -383,6 +427,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     const flush = (): boolean => {
       if (saveState !== 'dirty' && saveState !== 'saving') return true;
       if (!dataRef.current) return true;
+      if (docMode.current && !live.current) return true; // kept in this browser, merged later
       if (live.current && session.current) {
         // The room saves what it has as soon as everyone left.
         void session.current.flush({ stockTouched: stockTouched.current || undefined });
@@ -412,7 +457,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     const onHidden = () => {
       if (document.visibilityState === 'hidden' && saveState === 'dirty') {
         if (timer.current) clearTimeout(timer.current);
-        void (live.current ? flushLive() : doSave());
+        void (live.current ? flushLive() : docMode.current ? null : doSave());
       }
     };
     window.addEventListener('beforeunload', onUnload);
@@ -420,7 +465,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     const off = addNavigationGuard(() => {
       if (saveState === 'dirty') {
         if (timer.current) clearTimeout(timer.current);
-        void (live.current ? flushLive() : doSave());
+        void (live.current ? flushLive() : docMode.current ? null : doSave());
       }
       return true;
     });
@@ -453,7 +498,12 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
       if (timer.current) clearTimeout(timer.current);
       // A pending address change goes the direct way first.
       if (entry && slugRef.current !== entry.slug && !(await doSave())) return false;
-      return live.current ? flushLive() : doSave();
+      if (live.current) return flushLive();
+      if (docMode.current) {
+        setError(t('Offline – veröffentlichen geht wieder, sobald die Verbindung zurück ist. Deine Änderungen sind in diesem Browser gesichert.'));
+        return false;
+      }
+      return doSave();
     },
     reload,
     setEntry: (e) => {
@@ -463,8 +513,8 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     markStockTouched: () => {
       stockTouched.current = true;
     },
-    undo: () => (live.current && undoer.current ? undoer.current.undo() : applyHistory(past, future)),
-    redo: () => (live.current && undoer.current ? undoer.current.redo() : applyHistory(future, past)),
+    undo: () => (docMode.current && undoer.current ? undoer.current.undo() : applyHistory(past, future)),
+    redo: () => (docMode.current && undoer.current ? undoer.current.redo() : applyHistory(future, past)),
     lang,
     translations,
     original,
@@ -473,6 +523,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     externalChange,
     remote,
     link,
+    local,
     peers,
     setPresence: (block) => session.current?.setBlock(block),
   };

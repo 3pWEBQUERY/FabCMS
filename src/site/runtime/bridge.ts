@@ -617,6 +617,28 @@ addEventListener('message', (e) => {
       if (el) flash(el);
       break;
     }
+    case 'patch-fields': {
+      // Offline: no fresh HTML from the server, so put the texts of the local copy into the fields.
+      for (const b of (m.blocks as { id: string; props: Record<string, unknown> }[]) ?? []) {
+        const el = blockEl(b.id);
+        if (!el) continue;
+        el.querySelectorAll<HTMLElement>('[data-nova-field]').forEach((f) => {
+          if (f === d.activeElement) return;
+          let v: unknown = b.props;
+          for (const part of (f.dataset.novaField ?? '').split('.')) v = v && typeof v === 'object' ? (v as Record<string, unknown>)[part] : undefined;
+          if (typeof v !== 'string') return;
+          const kind = f.dataset.novaKind;
+          if (kind === 'rich') {
+            const html = sanitizeRichText(v);
+            if (f.innerHTML !== html) f.innerHTML = html;
+          } else if (kind === 'multi') {
+            if (f.innerText === v) return;
+            f.replaceChildren(...v.split('\n').flatMap((line, i) => (i ? [d.createElement('br'), d.createTextNode(line)] : [d.createTextNode(line)])));
+          } else if (f.textContent !== v) f.textContent = v;
+        });
+      }
+      break;
+    }
     case 'presence': {
       peers = (m.peers as typeof peers) ?? [];
       paintPeers();
