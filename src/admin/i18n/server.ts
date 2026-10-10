@@ -1058,4 +1058,55 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   '{user} hat dich erwähnt: {title}': { fr: '{user} vous a mentionné : {title}', it: '{user} ti ha menzionato: {title}', en: '{user} mentioned you: {title}' },
   '{user} hat geantwortet: {title}': { fr: '{user} a répondu : {title}', it: '{user} ha risposto: {title}', en: '{user} replied: {title}' },
   'Neuer Kommentar von {user}: {title}': { fr: 'Nouveau commentaire de {user} : {title}', it: 'Nuovo commento di {user}: {title}', en: 'New comment from {user}: {title}' },
+  'Der KI-Dienst ist gerade nicht erreichbar. Versuch es später nochmal.': {
+    fr: 'Le service d’IA n’est pas joignable pour le moment. Réessayez plus tard.',
+    it: 'Il servizio di IA al momento non è raggiungibile. Riprova più tardi.',
+    en: 'The AI service can’t be reached right now. Try again later.',
+  },
+  'Der Schlüssel für den KI-Assistenten wird nicht akzeptiert. Prüf ANTHROPIC_API_KEY in den Variablen des Dienstes.': {
+    fr: 'La clé de l’assistant IA n’est pas acceptée. Vérifiez ANTHROPIC_API_KEY dans les variables du service.',
+    it: 'La chiave dell’assistente IA non viene accettata. Controlla ANTHROPIC_API_KEY nelle variabili del servizio.',
+    en: 'The key for the AI assistant isn’t accepted. Check ANTHROPIC_API_KEY in the service’s variables.',
+  },
+  'Der KI-Dienst ist gerade ausgelastet. Versuch es in einer Minute nochmal.': {
+    fr: 'Le service d’IA est surchargé. Réessayez dans une minute.',
+    it: 'Il servizio di IA è sovraccarico. Riprova tra un minuto.',
+    en: 'The AI service is busy. Try again in a minute.',
+  },
+  'Der KI-Dienst hat keinen Vorschlag geliefert. Versuch es später nochmal.': {
+    fr: 'Le service d’IA n’a fourni aucune proposition. Réessayez plus tard.',
+    it: 'Il servizio di IA non ha fornito alcuna proposta. Riprova più tardi.',
+    en: 'The AI service didn’t return a suggestion. Try again later.',
+  },
+  'Dazu macht der KI-Assistent keinen Vorschlag.': {
+    fr: 'L’assistant IA ne fait pas de proposition pour cela.',
+    it: 'Per questo l’assistente IA non fa proposte.',
+    en: 'The AI assistant won’t make a suggestion for this.',
+  },
+  'Dieses Bild gibt es nicht mehr.': { fr: 'Cette image n’existe plus.', it: 'Questa immagine non esiste più.', en: 'This image no longer exists.' },
+  'Dieses Bild gibt es nicht.': { fr: 'Cette image n’existe pas.', it: 'Questa immagine non esiste.', en: 'This image doesn’t exist.' },
+  'Für diese Datei gibt es keinen Vorschlag.': { fr: 'Pas de proposition pour ce fichier.', it: 'Nessuna proposta per questo file.', en: 'There’s no suggestion for this file.' },
+  'Das Bild lässt sich nicht lesen.': { fr: 'L’image ne peut pas être lue.', it: 'L’immagine non si può leggere.', en: 'The image can’t be read.' },
+  'Der KI-Assistent ist ausgeschaltet.': { fr: 'L’assistant IA est désactivé.', it: 'L’assistente IA è disattivato.', en: 'The AI assistant is switched off.' },
+  'Für diese Stunde sind genug Vorschläge abgerufen. Versuch es später nochmal.': {
+    fr: 'Assez de propositions pour cette heure. Réessayez plus tard.',
+    it: 'Per quest’ora sono state richieste abbastanza proposte. Riprova più tardi.',
+    en: 'That’s enough suggestions for this hour. Try again later.',
+  },
+  'Erst braucht es einen Text.': { fr: 'Il faut d’abord un texte.', it: 'Prima serve un testo.', en: 'There needs to be some text first.' },
+  'Der Text ist zu lang für einen Vorschlag.': {
+    fr: 'Le texte est trop long pour une proposition.',
+    it: 'Il testo è troppo lungo per una proposta.',
+    en: 'The text is too long for a suggestion.',
+  },
+  'In diese Sprache wird nicht übersetzt.': {
+    fr: 'Le site n’est pas traduit dans cette langue.',
+    it: 'Il sito non è tradotto in questa lingua.',
+    en: 'The site isn’t translated into this language.',
+  },
+  'Dieser Eintrag ist zu lang für einen Übersetzungsentwurf am Stück.': {
+    fr: 'Cette entrée est trop longue pour un projet de traduction d’un seul tenant.',
+    it: 'Questa voce è troppo lunga per una bozza di traduzione in un colpo solo.',
+    en: 'This entry is too long for a translation draft in one go.',
+  },
 };

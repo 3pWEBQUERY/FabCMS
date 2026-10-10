@@ -898,6 +898,7 @@ export function Field({
   children,
   htmlFor,
   keyName,
+  extra,
 }: {
   label: ReactNode;
   help?: ReactNode;
@@ -905,6 +906,8 @@ export function Field({
   children: ReactNode;
   htmlFor?: string;
   keyName?: string;
+  /** Shown below the field, e.g. the KI-Assistent. */
+  extra?: ReactNode;
 }) {
   // Without an explicit id the label is tied to the control automatically,
   // so screen readers announce it and clicking the label focuses the field.
@@ -935,6 +938,7 @@ export function Field({
           {help}
         </span>
       ) : null}
+      {extra}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { CommentsPanel, useComments } from './Comments';
 import { Presence } from '../ui/Presence';
+import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { Segmented, Tip } from '../ui/kit';
 import { PublishControls, SaveStatus } from '../ui/Publish';
@@ -450,7 +451,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
       {lang && (
         <div className="editor-note">
-          <TranslationNote doc={doc} />
+          <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
         </div>
       )}
       <div className="editor-stage">

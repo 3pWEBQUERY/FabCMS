@@ -48,6 +48,12 @@ export const env = {
     siteKey: e.TURNSTILE_SITE_KEY ?? '',
     secret: e.TURNSTILE_SECRET ?? '',
   },
+  /** Optional KI-Assistent (Anthropic). Without a key the assistant does not appear anywhere. */
+  ai: {
+    key: e.ANTHROPIC_API_KEY ?? '',
+    model: e.NOVA_AI_MODEL ?? 'claude-sonnet-5-5',
+    baseUrl: (e.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com').replace(/\/$/, ''),
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

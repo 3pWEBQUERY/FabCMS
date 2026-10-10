@@ -34,6 +34,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { entrySlots, getAt, setAt, slotKey } from '../src/shared/text-slots';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -705,5 +706,58 @@ describe('collaborative document', () => {
       ],
     } as never;
     expect(changedBlocks(base, next)).toEqual({ changed: ['b1'], structure: false });
+  });
+});
+
+describe('texts for the translation draft', () => {
+  const col = {
+    fields: [
+      { key: 'title', type: 'text', label: 'Titel' },
+      { key: 'price', type: 'money', label: 'Preis' },
+      { key: 'cta', type: 'link', label: 'Knopf' },
+      { key: 'access', type: 'text', label: 'Zugang' },
+      { key: 'blocks', type: 'blocks', label: 'Inhalt' },
+    ],
+    has_blocks: true,
+    title_field: 'title',
+  } as never;
+  const data = {
+    title: 'Über uns',
+    price: 1200,
+    cta: { label: 'Schreib uns', href: '/kontakt' },
+    access: 'members',
+    blocks: [
+      { id: 'h1', type: 'hero', props: { title: 'Willkommen', text: '', primary: { label: 'Mehr', href: '/x' } } },
+      { id: 'f1', type: 'faq', props: { heading: 'Fragen', items: [{ q: 'Parkplätze?', a: '<p>Ja, zwei.</p>' }] } },
+    ],
+    seo: { description: 'Kleines Bistro' },
+  };
+
+  it('finds every text, and only texts', () => {
+    const slots = entrySlots(col, data);
+    expect(slots.map((s) => [slotKey(s.path), s.kind])).toEqual([
+      ['title', 'plain'],
+      ['cta/label', 'plain'],
+      ['blocks/#h1/props/title', 'plain'],
+      ['blocks/#h1/props/primary/label', 'plain'],
+      ['blocks/#f1/props/heading', 'plain'],
+      ['blocks/#f1/props/items/0/q', 'plain'],
+      ['blocks/#f1/props/items/0/a', 'rich'],
+      ['seo/description', 'multi'],
+    ]);
+  });
+
+  it('writes suggestions back by block id, even after blocks were moved', () => {
+    const moved = { ...data, blocks: [data.blocks[1], data.blocks[0]] };
+    let next = setAt(moved, ['blocks', '#h1', 'props', 'title'], 'Bienvenue');
+    next = setAt(next, ['blocks', '#f1', 'props', 'items', 0, 'a'], '<p>Oui, deux.</p>');
+    next = setAt(next, ['seo', 'title'], 'À propos');
+    expect(getAt(next, ['blocks', '#h1', 'props', 'title'])).toBe('Bienvenue');
+    expect(next.blocks[0].id).toBe('f1');
+    expect((next.blocks[0].props as any).items[0]).toEqual({ q: 'Parkplätze?', a: '<p>Oui, deux.</p>' });
+    expect(next.seo).toEqual({ description: 'Kleines Bistro', title: 'À propos' });
+    expect(data.blocks[0].props.title).toBe('Willkommen'); // copies, not changes
+    // A block that is gone in the translation: nothing happens.
+    expect(setAt(next, ['blocks', '#weg', 'props', 'title'], 'x')).toBe(next);
   });
 });

@@ -59,6 +59,7 @@ export function defaultSettings(): SiteSettings {
     },
     consent: { youtube: true, vimeo: true, maps: true },
     ageGate: { enabled: false, minAge: 18, text: 'Diese Website enthält Inhalte für Erwachsene.' },
+    ai: { enabled: false },
     shop: {
       currency: 'CHF',
       vatIncluded: true,

@@ -961,7 +961,9 @@ function ShopSettings() {
 
 function ModuleSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
+  const { bundle } = useSession();
   if (!draft) return <Skeleton />;
+  const aiKey = Boolean(bundle?.system.ai);
   return (
     <>
       <PageHead
@@ -983,6 +985,27 @@ function ModuleSettings() {
             />
           </div>
         ))}
+      </div>
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <Section
+          title={t('KI-Assistent')}
+          sub={t('Schlägt bessere Formulierungen, Bildbeschreibungen und Übersetzungsentwürfe vor. Es ist immer nur ein Vorschlag – übernommen wird nur, was du bestätigst.')}
+        >
+          <Toggle
+            checked={aiKey && draft.ai.enabled}
+            onChange={(v) => aiKey && set('ai', { ...draft.ai, enabled: v })}
+            label={t('KI-Assistent anbieten')}
+            help={
+              aiKey
+                ? t(
+                    'Texte und Bilder, für die jemand einen Vorschlag anfordert, gehen für diese eine Anfrage an Anthropic (USA). Anthropic verwendet sie nicht zum Trainieren. Inhalte von Besuchern werden nie übermittelt.',
+                  )
+                : withEl(t('Dafür braucht es einen Schlüssel von Anthropic: {var} in den Variablen des Railway-Dienstes setzen, danach neu starten.'), {
+                    var: <code>ANTHROPIC_API_KEY</code>,
+                  })
+            }
+          />
+        </Section>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>

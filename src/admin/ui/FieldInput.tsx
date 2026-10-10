@@ -9,6 +9,8 @@ import { t, tl } from '../lib/i18n';
 import { Icon } from './icons';
 import { DateInput, DateTimeInput, Field, Select, SuggestInput, Toggle } from './kit';
 import { RichText } from './RichText';
+import { AiRewrite } from './Ai';
+import type { SlotKind } from '../../shared/text-slots';
 import { MediaPicker, useMedia } from './MediaPicker';
 
 type Values = Record<string, unknown>;
@@ -81,11 +83,12 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
     </>
   );
   const keyName = pro ? f.key : undefined;
-  const wrap = (control: React.ReactNode) => (
-    <Field label={label} help={tl(f.help) || undefined} error={error} htmlFor={id} keyName={keyName}>
+  const wrap = (control: React.ReactNode, extra?: React.ReactNode) => (
+    <Field label={label} help={tl(f.help) || undefined} error={error} htmlFor={id} keyName={keyName} extra={extra}>
       {control}
     </Field>
   );
+  const rewrite = (kind: SlotKind) => <AiRewrite value={(value as string) ?? ''} kind={kind} max={f.maxLength} onApply={onChange} />;
 
   switch (f.type) {
     case 'text':
@@ -103,6 +106,7 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
           aria-invalid={Boolean(error)}
           onChange={(e) => onChange(e.target.value)}
         />,
+        f.type === 'text' && rewrite('plain'),
       );
     case 'textarea':
       return wrap(
@@ -114,9 +118,10 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
           aria-invalid={Boolean(error)}
           onChange={(e) => onChange(e.target.value)}
         />,
+        rewrite('multi'),
       );
     case 'richtext':
-      return wrap(<RichText id={id} value={(value as string) ?? ''} onChange={onChange} />);
+      return wrap(<RichText id={id} value={(value as string) ?? ''} onChange={onChange} />, rewrite('rich'));
     case 'number':
       return wrap(
         <input

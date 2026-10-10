@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { api } from '../lib/api';
 import { navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
@@ -79,7 +80,7 @@ export function LangSwitch({ doc }: { doc: EntryDoc }) {
 }
 
 /** Banner above the form or canvas while a translation is edited. */
-export function TranslationNote({ doc }: { doc: EntryDoc }) {
+export function TranslationNote({ doc, action }: { doc: EntryDoc; action?: ReactNode }) {
   if (!doc.lang || !doc.entry) return null;
   const name = tl(langInfo(doc.lang).name);
   return (
@@ -93,6 +94,7 @@ export function TranslationNote({ doc }: { doc: EntryDoc }) {
         {t('Preise, Bilder, Daten und Einstellungen kommen vom Original.')}
         {doc.original && doc.original.status !== 'published' ? ` ${t('Das Original ist noch nicht veröffentlicht – die Übersetzung geht mit ihm online.')}` : ''}
       </span>
+      {action}
     </p>
   );
 }

@@ -8,6 +8,7 @@ import { t, tl, tm } from '../lib/i18n';
 import { useEntryDoc } from '../lib/useEntryDoc';
 import { Field, PageHead, Skeleton, StatusBadge, confirm, Tip } from '../ui/kit';
 import { FieldList } from '../ui/FieldInput';
+import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
@@ -120,7 +121,7 @@ function EntryForm({ id, lang }: { id: string; lang: string | null }) {
           </>
         }
       />
-      <TranslationNote doc={doc} />
+      <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
       {doc.blockers.length > 0 && (
         <div className="hint" style={{ marginBottom: '1rem', background: 'var(--edited-soft)' }} role="note">
           <Icon name="info" />

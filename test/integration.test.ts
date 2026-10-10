@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import WebSocket from 'ws';
+import sharp from 'sharp';
 import * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync';
 import * as encoding from 'lib0/encoding';
@@ -1211,5 +1212,105 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', `/api/entries/${page.id}/comments`, undefined, { cookies: timUser })).status).toBe(403);
     expect((await req('POST', `/api/entries/${post.id}/comments`, { body: '   ' })).status).toBe(400);
     expect((await req('DELETE', `/api/entry-comments/${reply.data.comment.id}`)).status).toBe(200);
+  });
+
+  it('makes suggestions with the KI-Assistent only when switched on, and never saves them', async () => {
+    expect((await req('GET', '/api/settings')).data.system.ai).toBe(false);
+    const off = await req('POST', '/api/ai/rewrite', { text: 'Hallo', mode: 'clearer' });
+    expect(off.status).toBe(403);
+
+    // A stand-in for the Anthropic API that answers like the real one.
+    const realFetch = globalThis.fetch;
+    const calls: { headers: Record<string, string>; body: any }[] = [];
+    let answer: (body: any) => Response = () => new Response('{}', { status: 500 });
+    env.ai.key = 'sk-ant-test';
+    env.ai.baseUrl = 'https://ai.test';
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      if (!String(url).startsWith('https://ai.test/')) return realFetch(url, init);
+      const body = JSON.parse(String(init?.body));
+      calls.push({ headers: init?.headers as Record<string, string>, body });
+      return answer(body);
+    }) as typeof fetch;
+    const text = (t: string) => () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: t }] }), { status: 200 });
+    try {
+      // The key alone isn't enough: someone has to switch it on.
+      expect((await req('POST', '/api/ai/rewrite', { text: 'Hallo', mode: 'clearer' })).status).toBe(403);
+      expect((await req('PATCH', '/api/settings', { ai: { enabled: true } })).status).toBe(200);
+
+      // Wrapping quotes go, ß becomes ss, one-line fields stay one line.
+      answer = text('«Wir kochen mit Gemüse aus der Region,\nfrisch und mit Mass.»');
+      const plain = await req('POST', '/api/ai/rewrite', { text: 'Bei uns gibts Gemüse von hier.', mode: 'clearer', kind: 'plain', max: 120 });
+      expect(plain.status).toBe(200);
+      expect(plain.data.suggestion).toBe('Wir kochen mit Gemüse aus der Region, frisch und mit Mass.');
+      expect(calls[0].headers['x-api-key']).toBe('sk-ant-test');
+      expect(calls[0].body.system).toContain('ss');
+      expect(calls[0].body.messages[0].content[0].text).toContain('Bei uns gibts Gemüse von hier.');
+      expect(calls[0].body.messages[0].content[0].text).toContain('Höchstens 120 Zeichen');
+
+      // Rich text comes back sanitized.
+      answer = text('<p onclick="steal()">Neu <script>alert(1)</script><a href="javascript:x">Link</a> <strong>fett</strong></p>');
+      const rich = await req('POST', '/api/ai/rewrite', { text: '<p>Alt</p>', mode: 'shorter', kind: 'rich' });
+      expect(rich.data.suggestion).toBe('<p>Neu Link <strong>fett</strong></p>');
+
+      // Errors from the service become something a person can act on.
+      answer = () => new Response('{"type":"error"}', { status: 401 });
+      const badKey = await req('POST', '/api/ai/rewrite', { text: 'Hallo', mode: 'fix' });
+      expect(badKey.status).toBe(502);
+      expect(badKey.data.error).toContain('ANTHROPIC_API_KEY');
+      answer = () => new Response('{}', { status: 529 });
+      expect((await req('POST', '/api/ai/rewrite', { text: 'Hallo', mode: 'fix' })).status).toBe(503);
+
+      // Alt text from the image itself.
+      const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#c86432' } }).png().toBuffer();
+      const form = new FormData();
+      form.append('file', new File([new Uint8Array(png)], 'risotto-steinpilze.png', { type: 'image/png' }));
+      const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+      const up = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      const media = (await up.json()).media[0];
+      answer = text('Teller mit Steinpilz-Risotto auf einem Holztisch.');
+      const alt = await req('POST', '/api/ai/alt', { media: media.id });
+      expect(alt.data.suggestion).toBe('Teller mit Steinpilz-Risotto auf einem Holztisch');
+      const sent = calls[calls.length - 1].body.messages[0].content;
+      expect(sent[0].type).toBe('image');
+      expect(sent[0].source.media_type).toBe('image/jpeg');
+      expect(sent[1].text).toContain('risotto-steinpilze.png');
+      expect((await sql`select alt from media where id = ${media.id}`)[0].alt).toBe(''); // only a suggestion
+
+      // Translation draft: every text of the original, blocks addressed by id.
+      const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+      await req('PATCH', '/api/settings', { languages: ['fr'] });
+      const before = await sql`select data from entry_translations where entry_id = ${page.id} and lang = 'fr'`;
+      answer = (body) => {
+        const items = JSON.parse(body.messages[0].content[0].text.split('\n').pop());
+        return new Response(
+          JSON.stringify({ stop_reason: 'tool_use', content: [{ type: 'tool_use', name: 'uebersetzung', input: { items: items.map((i: { id: number; text: string }) => ({ id: i.id, text: `FR ${i.text}` })) } }] }),
+          { status: 200 },
+        );
+      };
+      const draft = await req('POST', '/api/ai/translate', { entry: page.id, lang: 'fr' });
+      expect(draft.status).toBe(200);
+      expect(calls[calls.length - 1].body.tool_choice).toEqual({ type: 'tool', name: 'uebersetzung' });
+      const blockSlot = draft.data.items.find((i: { path: string[] }) => i.path[0] === 'blocks');
+      const block = page.data.blocks.find((b: { id: string }) => `#${b.id}` === blockSlot.path[1]);
+      expect(blockSlot.path[2]).toBe('props');
+      expect(blockSlot.source).toBe(blockSlot.path.slice(3).reduce((o: any, k: string) => o[k], block.props));
+      expect(blockSlot.text).toBe(blockSlot.kind === 'rich' ? `<p>FR ${blockSlot.source}</p>` : `FR ${blockSlot.source}`);
+      expect(draft.data.items.every((i: { text: string; source: string }) => i.text.startsWith('FR') || i.text.startsWith('<'))).toBe(true);
+      expect(await sql`select data from entry_translations where entry_id = ${page.id} and lang = 'fr'`).toEqual(before);
+      expect((await req('POST', '/api/ai/translate', { entry: page.id, lang: 'de' })).status).toBe(400); // the original itself
+
+      // Authors only for their own entries.
+      const ina = await req('POST', '/api/users', { email: 'ina@example.ch', name: 'Ina', role: 'author' });
+      const inaUser = new Map<string, string>();
+      await req('POST', '/api/login', { email: 'ina@example.ch', password: ina.data.temporaryPassword }, { cookies: inaUser });
+      expect((await req('POST', '/api/ai/translate', { entry: page.id, lang: 'fr' }, { cookies: inaUser })).status).toBe(403);
+
+      // Switched off again: gone.
+      await req('PATCH', '/api/settings', { ai: { enabled: false }, languages: [] });
+      expect((await req('POST', '/api/ai/alt', { media: media.id })).status).toBe(403);
+    } finally {
+      globalThis.fetch = realFetch;
+      env.ai.key = '';
+    }
   });
 });

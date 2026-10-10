@@ -5,6 +5,7 @@ import { usePath, navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
 import { Dialog, Empty, Field, PageHead, Segmented, Skeleton, confirm, Select } from '../ui/kit';
+import { AiAlt } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { rememberMedia, uploadFiles, type MediaRow, Thumb } from '../ui/MediaPicker';
@@ -285,6 +286,15 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
                     : t('Beschreib in einem Satz, was zu sehen ist – z. B. «Gaststube mit Holztischen am Abend».')
                 }
                 error={!alt ? t('Fehlt noch') : null}
+                extra={
+                  <AiAlt
+                    media={media.id}
+                    onApply={(v) => {
+                      setAlt(v);
+                      void save({ alt: v });
+                    }}
+                  />
+                }
               >
                 <input id="m-alt" className="input" value={alt} onChange={(e) => setAlt(e.target.value)} onBlur={() => alt !== media.alt && void save({ alt })} />
               </Field>

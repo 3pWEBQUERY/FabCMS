@@ -174,6 +174,8 @@ export interface SiteSettings {
   analytics: { enabled: boolean; goals: { id: string; label: string; event: string }[] };
   consent: { youtube: boolean; vimeo: boolean; maps: boolean };
   ageGate: { enabled: boolean; minAge: number; text: string };
+  /** KI-Assistent: only suggestions, never applied on its own. Needs ANTHROPIC_API_KEY. */
+  ai: { enabled: boolean };
   shop: {
     currency: string;
     vatIncluded: boolean;

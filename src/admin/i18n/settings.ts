@@ -1084,4 +1084,22 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Prima Nova ti mostra cosa ha trovato. L’importazione parte solo dopo il tuo clic – i contenuti esistenti restano intatti, agli indirizzi uguali viene aggiunto un numero.',
     en: 'First Nova shows you what it found. Nothing is imported until you click – existing content stays untouched, and duplicate addresses get a number appended.',
   },
+  'KI-Assistent': { fr: 'Assistant IA', it: 'Assistente IA', en: 'AI assistant' },
+  'Schlägt bessere Formulierungen, Bildbeschreibungen und Übersetzungsentwürfe vor. Es ist immer nur ein Vorschlag – übernommen wird nur, was du bestätigst.': {
+    fr: 'Propose de meilleures formulations, des descriptions d’images et des projets de traduction. Ce n’est toujours qu’une proposition – seul ce que vous confirmez est repris.',
+    it: 'Propone formulazioni migliori, descrizioni delle immagini e bozze di traduzione. È sempre solo una proposta – viene applicato solo ciò che confermi.',
+    en: 'Suggests better wording, image descriptions and translation drafts. It is always just a suggestion – only what you confirm is applied.',
+  },
+  'KI-Assistent anbieten': { fr: 'Proposer l’assistant IA', it: 'Offri l’assistente IA', en: 'Offer the AI assistant' },
+  'Texte und Bilder, für die jemand einen Vorschlag anfordert, gehen für diese eine Anfrage an Anthropic (USA). Anthropic verwendet sie nicht zum Trainieren. Inhalte von Besuchern werden nie übermittelt.':
+    {
+      fr: 'Les textes et images pour lesquels quelqu’un demande une proposition sont envoyés à Anthropic (États-Unis) pour cette seule requête. Anthropic ne les utilise pas pour l’entraînement. Les contenus des visiteurs ne sont jamais transmis.',
+      it: 'I testi e le immagini per cui qualcuno chiede una proposta vengono inviati ad Anthropic (USA) solo per quella richiesta. Anthropic non li usa per l’addestramento. I contenuti dei visitatori non vengono mai trasmessi.',
+      en: 'Texts and images someone asks a suggestion for are sent to Anthropic (USA) for that one request. Anthropic does not use them for training. Visitor content is never sent.',
+    },
+  'Dafür braucht es einen Schlüssel von Anthropic: {var} in den Variablen des Railway-Dienstes setzen, danach neu starten.': {
+    fr: 'Il faut pour cela une clé d’Anthropic : définissez {var} dans les variables du service Railway, puis redémarrez.',
+    it: 'Serve una chiave di Anthropic: imposta {var} nelle variabili del servizio Railway, poi riavvia.',
+    en: 'This needs a key from Anthropic: set {var} in the Railway service’s variables, then restart.',
+  },
 };

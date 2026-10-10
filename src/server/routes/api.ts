@@ -15,6 +15,7 @@ import { donationsApi } from './api-donations';
 import { orderingApi } from './api-ordering';
 import { importApi } from './api-import';
 import { commentsApi } from './api-comments';
+import { aiApi } from './api-ai';
 
 /**
  * CSRF protection for the admin API: state-changing requests must carry the
@@ -53,4 +54,5 @@ export function apiRoutes(app: Hono<AppEnv>) {
   orderingApi(app);
   importApi(app);
   commentsApi(app);
+  aiApi(app);
 }
