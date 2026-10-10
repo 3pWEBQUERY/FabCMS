@@ -8,6 +8,7 @@ import { blocksText } from '../shared/blocks';
 import { entryAccess } from '../shared/members';
 import { stripHtml } from '../shared/text';
 import { langInfo, mergeTranslation, siteLangs, type Lang } from '../shared/i18n';
+import { expandComponents } from '../site/data';
 import type { CollectionDef, EntryData } from '../shared/types';
 
 /**
@@ -51,7 +52,11 @@ async function pgIds(q: string, lang: Lang | null, cols: string[]): Promise<stri
     select id, ts_rank(to_tsvector(${main}::regconfig, published_data::text), websearch_to_tsquery(${main}::regconfig, ${q})) as rank
     from entries
     where status = 'published' and collection = any(${cols})
-      and ((coalesce(published_data ->> 'access', 'public') = 'public' and to_tsvector(${main}::regconfig, published_data::text) @@ websearch_to_tsquery(${main}::regconfig, ${q}))
+      and ((coalesce(published_data ->> 'access', 'public') = 'public' and (to_tsvector(${main}::regconfig, published_data::text) @@ websearch_to_tsquery(${main}::regconfig, ${q})
+          -- the texts of components placed on the page count as its own
+          or exists (select 1 from entries k where k.collection = 'sections' and k.status = 'published' and k.published_data ->> 'kind' = 'component'
+            and position(k.id::text in entries.published_data::text) > 0
+            and to_tsvector(${main}::regconfig, k.published_data::text) @@ websearch_to_tsquery(${main}::regconfig, ${q}))))
         or published_data ->> 'title' ilike ${like})
       and coalesce(published_data -> 'seo' ->> 'noindex', 'false') <> 'true'
       ${lang ? sql`and not exists (select 1 from entry_translations t where t.entry_id = entries.id and t.lang = ${lang} and t.status = 'published')` : sql``}
@@ -102,7 +107,9 @@ async function buildDocs(): Promise<Doc[]> {
     const col = cols.find((c) => c.id === r.collection)!;
     for (const lang of langs) {
       const tr = lang === langs[0] ? null : trs.find((t) => t.entry_id === r.id && t.lang === lang);
-      const d = (tr ? mergeTranslation(col.fields, r.data as EntryData, tr.published_data as Record<string, unknown>, col.has_blocks) : r.data) as EntryData;
+      const merged = (tr ? mergeTranslation(col.fields, r.data as EntryData, tr.published_data as Record<string, unknown>, col.has_blocks) : r.data) as EntryData;
+      // Components are found by their texts too.
+      const d: EntryData = { ...merged, blocks: await expandComponents(merged.blocks) };
       // Members-only entries are found by their title only.
       const text =
         entryAccess(d) === 'public'

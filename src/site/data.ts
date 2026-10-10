@@ -1,6 +1,7 @@
 import { sql } from '../server/db';
 import { localized, localizedOne } from '../server/translations';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
+import { applyOverrides, componentEls, type El, type Overrides } from '../shared/elements';
 
 export interface PublicEntry {
   id: string;
@@ -67,6 +68,31 @@ export async function sectionBlocks(id: unknown, preview: boolean): Promise<{ ti
   const raw = (preview ? s.data : s.published_data) as EntryData | null;
   const d = raw ? ((await localizedOne({ id, data: raw }, 'sections'))?.data as EntryData) : null;
   return d ? { title: d.title, blocks: d.blocks ?? [] } : null;
+}
+
+/**
+ * The blocks with every component instance replaced by its original's elements
+ * (with the instance's own texts) – so descriptions, search and reading time see them.
+ */
+export async function expandComponents(blocks: Block[] | undefined, preview = false): Promise<Block[]> {
+  const list = blocks ?? [];
+  if (!list.some((b) => b.type === 'layout' && JSON.stringify(b.props.els ?? []).includes('"kind":"component"'))) return list;
+  const masters = new Map<string, El[]>();
+  const expand = async (els: El[], depth: number): Promise<El[]> => {
+    const out: El[] = [];
+    for (const el of els) {
+      if (el.kind !== 'component') {
+        out.push(el.children ? { ...el, children: await expand(el.children, depth) } : el);
+        continue;
+      }
+      const ref = typeof el.props.ref === 'string' ? el.props.ref : '';
+      if (!masters.has(ref)) masters.set(ref, ref && depth < 3 ? componentEls((await sectionBlocks(ref, preview))?.blocks) : []);
+      const own = applyOverrides(masters.get(ref) ?? [], el.props.overrides as Overrides | undefined);
+      out.push({ id: el.id, kind: 'box', props: {}, children: depth < 3 ? await expand(own, depth + 1) : [] });
+    }
+    return out;
+  };
+  return Promise.all(list.map(async (b) => (b.type === 'layout' ? { ...b, props: { ...b.props, els: await expand((b.props.els as El[]) ?? [], 0) } } : b)));
 }
 
 /** The page template of a content type: the most recently changed «sections» entry of kind «template» for it. */

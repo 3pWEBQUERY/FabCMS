@@ -1,14 +1,48 @@
-import { useState } from 'react';
-import { applyOverrides, componentEls, OVERRIDABLE, walkEls, type El, type Overrides } from '../../../shared/elements';
+import { useEffect, useState } from 'react';
+import { applyOverrides, componentEls, elementsText, OVERRIDABLE, walkEls, type El, type Overrides } from '../../../shared/elements';
 import type { FieldDef } from '../../../shared/fields';
 import type { Block } from '../../../shared/types';
 import { stripHtml } from '../../../shared/text';
+import { api } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { t } from '../../lib/i18n';
 import { FieldList } from '../../ui/FieldInput';
 import { Icon } from '../../ui/icons';
 import { Dialog, Field } from '../../ui/kit';
 import { elLabel } from './ElementToolbar';
+
+/** Originals already loaded in this session, by component id. */
+const masters = new Map<string, Promise<El[]>>();
+const loadMaster = (ref: string) => {
+  if (!masters.has(ref))
+    masters.set(
+      ref,
+      api
+        .get<{ entry: { data: { blocks?: Block[] } } }>(`/api/entries/${ref}`)
+        .then((r) => componentEls(r.entry.data.blocks))
+        .catch(() => []),
+    );
+  return masters.get(ref)!;
+};
+
+/** The texts the page's components bring (with each place's own texts) – for the SEO check. */
+export function useComponentTexts(blocks: Block[] | undefined): string {
+  const places: El[] = [];
+  for (const b of blocks ?? []) if (b.type === 'layout') walkEls((b.props.els as El[]) ?? [], (el) => el.kind === 'component' && places.push(el));
+  const key = JSON.stringify(places.map((p) => [p.props.ref, p.props.overrides]));
+  const [text, setText] = useState('');
+  useEffect(() => {
+    let alive = true;
+    void Promise.all(
+      places.map(async (p) => (typeof p.props.ref === 'string' ? elementsText(applyOverrides(await loadMaster(p.props.ref), p.props.overrides as Overrides)) : '')),
+    ).then((list) => alive && setText(list.filter(Boolean).join(' ')));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return text;
+}
 
 export interface ComponentRef {
   id: string;

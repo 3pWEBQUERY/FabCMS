@@ -5,7 +5,7 @@ import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
 import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, entryTemplate, sampleEntry, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, entryTemplate, expandComponents, sampleEntry, type PublicEntry } from './data';
 import {
   articleLd,
   breadcrumbLd,
@@ -314,7 +314,8 @@ export async function renderPage(ctx: RenderContext, c: CollectionDef, e: Render
   const meta: PageMeta = {
     title: e.data.seo?.title?.trim() ? e.data.seo.title : formatTitle(ctx, e.data.title, isHome),
     plainTitle: e.data.seo?.title?.trim() || e.data.title,
-    description: describe(e.data, ctx),
+    // Components count with their texts.
+    description: describe({ ...e.data, blocks: await expandComponents(e.data.blocks, ctx.preview) }, ctx),
     canonical: ctx.base + path,
     image,
     type: c.id === 'posts' ? 'article' : c.id === 'products' ? 'product' : 'website',

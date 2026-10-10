@@ -2264,9 +2264,13 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(await get()).not.toContain('Jetzt buchen');
     await req('POST', `/api/entries/${master.id}/publish`, {});
     html = await get();
-    expect(html.match(/Jetzt buchen/g)?.length).toBe(2);
+    expect(html.match(/<span>Jetzt buchen<\/span>/g)?.length).toBe(2);
     expect(html).toContain('Beratung &lt;vor Ort&gt;');
     expect(html).toContain('>Persönliche Beratung</h3>');
+    // Their texts count for the page: its description and the site search find them.
+    expect(html).toMatch(/<meta name="description" content="[^"]*Beratung &lt;vor Ort&gt;[^"]*Persönliche Beratung/);
+    const found = (await req('GET', '/suche?q=Persönliche', undefined, { cookies: new Map() })).data as string;
+    expect(found).toContain(`/${page.data.entry.slug}`);
     // In the editor a place is one piece: double-click opens the original, texts are its own.
     const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay4' });
     const ed = canvas.data.html as string;

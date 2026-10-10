@@ -17,6 +17,7 @@ import type { Block, CollectionDef, EntryData } from '../../shared/types';
 import type { EntryDoc } from '../lib/useEntryDoc';
 import { countEls, type El } from '../../shared/elements';
 import { LayersTree } from './elements/LayersTree';
+import { useComponentTexts } from './elements/Components';
 
 /* ---------- SEO coach ---------- */
 
@@ -42,6 +43,7 @@ export function SeoPanel({ doc, onTarget }: { doc: EntryDoc; onTarget: (c: SeoCh
     };
   }, [imageIds]);
 
+  const componentText = useComponentTexts(data.blocks);
   const isHome = col.id === 'pages' && doc.slug === '';
   const result = analyzeSeo({
     title: data.title,
@@ -50,13 +52,13 @@ export function SeoPanel({ doc, onTarget }: { doc: EntryDoc; onTarget: (c: SeoCh
     ownH1: col.id !== 'pages' && col.id !== 'sections',
     seo: data.seo ?? {},
     blocks: data.blocks ?? [],
-    extraText: [data.excerpt, data.summary].filter((x) => typeof x === 'string').join(' '),
+    extraText: [data.excerpt, data.summary, componentText].filter((x) => typeof x === 'string').join(' '),
     siteName: settings?.name ?? '',
     titleTemplate: settings?.seo.titleTemplate ?? '%s · %site',
     alts,
   });
   const title = fullTitle({ title: data.title, seo: data.seo ?? {}, isHome, siteName: settings?.name ?? '', titleTemplate: settings?.seo.titleTemplate ?? '' });
-  const description = data.seo?.description || (typeof data.excerpt === 'string' && data.excerpt) || excerpt(blocksText(data.blocks)) || settings?.seo.defaultDescription || '';
+  const description = data.seo?.description || (typeof data.excerpt === 'string' && data.excerpt) || excerpt([blocksText(data.blocks), componentText].join(' ').trim()) || settings?.seo.defaultDescription || '';
   const base = (settings?.baseUrl || location.origin).replace(/^https?:\/\//, '');
   const setSeo = (patch: Record<string, unknown>) => doc.setData((d) => ({ ...d, seo: { ...d.seo, ...patch } }));
 
