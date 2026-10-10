@@ -1994,6 +1994,15 @@ button.list-item {
 .kpi .delta.down {
   color: var(--bad);
 }
+.kpis.compact {
+  grid-template-columns: repeat(3, 1fr);
+}
+.kpis.compact .kpi {
+  padding: 0.7rem 0.8rem;
+}
+.kpis.compact .value {
+  font-size: var(--t-xl);
+}
 .inbox a {
   display: flex;
   align-items: center;

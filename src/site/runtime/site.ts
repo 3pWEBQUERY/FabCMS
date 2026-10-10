@@ -750,6 +750,12 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
     }
   };
   const key = (p: HTMLDialogElement) => `nova-pop:${p.dataset.pop}`;
+  // How it does: shown, clicked (a link or button in it), closed without a click.
+  const count = (p: HTMLDialogElement, e: 'show' | 'click' | 'close') => {
+    const body = JSON.stringify({ id: p.dataset.pop, e });
+    if (!navigator.sendBeacon?.('/_nova/pop', new Blob([body], { type: 'application/json' }))) fetch('/_nova/pop', { method: 'POST', body, keepalive: true }).catch(() => {});
+  };
+  const clicked = new WeakSet<HTMLDialogElement>();
   const due = (p: HTMLDialogElement) => {
     const now = Date.now();
     const from = Number(p.dataset.popFrom || 0);
@@ -793,6 +799,8 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
       p.setAttribute('aria-labelledby', heading.id);
       p.removeAttribute('aria-label');
     }
+    count(p, 'show');
+    p.addEventListener('close', () => clicked.has(p) || count(p, 'close'), { once: true });
     const before = d.activeElement as HTMLElement | null;
     if (p.classList.contains('pop-center')) {
       p.showModal();
@@ -808,6 +816,10 @@ if (pops.length && !d.body.classList.contains('age-locked')) {
     p.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       if (t.closest('[data-pop-close]')) return p.close();
+      if (p.open && !clicked.has(p) && t.closest('.pop-body a[href], .pop-body button, .pop-body input[type="submit"]')) {
+        clicked.add(p);
+        count(p, 'click');
+      }
       // A click on the dimmed page around a centred pop-up closes it.
       if (t === p && p.classList.contains('pop-center')) {
         const r = p.getBoundingClientRect();

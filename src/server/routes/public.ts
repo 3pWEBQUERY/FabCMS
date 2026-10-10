@@ -22,6 +22,7 @@ import { sign, unsign } from '../lib/crypto';
 import { recordGoal, recordHit } from '../analytics';
 import { emit } from '../events';
 import { recordMissing } from '../notfound';
+import { recordPopup, type PopupEvent } from '../popups';
 import { sendMail } from '../mail';
 import { cachedOgImage } from '../og';
 import {
@@ -400,6 +401,14 @@ export function publicRoutes(app: Hono<AppEnv>) {
     const body = (await c.req.json().catch(() => null)) as { p?: string; r?: string; w?: number } | null;
     if (body?.p && body.p.startsWith('/'))
       await recordHit({ path: body.p, referrer: body.r ?? '', width: Number(body.w) || 0, ip, ua: c.req.header('user-agent') ?? '', host: new URL(c.req.url).hostname });
+    return c.body(null, 204);
+  });
+
+  /* pop-ups: shown, clicked, closed – counts only, so no consent needed */
+  app.post('/_nova/pop', async (c) => {
+    if (!rateLimit(`pop:${clientIp(c)}`, 60, 60_000).ok) return c.body(null, 204);
+    const body = (await c.req.json().catch(() => null)) as { id?: unknown; e?: unknown } | null;
+    if (typeof body?.id === 'string' && typeof body.e === 'string') await recordPopup(body.id, body.e as PopupEvent);
     return c.body(null, 204);
   });
 

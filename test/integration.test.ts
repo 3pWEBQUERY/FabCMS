@@ -2849,6 +2849,30 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('GET', '/', undefined, anon)).data).not.toContain('<dialog class="pop');
   });
 
+  it('counts how pop-ups do without anything about the visitor', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const pop = (await req('POST', '/api/entries', { collection: 'sections', data: { title: 'Zählen', kind: 'popup', blocks: [] } })).data.entry;
+    const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Kein Pop-up' } })).data.entry;
+    const hit = (id: string, e: string) => req('POST', '/_nova/pop', { id, e }, anon);
+    // Drafts, other entries, unknown events and ids count nothing.
+    await hit(pop.id, 'show');
+    await req('POST', `/api/entries/${pop.id}/publish`, {});
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    for (const [id, e] of [
+      [page.id, 'show'],
+      [pop.id, 'drop table'],
+      ['erfunden', 'show'],
+    ])
+      expect((await hit(id, e)).status).toBe(204);
+    for (const e of ['show', 'show', 'show', 'click', 'close']) await hit(pop.id, e);
+    const stats = await req('GET', `/api/popups/${pop.id}/stats`);
+    expect(stats.data).toMatchObject({ shown: 3, clicked: 1, closed: 1 });
+    expect(stats.data.days).toHaveLength(1);
+    // Only for the team.
+    expect((await req('GET', `/api/popups/${pop.id}/stats`, undefined, anon)).status).toBe(401);
+    for (const id of [pop.id, page.id]) await req('DELETE', `/api/entries/${id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

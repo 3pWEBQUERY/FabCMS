@@ -533,4 +533,15 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Soglie secondo WCAG 2.2: 4.5 : 1 per il testo, 3 : 1 per i caratteri grandi. Il testo su immagini e sfumature non si può misurare così – controllalo a occhio.',
     en: 'Limits per WCAG 2.2: 4.5 : 1 for text, 3 : 1 for large type. Text on pictures and gradients can’t be measured this way – check it by eye.',
   },
+  'Wirkung in den letzten 30 Tagen': { fr: 'Effet sur les 30 derniers jours', it: 'Effetto negli ultimi 30 giorni', en: 'Results over the last 30 days' },
+  Gezeigt: { fr: 'Affiché', it: 'Mostrato', en: 'Shown' },
+  Geklickt: { fr: 'Cliqué', it: 'Cliccato', en: 'Clicked' },
+  '{n} %': { fr: '{n} %', it: '{n} %', en: '{n} %' },
+  Geschlossen: { fr: 'Fermé', it: 'Chiuso', en: 'Closed' },
+  'ohne Klick': { fr: 'sans clic', it: 'senza clic', en: 'without a click' },
+  'Noch nicht gezeigt. Gezählt wird, sobald das Pop-up veröffentlicht ist – ohne Cookie und ohne Angaben zu den Besuchern.': {
+    fr: 'Pas encore affiché. Le comptage commence dès que le pop-up est publié – sans cookie ni données sur les visiteurs.',
+    it: 'Non ancora mostrato. Il conteggio inizia appena il pop-up è pubblicato – senza cookie e senza dati sui visitatori.',
+    en: 'Not shown yet. Counting starts once the pop-up is published – without cookies or anything about visitors.',
+  },
 };

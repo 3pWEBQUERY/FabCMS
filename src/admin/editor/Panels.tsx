@@ -168,7 +168,42 @@ export function PagePanel({ doc }: { doc: EntryDoc }) {
           <Icon name="external" size="s" /> {t('Live-Seite öffnen')}
         </a>
       )}
+      {col.id === 'sections' && data.kind === 'popup' && doc.entry && <PopupStats id={doc.entry.id} />}
     </div>
+  );
+}
+
+/** How a pop-up did over the last 30 days. */
+function PopupStats({ id }: { id: string }) {
+  const { data } = useApi<{ shown: number; clicked: number; closed: number }>(`/api/popups/${id}/stats`);
+  if (!data) return null;
+  const rate = data.shown ? Math.round((data.clicked / data.shown) * 100) : 0;
+  return (
+    <section className="stack tight" aria-labelledby="pop-stats-h">
+      <h3 id="pop-stats-h" className="section-title">
+        {t('Wirkung in den letzten 30 Tagen')}
+      </h3>
+      {data.shown ? (
+        <div className="kpis compact">
+          <div className="kpi">
+            <span className="label">{t('Gezeigt')}</span>
+            <span className="value">{data.shown.toLocaleString(adminLang())}</span>
+          </div>
+          <div className="kpi">
+            <span className="label">{t('Geklickt')}</span>
+            <span className="value">{data.clicked.toLocaleString(adminLang())}</span>
+            <span className="delta">{t('{n} %', { n: rate })}</span>
+          </div>
+          <div className="kpi">
+            <span className="label">{t('Geschlossen')}</span>
+            <span className="value">{data.closed.toLocaleString(adminLang())}</span>
+            <span className="delta">{t('ohne Klick')}</span>
+          </div>
+        </div>
+      ) : (
+        <p className="small muted">{t('Noch nicht gezeigt. Gezählt wird, sobald das Pop-up veröffentlicht ist – ohne Cookie und ohne Angaben zu den Besuchern.')}</p>
+      )}
+    </section>
   );
 }
 

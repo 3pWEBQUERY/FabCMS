@@ -9,6 +9,7 @@ import { rolesApi } from './api-roles';
 import { shareApi } from './api-share';
 import { replaceApi } from './api-replace';
 import { notFoundApi } from '../notfound';
+import { popupsApi } from '../popups';
 import { mediaApi } from './api-media';
 import { businessApi } from './api-business';
 import { systemApi } from './api-system';
@@ -64,6 +65,7 @@ export function apiRoutes(app: Hono<AppEnv>) {
   shareApi(app);
   replaceApi(app);
   notFoundApi(app);
+  popupsApi(app);
   mediaApi(app);
   businessApi(app);
   systemApi(app);
