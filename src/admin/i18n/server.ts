@@ -1372,4 +1372,12 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     en: 'This content has no page of its own to show.',
   },
   'Diesen Vorschau-Link gibt es nicht mehr.': { fr: 'Ce lien d’aperçu n’existe plus.', it: 'Questo link di anteprima non esiste più.', en: 'This preview link no longer exists.' },
+  'Gib ein, was gesucht werden soll.': { fr: 'Indiquez ce qu’il faut rechercher.', it: 'Indica cosa cercare.', en: 'Enter what to search for.' },
+  'Die Einstellungen ändert, wer Einstellungen verwalten darf.': {
+    fr: 'Seules les personnes autorisées à gérer les réglages peuvent les modifier.',
+    it: 'Le impostazioni le cambia chi può gestirle.',
+    en: 'Only people allowed to manage settings can change them.',
+  },
+  Titel: { fr: 'Titre', it: 'Titolo', en: 'Title' },
+  Suchmaschinen: { fr: 'Moteurs de recherche', it: 'Motori di ricerca', en: 'Search engines' },
 };

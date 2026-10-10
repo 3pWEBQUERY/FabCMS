@@ -2637,6 +2637,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const id of [e.id, sec.id]) await req('DELETE', `/api/entries/${id}`);
   });
 
+  it('searches and replaces across content: preview in context, only the ticked entries, drafts with the state before kept', async () => {
+    const mk = async (collection: string, data: Record<string, unknown>) => (await req('POST', '/api/entries', { collection, data })).data.entry;
+    const a = await mk('pages', { title: 'Kontakt', blocks: [{ id: 'b1', type: 'text', props: { heading: 'Anrufen', body: '<p>Telefon <strong>044 111 22 33</strong> &amp; Fax</p>' } }] });
+    const b = await mk('posts', { title: 'Neu: 044 111 22 33', excerpt: 'Ruf an unter 044 111 22 33.' });
+    const untouched = await mk('posts', { title: 'Ohne Nummer' });
+    await req('POST', `/api/entries/${b.id}/publish`, {});
+    const ask = { find: '044 111 22 33', replace: '052 000 99 88' };
+    const pre = await req('POST', '/api/replace/preview', ask);
+    const ids = pre.data.entries.map((e: { id: string }) => e.id);
+    expect(ids).toEqual(expect.arrayContaining([a.id, b.id]));
+    expect(ids).not.toContain(untouched.id);
+    const hitB = pre.data.entries.find((e: { id: string }) => e.id === b.id);
+    expect(hitB).toMatchObject({ count: 2, status: 'published' });
+    expect(hitB.hits[0]).toMatchObject({ where: 'Titel', match: '044 111 22 33' });
+    // The type filter narrows it down.
+    expect((await req('POST', '/api/replace/preview', { ...ask, collections: ['pages'] })).data.entries.map((e: { id: string }) => e.id)).not.toContain(b.id);
+    // Only the ticked one changes; the published one keeps its live version until published again.
+    const done = await req('POST', '/api/replace/apply', { ...ask, targets: [{ id: a.id, lang: null }, { id: b.id, lang: null }] });
+    expect(done.data).toMatchObject({ replaced: 3, entries: 2, failed: [] });
+    const nowA = (await req('GET', `/api/entries/${a.id}`)).data.entry;
+    expect(nowA.data.blocks[0].props.body).toBe('<p>Telefon <strong>052 000 99 88</strong> &amp; Fax</p>');
+    expect(nowA.data.blocks[0].id).toBe('b1');
+    const live = (await req('GET', `/journal/${b.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(live).toContain('044 111 22 33');
+    const [rev] = await sql`select data from revisions where entry_id = ${b.id} and kind = 'replace'`;
+    expect(rev.data.title).toBe('Neu: 044 111 22 33');
+    // Asked to republish: online at once.
+    const c = await mk('posts', { title: 'Alt: 044 111 22 33' });
+    await req('POST', `/api/entries/${c.id}/publish`, {});
+    await req('POST', '/api/replace/apply', { ...ask, targets: [{ id: c.id, lang: null }], publish: true });
+    expect((await req('GET', `/journal/${c.slug}`, undefined, { cookies: new Map() })).data).toContain('Alt: 052 000 99 88');
+    expect((await req('POST', '/api/replace/preview', ask)).data.entries.map((e: { id: string }) => e.id)).not.toContain(c.id);
+    // Site settings: only readable text, at once.
+    await req('PATCH', '/api/settings', { business: { ...(await req('GET', '/api/settings')).data.settings.business, phone: '044 111 22 33' } });
+    expect((await req('POST', '/api/replace/preview', ask)).data.settings.count).toBe(1);
+    await req('POST', '/api/replace/apply', { ...ask, targets: [], settings: true });
+    expect((await req('GET', '/api/settings')).data.settings.business.phone).toBe('052 000 99 88');
+    expect((await req('POST', '/api/replace/preview', { find: '', replace: 'x' })).status).toBe(400);
+    for (const e of [a, b, c, untouched]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
     expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
     expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);

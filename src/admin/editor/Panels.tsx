@@ -270,12 +270,13 @@ export function StructurePanel({
 
 interface Rev {
   id: number;
-  kind: 'autosave' | 'publish' | 'restore' | 'import';
+  kind: 'autosave' | 'publish' | 'restore' | 'import' | 'replace';
   created_at: string;
   user_name: string | null;
 }
 
-const kindLabel = (k: Rev['kind']): string => ({ autosave: t('Zwischenstand'), publish: t('Veröffentlicht'), restore: t('Wiederhergestellt'), import: t('Erzeugt') })[k];
+const kindLabel = (k: Rev['kind']): string =>
+  ({ autosave: t('Zwischenstand'), publish: t('Veröffentlicht'), restore: t('Wiederhergestellt'), import: t('Erzeugt'), replace: t('Vor «Suchen und Ersetzen»') })[k];
 
 function diffBlocks(before: Block[] = [], after: Block[] = []) {
   const out: { kind: 'add' | 'del' | 'chg'; label: string; text: string }[] = [];

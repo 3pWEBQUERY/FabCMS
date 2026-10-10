@@ -7040,3 +7040,91 @@ textarea.dg-input {
 .share-list .title {
   font-weight: 600;
 }
+
+/* ---------- search and replace ---------- */
+.rp-results {
+  margin-top: 1.25rem;
+}
+.rp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rp-list > li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+}
+.rp-list > li.off {
+  opacity: 0.55;
+}
+.rp-list > li > .row-check {
+  margin-top: 0.2rem;
+}
+.rp-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.rp-title a {
+  color: inherit;
+}
+.rp-snips {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.rp-snips li {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  font-size: var(--t-s);
+}
+.rp-where {
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  padding-top: 0.1rem;
+}
+.rp-text {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.rp-text del {
+  background: var(--bad-soft);
+  color: var(--bad);
+  text-decoration-thickness: 1px;
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+.rp-text ins {
+  background: var(--ok-soft);
+  color: var(--ok);
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 0.15em;
+  margin-left: 0.15em;
+}
+.rp-apply {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 0 0 var(--r-l) var(--r-l);
+}
+@media (max-width: 640px) {
+  .rp-snips li {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

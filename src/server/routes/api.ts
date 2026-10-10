@@ -6,6 +6,7 @@ import { contentApi } from './api-content';
 import { dataApi } from './api-data';
 import { rolesApi } from './api-roles';
 import { shareApi } from './api-share';
+import { replaceApi } from './api-replace';
 import { mediaApi } from './api-media';
 import { businessApi } from './api-business';
 import { systemApi } from './api-system';
@@ -50,6 +51,7 @@ export function apiRoutes(app: Hono<AppEnv>) {
   dataApi(app);
   rolesApi(app);
   shareApi(app);
+  replaceApi(app);
   mediaApi(app);
   businessApi(app);
   systemApi(app);

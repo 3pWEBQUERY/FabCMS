@@ -18,6 +18,7 @@ import { orderSlots, foodTotals } from '../src/shared/ordering';
 import { parseWxr, parseShopifyCsv, parseMarkdownFile, parseFeed, parseCsv, sniffDelimiter } from '../src/server/importer/parse';
 import { cellText, matchColumns, parseCell, tableFields } from '../src/shared/datatable';
 import { alignRects, snapLines, snapTo } from '../src/shared/canvas';
+import { replaceDeep, replaceInSettings } from '../src/shared/replace';
 import { CAP_INFO, DEFAULT_ROLE_MODES, can, capsOf, modesOf, setCustomRoles } from '../src/shared/roles';
 import { htmlToBlocks } from '../src/server/importer/run';
 import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, referenceFor } from '../src/shared/qrbill';
@@ -1515,5 +1516,40 @@ describe('free canvas geometry', () => {
     expect(lines).toEqual([0, 50, 100, 30, 35, 40]);
     expect(snapTo([29.4, 34.4, 39.4], lines, 1)).toEqual({ by: expect.closeTo(0.6), at: 30 });
     expect(snapTo([60, 61, 62], lines, 1)).toBeNull();
+  });
+});
+
+describe('search and replace', () => {
+  it('changes text people read, not ids or structure', () => {
+    const data = {
+      title: 'Telefon 044 123 45 67',
+      blocks: [{ id: '044', type: 'text', props: { body: '<p>Ruf an: <a href="tel:0441234567">044 123 45 67</a></p>' } }],
+    };
+    const r = replaceDeep(data, { find: '044 123 45 67', replace: '052 999 00 11' });
+    expect(r.value.title).toBe('Telefon 052 999 00 11');
+    expect(r.value.blocks[0].id).toBe('044');
+    // In rich text only the text between tags – the link target is not text.
+    expect(r.value.blocks[0].props.body).toBe('<p>Ruf an: <a href="tel:0441234567">052 999 00 11</a></p>');
+    expect(r.hits.map((h) => h.path)).toEqual(['title', 'blocks.0.props.body']);
+  });
+  it('matches rich text as it reads and keeps it valid HTML', () => {
+    const r = replaceDeep({ body: '<p>Müller &amp; Söhne <strong>AG</strong></p>' }, { find: 'Müller & Söhne', replace: 'Müller <Partner>' });
+    expect(r.value.body).toBe('<p>Müller &lt;Partner&gt; <strong>AG</strong></p>');
+    expect(r.hits[0]).toMatchObject({ match: 'Müller & Söhne', after: ' AG' });
+    // A tag name is never a hit.
+    expect(replaceDeep({ body: '<strong>stark</strong>' }, { find: 'strong', replace: 'x' }).hits).toHaveLength(0);
+  });
+  it('knows case and whole words, also with umlauts', () => {
+    expect(replaceDeep({ t: 'Bern und Berner Oberland' }, { find: 'bern', replace: 'Basel', wholeWord: true }).value.t).toBe('Basel und Berner Oberland');
+    expect(replaceDeep({ t: 'Bern und bern' }, { find: 'bern', replace: 'Basel', caseSensitive: true }).value.t).toBe('Bern und Basel');
+    expect(replaceDeep({ t: 'Zürich und Zürichsee' }, { find: 'Zürich', replace: 'Winterthur', wholeWord: true }).value.t).toBe('Winterthur und Zürichsee');
+    expect(replaceDeep({ t: 'a.b' }, { find: '.', replace: '-' }).value.t).toBe('a-b');
+    expect(replaceDeep({ t: 'x' }, { find: '', replace: 'y' }).hits).toEqual([]);
+  });
+  it('replaces in the readable site settings only', () => {
+    const s = { name: 'Gasthaus Linde', business: { phone: '044 1', email: 'a@b.ch' }, seo: { indexNowKey: 'Linde' }, nav: [{ id: 'n1', label: 'Linde', href: '/' }] };
+    const r = replaceInSettings(s, { find: 'Linde', replace: 'Eiche' });
+    expect(r.value).toMatchObject({ name: 'Gasthaus Eiche', seo: { indexNowKey: 'Linde' }, nav: [{ id: 'n1', label: 'Eiche' }] });
+    expect(r.hits.map((h) => h.path)).toEqual(['name', 'nav.0.label']);
   });
 });
