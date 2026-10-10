@@ -1209,6 +1209,17 @@ function ShopSettings() {
             />
           </Field>
         </Section>
+        <Section
+          title={t('Bewertungen')}
+          sub={t('Kundinnen und Kunden vergeben Sterne und schreiben dazu. Du gibst jede Bewertung frei; Google zeigt die Sterne in den Suchergebnissen.')}
+        >
+          <Toggle
+            checked={sh.reviews}
+            onChange={(v) => setS({ reviews: v })}
+            label={t('Bewertungen auf den Produktseiten')}
+            help={t('Wer mit derselben E-Mail-Adresse das Produkt gekauft hat, bekommt den Hinweis «Kauf bestätigt».')}
+          />
+        </Section>
         <Section title={t('Bestellungen')}>
           <div className="grid-2">
             <Field label={t('Benachrichtigung an')} help={t('Leer = Kontakt-E-Mail')}>

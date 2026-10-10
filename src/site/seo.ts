@@ -6,6 +6,7 @@ import { excerpt, stripHtml } from '../shared/text';
 import { schemaOpeningHours } from '../shared/hours';
 import { variantUrl } from './picture';
 import { entryPath } from '../shared/paths';
+import { summarize, type Review } from '../shared/reviews';
 import { t } from './i18n';
 
 export interface PageMeta {
@@ -113,10 +114,11 @@ export function articleLd(ctx: RenderContext, c: CollectionDef, e: { slug: strin
   };
 }
 
-export function productLd(ctx: RenderContext, c: CollectionDef, e: { slug: string; data: EntryData }, images: string[]) {
+export function productLd(ctx: RenderContext, c: CollectionDef, e: { slug: string; data: EntryData }, images: string[], reviews: Review[] = []) {
   const d = e.data;
   const variants = (d.variants as { name: string; price?: number; stock?: number | null; sku?: string }[]) ?? [];
   const url = ctx.base + (entryPath(c, e.slug) ?? '/');
+  const sum = summarize(reviews);
   const offer = (price: number, stock: number | null | undefined, sku?: string, name?: string) => ({
     '@type': 'Offer',
     price: (price / 100).toFixed(2),
@@ -138,6 +140,17 @@ export function productLd(ctx: RenderContext, c: CollectionDef, e: { slug: strin
     offers: variants.length
       ? variants.map((v) => offer(v.price ?? (d.price as number), v.stock, v.sku, v.name))
       : offer(d.price as number, d.stock as number | null, d.sku as string),
+    // The site's own customers' stars, as Google reads them; the newest few in full.
+    aggregateRating: sum.count ? { '@type': 'AggregateRating', ratingValue: sum.average, reviewCount: sum.count, bestRating: 5, worstRating: 1 } : undefined,
+    review: sum.count
+      ? reviews.slice(0, 5).map((r) => ({
+          '@type': 'Review',
+          author: { '@type': 'Person', name: r.name },
+          datePublished: new Date(r.created_at).toISOString().slice(0, 10),
+          reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+          reviewBody: r.body || undefined,
+        }))
+      : undefined,
   };
 }
 

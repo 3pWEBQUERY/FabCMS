@@ -74,6 +74,7 @@ export function defaultSettings(): SiteSettings {
       terms: '',
       orderPrefix: 'B-',
       notifyEmail: '',
+      reviews: false,
     },
     booking: {
       mode: 'table',

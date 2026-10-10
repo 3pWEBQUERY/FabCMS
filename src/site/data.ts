@@ -1,6 +1,7 @@
 import { sql } from '../server/db';
 import { localized, localizedOne } from '../server/translations';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
+import type { Review } from '../shared/reviews';
 import { applyOverrides, componentEls, type El, type Overrides } from '../shared/elements';
 
 export interface PublicEntry {
@@ -127,5 +128,13 @@ export async function sampleEntry(collection: string): Promise<PublicEntry | nul
 }
 
 export async function approvedComments(entryId: string) {
-  return sql`select id, name, body, created_at from comments where entry_id = ${entryId} and status = 'approved' order by created_at`;
+  return sql`select id, name, body, created_at from comments where entry_id = ${entryId} and status = 'approved' and rating is null order by created_at`;
+}
+
+/** Approved reviews of a product, newest first. */
+export async function approvedReviews(entryId: string): Promise<Review[]> {
+  const rows = await sql`
+    select name, rating, body, verified, created_at from comments
+    where entry_id = ${entryId} and status = 'approved' and rating is not null order by created_at desc limit 200`;
+  return rows as unknown as Review[];
 }

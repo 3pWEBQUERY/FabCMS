@@ -1560,4 +1560,20 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     en: 'Without a second factor: {n} – will be led to the setup on the next click.',
   },
   '2FA fehlt': { fr: '2FA manquante', it: '2FA mancante', en: '2FA missing' },
+  'Kommentare & Bewertungen': { fr: 'Commentaires et avis', it: 'Commenti e recensioni', en: 'Comments & reviews' },
+  '{n} von 5 Sternen': { fr: '{n} étoiles sur 5', it: '{n} stelle su 5', en: '{n} out of 5 stars' },
+  'Kauf bestätigt': { fr: 'Achat vérifié', it: 'Acquisto verificato', en: 'Verified purchase' },
+  'Bewertung zu «{title}»': { fr: 'Avis sur «{title}»', it: 'Recensione su «{title}»', en: 'Review of «{title}»' },
+  Bewertungen: { fr: 'Avis', it: 'Recensioni', en: 'Reviews' },
+  'Kundinnen und Kunden vergeben Sterne und schreiben dazu. Du gibst jede Bewertung frei; Google zeigt die Sterne in den Suchergebnissen.': {
+    fr: 'Les clientes et clients attribuent des étoiles et ajoutent un texte. Tu valides chaque avis ; Google affiche les étoiles dans les résultats de recherche.',
+    it: 'Clienti assegnano stelle e scrivono un commento. Approvi tu ogni recensione; Google mostra le stelle nei risultati di ricerca.',
+    en: 'Customers give stars and write a few words. You approve every review; Google shows the stars in search results.',
+  },
+  'Bewertungen auf den Produktseiten': { fr: 'Avis sur les pages produit', it: 'Recensioni nelle pagine prodotto', en: 'Reviews on product pages' },
+  'Wer mit derselben E-Mail-Adresse das Produkt gekauft hat, bekommt den Hinweis «Kauf bestätigt».': {
+    fr: 'Qui a acheté le produit avec la même adresse e-mail reçoit la mention «Achat vérifié».',
+    it: 'Chi ha acquistato il prodotto con lo stesso indirizzo e-mail riceve la dicitura «Acquisto verificato».',
+    en: 'Anyone who bought the product with the same email address gets the «Verified purchase» label.',
+  },
 };

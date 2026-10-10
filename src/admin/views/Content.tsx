@@ -76,7 +76,14 @@ export function ContentHub() {
     { to: '/spenden', icon: 'star', name: t('Spenden'), sub: t('Eingänge, Kampagnen, Bestätigungen'), show: can('donations.manage') && mods.includes('donations') },
     { to: '/bestellungen', icon: 'receipt', name: t('Bestellungen'), sub: t('Shop-Bestellungen'), show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
     { to: '/gutscheine', icon: 'ticket', name: t('Gutscheine'), sub: t('Rabattcodes'), show: can('orders.manage') && mods.includes('shop') },
-    { to: '/kommentare', icon: 'chat', name: t('Kommentare'), sub: t('Moderation'), show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },
+    {
+      to: '/kommentare',
+      icon: 'chat',
+      name: settings?.shop.reviews && mods.includes('shop') ? t('Kommentare & Bewertungen') : t('Kommentare'),
+      sub: t('Moderation'),
+      show: can('comments.moderate') && (mods.includes('blog') || (mods.includes('shop') && Boolean(settings?.shop.reviews))),
+      n: counts?.counts.comments,
+    },
     { to: '/papierkorb', icon: 'trash', name: t('Papierkorb'), sub: t('Gelöschtes 30 Tage zurückholen'), show: can('content.delete') || can('content.edit.own'), n: counts?.counts.trash },
   ].filter((x) => x.show);
   return (

@@ -532,6 +532,37 @@ export function publicRoutes(app: Hono<AppEnv>) {
     return c.redirect(`${path}?kommentar=danke#kommentare`, 303);
   });
 
+  /* product reviews: stars and an optional text, shown after approval */
+  app.post('/_nova/reviews/:product', async (c) => {
+    const id = c.req.param('product');
+    if (!/^[0-9a-f-]{36}$/.test(id)) return c.notFound();
+    const s = await getSettings();
+    const [e] = await sql`select slug, published_data from entries where id = ${id} and status = 'published' and collection = 'products'`;
+    if (!e || !s.shop.reviews || !s.modules.includes('shop')) return c.notFound();
+    const path = entryPath(await getCollection('products'), e.slug as string) ?? '/';
+    const body = await c.req.parseBody();
+    if (looksLikeSpam(body)) return c.redirect(`${path}?bewertung=danke#bewertungen`, 303);
+    if (!rateLimit(`review:${clientIp(c)}`, 3, 10 * 60_000).ok) return c.redirect(`${path}#bewertungen`, 303);
+    const name = String(body.name ?? '').trim().slice(0, 80);
+    const email = String(body.email ?? '').trim().toLowerCase().slice(0, 200);
+    const text = String(body.body ?? '').trim().slice(0, 2000);
+    const rating = Number(body.rating);
+    if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !Number.isInteger(rating) || rating < 1 || rating > 5) return c.redirect(`${path}#bewertungen`, 303);
+    // Bought it: a paid order from this address with the product in it.
+    const [bought] = await sql`
+      select 1 from orders where lower(email) = ${email} and status in ('paid', 'fulfilled')
+      and items @> ${sql.json([{ productId: id }])} limit 1`;
+    await sql`insert into comments (entry_id, name, email, body, rating, verified) values (${id}, ${name}, ${email}, ${text}, ${rating}, ${Boolean(bought)})`;
+    void notifyTeam({
+      kind: 'comment',
+      cap: 'comments.moderate',
+      title: `Neue Bewertung von ${name}: ${'★'.repeat(rating)}`,
+      body: `${(e.published_data as EntryData).title}${text ? ` – «${text.slice(0, 120)}${text.length > 120 ? '…' : ''}»` : ''} – wartet auf Freigabe.`,
+      href: '/kommentare',
+    });
+    return c.redirect(`${path}?bewertung=danke#bewertungen`, 303);
+  });
+
   /* age gate */
   app.post('/_nova/age', async (c) => {
     const body = await c.req.parseBody();

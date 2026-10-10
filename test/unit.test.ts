@@ -85,6 +85,7 @@ import { SECTORS } from '../src/shared/collections';
 import { THEMES } from '../src/site/themes';
 import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
 import { pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
+import { starText, summarize } from '../src/shared/reviews';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -1664,5 +1665,14 @@ describe('pop-ups', () => {
     expect(popupShowsOn(conf, '/blog/neu', at('2026-12-01T06:59Z'), 'Europe/Zurich')).toBe(false);
     expect(popupShowsOn(conf, '/blog/neu', at('2026-12-01T07:00Z'), 'Europe/Zurich')).toBe(true);
     expect(popupShowsOn(conf, '/blog/neu', at('2026-12-23T23:00Z'), 'Europe/Zurich')).toBe(false);
+  });
+});
+
+describe('product reviews', () => {
+  it('averages to one decimal and counts per star, ignoring what is not a rating', () => {
+    expect(summarize([{ rating: 5 }, { rating: 4 }, { rating: 4 }, { rating: 0 }, { rating: 2.5 }])).toEqual({ count: 3, average: 4.3, spread: [1, 2, 0, 0, 0] });
+    expect(summarize([])).toEqual({ count: 0, average: 0, spread: [0, 0, 0, 0, 0] });
+    expect(starText(4.3)).toBe('★★★★☆');
+    expect(starText(4.5)).toBe('★★★★★');
   });
 });

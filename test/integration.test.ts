@@ -2873,6 +2873,55 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const id of [pop.id, page.id]) await req('DELETE', `/api/entries/${id}`);
   });
 
+  it('lets customers rate products: only after approval, verified when they bought it, with stars for Google', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const p = (await req('POST', '/api/entries', { collection: 'products', data: { title: 'Bergtee', price: 1450 }, slug: 'bergtee' })).data.entry;
+    await req('POST', `/api/entries/${p.id}/publish`, {});
+    const form = (extra: Record<string, string>) => ({
+      _t: (Date.now() - 5000).toString(36),
+      website: '',
+      name: 'Lea',
+      email: 'Lea@Example.ch',
+      rating: '5',
+      body: 'Würzig & fein.',
+      ...extra,
+    });
+    const send = (extra: Record<string, string> = {}) => req('POST', `/_nova/reviews/${p.id}`, undefined, { ...anon, form: form(extra) });
+    // Off until switched on.
+    expect((await send()).status).toBe(404);
+    await req('PATCH', '/api/settings', { shop: { reviews: true } });
+    expect((await req('GET', '/laden/bergtee', undefined, anon)).data).toContain('Noch keine Bewertungen.');
+
+    // Lea bought it (the same address, written differently); Max didn't; a bot and a missing star count nothing.
+    await sql`insert into orders (number, token, status, email, customer, items, subtotal, total, payment_method)
+      values ('T-REV', 'tok-rev', 'paid', 'lea@example.ch', '{}', ${sql.json([{ productId: p.id, qty: 1 }])}, 1450, 1450, 'invoice')`;
+    expect((await send()).headers.get('location')).toBe('/laden/bergtee?bewertung=danke#bewertungen');
+    await send({ name: 'Max', email: 'max@example.ch', rating: '2', body: '' });
+    await send({ name: 'Bot', website: 'http://spam.example' });
+    await send({ name: 'Ohne', email: 'ohne@example.ch', rating: '9' });
+    const pending = (await req('GET', '/api/comments?status=pending')).data.comments.filter((c: { entry_id: string }) => c.entry_id === p.id);
+    expect(pending.map((c: { name: string; rating: number; verified: boolean }) => [c.name, c.rating, c.verified]).sort()).toEqual([
+      ['Lea', 5, true],
+      ['Max', 2, false],
+    ]);
+    // Nothing shows before approval.
+    expect((await req('GET', '/laden/bergtee', undefined, anon)).data).not.toContain('Würzig');
+    for (const c of pending) await req('PATCH', `/api/comments/${c.id}`, { status: 'approved' });
+    const page = (await req('GET', '/laden/bergtee', undefined, anon)).data as string;
+    expect(page).toContain('Würzig &amp; fein.');
+    expect(page).toContain('aria-label="3.5 von 5 Sternen"');
+    expect(page).toContain('2 Bewertungen');
+    expect(page.match(/class="rv-ok"/g)?.length).toBe(1);
+    const ld = [...page.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).find((x) => x['@type'] === 'Product');
+    expect(ld.aggregateRating).toMatchObject({ ratingValue: 3.5, reviewCount: 2, bestRating: 5 });
+    expect(ld.review).toHaveLength(2);
+    // Reviews are not blog comments.
+    await req('PATCH', '/api/settings', { shop: { reviews: false } });
+    expect((await req('GET', '/laden/bergtee', undefined, anon)).data).not.toContain('id="bewertungen"');
+    await sql`delete from orders where number = 'T-REV'`;
+    await req('DELETE', `/api/entries/${p.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

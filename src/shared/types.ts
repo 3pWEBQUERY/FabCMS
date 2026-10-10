@@ -214,6 +214,8 @@ export interface SiteSettings {
     terms: string;
     orderPrefix: string;
     notifyEmail: string;
+    /** Customers rate products with stars and a text; shown after approval. */
+    reviews: boolean;
   };
   booking: {
     /** «table» asks for the number of people; «appointment» for a service and optionally a person. */

@@ -17,6 +17,9 @@ interface Comment {
   entry_title: string;
   entry_slug: string;
   entry_id: string;
+  /** Product reviews have stars. */
+  rating: number | null;
+  verified: boolean;
 }
 
 export function Comments() {
@@ -35,7 +38,7 @@ export function Comments() {
             <Icon name="chevronLeft" size="s" /> {t('Inhalte')}
           </Link>
         }
-        title={t('Kommentare')}
+        title={t('Kommentare & Bewertungen')}
         sub={t('Nichts erscheint, bevor du es freigibst.')}
         actions={
           <Segmented
@@ -65,9 +68,21 @@ export function Comments() {
                   <strong>{c.name}</strong>
                   <span className="xsmall faint">{formatDate(c.created_at, true)}</span>
                 </div>
-                <p style={{ whiteSpace: 'pre-wrap' }}>{c.body}</p>
+                {c.rating !== null && (
+                  <p className="row" style={{ gap: '0.5rem' }}>
+                    <span className="rv-stars-admin" role="img" aria-label={t('{n} von 5 Sternen', { n: c.rating })}>
+                      {'★'.repeat(c.rating) + '☆'.repeat(5 - c.rating)}
+                    </span>
+                    {c.verified && (
+                      <span className="badge ok">
+                        <Icon name="check" size="s" /> {t('Kauf bestätigt')}
+                      </span>
+                    )}
+                  </p>
+                )}
+                {c.body && <p style={{ whiteSpace: 'pre-wrap' }}>{c.body}</p>}
                 <p className="xsmall muted">
-                  {t('zu «{title}»', { title: c.entry_title })}
+                  {c.rating !== null ? t('Bewertung zu «{title}»', { title: c.entry_title }) : t('zu «{title}»', { title: c.entry_title })}
                   {c.email ? ` · ${c.email}` : ''}
                 </p>
                 <div className="row wrap">

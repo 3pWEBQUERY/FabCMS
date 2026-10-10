@@ -7411,3 +7411,10 @@ textarea.dg-input {
   align-items: center;
   color: var(--ok);
 }
+
+/* review stars in moderation */
+.rv-stars-admin {
+  color: #c98a12;
+  letter-spacing: 0.08em;
+  font-size: var(--t-l);
+}

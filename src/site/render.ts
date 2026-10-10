@@ -5,8 +5,9 @@ import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
 import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, approvedReviews, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { popupConf, popupOnPath, popupWindow } from '../shared/popups';
+import { starText, summarize, type Review } from '../shared/reviews';
 import {
   articleLd,
   breadcrumbLd,
@@ -553,7 +554,8 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
   const ids = (d.images as string[]) ?? [];
   await ctx.preloadMedia(ids);
   const imgs = (await Promise.all(ids.map((id) => ctx.media(id)))).filter((m) => m !== null);
-  ctx.jsonLd.push(productLd(ctx, c, e, imgs.map((m) => ctx.base + variantUrl(m, 1280, 'jpg'))));
+  const reviews = ctx.settings.shop.reviews ? await approvedReviews(e.id) : [];
+  ctx.jsonLd.push(productLd(ctx, c, e, imgs.map((m) => ctx.base + variantUrl(m, 1280, 'jpg')), reviews));
   const variants = (d.variants as { name: string; price?: number | null; stock?: number | null }[]) ?? [];
   const baseStock = d.stock as number | null | undefined;
   const soldOut = variants.length ? variants.every((v) => v.stock === 0) : baseStock === 0;
@@ -588,7 +590,31 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         }<div class="qty"><div class="fld"><label for="qty">${t(ctx, 'Menge')}</label><input id="qty" name="qty" type="number" min="1" max="${typeof baseStock === 'number' && !variants.length ? Math.min(99, baseStock) : 99}" value="1" inputmode="numeric"></div><button class="btn">${t(ctx, 'In den Warenkorb')}</button></div>${
           lowStock ? html`<p class="stock low">${t(ctx, 'Nur noch {n} Stück an Lager', { n: baseStock as number })}</p>` : ''
         }</form>`
-  }${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>`;
+  }${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>${ctx.settings.shop.reviews ? reviewsSection(ctx, e.id, reviews) : ''}`;
+}
+
+/** Stars with a text for screen readers: «4.3 von 5 Sternen». */
+const stars = (ctx: RenderContext, n: number) => html`<span class="stars" role="img" aria-label="${t(ctx, '{n} von 5 Sternen', { n: n.toLocaleString(L(ctx)) })}">${starText(n)}</span>`;
+
+/** What customers say about a product, and the form to add to it (shown after approval). */
+function reviewsSection(ctx: RenderContext, productId: string, reviews: Review[]): Html {
+  const sum = summarize(reviews);
+  const sent = ctx.query.get('bewertung') === 'danke';
+  const choice = [5, 4, 3, 2, 1].map((n) => html`<input type="radio" id="rv-${n}" name="rating" value="${n}" required><label for="rv-${n}"><span aria-hidden="true">★</span><span class="sr">${n === 1 ? t(ctx, '1 Stern') : t(ctx, '{n} Sterne', { n })}</span></label>`);
+  return html`<section class="b sp-m" id="bewertungen" aria-labelledby="rv-h"><div class="wrap reviews"><h2 id="rv-h">${t(ctx, 'Bewertungen')}</h2>${
+    sum.count
+      ? html`<p class="rv-sum">${stars(ctx, sum.average)} <strong>${sum.average.toLocaleString(L(ctx))}</strong> <span>${sum.count === 1 ? t(ctx, '1 Bewertung') : t(ctx, '{n} Bewertungen', { n: sum.count })}</span></p>`
+      : html`<p class="muted">${t(ctx, 'Noch keine Bewertungen.')}</p>`
+  }${reviews.slice(0, 30).map(
+    (r) =>
+      html`<article class="review"><header>${stars(ctx, r.rating)}<strong>${r.name}</strong>${r.verified ? html`<span class="rv-ok">${t(ctx, 'Kauf bestätigt')}</span>` : ''}<time datetime="${new Date(r.created_at).toISOString()}">${new Date(r.created_at).toLocaleDateString(L(ctx))}</time></header>${
+        r.body ? html`<p>${r.body}</p>` : ''
+      }</article>`,
+  )}${
+    sent
+      ? html`<p class="form-ok" role="status">${t(ctx, 'Danke! Deine Bewertung erscheint, sobald sie geprüft ist.')}</p>`
+      : html`<form class="nform rv-form" method="post" action="/_nova/reviews/${productId}"><h3>${t(ctx, 'Bewertung schreiben')}</h3><input type="hidden" name="_t" value="${Date.now().toString(36)}"><div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div><fieldset class="rv-stars"><legend>${t(ctx, 'Deine Bewertung')}</legend><div>${choice}</div></fieldset><div class="fld"><label for="rv-name">${t(ctx, 'Name')}</label><input id="rv-name" name="name" required maxlength="80" autocomplete="name"></div><div class="fld"><label for="rv-mail">${t(ctx, 'E-Mail')} <span class="muted">${t(ctx, '(wird nicht veröffentlicht)')}</span></label><input id="rv-mail" name="email" type="email" required maxlength="200" autocomplete="email"><p class="muted">${t(ctx, 'Hast du hier gekauft, steht bei deiner Bewertung «Kauf bestätigt».')}</p></div><div class="fld"><label for="rv-body">${t(ctx, 'Was du dazu sagen möchtest')} <span class="muted">${t(ctx, '(freiwillig)')}</span></label><textarea id="rv-body" name="body" maxlength="2000"></textarea></div><div><button class="btn">${t(ctx, 'Absenden')}</button></div><p class="muted" style="font-size:var(--step-n1);margin:0">${t(ctx, 'Bewertungen werden vor der Veröffentlichung geprüft.')}</p></form>`
+  }</div></section>`;
 }
 
 async function projectTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<Html> {
