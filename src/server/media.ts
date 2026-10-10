@@ -6,7 +6,7 @@ import { MalwareFound, scanUpload, type ScanResult } from './scan';
 import { notify } from './notify';
 import { storage } from './storage';
 import type { MediaEdits, MediaItem } from '../shared/types';
-import { badRequest } from './lib/http';
+import { badRequest, notFound } from './lib/http';
 
 export const VARIANT_WIDTHS = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560] as const;
 export type VariantFormat = 'avif' | 'webp' | 'jpg';
@@ -64,7 +64,8 @@ export interface UploadInput {
   private?: boolean;
 }
 
-export async function storeUpload(input: UploadInput): Promise<MediaItem> {
+/** What a file really is (by its content, not its name), checked for malware – before anything is stored. */
+async function inspectUpload(input: Pick<UploadInput, 'buffer' | 'filename' | 'folder'>) {
   const { buffer } = input;
   if (buffer.length === 0) throw badRequest('Die Datei ist leer.');
   if (buffer.length > MAX_UPLOAD) throw badRequest('Die Datei ist grösser als 100 MB.');
@@ -108,7 +109,12 @@ export async function storeUpload(input: UploadInput): Promise<MediaItem> {
     }
     throw e;
   }
+  return { filename, mime, width, height, storedExt, scan };
+}
 
+export async function storeUpload(input: UploadInput): Promise<MediaItem> {
+  const { buffer } = input;
+  const { filename, mime, width, height, storedExt, scan } = await inspectUpload(input);
   const [row] = await sql`
     insert into media (storage_key, filename, mime, size, width, height, alt, folder, uploaded_by, private, scan)
     values ('', ${filename}, ${mime}, ${buffer.length}, ${width}, ${height}, ${input.alt ?? ''}, ${input.folder ?? ''},
@@ -120,6 +126,32 @@ export async function storeUpload(input: UploadInput): Promise<MediaItem> {
   if (width) await storePlaceholder(row.id as string, buffer, {});
   if (mime.startsWith('video/') && !input.private) await queueVideo(row.id as string);
   const [item] = await sql`select * from media where id = ${row.id}`;
+  return item as unknown as MediaItem;
+}
+
+/**
+ * A new file under the same id: every page, entry and setting that uses it shows
+ * the new one. Same kind only (a picture for a picture); edits start over.
+ */
+export async function replaceMedia(id: string, input: Pick<UploadInput, 'buffer' | 'filename'>): Promise<MediaItem> {
+  const [old] = await sql`select * from media where id = ${id}`;
+  if (!old) throw notFound();
+  const next = await inspectUpload({ ...input, folder: old.folder as string });
+  if (next.mime.split('/')[0] !== String(old.mime).split('/')[0])
+    throw badRequest('Ersetzen geht nur mit derselben Art von Datei – ein Bild durch ein Bild, ein Video durch ein Video.');
+  const key = `media/${id}/original${next.storedExt}`;
+  if (key !== old.storage_key) await storage.delete(old.storage_key as string).catch(() => {});
+  await storage.deletePrefix(`media/${id}/video/`).catch(() => {});
+  await storage.put(key, input.buffer, next.mime);
+  for (const k of [...hot.keys()]) if (k.startsWith(`media/${id}/`)) hot.delete(k);
+  await sql`
+    update media set storage_key = ${key}, filename = ${next.filename}, mime = ${next.mime}, size = ${input.buffer.length},
+      width = ${next.width}, height = ${next.height}, scan = ${json(next.scan)}, edits = '{}', video = null
+    where id = ${id}`;
+  await bumpMediaVersion(id);
+  if (next.width) await storePlaceholder(id, input.buffer, {});
+  if (next.mime.startsWith('video/') && !old.private) await queueVideo(id);
+  const [item] = await sql`select * from media where id = ${id}`;
   return item as unknown as MediaItem;
 }
 

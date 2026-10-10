@@ -11,6 +11,8 @@ import { useToast } from '../ui/toast';
 import { rememberMedia, uploadFiles, type MediaRow, Thumb } from '../ui/MediaPicker';
 import { TagInput } from '../ui/FieldInput';
 import { t } from '../lib/i18n';
+import { MediaBulkBar } from './MediaBulk';
+import { useSelection } from './Bulk';
 
 const sizeLabel = (b: number) => (b > 1_048_576 ? `${(b / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
@@ -28,6 +30,7 @@ export function MediaLibrary() {
   const [uploading, setUploading] = useState(0);
   const [share, setShare] = useState(0);
   const [openId, setOpenId] = useState<string | null>(query.get('id'));
+  const selection = useSelection((items ?? []).map((m) => m.id));
   const input = useRef<HTMLInputElement>(null);
   const dq = useDebounced(q, 200);
 
@@ -157,7 +160,28 @@ export function MediaLibrary() {
         ) : (
           <div className="media-grid">
             {items.map((m) => (
-              <button key={m.id} type="button" className="media-tile" onClick={() => setOpenId(m.id)} title={m.filename}>
+              <button
+                key={m.id}
+                type="button"
+                className={`media-tile${selection.has(m.id) ? ' chosen' : ''}`}
+                aria-pressed={selection.some ? selection.has(m.id) : undefined}
+                // While something is chosen, a tap chooses; Cmd/Ctrl/Shift-click starts choosing.
+                onClick={(e) => (selection.some || e.metaKey || e.ctrlKey || e.shiftKey ? selection.toggle(m.id) : setOpenId(m.id))}
+                title={m.filename}
+              >
+                <span
+                  className="tile-check"
+                  role="checkbox"
+                  aria-checked={selection.has(m.id)}
+                  aria-label={t('«{name}» auswählen', { name: m.filename })}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selection.toggle(m.id);
+                  }}
+                >
+                  <Icon name="check" size="s" />
+                </span>
                 <Thumb m={m} />
                 {!m.image && <span className="fname ellipsis">{m.filename}</span>}
                 {m.image && !m.alt && <span className="flag badge edited">{t('Beschreibung fehlt')}</span>}
@@ -166,6 +190,14 @@ export function MediaLibrary() {
           </div>
         )}
       </div>
+      <MediaBulkBar
+        selection={selection}
+        folders={folders.map((f) => f.folder).filter(Boolean)}
+        onDone={(removed) => {
+          if (removed.length) setItems((list) => list?.filter((x) => !removed.includes(x.id)) ?? null);
+          void load();
+        }}
+      />
       {open && (
         <MediaDetail
           key={open.id}
@@ -355,6 +387,30 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
                 <button className="btn" onClick={() => setEditing(true)}>
                   <Icon name="crop" size="s" /> {t('Zuschneiden & drehen')}
                 </button>
+              )}
+              {can('media.upload') && (
+                <label className="btn">
+                  <Icon name="upload" size="s" /> {t('Datei ersetzen')}
+                  <input
+                    type="file"
+                    hidden
+                    accept={media.image ? 'image/*' : media.mime.startsWith('video/') ? 'video/*' : undefined}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!f) return;
+                      const fd = new FormData();
+                      fd.append('file', f);
+                      try {
+                        const r = await api.upload<{ media: MediaRow }>(`/api/media/${media.id}/replace`, fd);
+                        onChange(r.media);
+                        toast(usage?.length ? t('Ersetzt – an {n} Stelle(n) erscheint jetzt die neue Datei.', { n: usage.length }) : t('Datei ersetzt.'));
+                      } catch (err) {
+                        toast((err as Error).message, { kind: 'bad' });
+                      }
+                    }}
+                  />
+                </label>
               )}
               <a className="btn" href={media.url} target="_blank" rel="noreferrer">
                 <Icon name="external" size="s" /> {t('Öffnen')}

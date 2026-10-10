@@ -6480,3 +6480,56 @@ tr.selected td,
   flex: 1;
   min-width: 0;
 }
+
+/* ---------- choosing files in the media library ---------- */
+
+.tile-check {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(0, 0, 0, 0.28);
+  color: transparent;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    background-color 0.12s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.media-tile:hover .tile-check,
+.media-tile:focus-visible .tile-check,
+.media-tile[aria-pressed] .tile-check {
+  opacity: 1;
+}
+.media-tile.chosen .tile-check {
+  background: var(--sel);
+  border-color: var(--sel);
+  color: #fff;
+}
+.media-tile.chosen {
+  box-shadow:
+    0 0 0 3px var(--sel),
+    0 0 0 5px var(--bg);
+}
+.media-tile.chosen img {
+  transform: scale(0.94);
+  border-radius: 6px;
+}
+.media-tile img {
+  transition:
+    transform 0.15s,
+    border-radius 0.15s;
+}
+@media (pointer: coarse) {
+  .tile-check {
+    opacity: 1;
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+}

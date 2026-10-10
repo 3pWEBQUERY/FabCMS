@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import { z } from 'zod';
 import { sql, json } from '../db';
 import { audit, requireAnyCap, requireCap, type AppEnv } from '../auth';
-import { bumpMediaVersion, deleteMedia, isImage, refreshPlaceholder, storeUpload, effectiveSize } from '../media';
+import { bumpMediaVersion, deleteMedia, isImage, refreshPlaceholder, replaceMedia, storeUpload, effectiveSize } from '../media';
 import { storage } from '../storage';
 import { badRequest, notFound } from '../lib/http';
 import { bumpGeneration } from '../settings';
@@ -117,6 +117,53 @@ export function mediaApi(app: Hono<AppEnv>) {
     bumpGeneration();
     const [next] = await sql`select * from media where id = ${id}`;
     return c.json({ media: withUrls(next as unknown as MediaItem) });
+  });
+
+  /** A new file under the same id – everything that uses it shows the new one. */
+  app.post('/api/media/:id/replace', async (c) => {
+    requireCap(c, 'media.upload');
+    const body = await c.req.parseBody();
+    const f = body.file;
+    if (!(f instanceof File)) throw badRequest('Keine Datei empfangen.');
+    const m = await replaceMedia(c.req.param('id'), { buffer: Buffer.from(await f.arrayBuffer()), filename: f.name });
+    bumpGeneration();
+    await audit(c, 'media.replace', 'media', m.id, { filename: m.filename });
+    return c.json({ media: withUrls(m) });
+  });
+
+  /** Many files at once: into a folder, a tag more, or away (files in use only when asked twice). */
+  app.post('/api/media/bulk', async (c) => {
+    const body = z
+      .object({
+        ids: z.array(z.string().uuid()).min(1).max(500),
+        action: z.enum(['move', 'tag', 'delete']),
+        folder: z.string().max(80).optional(),
+        tag: z.string().min(1).max(40).optional(),
+        force: z.boolean().optional(),
+      })
+      .parse(await c.req.json());
+    requireCap(c, body.action === 'delete' ? 'media.manage' : 'media.upload');
+    const done: string[] = [];
+    const inUse: string[] = [];
+    for (const id of [...new Set(body.ids)]) {
+      if (body.action === 'move') await sql`update media set folder = ${(body.folder ?? '').trim()} where id = ${id}`;
+      else if (body.action === 'tag') await sql`update media set tags = array_append(tags, ${body.tag!.trim()}) where id = ${id} and not (${body.tag!.trim()} = any(tags))`;
+      else {
+        if (!body.force) {
+          const [used] = await sql`select 1 from entries where data::text like ${'%' + id + '%'} or coalesce(published_data::text, '') like ${'%' + id + '%'} limit 1`;
+          const [inSettings] = await sql`select 1 from settings where key = 'site' and value::text like ${'%' + id + '%'}`;
+          if (used || inSettings) {
+            inUse.push(id);
+            continue;
+          }
+        }
+        if ((await sql`select 1 from media where id = ${id}`).length) await deleteMedia(id);
+      }
+      done.push(id);
+    }
+    bumpGeneration();
+    await audit(c, `media.bulk.${body.action}`, 'media', undefined, { done: done.length, inUse: inUse.length });
+    return c.json({ done, inUse });
   });
 
   /** Where is this file used? Shown before deleting. */

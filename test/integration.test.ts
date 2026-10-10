@@ -2534,4 +2534,43 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('POST', '/api/taxonomy/posts', { field: 'title', from: 'x', to: 'y' })).status).toBe(400);
     for (const e of [a, b]) await req('DELETE', `/api/entries/${e.id}`);
   });
+
+  it('replaces a file under the same id and handles many files at once', async () => {
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const png = (w: number, h: number, r: number) =>
+      sharp({ create: { width: w, height: h, channels: 3, background: { r, g: 120, b: 80 } } })
+        .png()
+        .toBuffer();
+    const send = async (url: string, name: string, buf: Buffer, type = 'image/png') => {
+      const form = new FormData();
+      form.append('file', new File([new Uint8Array(buf)], name, { type }));
+      const r = await app.request(url, { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      return { status: r.status, data: await r.json() };
+    };
+    const first = (await send('/api/media', 'alt.png', await png(400, 300, 200))).data.media[0];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Mit Bild', blocks: [{ id: 'img1', type: 'image', props: { image: first.id } }] } });
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    // Replace: same id, new size and version – the page shows the new file without being touched.
+    const rep = await send(`/api/media/${first.id}/replace`, 'neu.png', await png(800, 400, 20));
+    expect(rep.status).toBe(200);
+    expect(rep.data.media).toMatchObject({ id: first.id, filename: 'neu.png', width: 800, height: 400, version: first.version + 1 });
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(html).toContain(`/media/${first.id}/v${first.version + 1}/`);
+    // Only the same kind of file.
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+    expect((await send(`/api/media/${first.id}/replace`, 'x.pdf', pdf, 'application/pdf')).status).toBe(400);
+    // Bulk: folder and tag for all; deleting leaves files in use unless asked again.
+    const second = (await send('/api/media', 'frei.png', await png(50, 50, 90))).data.media[0];
+    const moved = await req('POST', '/api/media/bulk', { ids: [first.id, second.id], action: 'move', folder: 'Sammlung' });
+    expect(moved.data.done).toHaveLength(2);
+    await req('POST', '/api/media/bulk', { ids: [first.id, second.id], action: 'tag', tag: 'sommer' });
+    await req('POST', '/api/media/bulk', { ids: [first.id], action: 'tag', tag: 'sommer' });
+    const [row] = await sql`select folder, tags from media where id = ${first.id}`;
+    expect(row).toMatchObject({ folder: 'Sammlung', tags: ['sommer'] });
+    const del = await req('POST', '/api/media/bulk', { ids: [first.id, second.id], action: 'delete' });
+    expect(del.data).toEqual({ done: [second.id], inUse: [first.id] });
+    const forced = await req('POST', '/api/media/bulk', { ids: [first.id], action: 'delete', force: true });
+    expect(forced.data.done).toEqual([first.id]);
+    await req('DELETE', `/api/entries/${page.data.entry.id}`);
+  });
 });

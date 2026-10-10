@@ -148,4 +148,36 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   '{n} online': { fr: '{n} en ligne', it: '{n} online', en: '{n} online' },
   Umbenennen: { fr: 'Renommer', it: 'Rinomina', en: 'Rename' },
   '«{name}» entfernen': { fr: 'Retirer «{name}»', it: 'Rimuovi «{name}»', en: 'Remove “{name}”' },
+  /* media: replace and bulk */
+  'Datei ersetzen': { fr: 'Remplacer le fichier', it: 'Sostituisci file', en: 'Replace file' },
+  'Ersetzt – an {n} Stelle(n) erscheint jetzt die neue Datei.': {
+    fr: 'Remplacé – le nouveau fichier apparaît maintenant à {n} endroit(s).',
+    it: 'Sostituito – il nuovo file ora compare in {n} punto/i.',
+    en: 'Replaced – the new file now appears in {n} place(s).',
+  },
+  'Datei ersetzt.': { fr: 'Fichier remplacé.', it: 'File sostituito.', en: 'File replaced.' },
+  '{n} gelöscht. {k} werden noch verwendet und sind geblieben.': {
+    fr: '{n} supprimé(s). {k} sont encore utilisés et ont été conservés.',
+    it: '{n} eliminati. {k} sono ancora in uso e sono rimasti.',
+    en: '{n} deleted. {k} are still in use and were kept.',
+  },
+  '{n} gelöscht.': { fr: '{n} supprimé(s).', it: '{n} eliminati.', en: '{n} deleted.' },
+  'Trotzdem löschen': { fr: 'Supprimer quand même', it: 'Elimina comunque', en: 'Delete anyway' },
+  '{n} verschoben.': { fr: '{n} déplacé(s).', it: '{n} spostati.', en: '{n} moved.' },
+  'Schlagwort bei {n} ergänzt.': { fr: 'Mot-clé ajouté à {n}.', it: 'Parola chiave aggiunta a {n}.', en: 'Tag added to {n}.' },
+  'In Ordner': { fr: 'Dans un dossier', it: 'In una cartella', en: 'To folder' },
+  Schlagwort: { fr: 'Mot-clé', it: 'Parola chiave', en: 'Tag' },
+  '{n} Dateien löschen?': { fr: 'Supprimer {n} fichiers ?', it: 'Eliminare {n} file?', en: 'Delete {n} files?' },
+  'Dateien, die noch verwendet werden, bleiben – du kannst sie danach bewusst löschen.': {
+    fr: 'Les fichiers encore utilisés restent – vous pourrez ensuite les supprimer délibérément.',
+    it: 'I file ancora in uso restano – potrai poi eliminarli consapevolmente.',
+    en: 'Files still in use stay – you can then delete them on purpose.',
+  },
+  '{n} Dateien in einen Ordner': { fr: '{n} fichiers dans un dossier', it: '{n} file in una cartella', en: '{n} files to a folder' },
+  'Schlagwort für {n} Dateien': { fr: 'Mot-clé pour {n} fichiers', it: 'Parola chiave per {n} file', en: 'Tag for {n} files' },
+  'Neuer Name legt den Ordner an, leer = ohne Ordner.': {
+    fr: 'Un nouveau nom crée le dossier, vide = sans dossier.',
+    it: 'Un nuovo nome crea la cartella, vuoto = senza cartella.',
+    en: 'A new name creates the folder, empty = no folder.',
+  },
 };
