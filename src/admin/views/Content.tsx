@@ -5,8 +5,8 @@ import { useApi, useDebounced, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
-import { createAndOpen, entryUrl } from '../lib/actions';
-import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, confirm, Dialog, Select } from '../ui/kit';
+import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
+import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
@@ -62,6 +62,7 @@ export function ContentHub() {
     { to: '/bestellungen', icon: 'receipt', name: t('Bestellungen'), sub: t('Shop-Bestellungen'), show: can('orders.view') && mods.includes('shop'), n: counts?.counts.to_ship },
     { to: '/gutscheine', icon: 'ticket', name: t('Gutscheine'), sub: t('Rabattcodes'), show: can('orders.manage') && mods.includes('shop') },
     { to: '/kommentare', icon: 'chat', name: t('Kommentare'), sub: t('Moderation'), show: can('comments.moderate') && mods.includes('blog'), n: counts?.counts.comments },
+    { to: '/papierkorb', icon: 'trash', name: t('Papierkorb'), sub: t('Gelöschtes 30 Tage zurückholen'), show: can('content.delete') || can('content.edit.own'), n: counts?.counts.trash },
   ].filter((x) => x.show);
   return (
     <div className="page">
@@ -234,11 +235,7 @@ export function CollectionList({ collection }: { collection: string }) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
-  const remove = async (r: Row) => {
-    if (!(await confirm({ title: t('«{name}» löschen?', { name: r.title }), confirm: t('Löschen'), danger: true }))) return;
-    await api.del(`/api/entries/${r.id}`);
-    void reload();
-  };
+  const remove = (r: Row) => moveToTrash(r.id, r.title, toast, () => void reload()).catch((e: Error) => toast(e.message, { kind: 'bad' }));
 
   return (
     <div className="page">

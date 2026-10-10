@@ -6164,3 +6164,13 @@ body.scrubbing.v * {
 .bind-box .section-title {
   color: var(--sel);
 }
+
+/* ---------- trash ---------- */
+
+.actions-cell {
+  white-space: nowrap;
+  text-align: right;
+}
+.actions-cell .btn + .btn {
+  margin-left: 0.25rem;
+}

@@ -431,11 +431,73 @@ export async function unpublishEntry(id: string): Promise<Entry> {
   return e as unknown as Entry;
 }
 
-export async function deleteEntry(id: string): Promise<void> {
+/** Tables whose rows belong to one entry and come back with it from the trash. */
+const RELATED = ['revisions', 'entry_translations', 'entry_comments', 'comments', 'ticket_waitlist'] as const;
+
+/** Moves an entry into the trash – with its versions, translations and comments. */
+export async function deleteEntry(id: string, userId: string | null = null, opts: { permanent?: boolean } = {}): Promise<void> {
   const e = await getEntry(id);
   if (e.collection === 'pages' && e.slug === '') throw badRequest('Die Startseite kann nicht gelöscht werden.');
-  await sql`delete from entries where id = ${id}`;
+  // A withdrawn consent leaves nothing behind – not even in the trash.
+  if (opts.permanent) {
+    await sql`delete from trash where id = ${id}`;
+    await sql`delete from entries where id = ${id}`;
+    bumpGeneration();
+    return;
+  }
+  await sql.begin(async (tx) => {
+    const related: Record<string, unknown[]> = {};
+    for (const t of RELATED) related[t] = [...(await tx`select * from ${tx(t)} where entry_id = ${id}`)];
+    await tx`
+      insert into trash (id, collection, title, entry, related, deleted_by)
+      values (${id}, ${e.collection}, ${String(e.data.title ?? '')}, ${json(e)}, ${json(related)}, ${userId})
+      on conflict (id) do update set entry = excluded.entry, related = excluded.related, deleted_by = excluded.deleted_by, deleted_at = now()`;
+    await tx`delete from entries where id = ${id}`;
+  });
   bumpGeneration();
+}
+
+/**
+ * Brings an entry back from the trash. If its address is taken meanwhile it gets a
+ * new one and comes back as a draft, so nothing goes online under a surprising address.
+ */
+export async function restoreEntry(id: string): Promise<Entry> {
+  const [t] = await sql`select * from trash where id = ${id}`;
+  if (!t) throw notFound('Dieser Eintrag liegt nicht mehr im Papierkorb.');
+  const row = t.entry as Entry & Record<string, unknown>;
+  const [col] = await sql`select id from collections where id = ${row.collection}`;
+  if (!col) throw badRequest('Den Inhaltstyp dieses Eintrags gibt es nicht mehr.');
+  const restored = await sql.begin(async (tx) => {
+    const free = await uniqueSlug(row.collection, row.slug, undefined, tx);
+    const moved = free !== row.slug;
+    const [e] = await tx`
+      insert into entries (id, collection, slug, status, data, published_data, published_slug, publish_at, published_at, author_id, version, sort_index, created_at, updated_at)
+      values (${row.id}, ${row.collection}, ${free}, ${moved ? 'draft' : row.status}, ${json(row.data)}, ${moved || !row.published_data ? null : json(row.published_data)},
+              ${moved ? null : (row.published_slug ?? null)}, ${moved ? null : (row.publish_at ?? null)}, ${row.published_at ?? null},
+              ${(await tx`select 1 from users where id = ${row.author_id ?? null}`).length ? row.author_id : null}, ${row.version ?? 1}, ${row.sort_index ?? 0},
+              ${row.created_at ?? new Date()}, now())
+      returning *`;
+    const related = (t.related ?? {}) as Record<string, Record<string, unknown>[]>;
+    for (const table of RELATED) {
+      for (const r of related[table] ?? []) {
+        // Rows that point at people who are gone keep their content without the person.
+        for (const k of ['user_id', 'author_id', 'updated_by', 'resolved_by']) if (k in r && r[k]) r[k] = (await tx`select 1 from users where id = ${r[k] as string}`).length ? r[k] : null;
+        // JSON columns go back as JSON; arrays (ids of mentioned people) stay arrays.
+        const values = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) ? json(v) : v]));
+        await tx`insert into ${tx(table)} ${tx(values as Record<string, never>)} on conflict do nothing`;
+      }
+    }
+    await tx`delete from trash where id = ${id}`;
+    return e;
+  });
+  bumpGeneration();
+  return restored as unknown as Entry;
+}
+
+/** Entries in the trash longer than 30 days are gone for good. */
+export async function purgeTrash(): Promise<number> {
+  const r = await sql`delete from trash where deleted_at < now() - interval '30 days'`;
+  return r.count;
 }
 
 /** Called by the scheduler: publishes everything whose time has come. */

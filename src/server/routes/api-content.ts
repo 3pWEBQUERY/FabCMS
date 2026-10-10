@@ -7,6 +7,7 @@ import {
   activeCollections,
   createEntry,
   deleteEntry,
+  restoreEntry,
   getCollection,
   getEntry,
   listCollections,
@@ -314,9 +315,48 @@ export function contentApi(app: Hono<AppEnv>) {
     if (!can(user.role, 'content.delete')) {
       if (cur.author_id !== user.id || cur.status === 'published') throw forbidden('Du kannst nur eigene, unveröffentlichte Entwürfe löschen.');
     }
-    await deleteEntry(cur.id);
+    await deleteEntry(cur.id, user.id);
     await audit(c, 'entry.delete', cur.collection, cur.id, { title: cur.data.title });
+    return c.json({ ok: true, trash: true });
+  });
+
+  /* ---------- trash: deleted entries stay 30 days ---------- */
+
+  app.get('/api/trash', async (c) => {
+    const user = requireAnyCap(c, 'content.delete', 'content.edit.own');
+    const own = can(user.role, 'content.delete') ? sql`` : sql`and t.entry ->> 'author_id' = ${user.id}`;
+    const col = c.req.query('collection');
+    const rows = await sql`
+      select t.id, t.collection, t.title, t.deleted_at, u.name as deleted_by_name, t.entry ->> 'status' as status, t.entry ->> 'slug' as slug
+      from trash t left join users u on u.id = t.deleted_by
+      where true ${own} ${col ? sql`and t.collection = ${col}` : sql``}
+      order by t.deleted_at desc limit 500`;
+    return c.json({ entries: rows });
+  });
+
+  app.post('/api/trash/:id/restore', async (c) => {
+    const user = requireAnyCap(c, 'content.delete', 'content.edit.own');
+    const [t] = await sql`select collection, entry ->> 'author_id' as author from trash where id = ${c.req.param('id')}`;
+    if (!t) throw notFound('Dieser Eintrag liegt nicht mehr im Papierkorb.');
+    if (!can(user.role, 'content.delete') && t.author !== user.id) throw forbidden('Du kannst nur eigene Einträge zurückholen.');
+    const e = await restoreEntry(c.req.param('id'));
+    await audit(c, 'entry.restore', e.collection, e.id, { title: e.data.title });
+    return c.json({ entry: e });
+  });
+
+  app.delete('/api/trash/:id', async (c) => {
+    requireCap(c, 'content.delete');
+    const [t] = await sql`delete from trash where id = ${c.req.param('id')} returning collection, title`;
+    if (!t) throw notFound('Dieser Eintrag liegt nicht mehr im Papierkorb.');
+    await audit(c, 'entry.purge', t.collection as string, c.req.param('id'), { title: t.title });
     return c.json({ ok: true });
+  });
+
+  app.delete('/api/trash', async (c) => {
+    requireCap(c, 'content.delete');
+    const r = await sql`delete from trash`;
+    await audit(c, 'trash.empty', 'trash', undefined, { count: r.count });
+    return c.json({ ok: true, count: r.count });
   });
 
   app.delete('/api/entries/:id/translations/:lang', async (c) => {
@@ -353,7 +393,7 @@ export function contentApi(app: Hono<AppEnv>) {
     const revs = await sql`select data from revisions where entry_id = ${cur.id}`;
     for (const r of revs) for (const m of ((r.data as EntryData).images as string[]) ?? []) media.add(m);
     for (const m of media) await deleteMedia(m).catch(() => {});
-    await deleteEntry(cur.id);
+    await deleteEntry(cur.id, null, { permanent: true });
     await audit(c, 'profile.withdraw', 'profiles', cur.id, { media: media.size });
     return c.json({ ok: true, removedMedia: media.size });
   });

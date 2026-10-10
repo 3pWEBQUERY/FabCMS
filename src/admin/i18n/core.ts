@@ -1,0 +1,47 @@
+/** Core content work: trash, bulk actions, calendar, categories, data view, roles. */
+export const core: Record<string, { fr: string; it: string; en: string }> = {
+  /* trash */
+  '«{name}» liegt im Papierkorb.': { fr: '«{name}» est dans la corbeille.', it: '«{name}» è nel cestino.', en: '“{name}” is in the trash.' },
+  '«{name}» ist zurück.': { fr: '«{name}» est de retour.', it: '«{name}» è tornato.', en: '“{name}” is back.' },
+  Papierkorb: { fr: 'Corbeille', it: 'Cestino', en: 'Trash' },
+  'Gelöschtes 30 Tage zurückholen': {
+    fr: 'Récupérer les éléments supprimés pendant 30 jours',
+    it: 'Recupera gli elementi eliminati per 30 giorni',
+    en: 'Bring back deleted items for 30 days',
+  },
+  '«{name}» ist zurück – unter neuer Adresse und als Entwurf, weil die alte inzwischen vergeben ist.': {
+    fr: '«{name}» est de retour – sous une nouvelle adresse et en brouillon, car l’ancienne est entre-temps occupée.',
+    it: '«{name}» è tornato – con un nuovo indirizzo e come bozza, perché quello vecchio è nel frattempo occupato.',
+    en: '“{name}” is back – under a new address and as a draft, because the old one has been taken in the meantime.',
+  },
+  '«{name}» endgültig löschen?': { fr: 'Supprimer «{name}» définitivement ?', it: 'Eliminare «{name}» definitivamente?', en: 'Delete “{name}” for good?' },
+  'Mit Verlauf, Übersetzungen und Kommentaren. Das lässt sich nicht rückgängig machen.': {
+    fr: 'Avec l’historique, les traductions et les commentaires. Cette action est irréversible.',
+    it: 'Con cronologia, traduzioni e commenti. Non si può annullare.',
+    en: 'Including history, translations and comments. This cannot be undone.',
+  },
+  'Endgültig löschen': { fr: 'Supprimer définitivement', it: 'Elimina definitivamente', en: 'Delete for good' },
+  'Papierkorb leeren?': { fr: 'Vider la corbeille ?', it: 'Svuotare il cestino?', en: 'Empty the trash?' },
+  'Alle {n} Einträge werden endgültig gelöscht.': {
+    fr: 'Les {n} entrées seront supprimées définitivement.',
+    it: 'Tutte le {n} voci verranno eliminate definitivamente.',
+    en: 'All {n} entries will be deleted for good.',
+  },
+  'Papierkorb geleert.': { fr: 'Corbeille vidée.', it: 'Cestino svuotato.', en: 'Trash emptied.' },
+  'Gelöschte Seiten und Einträge bleiben 30 Tage hier – zurückgeholt mit Verlauf, Übersetzungen und Kommentaren.': {
+    fr: 'Les pages et entrées supprimées restent ici 30 jours – récupérées avec historique, traductions et commentaires.',
+    it: 'Le pagine e le voci eliminate restano qui 30 giorni – recuperate con cronologia, traduzioni e commenti.',
+    en: 'Deleted pages and entries stay here for 30 days – brought back with history, translations and comments.',
+  },
+  'Papierkorb leeren': { fr: 'Vider la corbeille', it: 'Svuota il cestino', en: 'Empty trash' },
+  'Der Papierkorb ist leer': { fr: 'La corbeille est vide', it: 'Il cestino è vuoto', en: 'The trash is empty' },
+  'Was du löschst, landet zuerst hier – du kannst es 30 Tage lang zurückholen.': {
+    fr: 'Ce que vous supprimez arrive d’abord ici – vous pouvez le récupérer pendant 30 jours.',
+    it: 'Ciò che elimini finisce prima qui – puoi recuperarlo per 30 giorni.',
+    en: 'What you delete lands here first – you can bring it back for 30 days.',
+  },
+  Gelöscht: { fr: 'Supprimé', it: 'Eliminato', en: 'Deleted' },
+  Noch: { fr: 'Reste', it: 'Ancora', en: 'Left' },
+  'Ohne Titel': { fr: 'Sans titre', it: 'Senza titolo', en: 'Untitled' },
+  Zurückholen: { fr: 'Récupérer', it: 'Recupera', en: 'Restore' },
+};

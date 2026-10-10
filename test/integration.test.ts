@@ -2406,4 +2406,42 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     }
     expect(await page(open.slug)).not.toContain('e-tt');
   });
+
+  it('keeps deleted entries 30 days in the trash and brings them back with everything', async () => {
+    const created = await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Bald weg', excerpt: 'Kurz.' } });
+    const post = created.data.entry;
+    await req('PUT', `/api/entries/${post.id}`, { data: { ...post.data, excerpt: 'Länger.' }, version: post.version });
+    await req('POST', `/api/entries/${post.id}/publish`, {});
+    await req('POST', `/api/entries/${post.id}/comments`, { body: 'Passt so.' });
+    const revisions = (await req('GET', `/api/entries/${post.id}/revisions`)).data.revisions.length;
+    expect(revisions).toBeGreaterThan(0);
+    const del = await req('DELETE', `/api/entries/${post.id}`);
+    expect(del.data).toEqual({ ok: true, trash: true });
+    expect((await req('GET', `/journal/${post.slug}`, undefined, { cookies: new Map() })).status).toBe(404);
+    const trash = await req('GET', '/api/trash');
+    expect(trash.data.entries.find((x: { id: string }) => x.id === post.id)).toMatchObject({ title: 'Bald weg', collection: 'posts', status: 'published' });
+    expect((await req('GET', '/api/dashboard')).data.counts.trash).toBeGreaterThan(0);
+    // Back with its address, status, versions and comments.
+    const back = await req('POST', `/api/trash/${post.id}/restore`, {});
+    expect(back.data.entry).toMatchObject({ id: post.id, slug: post.slug, status: 'published' });
+    expect((await req('GET', `/journal/${post.slug}`, undefined, { cookies: new Map() })).status).toBe(200);
+    expect((await req('GET', `/api/entries/${post.id}/revisions`)).data.revisions.length).toBe(revisions);
+    expect((await req('GET', `/api/entries/${post.id}/comments`)).data.comments.map((c: { body: string }) => c.body)).toContain('Passt so.');
+    expect((await req('GET', '/api/trash')).data.entries.some((x: { id: string }) => x.id === post.id)).toBe(false);
+    // Address taken meanwhile: a new one, and as a draft.
+    await req('DELETE', `/api/entries/${post.id}`);
+    const twin = await req('POST', '/api/entries', { collection: 'posts', data: { title: 'Bald weg' } });
+    expect(twin.data.entry.slug).toBe(post.slug);
+    const moved = await req('POST', `/api/trash/${post.id}/restore`, {});
+    expect(moved.data.entry.slug).not.toBe(post.slug);
+    expect(moved.data.entry.status).toBe('draft');
+    // For good: gone from the trash, nothing to restore.
+    await req('DELETE', `/api/entries/${twin.data.entry.id}`);
+    expect((await req('DELETE', `/api/trash/${twin.data.entry.id}`)).status).toBe(200);
+    expect((await req('POST', `/api/trash/${twin.data.entry.id}/restore`, {})).status).toBe(404);
+    // The start page stays.
+    const [home] = await sql`select id from entries where collection = 'pages' and slug = ''`;
+    expect((await req('DELETE', `/api/entries/${home.id}`)).status).toBe(400);
+    await req('DELETE', `/api/entries/${post.id}`);
+  });
 });

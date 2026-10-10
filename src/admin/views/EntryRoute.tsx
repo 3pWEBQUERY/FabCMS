@@ -12,6 +12,7 @@ import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
+import { moveToTrash } from '../lib/actions';
 import { validateFields } from '../../shared/fields';
 import { isTranslatable } from '../../shared/i18n';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
@@ -77,11 +78,7 @@ function EntryForm({ id, lang }: { id: string; lang: string | null }) {
   const lq = lang ? `lang=${lang}&` : '';
   const previewUrl = col.route ? `/_nova/preview/${id}?${lq}v=${previewKey}` : `${lang ? `/${lang}` : ''}/karte?v=${previewKey}`;
 
-  const remove = async () => {
-    if (!(await confirm({ title: t('«{name}» löschen?', { name: doc.data!.title }), confirm: t('Löschen'), danger: true }))) return;
-    await api.del(`/api/entries/${id}`);
-    navigate(`/inhalte/${col.id}`);
-  };
+  const remove = () => moveToTrash(id, doc.data!.title, toast, () => navigate(`/inhalte/${col.id}`)).catch((e: Error) => toast(e.message, { kind: 'bad' }));
   const withdraw = async () => {
     if (
       !(await confirm({

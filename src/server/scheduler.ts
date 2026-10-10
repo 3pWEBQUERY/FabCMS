@@ -1,4 +1,4 @@
-import { publishDue } from './content';
+import { publishDue, purgeTrash } from './content';
 import { dailyBackup } from './backup';
 import { sql } from './db';
 import { bumpGeneration } from './settings';
@@ -61,6 +61,7 @@ export function startScheduler() {
     await sql`delete from analytics_events where ts < now() - interval '25 months'`;
     await sql`delete from audit_log where created_at < now() - interval '2 years'`;
     await sql`delete from notifications where created_at < now() - interval '90 days'`;
+    await purgeTrash();
   });
   // Opening hours ("jetzt geöffnet") change with the clock.
   every(5 * 60_000, 'clock', async () => bumpGeneration());

@@ -5,10 +5,11 @@ import { navigate, Link } from '../lib/router';
 import { useSession } from '../lib/session';
 import { t } from '../lib/i18n';
 import { PAGE_PRESETS } from '../lib/presets';
-import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, confirm, Select } from '../ui/kit';
+import { Dialog, Empty, Field, Menu, PageHead, Skeleton, StatusBadge, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
+import { moveToTrash } from '../lib/actions';
 import { slugify } from '../../shared/text';
 import type { Entry, EntryStatus } from '../../shared/types';
 
@@ -95,24 +96,7 @@ export function PagesList() {
   const [creating, setCreating] = useState(false);
   const rows = useMemo(() => data?.entries ?? [], [data]);
 
-  const remove = async (r: Row) => {
-    if (
-      !(await confirm({
-        title: t('«{name}» löschen?', { name: r.title }),
-        message: t('Die Seite und ihr Verlauf werden entfernt. Das lässt sich nicht rückgängig machen – ausser über eine Sicherung.'),
-        confirm: t('Löschen'),
-        danger: true,
-      }))
-    )
-      return;
-    try {
-      await api.del(`/api/entries/${r.id}`);
-      toast(t('Seite gelöscht.'));
-      void reload();
-    } catch (e) {
-      toast((e as Error).message, { kind: 'bad' });
-    }
-  };
+  const remove = (r: Row) => moveToTrash(r.id, r.title, toast, () => void reload()).catch((e: Error) => toast(e.message, { kind: 'bad' }));
   const duplicate = async (r: Row) => {
     const { entry } = await api.post<{ entry: Entry }>(`/api/entries/${r.id}/duplicate`);
     navigate(`/seiten/${entry.id}`);
