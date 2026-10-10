@@ -10,6 +10,7 @@ import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { moveToTrash } from '../lib/actions';
+import { BulkBar, SelectBox, useSelection } from './Bulk';
 import { slugify } from '../../shared/text';
 import type { Entry, EntryStatus } from '../../shared/types';
 
@@ -95,6 +96,8 @@ export function PagesList() {
   const { data, reload } = useApi<{ entries: Row[] }>('/api/entries?collection=pages&limit=500');
   const [creating, setCreating] = useState(false);
   const rows = useMemo(() => data?.entries ?? [], [data]);
+  // The start page can't be deleted or taken offline in bulk; it isn't offered for choosing.
+  const selection = useSelection(rows.filter((r) => r.slug !== '').map((r) => r.id));
 
   const remove = (r: Row) => moveToTrash(r.id, r.title, toast, () => void reload()).catch((e: Error) => toast(e.message, { kind: 'bad' }));
   const duplicate = async (r: Row) => {
@@ -133,7 +136,12 @@ export function PagesList() {
             {rows.map((r) => {
               const depth = r.slug ? r.slug.split('/').length - 1 : 0;
               return (
-                <li key={r.id} className="list-item" style={{ paddingLeft: `${1.25 + depth * 1.5}rem` }}>
+                <li key={r.id} className={`list-item${selection.has(r.id) ? ' selected' : ''}`} style={{ paddingLeft: `${1.25 + depth * 1.5}rem` }}>
+                  {r.slug === '' ? (
+                    <span className="row-check-space" />
+                  ) : (
+                    <SelectBox checked={selection.has(r.id)} onChange={() => selection.toggle(r.id)} label={t('«{name}» auswählen', { name: r.title })} />
+                  )}
                   <Icon name={r.slug === '' ? 'home' : 'page'} className="faint" />
                   <Link to={`/seiten/${r.id}`} className="grow" style={{ textDecoration: 'none', minWidth: 0 }}>
                     <div className="title ellipsis">{r.title || t('(ohne Titel)')}</div>
@@ -162,6 +170,7 @@ export function PagesList() {
           </ul>
         )}
       </section>
+      <BulkBar hasCategory={false} selection={selection} categories={[]} onDone={() => void reload()} />
       <NewPageDialog open={creating} onClose={() => setCreating(false)} pages={rows} />
     </div>
   );

@@ -6,6 +6,7 @@ import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
 import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
+import { BulkBar, SelectBox, useSelection } from './Bulk';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
@@ -191,6 +192,8 @@ export function CollectionList({ collection }: { collection: string }) {
       });
     return list;
   }, [data, sort]);
+  const selection = useSelection(rows.map((r) => r.id));
+  const categories = useMemo(() => [...new Set((data?.entries ?? []).map((r) => r.fields.category).filter((c): c is string => typeof c === 'string' && c !== ''))].sort(), [data]);
 
   if (!col) return <div className="page">{cols ? <Empty title={t('Diesen Inhaltstyp gibt es nicht.')} /> : <Skeleton />}</div>;
   if (collection === 'dishes') return <MenuBoard col={col} />;
@@ -325,6 +328,9 @@ export function CollectionList({ collection }: { collection: string }) {
             <table className="table">
               <thead>
                 <tr>
+                  <th className="check-cell">
+                    <SelectBox checked={selection.all} mixed={selection.some} onChange={selection.setAll} label={t('Alle auswählen')} />
+                  </th>
                   {th('title', tl(col.fields.find((f) => f.key === col.title_field)?.label) || t('Titel'))}
                   {columns.map((f) => th(f.key, tl(f.label)))}
                   <th>{t('Status')}</th>
@@ -334,7 +340,10 @@ export function CollectionList({ collection }: { collection: string }) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="clickable" onClick={() => navigate(entryUrl(collection, r.id))}>
+                  <tr key={r.id} className={`clickable${selection.has(r.id) ? ' selected' : ''}`} onClick={() => navigate(entryUrl(collection, r.id))}>
+                    <td className="check-cell" onClick={(e) => e.stopPropagation()}>
+                      <SelectBox checked={selection.has(r.id)} onChange={() => selection.toggle(r.id)} label={t('«{name}» auswählen', { name: r.title })} />
+                    </td>
                     <td style={{ fontWeight: 600 }}>
                       <Link to={entryUrl(collection, r.id)} onClick={(e) => e.stopPropagation()} style={{ textDecoration: 'none' }}>
                         {r.title || '(ohne Titel)'}
@@ -368,6 +377,7 @@ export function CollectionList({ collection }: { collection: string }) {
           </div>
         )}
       </section>
+      <BulkBar hasCategory={col.fields.some((f) => f.key === 'category')} selection={selection} categories={categories} onDone={() => void reload()} />
       <Dialog
         open={apiOpen}
         onOpenChange={setApiOpen}

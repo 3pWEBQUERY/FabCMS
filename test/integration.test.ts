@@ -2444,4 +2444,29 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await req('DELETE', `/api/entries/${home.id}`)).status).toBe(400);
     await req('DELETE', `/api/entries/${post.id}`);
   });
+
+  it('does things with many entries at once – each checked like a single change', async () => {
+    const make = async (title: string) => (await req('POST', '/api/entries', { collection: 'posts', data: { title } })).data.entry;
+    const a = await make('Sammel A');
+    const b = await make('Sammel B');
+    const pub = await req('POST', '/api/entries/bulk', { ids: [a.id, b.id], action: 'publish' });
+    expect(pub.data.done).toHaveLength(2);
+    expect((await req('GET', `/journal/${a.slug}`, undefined, { cookies: new Map() })).status).toBe(200);
+    const set = await req('POST', '/api/entries/bulk', { ids: [a.id, b.id], action: 'set', field: 'category', value: 'Sammlung' });
+    expect(set.data.done).toHaveLength(2);
+    expect((await req('GET', `/api/entries/${b.id}`)).data.entry.data.category).toBe('Sammlung');
+    // Title and unknown fields are not for bulk changes; the reason comes back per entry.
+    const bad = await req('POST', '/api/entries/bulk', { ids: [a.id], action: 'set', field: 'title', value: 'X' });
+    expect(bad.data.failed[0]).toMatchObject({ title: 'Sammel A', error: expect.stringMatching(/Feld/) });
+    const dup = await req('POST', '/api/entries/bulk', { ids: [a.id], action: 'duplicate' });
+    expect(dup.data.done).toHaveLength(1);
+    const off = await req('POST', '/api/entries/bulk', { ids: [a.id, b.id], action: 'unpublish' });
+    expect(off.data.done).toHaveLength(2);
+    expect((await req('GET', `/journal/${a.slug}`, undefined, { cookies: new Map() })).status).toBe(404);
+    const gone = await req('POST', '/api/entries/bulk', { ids: [a.id, b.id, '00000000-0000-4000-8000-000000000000'], action: 'trash' });
+    expect(gone.data.done).toHaveLength(2);
+    expect(gone.data.failed).toHaveLength(1);
+    expect((await req('GET', '/api/trash')).data.entries.filter((x: { id: string }) => [a.id, b.id].includes(x.id))).toHaveLength(2);
+    expect((await req('POST', '/api/entries/bulk', { ids: [], action: 'publish' })).status).toBe(400);
+  });
 });

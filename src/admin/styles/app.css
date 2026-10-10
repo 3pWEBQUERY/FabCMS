@@ -1273,6 +1273,36 @@ button.list-item {
   .table td[data-label=''] {
     text-align: left;
   }
+  /* With a box to choose rows: box, title and actions share the first line. */
+  .table tbody tr:has(> td.check-cell) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .table td.check-cell {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    padding: 0 !important;
+  }
+  .table td.check-cell::before,
+  .table td.check-cell + td::before {
+    content: none;
+  }
+  .table td.check-cell + td {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: left;
+    font-size: var(--t-m);
+    font-weight: 600;
+  }
+  .table tr:has(> td.check-cell) td:last-child[data-label=''] {
+    grid-column: 3;
+  }
+  .table tr.selected {
+    background: var(--sel-soft);
+  }
+  .table tr.selected td {
+    background: none;
+  }
   .table tbody tr.clickable:hover {
     background: none;
   }
@@ -6173,4 +6203,68 @@ body.scrubbing.v * {
 }
 .actions-cell .btn + .btn {
   margin-left: 0.25rem;
+}
+
+/* ---------- choosing rows and doing something with all of them ---------- */
+
+.row-check {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: var(--sel);
+  cursor: pointer;
+  flex: none;
+}
+.row-check-space {
+  width: 1.05rem;
+  flex: none;
+}
+.check-cell {
+  width: 2.25rem;
+  padding-right: 0 !important;
+}
+tr.selected td,
+.list-item.selected {
+  background: var(--sel-soft);
+}
+.bulk-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.4rem 0.4rem 0.4rem 0.9rem;
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 18px 40px -12px rgba(0, 0, 0, 0.35);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bulk-n {
+  margin-right: 0.35rem;
+  font: 650 var(--t-s) / 1 var(--font);
+  white-space: nowrap;
+}
+.bulk-bar .btn {
+  white-space: nowrap;
+}
+.bulk-bar .btn.danger {
+  color: var(--bad);
+}
+@media (max-width: 760px) {
+  .bulk-bar {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+  .bulk-bar .btn:not(.icon-only) {
+    font-size: 0;
+    gap: 0;
+  }
+  .bulk-bar .btn:not(.icon-only) .icon {
+    font-size: initial;
+  }
 }

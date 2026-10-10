@@ -44,4 +44,23 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   Noch: { fr: 'Reste', it: 'Ancora', en: 'Left' },
   'Ohne Titel': { fr: 'Sans titre', it: 'Senza titolo', en: 'Untitled' },
   Zurückholen: { fr: 'Récupérer', it: 'Recupera', en: 'Restore' },
+  /* bulk actions */
+  '{n} veröffentlicht.': { fr: '{n} publié(s).', it: '{n} pubblicati.', en: '{n} published.' },
+  '{n} offline genommen.': { fr: '{n} mis hors ligne.', it: '{n} messi offline.', en: '{n} taken offline.' },
+  '{n} dupliziert.': { fr: '{n} dupliqué(s).', it: '{n} duplicati.', en: '{n} duplicated.' },
+  'Bei {n} geändert.': { fr: 'Modifié pour {n}.', it: 'Modificato per {n}.', en: 'Changed for {n}.' },
+  '{n} in den Papierkorb gelegt.': { fr: '{n} mis à la corbeille.', it: '{n} spostati nel cestino.', en: '{n} moved to the trash.' },
+  '{n} nicht: {why}': { fr: '{n} non : {why}', it: '{n} no: {why}', en: '{n} not: {why}' },
+  '{n} offline nehmen?': { fr: 'Mettre {n} hors ligne ?', it: 'Mettere {n} offline?', en: 'Take {n} offline?' },
+  'Sie verschwinden von der Website, bleiben aber als Entwurf erhalten.': {
+    fr: 'Ils disparaissent du site, mais restent en brouillon.',
+    it: 'Spariscono dal sito, ma restano come bozza.',
+    en: 'They disappear from the website but stay as drafts.',
+  },
+  Offline: { fr: 'Hors ligne', it: 'Offline', en: 'Offline' },
+  'Auswahl aufheben': { fr: 'Annuler la sélection', it: 'Annulla selezione', en: 'Clear selection' },
+  'Kategorie für {n} Einträge': { fr: 'Catégorie pour {n} entrées', it: 'Categoria per {n} voci', en: 'Category for {n} entries' },
+  'Leer lassen entfernt die Kategorie.': { fr: 'Laisser vide supprime la catégorie.', it: 'Lasciare vuoto rimuove la categoria.', en: 'Leave empty to remove the category.' },
+  'Alle auswählen': { fr: 'Tout sélectionner', it: 'Seleziona tutto', en: 'Select all' },
+  '«{name}» auswählen': { fr: 'Sélectionner «{name}»', it: 'Seleziona «{name}»', en: 'Select “{name}”' },
 };

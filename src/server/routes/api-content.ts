@@ -320,6 +320,53 @@ export function contentApi(app: Hono<AppEnv>) {
     return c.json({ ok: true, trash: true });
   });
 
+  /* ---------- bulk: many entries at once, each checked like a single one ---------- */
+
+  app.post('/api/entries/bulk', async (c) => {
+    const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const body = z
+      .object({
+        ids: z.array(z.string().uuid()).min(1).max(500),
+        action: z.enum(['publish', 'unpublish', 'trash', 'duplicate', 'set']),
+        field: z.string().regex(/^[a-z][\w]{0,40}$/).optional(),
+        value: z.unknown().optional(),
+      })
+      .parse(await c.req.json());
+    if ((body.action === 'publish' || body.action === 'unpublish') && !can(user.role, 'content.publish'))
+      throw forbidden('Veröffentlichen und offline nehmen darf, wer veröffentlichen darf.');
+    const done: string[] = [];
+    const failed: { id: string; title: string; error: string }[] = [];
+    for (const id of [...new Set(body.ids)]) {
+      let title = '';
+      try {
+        const cur = await getEntry(id);
+        title = String(cur.data.title ?? '');
+        if (body.action === 'trash') {
+          if (!can(user.role, 'content.delete') && (cur.author_id !== user.id || cur.status === 'published')) throw forbidden('Du kannst nur eigene, unveröffentlichte Entwürfe löschen.');
+          await deleteEntry(id, user.id);
+        } else {
+          assertCanEdit(user, cur);
+          if (body.action === 'publish') await publishEntry(id, user.id, null);
+          else if (body.action === 'unpublish') {
+            if (cur.status === 'published') await unpublishEntry(id);
+          } else if (body.action === 'duplicate') await createEntry(cur.collection, { ...structuredClone(cur.data), title: `${title} (Kopie)` }, saveCtx(user));
+          else {
+            // One field for all: only fields of the type, never title or address.
+            const col = await getCollection(cur.collection);
+            if (!body.field || body.field === 'title' || body.field === col.title_field || !col.fields.some((f) => f.key === body.field))
+              throw badRequest('Dieses Feld lässt sich nicht für mehrere Einträge setzen.');
+            await updateEntry(id, { data: { ...cur.data, [body.field]: body.value ?? null } }, saveCtx(user));
+          }
+        }
+        done.push(id);
+      } catch (e) {
+        failed.push({ id, title, error: (e as Error).message });
+      }
+    }
+    await audit(c, `entry.bulk.${body.action}`, 'entries', undefined, { done: done.length, failed: failed.length, field: body.field });
+    return c.json({ done, failed });
+  });
+
   /* ---------- trash: deleted entries stay 30 days ---------- */
 
   app.get('/api/trash', async (c) => {
