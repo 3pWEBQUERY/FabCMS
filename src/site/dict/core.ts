@@ -274,4 +274,33 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Abbiamo cancellato il tuo carrello e il tuo indirizzo e-mail. Non riceverai altri promemoria.',
     en: 'We’ve deleted your cart and your email address. No more reminders will come.',
   },
+  'Danke! Wir schreiben dir einmal, sobald es wieder da ist.': {
+    fr: 'Merci ! Nous t’écrirons une fois, dès que ce sera de retour.',
+    it: 'Grazie! Ti scriveremo una volta, appena sarà di nuovo disponibile.',
+    en: 'Thanks! We’ll write to you once, as soon as it’s back.',
+  },
+  'Benachrichtigen, wenn wieder da': { fr: 'Me prévenir du retour en stock', it: 'Avvisami quando torna disponibile', en: 'Tell me when it’s back' },
+  'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.': {
+    fr: 'Merci d’indiquer une adresse e-mail valide, p. ex. nom@exemple.ch.',
+    it: 'Inserisci un indirizzo e-mail valido, ad es. nome@esempio.ch.',
+    en: 'Please enter a valid email address, e.g. name@example.ch.',
+  },
+  Benachrichtigen: { fr: 'Me prévenir', it: 'Avvisami', en: 'Notify me' },
+  'Eine einzige Mail, sobald es wieder da ist. Danach löschen wir deine Adresse.': {
+    fr: 'Un seul e-mail, dès le retour en stock. Ensuite, nous supprimons ton adresse.',
+    it: 'Un’unica e-mail, appena torna disponibile. Poi cancelliamo il tuo indirizzo.',
+    en: 'A single email as soon as it’s back. Then we delete your address.',
+  },
+  'Wieder da: {what}': { fr: 'De retour : {what}', it: 'Di nuovo disponibile: {what}', en: 'Back in stock: {what}' },
+  'Du wolltest wissen, wann es wieder da ist: {what} ist ab sofort wieder erhältlich.': {
+    fr: 'Tu voulais savoir quand ce serait de retour : {what} est à nouveau disponible.',
+    it: 'Volevi sapere quando sarebbe tornato: {what} è di nuovo disponibile.',
+    en: 'You wanted to know when it’s back: {what} is available again.',
+  },
+  'Zum Produkt: {url}': { fr: 'Voir le produit : {url}', it: 'Al prodotto: {url}', en: 'View product: {url}' },
+  'Wir haben dir diese eine Nachricht geschickt, weil du darum gebeten hast. Deine Adresse haben wir danach gelöscht.': {
+    fr: 'Nous t’avons envoyé ce seul message parce que tu l’avais demandé. Nous avons ensuite supprimé ton adresse.',
+    it: 'Ti abbiamo inviato questo unico messaggio perché l’avevi chiesto. Poi abbiamo cancellato il tuo indirizzo.',
+    en: 'We sent you this one message because you asked for it. We have since deleted your address.',
+  },
 };

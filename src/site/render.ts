@@ -578,7 +578,7 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
     added ? html`<p class="form-ok" role="status">${t(ctx, 'Im Warenkorb.')} <a href="/warenkorb">${t(ctx, 'Zum Warenkorb')}</a></p>` : ''
   }${
     soldOut
-      ? html`<p class="badge">${t(ctx, 'Ausverkauft')}</p>`
+      ? html`<p><span class="badge">${t(ctx, 'Ausverkauft')}</span></p>`
       : html`<form method="post" action="/warenkorb/add" class="nform" data-add-to-cart><input type="hidden" name="product" value="${e.id}">${
           variants.length
             ? html`<div class="fld"><label for="variant">${t(ctx, 'Variante')}</label><select id="variant" name="variant" required>${variants.map((v, i) =>
@@ -590,7 +590,22 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         }<div class="qty"><div class="fld"><label for="qty">${t(ctx, 'Menge')}</label><input id="qty" name="qty" type="number" min="1" max="${typeof baseStock === 'number' && !variants.length ? Math.min(99, baseStock) : 99}" value="1" inputmode="numeric"></div><button class="btn">${t(ctx, 'In den Warenkorb')}</button></div>${
           lowStock ? html`<p class="stock low">${t(ctx, 'Nur noch {n} Stück an Lager', { n: baseStock as number })}</p>` : ''
         }</form>`
-  }${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>${ctx.settings.shop.reviews ? reviewsSection(ctx, e.id, reviews) : ''}`;
+  }${restockForm(ctx, e.id, soldOut, variants)}${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>${ctx.settings.shop.reviews ? reviewsSection(ctx, e.id, reviews) : ''}`;
+}
+
+/** Sold out (all of it, or some variants): leave an address and hear once when it is back. */
+function restockForm(ctx: RenderContext, productId: string, soldOut: boolean, variants: { name: string; stock?: number | null }[]): Html {
+  const out = variants.map((v, i) => ({ ...v, i })).filter((v) => v.stock === 0);
+  if (!soldOut && !out.length) return html``;
+  const state = ctx.query.get('wieder-da');
+  if (state === 'ok') return html`<p class="form-ok restock" id="wieder-da" role="status">${t(ctx, 'Danke! Wir schreiben dir einmal, sobald es wieder da ist.')}</p>`;
+  return html`<form class="nform restock" id="wieder-da" method="post" action="/_nova/restock/${productId}"><p class="restock-h">${t(ctx, 'Benachrichtigen, wenn wieder da')}</p>${
+    state === 'fehler' ? html`<p class="form-err" role="alert">${t(ctx, 'Bitte gib eine gültige E-Mail-Adresse ein, z. B. name@beispiel.ch.')}</p>` : ''
+  }<input type="hidden" name="_t" value="${Date.now().toString(36)}"><div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>${
+    variants.length && out.length
+      ? html`<div class="fld"><label for="rs-variant">${t(ctx, 'Variante')}</label><select id="rs-variant" name="variant" required>${out.map((v) => html`<option value="${v.i}">${v.name}</option>`)}</select></div>`
+      : ''
+  }<div class="restock-row"><div class="fld"><label for="rs-mail">${t(ctx, 'E-Mail')}</label><input id="rs-mail" name="email" type="email" required maxlength="200" autocomplete="email"></div><button class="btn">${t(ctx, 'Benachrichtigen')}</button></div><p class="muted">${t(ctx, 'Eine einzige Mail, sobald es wieder da ist. Danach löschen wir deine Adresse.')}</p></form>`;
 }
 
 /** Stars with a text for screen readers: «4.3 von 5 Sternen». */

@@ -8,6 +8,7 @@ import { newsletterJobs } from './newsletter';
 import { releaseUnpaidTickets } from './tickets';
 import { dropAbandonedDonations } from './donations';
 import { cleanCartReminders, sendCartReminders } from './cart-reminders';
+import { cleanRestockAlerts, sendRestockMails } from './restock';
 import { releaseUnpaidFood } from './ordering';
 
 /**
@@ -44,6 +45,7 @@ export function startScheduler() {
   every(15 * 60_000, 'booking calendars', importCalendars);
   every(10 * 60_000, 'newsletter', () => newsletterJobs());
   every(10 * 60_000, 'cart reminders', sendCartReminders);
+  every(5 * 60_000, 'back in stock', sendRestockMails);
   every(60 * 60_000, 'backup', async () => {
     try {
       await dailyBackup();
@@ -68,6 +70,7 @@ export function startScheduler() {
     await sql`delete from preview_links where expires_at < now() - interval '30 days'`;
     await sql`delete from not_found where last_at < now() - interval '90 days'`;
     await cleanCartReminders();
+    await cleanRestockAlerts();
     await purgeTrash();
   });
   // Opening hours ("jetzt geöffnet") change with the clock.

@@ -24,6 +24,7 @@ import { emit } from '../events';
 import { recordMissing } from '../notfound';
 import { recordPopup, type PopupEvent } from '../popups';
 import { cartOrdered, dropCart, forgetCart, rememberCart, restoreCart } from '../cart-reminders';
+import { addRestockAlert } from '../restock';
 import { sendMail } from '../mail';
 import { cachedOgImage } from '../og';
 import {
@@ -562,6 +563,22 @@ export function publicRoutes(app: Hono<AppEnv>) {
       href: '/kommentare',
     });
     return c.redirect(`${path}?bewertung=danke#bewertungen`, 303);
+  });
+
+  /* «tell me when it's back» on a sold-out product */
+  app.post('/_nova/restock/:product', async (c) => {
+    const id = c.req.param('product');
+    if (!/^[0-9a-f-]{36}$/.test(id) || !(await getSettings()).modules.includes('shop')) return c.notFound();
+    const [e] = await sql`select slug from entries where id = ${id} and status = 'published' and collection = 'products'`;
+    if (!e) return c.notFound();
+    const path = entryPath(await getCollection('products'), e.slug as string) ?? '/';
+    const body = await c.req.parseBody();
+    const done = `${path}?wieder-da=ok#wieder-da`;
+    if (looksLikeSpam(body)) return c.redirect(done, 303);
+    if (!rateLimit(`restock:${clientIp(c)}`, 5, 10 * 60_000).ok) return c.redirect(`${path}#wieder-da`, 303);
+    const variant = body.variant === undefined || body.variant === '' ? null : Number(body.variant);
+    const ok = await addRestockAlert(id, String(body.email ?? ''), Number.isInteger(variant) ? variant : null);
+    return c.redirect(ok ? done : `${path}?wieder-da=fehler#wieder-da`, 303);
   });
 
   /* age gate */

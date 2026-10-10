@@ -40,6 +40,7 @@ import { defaultLang, isLang, LANGS } from '../../shared/i18n';
 import { checkHookCode, runHook } from '../hooks';
 import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
 import { lowStockList } from '../stock';
+import { restockWaiting } from '../restock';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme']);
@@ -431,7 +432,9 @@ export function systemApi(app: Hono<AppEnv>) {
       { id: 'publish', label: 'Website veröffentlichen', done: Boolean(s.firstPublishedAt), href: home ? `/admin/seiten/${home.id}` : '/admin/seiten' },
     ];
     const st = can(user.role, 'settings.manage') || can(user.role, 'leads.view') ? await stats(7, s.timezone) : null;
-    const lowStock = can(user.role, 'orders.view') ? (await lowStockList()).slice(0, 8) : [];
+    // What is low, and how many wait to hear when it is back.
+    const waiting = can(user.role, 'orders.view') ? await restockWaiting() : new Map<string, number>();
+    const lowStock = can(user.role, 'orders.view') ? (await lowStockList()).slice(0, 8).map((x) => ({ ...x, waiting: waiting.get(x.id) ?? 0 })) : [];
     return c.json({ counts, recent, checklist, stats: st, lowStock, sessions: user.sessions_count, site: { name: s.name, baseUrl: await publicBase() } });
   });
 

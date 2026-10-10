@@ -1625,4 +1625,12 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'All’indirizzo per gli ordini, altrimenti all’e-mail di contatto.',
     en: 'To the address for orders, otherwise to the contact email.',
   },
+  '1 Person wartet auf Nachricht': { fr: '1 personne attend un message', it: '1 persona attende un messaggio', en: '1 person waiting to hear' },
+  '{n} Personen warten auf Nachricht': { fr: '{n} personnes attendent un message', it: '{n} persone attendono un messaggio', en: '{n} people waiting to hear' },
+  'Wieder erhältlich': { fr: 'De nouveau disponible', it: 'Di nuovo disponibile', en: 'Back in stock' },
+  'Wenn ein ausverkauftes Produkt wieder an Lager ist – an alle, die darum gebeten haben.': {
+    fr: 'Quand un produit épuisé est de nouveau en stock – à toutes les personnes qui l’ont demandé.',
+    it: 'Quando un prodotto esaurito torna disponibile – a tutti coloro che l’hanno chiesto.',
+    en: 'When a sold-out product is in stock again – to everyone who asked.',
+  },
 };

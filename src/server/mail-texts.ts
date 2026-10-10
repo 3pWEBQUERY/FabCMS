@@ -47,6 +47,7 @@ export function sampleMail(kind: MailKind, s: SiteSettings): Mail {
       newsletter: T('Bitte bestätige: Newsletter von {name}', { name: s.name }),
       member: T('Bitte bestätige dein Konto bei {name}', { name: s.name }),
       cart: T('{site}: Dein Warenkorb wartet', { site: s.name }),
+      restock: T('Wieder da: {what}', { what: 'Bergkäse 250 g' }),
     }[kind.id] ?? s.name;
   return {
     to: '',

@@ -67,6 +67,14 @@ export const MAIL_KINDS: MailKind[] = [
     module: 'shop',
     sample: ['1 × Bergkäse 250 g  12.50', 'Bestellung abschliessen: https://…'],
   },
+  {
+    id: 'restock',
+    label: 'Wieder erhältlich',
+    when: 'Wenn ein ausverkauftes Produkt wieder an Lager ist – an alle, die darum gebeten haben.',
+    vars: ['product'],
+    module: 'shop',
+    sample: ['Bergkäse 250 g ist ab sofort wieder erhältlich.', 'Zum Produkt: https://…'],
+  },
   { id: 'donation', label: 'Spendenbestätigung', when: 'Nach jeder Spende.', vars: ['name', 'amount'], module: 'donations', sample: ['Betrag: 50.–'] },
   {
     id: 'newsletter',

@@ -18,7 +18,7 @@ interface DashboardData {
   recent: { id: string; collection: string; slug: string; status: EntryStatus; title: string; updated_at: string; author_name: string }[];
   checklist: { id: string; label: string; done: boolean; href: string }[];
   stats: { totals: { visitors: number; pageviews: number; visitorsPrev: number }; series: DayPoint[] } | null;
-  lowStock: { id: string; title: string; variant: string | null; stock: number; limit: number }[];
+  lowStock: { id: string; title: string; variant: string | null; stock: number; limit: number; waiting: number }[];
   sessions: number;
   site: { name: string; baseUrl: string };
 }
@@ -232,6 +232,11 @@ export function Dashboard() {
                       <span className="grow ellipsis">
                         {p.title}
                         {p.variant && <span className="muted"> · {p.variant}</span>}
+                        {p.waiting > 0 && (
+                          <span className="xsmall muted" style={{ display: 'block' }}>
+                            {p.waiting === 1 ? t('1 Person wartet auf Nachricht') : t('{n} Personen warten auf Nachricht', { n: p.waiting })}
+                          </span>
+                        )}
                       </span>
                       <span className={`badge ${p.stock === 0 ? 'bad' : 'warn'}`}>{p.stock === 0 ? t('ausverkauft') : t('noch {n}', { n: p.stock })}</span>
                     </Link>

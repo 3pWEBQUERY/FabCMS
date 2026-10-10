@@ -106,6 +106,9 @@ export function datenschutz(s: SiteSettings): string {
             'Setzt du an der Kasse das Häkchen für eine Erinnerung, speichern wir deine E-Mail-Adresse, deinen Namen und den Warenkorb, um dich einmal per E-Mail daran zu erinnern, falls du die Bestellung nicht abschliesst. Über den Link in dieser E-Mail löschst du die Angaben sofort; sonst löschen wir sie nach 14 Tagen.',
           )
         : '',
+      p(
+        'Trägst du dich bei einem ausverkauften Produkt ein, speichern wir deine E-Mail-Adresse, bis es wieder erhältlich ist, schicken dir eine einzige Nachricht und löschen sie danach – spätestens nach einem Jahr.',
+      ),
       s.shop.reviews ? p('Bei Bewertungen speichern wir Name, Sterne, Text und E-Mail-Adresse. Veröffentlicht werden nur Name, Sterne und Text.') : '',
     );
   if (m.has('blog') && s.blog.comments)

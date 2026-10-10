@@ -22,6 +22,7 @@ import { migrate } from '../src/server/migrate';
 import { syncBuiltinCollections, invalidateCollections, unpublishDue } from '../src/server/content';
 import { deliveriesIdle, settleNow } from '../src/server/events';
 import { cleanCartReminders, sendCartReminders } from '../src/server/cart-reminders';
+import { sendRestockMails } from '../src/server/restock';
 import { createHmac } from 'node:crypto';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
@@ -3033,7 +3034,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await settle();
     expect(warned().length - before).toBe(1);
     const dash = await req('GET', '/api/dashboard');
-    expect(dash.data.lowStock).toEqual(expect.arrayContaining([{ id: honig.id, title: 'Waldhonig', variant: null, stock: 4, limit: 5 }]));
+    expect(dash.data.lowStock).toEqual(expect.arrayContaining([{ id: honig.id, title: 'Waldhonig', variant: null, stock: 4, limit: 5, waiting: 0 }]));
     expect(dash.data.lowStock.some((x: { id: string }) => x.id === salz.id)).toBe(false);
     // Mail off: the bell still rings.
     await req('PATCH', '/api/settings', { shop: { lowStock: { threshold: 17, email: false } } });
@@ -3044,6 +3045,58 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(warned().length - before).toBe(1);
     await req('PATCH', '/api/settings', { shop: { lowStock: { threshold: 3, email: true } } });
     for (const e of [honig, salz]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
+  it('tells those who asked, once, when a sold-out product or variant is back', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const mk = async (slug: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'products', data: { price: 900, ...data }, slug })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const tee = await mk('lindenbluetentee', { title: 'Lindenblütentee', stock: 0 });
+    const shirt = await mk('linde-shirt', {
+      title: 'Linde-Shirt',
+      variants: [
+        { name: 'S', stock: 0 },
+        { name: 'M', stock: 4 },
+      ],
+    });
+    const ask = (id: string, form: Record<string, string>) =>
+      req('POST', `/_nova/restock/${id}`, undefined, { ...anon, form: { _t: (Date.now() - 5000).toString(36), website: '', ...form } });
+    const page = (await req('GET', '/laden/lindenbluetentee', undefined, anon)).data as string;
+    expect(page).toContain('action="/_nova/restock/');
+    // Only the sold-out variant can be chosen.
+    const shirtPage = (await req('GET', '/laden/linde-shirt', undefined, anon)).data as string;
+    expect(shirtPage).toMatch(/<select id="rs-variant" name="variant" required><option value="0">S<\/option><\/select>/);
+
+    expect((await ask(tee.id, { email: 'Tom@Example.ch' })).headers.get('location')).toBe('/laden/lindenbluetentee?wieder-da=ok#wieder-da');
+    await ask(tee.id, { email: 'tom@example.ch' });
+    await ask(tee.id, { email: 'kein-mail' });
+    await ask(shirt.id, { email: 'sue@example.ch', variant: '0' });
+    // Not for what is there.
+    expect((await ask(shirt.id, { email: 'max@example.ch', variant: '1' })).headers.get('location')).toContain('wieder-da=fehler');
+    expect((await sql`select email, variant from restock_alerts order by email`).map((r) => [r.email, r.variant])).toEqual([
+      ['sue@example.ch', 0],
+      ['tom@example.ch', null],
+    ]);
+    expect((await req('GET', '/api/dashboard')).data.lowStock.find((x: { id: string }) => x.id === tee.id)).toMatchObject({ stock: 0, waiting: 1 });
+
+    // Nothing back yet: nothing sent. Then the tea comes back.
+    expect(await sendRestockMails()).toBe(0);
+    const teeData = (await req('GET', `/api/entries/${tee.id}`)).data.entry.data;
+    await req('PUT', `/api/entries/${tee.id}`, { data: { ...teeData, stock: 12 }, stockTouched: true });
+    expect(await sendRestockMails()).toBe(0);
+    await req('POST', `/api/entries/${tee.id}/publish`, {});
+    const before = outbox.length;
+    expect(await sendRestockMails()).toBe(1);
+    expect(await sendRestockMails()).toBe(0);
+    const mail = outbox.slice(before).find((m) => m.to === 'tom@example.ch')!;
+    expect(mail.subject).toBe('Wieder da: Lindenblütentee');
+    expect(mail.text).toContain('/laden/lindenbluetentee');
+    // The shirt's S is still out: Sue keeps waiting.
+    expect((await sql`select email from restock_alerts`).map((r) => r.email)).toEqual(['sue@example.ch']);
+    for (const e of [tee, shirt]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
   it('asks people of a role for a second factor before anything else', async () => {
