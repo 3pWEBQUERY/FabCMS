@@ -9,6 +9,8 @@ import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
 import { BulkBar, SelectBox, useSelection } from './Bulk';
 import { TaxonomyDialog } from './Taxonomy';
 import { DataGrid } from './DataGrid';
+import { useListFilters } from './ListFilters';
+import { filterCount, filterToParams, type ListFilter } from '../../shared/listfilter';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
 import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
@@ -186,6 +188,17 @@ export function CollectionList({ collection }: { collection: string }) {
   const col = cols?.collections.find((c) => c.id === collection);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState(query.get('status') ?? '');
+  // Author, last change and field filters; search and status keep their own fields above.
+  const [filter, setFilter] = useState<ListFilter>({});
+  const fullFilter: ListFilter = { ...filter, q: q || undefined, status: status || undefined };
+  const lf = useListFilters(collection, fullFilter, (f) => {
+    setQ(f.q ?? '');
+    setStatus(f.status ?? '');
+    setFilter({ author: f.author, updated: f.updated, fields: f.fields });
+  });
+  const filtered = filterCount(fullFilter) > 0;
+  // Field filters belong to one content type.
+  useEffect(() => setFilter({}), [collection]);
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const [view, setView] = useState<'table' | 'order' | 'data'>(() => {
     try {
@@ -197,7 +210,7 @@ export function CollectionList({ collection }: { collection: string }) {
   const [apiOpen, setApiOpen] = useState(false);
   const [taxOpen, setTaxOpen] = useState(false);
   const dq = useDebounced(q, 200);
-  const { data, setData, reload } = useApi<{ entries: Row[]; total: number }>(`/api/entries${qs({ collection, q: dq, status, limit: 500 })}`);
+  const { data, setData, reload } = useApi<{ entries: Row[]; total: number }>(`/api/entries${qs({ collection, q: dq, status, limit: 500, ...filterToParams(filter) })}`);
   const [ordered, setOrdered] = useState<Row[]>([]);
   useEffect(() => setOrdered(data?.entries ?? []), [data]);
 
@@ -294,6 +307,7 @@ export function CollectionList({ collection }: { collection: string }) {
           </>
         }
       />
+      {lf.bar}
       <div className="toolbar">
         <div className="search">
           <Icon name="search" />
@@ -312,6 +326,7 @@ export function CollectionList({ collection }: { collection: string }) {
             { value: 'scheduled', label: t('Geplant') },
           ]}
         />
+        {lf.button}
         {(sortable || pro) && (
           <Segmented
             label={t('Ansicht')}
@@ -332,22 +347,23 @@ export function CollectionList({ collection }: { collection: string }) {
           />
         )}
       </div>
+      {lf.chips}
+      {lf.dialog}
       <section className="card">
         {!data ? (
           <Skeleton lines={5} />
         ) : rows.length === 0 ? (
           <Empty
-            title={q || status ? t('Nichts gefunden') : t('Noch keine {name}', { name: tl(col.name) })}
+            title={filtered ? t('Nichts gefunden') : t('Noch keine {name}', { name: tl(col.name) })}
             action={
-              !q &&
-              !status && (
+              !filtered && (
                 <button className="btn primary" onClick={() => void createAndOpen(collection)}>
                   {t('{name} anlegen', { name: tl(col.singular) })}
                 </button>
               )
             }
           >
-            {!q && !status ? tl(col.empty_hint) : t('Versuch einen anderen Suchbegriff oder Filter.')}
+            {!filtered ? tl(col.empty_hint) : t('Versuch einen anderen Suchbegriff oder Filter.')}
           </Empty>
         ) : view === 'data' && pro ? (
           <DataGrid

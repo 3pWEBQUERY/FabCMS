@@ -1380,4 +1380,17 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
   },
   Titel: { fr: 'Titre', it: 'Titolo', en: 'Title' },
   Suchmaschinen: { fr: 'Moteurs de recherche', it: 'Motori di ricerca', en: 'Search engines' },
+  'Unbekannte Person.': { fr: 'Personne inconnue.', it: 'Persona sconosciuta.', en: 'Unknown person.' },
+  'Nach diesem Feld lässt sich nicht filtern.': {
+    fr: 'Ce champ ne permet pas de filtrer.',
+    it: 'Non si può filtrare per questo campo.',
+    en: 'This field can’t be used as a filter.',
+  },
+  'Die Ansicht braucht einen Namen.': { fr: 'La vue a besoin d’un nom.', it: 'La vista ha bisogno di un nome.', en: 'The view needs a name.' },
+  'Ansichten für alle legt an, wer veröffentlichen darf.': {
+    fr: 'Les vues pour tous sont créées par les personnes autorisées à publier.',
+    it: 'Le viste per tutti le crea chi può pubblicare.',
+    en: 'Views for everyone are created by people allowed to publish.',
+  },
+  'Diese Ansicht gibt es nicht mehr.': { fr: 'Cette vue n’existe plus.', it: 'Questa vista non esiste più.', en: 'This view no longer exists.' },
 };

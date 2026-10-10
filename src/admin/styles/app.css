@@ -7177,3 +7177,92 @@ textarea.dg-input {
     padding-left: 0;
   }
 }
+
+/* ---------- list filters & saved views ---------- */
+.lv-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.lv-view {
+  display: inline-flex;
+  align-items: center;
+}
+.lv-x {
+  display: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: -0.35rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.lv-view:hover .lv-x,
+.lv-x:focus-visible {
+  display: inline-grid;
+}
+.lv-x:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.lv-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--sel);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+.lv-pop {
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.5rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+.lv-pop .field {
+  margin: 0;
+}
+.lv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: -0.25rem 0 0.75rem;
+}
+.lv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.75rem;
+  padding: 0 0.35rem 0 0.65rem;
+  border-radius: 999px;
+  background: var(--sel-soft);
+  color: var(--sel);
+  font-size: var(--t-s);
+  font-weight: 500;
+}
+.lv-chip:not(:has(button)) {
+  padding-right: 0.65rem;
+}
+.lv-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.lv-chip button:hover {
+  background: rgb(0 0 0 / 0.08);
+}

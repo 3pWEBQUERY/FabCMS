@@ -32,6 +32,7 @@ import { HEADED_BLOCKS, renderBlocks } from '../../site/blocks';
 import { env } from '../env';
 import { entryPath } from '../../shared/paths';
 import type { Lang } from '../../shared/i18n';
+import { filterFields, paramsToFilter, type ListFilter } from '../../shared/listfilter';
 import {
   deleteTranslation,
   discardTranslation,
@@ -70,6 +71,26 @@ export function assertCanEdit(user: AuthUser, e: Pick<Entry, 'author_id'>) {
 async function base() {
   const s = await getSettings();
   return (s.baseUrl || env.publicUrl).replace(/\/$/, '');
+}
+
+/** Author, last change and field filters of a list as SQL (search and status are handled by the caller). */
+function listFilterSql(col: CollectionDef, f: ListFilter, me: string) {
+  const parts = [];
+  if (f.author) {
+    const id = f.author === 'me' ? me : f.author;
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw badRequest('Unbekannte Person.');
+    parts.push(sql`and e.author_id = ${id}`);
+  }
+  if (f.updated) parts.push(sql`and e.updated_at > now() - make_interval(days => ${Number(f.updated)})`);
+  const usable = filterFields(col.fields);
+  for (const [key, value] of Object.entries(f.fields ?? {})) {
+    const field = usable.find((x) => x.key === key);
+    if (!field) throw badRequest('Nach diesem Feld lässt sich nicht filtern.');
+    if (field.type === 'boolean') parts.push(value === 'true' ? sql`and e.data ->> ${key} = 'true'` : sql`and (e.data ->> ${key}) is distinct from 'true'`);
+    else if (field.type === 'tags' || field.type === 'multiselect') parts.push(sql`and e.data -> ${key} @> ${json([value])}`);
+    else parts.push(sql`and e.data ->> ${key} = ${value}`);
+  }
+  return parts.reduce((a, b) => sql`${a} ${b}`, sql``);
 }
 
 export function listRow(r: Record<string, any>) {
@@ -173,11 +194,12 @@ export function contentApi(app: Hono<AppEnv>) {
     const own = !can(user.role, 'content.edit') ? sql`and e.author_id = ${user.id}` : sql``;
     const status = q.status ? sql`and e.status = ${q.status}` : sql``;
     const search = q.q ? sql`and (e.data ->> 'title' ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'} or e.slug ilike ${'%' + q.q.replace(/[%_]/g, '') + '%'})` : sql``;
+    const more = listFilterSql(await getCollection(collection), paramsToFilter(q), user.id);
     const rows = await sql`
       select e.id, e.collection, e.slug, e.status, e.data, e.publish_at, e.unpublish_at, e.published_at, e.updated_at, e.sort_index, e.author_id,
              u.name as author_name, (e.published_data is distinct from e.data) as changed, count(*) over() as total
       from entries e left join users u on u.id = e.author_id
-      where e.collection = ${collection} ${own} ${status} ${search}
+      where e.collection = ${collection} ${own} ${status} ${search} ${more}
       order by ${collection === 'pages' ? sql`e.slug = '' desc, e.slug asc` : sql`e.sort_index asc, e.updated_at desc`}
       limit ${limit} offset ${offset}`;
     const trs = await translationStatus(rows.map((r) => r.id as string));

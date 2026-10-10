@@ -2709,6 +2709,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${post.id}`);
   });
 
+  it('filters content lists by author, last change and fields, and keeps saved views per person or for the team', async () => {
+    const mk = async (data: Record<string, unknown>) => (await req('POST', '/api/entries', { collection: 'posts', data })).data.entry;
+    const a = await mk({ title: 'Filter A', category: 'Küche', tags: ['herbst', 'wild'], allowComments: true });
+    const b = await mk({ title: 'Filter B', category: 'Garten', tags: ['herbst'] });
+    const old = await mk({ title: 'Filter alt', category: 'Küche' });
+    await sql`update entries set updated_at = now() - interval '40 days' where id = ${old.id}`;
+    const ids = async (query: string) => (await req('GET', `/api/entries?collection=posts&limit=500&${query}`)).data.entries.map((e: { id: string }) => e.id);
+    expect(await ids('f.category=K%C3%BCche')).toEqual(expect.arrayContaining([a.id, old.id]));
+    expect(await ids('f.category=K%C3%BCche')).not.toContain(b.id);
+    expect(await ids('f.tags=herbst')).toEqual(expect.arrayContaining([a.id, b.id]));
+    expect(await ids('f.tags=wild')).toContain(a.id);
+    expect(await ids('f.tags=wild')).not.toContain(b.id);
+    expect(await ids('f.allowComments=true')).toContain(a.id);
+    expect(await ids('f.allowComments=false')).not.toContain(a.id);
+    expect(await ids('f.category=K%C3%BCche&updated=30')).not.toContain(old.id);
+    expect(await ids('author=me&f.category=Garten')).toContain(b.id);
+    expect((await req('GET', '/api/entries?collection=posts&f.title=x')).status).toBe(400);
+    expect((await req('GET', '/api/entries?collection=posts&author=nobody')).status).toBe(400);
+    // What there is to filter by, with counts.
+    const facets = (await req('GET', '/api/entries/facets?collection=posts')).data;
+    const cat = facets.fields.find((f: { key: string }) => f.key === 'category');
+    expect(cat.values.find((v: { value: string }) => v.value === 'Küche').n).toBeGreaterThanOrEqual(2);
+    expect(facets.fields.find((f: { key: string }) => f.key === 'tags').values.find((v: { value: string }) => v.value === 'herbst').n).toBeGreaterThanOrEqual(2);
+    expect(facets.authors.length).toBeGreaterThan(0);
+    // Saved views: tidied, mine or shared; others see shared ones only.
+    const mine = await req('POST', '/api/views', { collection: 'posts', name: 'Küche', query: { 'f.category': 'Küche', bogus: 'x', status: 'draft' } });
+    expect(mine.data.view.query).toEqual({ status: 'draft', 'f.category': 'Küche' });
+    const team = await req('POST', '/api/views', { collection: 'posts', name: 'Herbst', query: { 'f.tags': 'herbst' }, shared: true });
+    expect(team.status).toBe(200);
+    const cy = await req('POST', '/api/users', { email: 'cy@example.ch', name: 'Cy', role: 'author' });
+    const cyC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'cy@example.ch', password: cy.data.temporaryPassword }, { cookies: cyC });
+    const seen = (await req('GET', '/api/views?collection=posts', undefined, { cookies: cyC })).data.views.map((v: { name: string }) => v.name);
+    expect(seen).toContain('Herbst');
+    expect(seen).not.toContain('Küche');
+    expect((await req('POST', '/api/views', { collection: 'posts', name: 'Für alle', query: {}, shared: true }, { cookies: cyC })).status).toBe(403);
+    expect((await req('DELETE', `/api/views/${team.data.view.id}`, undefined, { cookies: cyC })).status).toBe(403);
+    for (const v of [mine, team]) expect((await req('DELETE', `/api/views/${v.data.view.id}`)).status).toBe(200);
+    for (const e of [a, b, old]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
     expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
     expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);

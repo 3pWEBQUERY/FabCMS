@@ -3,6 +3,7 @@ import type { AppEnv } from '../auth';
 import { HttpError } from '../lib/http';
 import { authApi } from './api-auth';
 import { contentApi } from './api-content';
+import { viewsApi } from './api-views';
 import { dataApi } from './api-data';
 import { rolesApi } from './api-roles';
 import { shareApi } from './api-share';
@@ -48,6 +49,7 @@ export function apiRoutes(app: Hono<AppEnv>) {
     return csrf(c, next);
   });
   authApi(app);
+  viewsApi(app);
   contentApi(app);
   dataApi(app);
   rolesApi(app);
