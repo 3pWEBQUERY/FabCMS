@@ -2066,7 +2066,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).toContain('data-anim="up" data-anim-items="80" data-hover="lift"');
     expect(html).toContain('#b-mot1{--anim-dur:900ms');
     expect(html).toContain('animation:nova-show 0s 4s forwards');
-    expect(html).toContain('<noscript><style>[data-anim]>*{opacity:1!important');
+    expect(html).toContain('<noscript><style>[data-anim]>*,[data-self]{opacity:1!important');
     expect(html).toContain('/_nova/site.js');
+  });
+
+  it('builds free layouts from elements – cleaned on save, escaped on the page, editable in the editor', async () => {
+    const els = [
+      {
+        id: 'row1',
+        kind: 'box',
+        props: { tag: 'section' },
+        design: { desktop: { display: 'flex', direction: 'row', gap: '$s-6' }, mobile: { direction: 'column' } },
+        motion: { enter: 'up', stagger: 60 },
+        children: [
+          { id: 'h1x', kind: 'heading', props: { text: 'Gross <b>& klar</b>', level: '1' } },
+          { id: 'tx', kind: 'text', props: { html: '<p>Hallo <a href="javascript:alert(1)">Welt</a></p><script>alert(1)</script>' } },
+          { id: 'bt', kind: 'button', props: { label: 'Los', href: '/kontakt', variant: 'secondary' } },
+          { id: 'ic', kind: 'icon', props: { icon: 'star', size: 64 }, motion: { loop: 'float' } },
+        ],
+      },
+    ];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Frei', blocks: [{ id: 'lay1', type: 'layout', props: { width: 'content', els } }] } });
+    expect(page.status).toBe(200);
+    const saved = page.data.entry.data.blocks[0].props.els[0].children;
+    expect(saved[1].props.html).not.toMatch(/javascript|script/);
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    expect(html).toContain('<section class="el el-box" id="e-row1" data-anim="up" data-anim-items="60" data-self>');
+    expect(html).toContain('<h1 class="el el-heading" id="e-h1x">Gross &lt;b&gt;&amp; klar&lt;/b&gt;</h1>');
+    expect(html).toContain('<a class="el el-button btn-2" href="/kontakt" id="e-bt"><span>Los</span></a>');
+    expect(html).toContain('data-loop="float"');
+    expect(html).toContain('#e-row1{display:flex;flex-direction:row;gap:var(--s-6)}');
+    expect(html).toContain('@media (max-width:40rem){#e-row1{flex-direction:column}}');
+    expect(html).toContain('#e-ic{--isz:64px}');
+    expect(html).not.toContain('data-nova-el');
+    // Only one h1: the layout brings its own, the page doesn't add a second.
+    expect(html.match(/<h1/g)?.length).toBe(1);
+    // In the editor every element is selectable and its text editable in place.
+    const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay1' });
+    expect(canvas.data.html).toContain('data-nova-el="h1x"');
+    expect(canvas.data.html).toContain('data-nova-field="els.0.children.0.props.text"');
+    const search = await req('GET', `/api/v1/pages/${page.data.entry.slug}`, undefined, { cookies: new Map() });
+    expect(search.status).toBe(200);
   });
 });

@@ -105,12 +105,12 @@ export const MOTION_CSS = `
 [data-anim=tilt]{--anim-t:rotate(-3deg) translate3d(0,var(--anim-dist,32px),0)}
 [data-anim=reveal]{--anim-c:inset(0 0 100% 0)}
 [data-anim=left],[data-anim=right],[data-scroll=slide]{overflow-x:clip}
-[data-anim]>:not(style),[data-anim] .anim-item{transition:opacity var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),transform var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),filter var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),clip-path var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s))}
+[data-anim]:not([data-self])>:not(style),[data-anim][data-self],[data-anim] .anim-item{transition:opacity var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),transform var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),filter var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s)),clip-path var(--anim-dur,.7s) var(--anim-ease,ease) var(--d,var(--anim-delay,0s))}
 [data-anim] .anim-item{--d:var(--item-delay,0s)}
-.anim-reset>:not(style),.anim-reset .anim-item{transition:none!important}
+.anim-reset>:not(style),.anim-reset[data-self],.anim-reset .anim-item{transition:none!important}
 @media (prefers-reduced-motion:no-preference){
-body:not([data-nova-edit]) [data-anim]:not(.anim-ready)>:not(style),body:not([data-nova-edit]) .anim-ready:not(.anim-in):not(.anim-items)>:not(style),body:not([data-nova-edit]) .anim-items:not(.anim-in) .anim-item,[data-nova-edit] .anim-replay:not(.anim-in):not(.anim-items)>:not(style),[data-nova-edit] .anim-replay.anim-items:not(.anim-in) .anim-item{opacity:0;transform:var(--anim-t);filter:var(--anim-f);clip-path:var(--anim-c)}
-body:not([data-nova-edit]) [data-anim]:not(.anim-ready)>:not(style){animation:nova-show 0s 4s forwards}
+body:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)>:not(style),body:not([data-nova-edit]) .anim-ready:not([data-self]):not(.anim-in):not(.anim-items)>:not(style),body:not([data-nova-edit]) [data-self]:not(.anim-ready),body:not([data-nova-edit]) .anim-ready[data-self]:not(.anim-in):not(.anim-items),body:not([data-nova-edit]) .anim-items:not(.anim-in) .anim-item,[data-nova-edit] .anim-replay:not([data-self]):not(.anim-in):not(.anim-items)>:not(style),[data-nova-edit] .anim-replay[data-self]:not(.anim-in):not(.anim-items),[data-nova-edit] .anim-replay.anim-items:not(.anim-in) .anim-item{opacity:0;transform:var(--anim-t);filter:var(--anim-f);clip-path:var(--anim-c)}
+body:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)>:not(style),body:not([data-nova-edit]) [data-self]:not(.anim-ready){animation:nova-show 0s 4s forwards}
 [data-scroll]>:not(style){translate:var(--sx,0) var(--sy,0);scale:var(--ss,1)}
 [data-scroll=fade]>:not(style){opacity:var(--so,1)}
 [data-loop=float]{animation:nova-float 5s ease-in-out infinite}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { type Easing, type EnterEffect, type ItemHover, type Motion, type ScrollEffect } from '../../../shared/motion';
+import { type Easing, type EnterEffect, type ItemHover, type Loop, type Motion, type ScrollEffect } from '../../../shared/motion';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Switch, Tip } from '../../ui/kit';
@@ -36,6 +36,14 @@ const hoverEffects = (): { value: ItemHover | ''; label: string }[] => [
   { value: 'tilt', label: t('3D-Neigen') },
 ];
 
+const loops = (): { value: Loop | ''; label: string }[] => [
+  { value: '', label: t('Keine') },
+  { value: 'float', label: t('Schweben') },
+  { value: 'pulse', label: t('Pulsieren') },
+  { value: 'spin', label: t('Drehen') },
+  { value: 'wiggle', label: t('Wackeln') },
+];
+
 const easings = (): { value: Easing; label: string; path: string }[] => [
   { value: 'smooth', label: t('Sanft'), path: 'M2 18C6 6 9 2 18 2' },
   { value: 'spring', label: t('Federnd'), path: 'M2 18C5 1 8 -3 13 1S18 2 18 2' },
@@ -65,7 +73,20 @@ function Tiles({ children, label }: { children: ReactNode; label: string }) {
   );
 }
 
-export function MotionPanel({ motion, onChange, onPlay, target }: { motion: Motion | undefined; onChange: (m: Motion) => void; onPlay: () => void; target: 'block' | 'element' }) {
+export function MotionPanel({
+  motion,
+  onChange,
+  onPlay,
+  target,
+  items = target === 'block',
+}: {
+  motion: Motion | undefined;
+  onChange: (m: Motion) => void;
+  onPlay: () => void;
+  target: 'block' | 'element';
+  /** Offer «one after another» (blocks and containers). */
+  items?: boolean;
+}) {
   const m = motion ?? {};
   const set = (patch: Partial<Motion>) => {
     const next: Motion = { ...m, ...patch };
@@ -142,7 +163,7 @@ export function MotionPanel({ motion, onChange, onPlay, target }: { motion: Moti
                 ))}
               </div>
             </PropRow>
-            {target === 'block' && (
+            {items && (
               <div className="mp-switch">
                 <span>
                   <strong>{t('Nacheinander')}</strong>
@@ -201,6 +222,24 @@ export function MotionPanel({ motion, onChange, onPlay, target }: { motion: Moti
         )}
         {m.scroll && <p className="xsmall faint">{t('Im Editor sichtbar, sobald du in der Seite scrollst.')}</p>}
       </DesignSection>
+
+      {target === 'element' && (
+        <DesignSection id="motion-loop" title={t('Dauernd')} icon="recycle" count={m.loop ? 1 : 0}>
+          <Tiles label={t('Bewegung, die nicht aufhört')}>
+            {loops().map((e) => (
+              <Tile
+                key={e.value}
+                kind="loop"
+                value={e.value}
+                label={e.label}
+                active={(m.loop ?? '') === e.value}
+                onClick={() => set({ loop: (e.value || undefined) as Loop | undefined })}
+              />
+            ))}
+          </Tiles>
+          <p className="xsmall faint">{t('Sparsam einsetzen: ein schwebendes Symbol zieht den Blick an, drei lenken ab.')}</p>
+        </DesignSection>
+      )}
 
       {target === 'block' && (
         <DesignSection id="motion-hover" title={t('Karten bei Hover')} icon="cursor" count={m.itemHover ? 1 : 0}>

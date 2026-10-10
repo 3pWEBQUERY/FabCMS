@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import type { ElKind } from '../../../shared/elements';
 import { DESIGN_BPS, effective, isEmptyDesign, setDesign, SIZE_TOKENS, type Design, type DesignBp, type DesignState, type StyleProps } from '../../../shared/design';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
@@ -94,9 +95,11 @@ export interface DesignPanelProps {
   rhythm?: ReactNode;
   visibility?: ReactNode;
   pro: boolean;
+  /** Elements: which kind – containers are flex columns unless set otherwise. */
+  kind?: ElKind;
 }
 
-export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, rhythm, visibility, pro }: DesignPanelProps) {
+export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, rhythm, visibility, pro, kind }: DesignPanelProps) {
   const toast = useToast();
   const preview = useColorPreview();
   const layer: DesignBp | 'hover' = state === 'hover' ? 'hover' : bp;
@@ -119,6 +122,8 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
     for (const [k, v] of Object.entries(patch)) d = setDesign(d, layer, k as keyof StyleProps, v as never);
     onChange(d);
   };
+  // Containers of the free layout are flex columns until someone says otherwise.
+  const display = prop('display').value ?? prop('display').inherited ?? (kind === 'box' ? 'flex' : undefined);
   const count = (sec: string) => SECTIONS[sec].filter((k) => design?.[layer]?.[k] !== undefined).length;
   const show = (k: keyof StyleProps) => !hover || HOVER_KEYS.has(k);
 
@@ -243,22 +248,23 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
       )}
 
       {!block && (
-        <DesignSection id="layout" title={t('Layout')} icon="columns" count={count('layout')} defaultOpen>
-          {row('display', t('Anordnung'), (p) => (
-            <IconChoice
-              label={t('Anordnung')}
-              value={p.value}
-              inherited={p.inherited}
-              onChange={p.set}
-              options={[
-                { value: 'block', icon: 'dirBlock', label: t('Untereinander') },
-                { value: 'flex', icon: 'dirRow', label: t('Flexibel (Flexbox)') },
-                { value: 'grid', icon: 'grid', label: t('Raster (Grid)') },
-                { value: 'none', icon: 'eyeOff', label: t('Ausblenden') },
-              ]}
-            />
-          ))}
-          {(prop('display').value ?? prop('display').inherited) === 'flex' && (
+        <DesignSection id="layout" title={kind === 'box' ? t('Layout') : t('Im Container')} icon="columns" count={count('layout')} defaultOpen={kind === 'box'}>
+          {kind === 'box' &&
+            row('display', t('Anordnung'), (p) => (
+              <IconChoice
+                label={t('Anordnung')}
+                value={p.value}
+                inherited={p.inherited}
+                onChange={p.set}
+                options={[
+                  { value: 'block', icon: 'dirBlock', label: t('Untereinander') },
+                  { value: 'flex', icon: 'dirRow', label: t('Flexibel (Flexbox)') },
+                  { value: 'grid', icon: 'grid', label: t('Raster (Grid)') },
+                  { value: 'none', icon: 'eyeOff', label: t('Ausblenden') },
+                ]}
+              />
+            ))}
+          {kind === 'box' && display === 'flex' && (
             <>
               {row('direction', t('Richtung'), (p) => (
                 <IconChoice
@@ -288,11 +294,12 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
               ))}
             </>
           )}
-          {(prop('display').value ?? prop('display').inherited) === 'grid' &&
+          {kind === 'box' &&
+            display === 'grid' &&
             row('columns', t('Spalten'), (p) => (
               <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Spalten')} icon="columns" />
             ))}
-          {['flex', 'grid'].includes(String(prop('display').value ?? prop('display').inherited)) && (
+          {kind === 'box' && ['flex', 'grid'].includes(String(display)) && (
             <>
               {row('justify', t('Verteilen'), (p) => (
                 <IconChoice
@@ -421,18 +428,19 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                   ))}
                 </div>
               ))}
-              {row('fit', t('Bild füllen'), (p) => (
-                <IconChoice
-                  label={t('Bild füllen')}
-                  value={p.value}
-                  inherited={p.inherited}
-                  onChange={p.set}
-                  options={[
-                    { value: 'cover', text: t('Füllen'), label: t('Füllt die Fläche, schneidet zu') },
-                    { value: 'contain', text: t('Ganz'), label: t('Ganzes Bild, mit Rand') },
-                  ]}
-                />
-              ))}
+              {kind === 'image' &&
+                row('fit', t('Bild füllen'), (p) => (
+                  <IconChoice
+                    label={t('Bild füllen')}
+                    value={p.value}
+                    inherited={p.inherited}
+                    onChange={p.set}
+                    options={[
+                      { value: 'cover', text: t('Füllen'), label: t('Füllt die Fläche, schneidet zu') },
+                      { value: 'contain', text: t('Ganz'), label: t('Ganzes Bild, mit Rand') },
+                    ]}
+                  />
+                ))}
             </>
           )}
           {row('overflow', t('Überlauf'), (p) => (

@@ -2,6 +2,7 @@ import { entryHooks } from './hooks';
 import { sql, json, type Tx } from './db';
 import { BUILTIN_COLLECTIONS } from '../shared/collections';
 import { BLOCK_MAP } from '../shared/blocks';
+import { sanitizeEls } from '../shared/elements';
 import { validateFields, type FieldDef } from '../shared/fields';
 import { sanitizePlain, sanitizeRichText, safeHref } from '../shared/richtext';
 import { slugify } from '../shared/text';
@@ -181,6 +182,8 @@ export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Bloc
           }));
         }
       }
+      // Free layout: the element tree is cleaned element by element.
+      if (b.type === 'layout') props.els = sanitizeEls(props.els);
       if (typeof style.className === 'string') style.className = style.className.replace(/[^\w\- ]/g, '').slice(0, 120);
       if (typeof style.anchor === 'string') style.anchor = slugify(style.anchor);
       return { id: String(b.id).slice(0, 24), type: b.type, props, style, lock: b.lock ?? 'none' };

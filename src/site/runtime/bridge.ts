@@ -43,6 +43,10 @@ style.textContent = `
 .nova-dragging{z-index:50;box-shadow:0 24px 64px -16px rgba(0,0,0,.35);transition:none!important;cursor:grabbing}
 .nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 a[href]{cursor:default}
+[data-nova-el]{transition:outline-color .12s}
+[data-nova-el-hover]{outline:1px dashed rgba(43,89,195,.7)!important;outline-offset:-1px}
+[data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
+[data-nova-el-drag]{opacity:.35}
 `;
 d.head.append(style);
 
@@ -63,6 +67,13 @@ shadow.innerHTML = `<style>
 .grip{position:absolute;display:none;width:28px;height:28px;border-radius:7px;background:#1b1a17;color:#fff;cursor:grab;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);touch-action:none}
 .grip.on{display:flex}
 .grip svg{width:16px;height:16px}
+.egrip{position:absolute;display:none;width:22px;height:22px;border-radius:6px;background:#2b59c3;color:#fff;cursor:grab;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(43,89,195,.4);touch-action:none}
+.egrip.on{display:flex}
+.egrip svg{width:14px;height:14px}
+.edrop{position:absolute;display:none;background:#2b59c3;border-radius:2px;pointer-events:none;box-shadow:0 0 0 2px rgba(255,255,255,.8)}
+.edrop.on{display:block}
+.edrop-box{position:absolute;display:none;border:2px dashed rgba(43,89,195,.7);border-radius:4px;pointer-events:none}
+.edrop-box.on{display:block}
 .rich{position:absolute;display:none;gap:1px;padding:3px;background:#1b1a17;border-radius:8px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
 .rich.on{display:flex}
 .rich button{min-width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:#fff;font:600 12px/1 inherit;cursor:pointer;padding:0 6px}
@@ -80,6 +91,8 @@ shadow.innerHTML = `<style>
 </style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
 <div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="edrop"></div><div class="edrop-box"></div>
 <div class="rich" role="toolbar" aria-label="Formatierung">
 <span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
 <span class="lnk"><input type="text" inputmode="url" placeholder="/kontakt oder https://…" aria-label="Link-Adresse"><button data-l="ok" class="ok">OK</button><button data-l="rm" data-tip="Link entfernen" aria-label="Link entfernen">✕</button></span>
@@ -87,6 +100,9 @@ shadow.innerHTML = `<style>
 const ins = shadow.querySelector('.ins') as HTMLElement;
 const grip = shadow.querySelector('.grip') as HTMLElement;
 const rich = shadow.querySelector('.rich') as HTMLElement;
+const egrip = shadow.querySelector('.egrip') as HTMLElement;
+const edrop = shadow.querySelector('.edrop') as HTMLElement;
+const edropBox = shadow.querySelector('.edrop-box') as HTMLElement;
 
 const blocks = () => [...main.querySelectorAll<HTMLElement>(':scope > [data-nova-block]')];
 const blockEl = (id: string) => main.querySelector<HTMLElement>(`:scope > [data-nova-block="${CSS.escape(id)}"]`);
@@ -150,7 +166,10 @@ d.addEventListener('keydown', (e) => {
     post({ t: 'key', key: 'save' });
   } else if (e.key === 'Escape') {
     if (field) field.blur();
-    else select(null, true);
+    else if (selectedEl) {
+      const parent = elEl(selectedEl)?.parentElement?.closest<HTMLElement>('[data-nova-el]');
+      selectEl(parent?.dataset.novaEl ?? null, true);
+    } else select(null, true);
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && !field && selected && !(t instanceof HTMLInputElement)) {
     post({ t: 'key', key: 'delete' });
   }
@@ -167,8 +186,137 @@ d.addEventListener('paste', (e) => {
 
 /* ---------- selection & hover ---------- */
 
+/* ---------- elements of the free layout ---------- */
+
+let selectedEl: string | null = null;
+const elEl = (id: string) => main.querySelector<HTMLElement>(`[data-nova-el="${CSS.escape(id)}"]`);
+
+function selectEl(id: string | null, notify: boolean) {
+  if (selectedEl) elEl(selectedEl)?.removeAttribute('data-nova-el-selected');
+  selectedEl = id;
+  const el = id ? elEl(id) : null;
+  el?.setAttribute('data-nova-el-selected', '');
+  placeEgrip();
+  if (!notify) return;
+  const block = el?.closest<HTMLElement>('[data-nova-block]');
+  if (el && block) {
+    if (selected !== block.dataset.novaBlock) select(block.dataset.novaBlock!, false);
+    post({ t: 'select-el', block: block.dataset.novaBlock, el: id, rect: rectOf(el), blockRect: rectOf(block) });
+  } else post({ t: 'select-el', block: selected, el: null });
+}
+
+function placeEgrip() {
+  const el = selectedEl ? elEl(selectedEl) : null;
+  const block = el?.closest<HTMLElement>('[data-nova-block]');
+  // Locked blocks keep their layout in the Studio.
+  if (!el || !block || lockOf(block) !== 'none') return egrip.classList.remove('on');
+  const r = el.getBoundingClientRect();
+  // Beside the element when there is room, so it never covers the first letters.
+  egrip.style.top = `${r.top + scrollY + 2}px`;
+  egrip.style.left = `${r.left > 30 ? r.left - 26 : r.left + 4}px`;
+  egrip.classList.add('on');
+}
+
+let hoverEl: HTMLElement | null = null;
+d.addEventListener(
+  'pointermove',
+  (e) => {
+    if (elDrag) return;
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-nova-el]') ?? null;
+    if (el === hoverEl) return;
+    hoverEl?.removeAttribute('data-nova-el-hover');
+    hoverEl = el;
+    if (el && el.dataset.novaEl !== selectedEl) el.setAttribute('data-nova-el-hover', '');
+  },
+  { passive: true },
+);
+
+/* Drag an element into another place – also into other containers of the same block. */
+let elDrag: { el: HTMLElement; block: HTMLElement; target: { parent: string | null; index: number } | null } | null = null;
+
+function dropTarget(x: number, y: number): { parent: string | null; index: number; line: DOMRect; container: HTMLElement } | null {
+  if (!elDrag) return null;
+  const { el, block } = elDrag;
+  const under = d.elementsFromPoint(x, y).find((n) => block.contains(n) && !el.contains(n)) as HTMLElement | undefined;
+  if (!under) return null;
+  // The innermost container under the pointer, or the layout itself.
+  const box = under.closest<HTMLElement>('[data-nova-kind-el="box"]');
+  const container = box && block.contains(box) && !el.contains(box) ? box : block.querySelector<HTMLElement>('.lay');
+  if (!container) return null;
+  const kids = [...container.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute('data-nova-el') && c !== el);
+  const cs = getComputedStyle(container);
+  const rowish = (cs.display.includes('flex') && cs.flexDirection.startsWith('row')) || cs.display.includes('grid');
+  let index = kids.length;
+  for (let i = 0; i < kids.length; i++) {
+    const r = kids[i].getBoundingClientRect();
+    const before = rowish ? (y < r.top ? true : y > r.bottom ? false : x < r.left + r.width / 2) : y < r.top + r.height / 2;
+    if (before) {
+      index = i;
+      break;
+    }
+  }
+  // Index among all children, the dragged one included (the editor removes it first).
+  const all = [...container.children].filter((c) => c instanceof HTMLElement && c.hasAttribute('data-nova-el'));
+  const ref = kids[index] ?? null;
+  const realIndex = ref ? all.indexOf(ref) : all.length;
+  const cr = container.getBoundingClientRect();
+  let line: DOMRect;
+  if (ref) {
+    const r = ref.getBoundingClientRect();
+    line = rowish && !cs.display.includes('grid') ? new DOMRect(r.left - 3, r.top, 3, r.height) : new DOMRect(r.left, r.top - 3, r.width, 3);
+  } else if (kids.length) {
+    const r = kids[kids.length - 1].getBoundingClientRect();
+    line = rowish && !cs.display.includes('grid') ? new DOMRect(r.right + 1, r.top, 3, r.height) : new DOMRect(r.left, r.bottom + 1, r.width, 3);
+  } else line = new DOMRect(cr.left + 8, cr.top + cr.height / 2, cr.width - 16, 3);
+  return { parent: container.dataset.novaEl ?? null, index: realIndex, line, container };
+}
+
+egrip.addEventListener('pointerdown', (e) => {
+  const el = selectedEl ? elEl(selectedEl) : null;
+  const block = el?.closest<HTMLElement>('[data-nova-block]');
+  if (!el || !block) return;
+  e.preventDefault();
+  egrip.setPointerCapture(e.pointerId);
+  elDrag = { el, block, target: null };
+  el.setAttribute('data-nova-el-drag', '');
+});
+egrip.addEventListener('pointermove', (e) => {
+  if (!elDrag) return;
+  const t = dropTarget(e.clientX, e.clientY);
+  elDrag.target = t ? { parent: t.parent, index: t.index } : null;
+  if (t) {
+    Object.assign(edrop.style, { top: `${t.line.top + scrollY}px`, left: `${t.line.left}px`, width: `${t.line.width}px`, height: `${t.line.height}px` });
+    const cr = t.container.getBoundingClientRect();
+    Object.assign(edropBox.style, { top: `${cr.top + scrollY}px`, left: `${cr.left}px`, width: `${cr.width}px`, height: `${cr.height}px` });
+  }
+  edrop.classList.toggle('on', Boolean(t));
+  edropBox.classList.toggle('on', Boolean(t));
+  egrip.style.top = `${e.clientY + scrollY - 11}px`;
+  egrip.style.left = `${e.clientX - 11}px`;
+  if (e.clientY < 60) scrollBy(0, -10);
+  else if (e.clientY > innerHeight - 60) scrollBy(0, 10);
+});
+function endElDrag() {
+  if (!elDrag) return;
+  const { el, block, target } = elDrag;
+  el.removeAttribute('data-nova-el-drag');
+  edrop.classList.remove('on');
+  edropBox.classList.remove('on');
+  elDrag = null;
+  if (target) post({ t: 'el-move', block: block.dataset.novaBlock, el: el.dataset.novaEl, parent: target.parent, index: target.index });
+  placeEgrip();
+}
+egrip.addEventListener('pointerup', endElDrag);
+egrip.addEventListener('pointercancel', endElDrag);
+
 function select(id: string | null, notify: boolean) {
   if (selected) blockEl(selected)?.removeAttribute('data-nova-selected');
+  // An element stays selected only while its block is.
+  if (selectedEl && elEl(selectedEl)?.closest<HTMLElement>('[data-nova-block]')?.dataset.novaBlock !== id) {
+    elEl(selectedEl)?.removeAttribute('data-nova-el-selected');
+    selectedEl = null;
+    placeEgrip();
+  }
   selected = id;
   const el = id ? blockEl(id) : null;
   if (el) el.setAttribute('data-nova-selected', '');
@@ -190,6 +338,12 @@ d.addEventListener(
       return post({ t: 'global', which: global.dataset.novaGlobal });
     }
     const block = t.closest<HTMLElement>('[data-nova-block]');
+    const el = t.closest<HTMLElement>('[data-nova-el]');
+    if (el && block?.contains(el)) {
+      select(block.dataset.novaBlock!, false);
+      return selectEl(el.dataset.novaEl!, true);
+    }
+    if (selectedEl) selectEl(null, false);
     if (block) {
       if (t.closest('summary')) e.preventDefault();
       select(block.dataset.novaBlock!, true);
@@ -427,6 +581,9 @@ function sendRect() {
   raf = requestAnimationFrame(() => {
     const el = selected ? blockEl(selected) : null;
     if (el) post({ t: 'rect', id: selected, rect: rectOf(el) });
+    const sub = selectedEl ? elEl(selectedEl) : null;
+    if (sub) post({ t: 'el-rect', el: selectedEl, rect: rectOf(sub) });
+    placeEgrip();
   });
 }
 addEventListener('scroll', sendRect, { passive: true });
@@ -522,6 +679,7 @@ addEventListener('message', (e) => {
       if (!old || !next) break;
       if (old.classList.contains('nova-hover')) next.classList.add('nova-hover');
       old.replaceWith(next);
+      if (selectedEl) elEl(selectedEl)?.setAttribute('data-nova-el-selected', '');
       setupFields(next);
       setupMotion(next.parentElement ?? main, true);
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
@@ -599,6 +757,7 @@ addEventListener('message', (e) => {
         }
       }
       if (selected && blockEl(selected)) blockEl(selected)!.setAttribute('data-nova-selected', '');
+      if (selectedEl) elEl(selectedEl)?.setAttribute('data-nova-el-selected', '');
       else select(null, true);
       paintComments();
       paintPeers();
@@ -665,6 +824,19 @@ addEventListener('message', (e) => {
       const tag = d.querySelector<HTMLStyleElement>(`style[data-nova-design="${CSS.escape(m.id)}"]`);
       if (tag && tag.textContent !== m.css) tag.textContent = m.css;
       sendRect();
+      break;
+    }
+    case 'select-el': {
+      if (m.block && selected !== m.block) select(m.block, false);
+      selectEl(m.el ?? null, false);
+      const el = m.el ? elEl(m.el) : null;
+      if (el && m.scroll) el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+      sendRect();
+      break;
+    }
+    case 'motion-play-el': {
+      const el = m.el ? elEl(m.el) : null;
+      if (el) replay(el);
       break;
     }
     case 'motion-play': {

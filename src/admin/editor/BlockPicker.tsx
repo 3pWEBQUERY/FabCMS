@@ -4,6 +4,8 @@ import { useSession } from '../lib/session';
 import { touchScreen } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon } from '../ui/icons';
+import { LAYOUT_PRESETS } from '../../shared/elements';
+import { LayoutThumb } from './elements/LayoutThumb';
 
 /** Block library, grouped and searchable. Werkbank adds code blocks. */
 export function BlockPicker({ onPick, sections }: { onPick: (type: string, props?: Record<string, unknown>) => void; sections: { id: string; title: string }[] }) {
@@ -19,7 +21,15 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
   }, [q, pro, modules]);
 
   const items = [
-    ...list.map((b) => ({ key: b.type, label: tl(b.label), description: tl(b.description), icon: b.icon, category: b.category, run: () => onPick(b.type) })),
+    ...list.map((b) => ({
+      key: b.type,
+      label: tl(b.label),
+      description: tl(b.description),
+      icon: b.icon,
+      category: b.category,
+      // The free layout starts with an empty container to build in.
+      run: () => onPick(b.type, b.type === 'layout' ? { els: LAYOUT_PRESETS.find((p) => p.id === 'empty')!.els() } : undefined),
+    })),
     ...(q === '' || 'sektion wiederverwendbar'.includes(q.toLowerCase()) || t('Wiederverwendbare Sektion').toLowerCase().includes(q.toLowerCase())
       ? sections.map((s) => ({
           key: `s-${s.id}`,
@@ -31,6 +41,8 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
         }))
       : []),
   ];
+
+  const presets = LAYOUT_PRESETS.filter((p) => !q || `${tl(p.label)} ${tl(p.description)} layout`.toLowerCase().includes(q.toLowerCase()));
 
   let last = '';
   return (
@@ -61,6 +73,19 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
         />
       </div>
       <div className="picker-list" role="listbox" aria-label={t('Blöcke')}>
+        {presets.length > 0 && (
+          <>
+            <div className="cmdk-group">{t('Freie Layouts')}</div>
+            <div className="lt-grid">
+              {presets.map((p) => (
+                <button key={p.id} type="button" className="lt-tile" onClick={() => onPick('layout', { els: p.els() })} title={tl(p.description)}>
+                  <LayoutThumb id={p.id} />
+                  <span>{tl(p.label)}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {items.map((it, i) => {
           const cat = it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
           const head = !q && cat !== last ? (last = cat) : null;

@@ -4,6 +4,8 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
+import { BOX_TAGS, elementImages, elementsCss, SPACER_SIZES, type El } from '../shared/elements';
+import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
@@ -805,6 +807,14 @@ const R: Record<string, Renderer> = {
     return ctx.edit ? html`<div class="nova-section-ref" data-nova-section="${(b.props as P).section}">${inner}</div>` : inner;
   },
 
+  async layout(b, ctx) {
+    const p = b.props as P;
+    const els = (p.els as El[]) ?? [];
+    const inner = await renderEls(els, ctx, 'els');
+    const empty = ctx.edit && !els.length ? html`<div class="el-empty">${'Leeres Layout – füg über «+» das erste Element hinzu.'}</div>` : '';
+    return html`<div class="${p.width === 'full' ? 'lay lay-full' : 'wrap lay'}">${inner}${empty}</div>`;
+  },
+
   html(b, ctx) {
     const p = b.props as P;
     const vars = new Map(((p.vars as P[]) ?? []).map((v) => [v.key, v.value ?? '']));
@@ -813,6 +823,71 @@ const R: Record<string, Renderer> = {
     return html`<div class="wrap html-block">${raw(safe)}</div>`;
   },
 };
+
+/* ---------- free layout: one element after the other, containers recursively ---------- */
+
+async function renderEls(els: El[], ctx: RenderContext, base: string): Promise<Html> {
+  const out: Html[] = [];
+  for (let i = 0; i < els.length; i++) out.push(await renderEl(els[i], ctx, `${base}.${i}`));
+  return join(out);
+}
+
+async function renderEl(el: El, ctx: RenderContext, path: string): Promise<Html> {
+  if (!/^[\w-]{1,24}$/.test(el.id)) return html``;
+  const p = (el.props ?? {}) as P;
+  const motion = motionAttrs(el.motion);
+  if (motion) ctx.needs.add('motion');
+  // An element animates itself (data-self); a container with «nacheinander» animates its children.
+  const attrs = raw(
+    ` id="e-${el.id}"${ctx.edit ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''}`,
+  );
+  const cls = (extra = '') => `el el-${el.kind}${extra ? ` ${extra}` : ''}`;
+  switch (el.kind) {
+    case 'box': {
+      const tag = (BOX_TAGS as readonly string[]).includes(String(p.tag)) ? String(p.tag) : 'div';
+      const kids = el.children ?? [];
+      const inner = kids.length ? await renderEls(kids, ctx, `${path}.children`) : ctx.edit ? html`<div class="el-empty">${'Leerer Container'}</div>` : html``;
+      const href = typeof p.href === 'string' && p.href ? p.href : '';
+      return href
+        ? html`<a class="${cls()}" href="${href}"${attrs}>${inner}</a>`
+        : html`${raw(`<${tag} class="${cls()}"`)}${attrs}>${inner}${raw(`</${tag}>`)}`;
+    }
+    case 'heading': {
+      const level = Math.min(4, Math.max(1, Number(p.level) || 2));
+      if (level === 1) ctx.h1 = true;
+      return html`${raw(`<h${level} class="${cls()}"`)}${attrs}${field(ctx.edit, `${path}.props.text`)}>${p.text ?? ''}${raw(`</h${level}>`)}`;
+    }
+    case 'text':
+      return html`<div class="${cls('prose')}"${attrs}${field(ctx.edit, `${path}.props.html`, 'rich')}>${raw(sanitizeRichText(p.html ?? ''))}</div>`;
+    case 'image': {
+      const m = await ctx.media(p.image);
+      if (!m) return ctx.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>${'Bild wählen'}</span></figure>` : html``;
+      const pic = picture(m, { sizes: '(min-width: 64rem) 50vw, 100vw', alt: p.alt || undefined });
+      return p.href ? html`<a class="${cls()}" href="${p.href}"${attrs}>${pic}</a>` : html`<figure class="${cls()}"${attrs}>${pic}</figure>`;
+    }
+    case 'button': {
+      const label = p.label ?? '';
+      const variant = p.variant === 'secondary' ? 'btn-2' : p.variant === 'link' ? 'el-link' : 'btn';
+      if (!label && !ctx.edit) return html``;
+      return html`<a class="${cls(variant)}" href="${p.href || '#'}"${attrs}><span${field(ctx.edit, `${path}.props.label`)}>${label}</span></a>`;
+    }
+    case 'icon':
+      return html`<span class="${cls()}"${attrs} aria-hidden="true">${raw(siteIconSvg(String(p.icon ?? 'star')))}</span>`;
+    case 'video': {
+      const embed = typeof p.url === 'string' && p.url ? videoEmbed(p.url) : null;
+      if (!embed) return ctx.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>${'Video-Link einfügen'}</span></figure>` : html``;
+      if (!ctx.settings.consent[embed.provider]) return html``;
+      ctx.needs.add('consent');
+      const poster = await ctx.media(p.poster);
+      return html`<figure class="${cls()}"${attrs}>${consentBox(ctx, embed.provider, embed.src, t(ctx, 'Video'), poster ? picture(poster, { sizes: '(min-width: 64rem) 50vw, 100vw' }) : html``)}</figure>`;
+    }
+    case 'spacer':
+      return html`<div class="${cls(`el-spacer-${(SPACER_SIZES as readonly string[]).includes(String(p.size)) ? p.size : 'm'}`)}"${attrs} aria-hidden="true"></div>`;
+    case 'divider':
+      return html`<hr class="${cls()}"${attrs}>`;
+  }
+  return html``;
+}
 
 export function hoursTable(ctx: RenderContext): Html {
   const { day } = zonedNow(ctx.settings.timezone, ctx.now);
@@ -836,7 +911,7 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
   const out: Html[] = [];
   // Background images in the design: looked up once, before the blocks render.
   const images = new Map<string, string>();
-  for (const id of new Set(blocks.flatMap((b) => designImages(b.style?.design)))) {
+  for (const id of new Set(blocks.flatMap((b) => [...designImages(b.style?.design), ...(b.type === 'layout' ? elementImages(((b.props as P).els as El[]) ?? []) : [])]))) {
     const m = await c.media(id);
     if (m) images.set(id, variantUrl(m, 1920, 'webp'));
   }
@@ -878,7 +953,8 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
   const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
   // The editor swaps this style element while someone drags a value, before the server answers.
-  const look = blockCss(`#${id}`, s, { image: (m) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined });
+  const opts = { image: (m: string) => images.get(m) ?? null, forceHover: ctx.edit ? 'nova-hover' : undefined };
+  const look = blockCss(`#${id}`, s, opts) + (b.type === 'layout' ? elementsCss(((b.props as P).els as El[]) ?? [], opts) : '');
   const motion = motionAttrs(s.motion);
   if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';

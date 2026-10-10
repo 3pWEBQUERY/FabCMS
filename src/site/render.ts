@@ -221,7 +221,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   }<meta name="theme-color" content="${palette.bg}">${
     favicon ? html`<link rel="icon" href="${variantUrl(favicon, 160, 'webp')}" type="image/webp">` : html`<link rel="icon" href="/_nova/favicon.svg" type="image/svg+xml">`
   }${blog ? html`<link rel="alternate" type="application/rss+xml" title="${s.name}" href="/feed.xml">` : ''}${preload.map((href) => html`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)}<style>${raw(STYLE_MARK)}</style>${
-    ctx.needs.has('motion') ? raw('<noscript><style>[data-anim]>*{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important;animation:none!important}</style></noscript>') : ''
+    ctx.needs.has('motion') ? raw('<noscript><style>[data-anim]>*,[data-self]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important;animation:none!important}</style></noscript>') : ''
   }${
     ctx.needs.has('turnstile') ? html`<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
   }${ctx.jsonLd.map((ld) => html`<script type="application/ld+json">${raw(ldScript(ld))}</script>`)}${

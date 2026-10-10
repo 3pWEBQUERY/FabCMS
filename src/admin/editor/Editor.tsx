@@ -27,6 +27,9 @@ import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block } from '../../shared/types';
 import { blockCss, blockDomId, COLOR_TOKENS, designImages, type DesignState } from '../../shared/design';
 import { TokenColors } from './design/controls';
+import { cloneEl, createEl, EL_DEFS, elementImages, elementsCss, findEl, insertEl, moveEl, removeEl, updateEl, type El, type ElKind } from '../../shared/elements';
+import { ElementInspector } from './elements/ElementInspector';
+import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
 
 /** The theme's colours as the canvas page really uses them. */
 function readTokenColors(frame: HTMLIFrameElement | null): Record<string, string> {
@@ -92,6 +95,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [designState, setDesignState] = useState<DesignState>('normal');
   const [tokenColors, setTokenColors] = useState<Record<string, string>>({});
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
+  // Free layout: the selected element inside the selected block, and where to insert a new one.
+  const [selectedEl, setSelectedEl] = useState<string | null>(null);
+  const [elRect, setElRect] = useState<Rect | null>(null);
+  const [elPicker, setElPicker] = useState<Rect | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
   const glide = useAnimationControls();
   const renderSeq = useRef<Record<string, number>>({});
@@ -101,6 +108,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   const studio = session.mode !== 'werkbank';
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
+  const elsOf = (b: Block | null | undefined) => (b?.props.els as El[] | undefined) ?? [];
+  const selectedElInfo = selectedBlock?.type === 'layout' && selectedEl ? findEl(elsOf(selectedBlock), selectedEl) : null;
   const backTo = doc.collection?.id === 'pages' || !doc.collection ? '/seiten' : `/inhalte/${doc.collection.id}`;
 
   /* ---------- rendering into the canvas ---------- */
@@ -160,15 +169,33 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           setSelected(m.id);
           setRect(m.rect);
           setPicker(null);
+          setSelectedEl(null);
+          setElRect(null);
           if (panel === 'header' || panel === 'footer') setPanel(null);
           break;
         case 'deselect':
           setSelected(null);
           setRect(null);
+          setSelectedEl(null);
+          setElRect(null);
           if (panel === 'inspector') setPanel(null);
           break;
         case 'rect':
           if (m.id === selected) setRect(m.rect);
+          break;
+        case 'select-el':
+          if (m.block) setSelected(m.block);
+          if (m.blockRect) setRect(m.blockRect);
+          setSelectedEl(m.el ?? null);
+          setElRect(m.rect ?? null);
+          setPicker(null);
+          setElPicker(null);
+          break;
+        case 'el-rect':
+          if (m.el === selectedEl) setElRect(m.rect);
+          break;
+        case 'el-move':
+          changeEls(m.block, (els) => moveEl(els, m.el, m.parent ?? null, m.index), m.el);
           break;
         case 'edit':
           lastLocal.current[m.id] = Date.now();
@@ -205,6 +232,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           else if (m.key === 'palette') onOpenPalette();
           else if (m.key === 'save') void doc.saveNow();
           else if (m.key === 'mode') void session.setMode(session.mode === 'studio' ? 'werkbank' : 'studio');
+          else if (m.key === 'delete' && selectedEl && selected) removeElement(selected, selectedEl);
           else if (m.key === 'delete' && selected) void removeBlock(selected);
           break;
       }
@@ -267,14 +295,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const before = blocksRef.current.find((x) => x.id === b.id);
     doc.setData((d) => updateBlock(d, b.id, () => b));
     // Design shows on the canvas right away; the server's render confirms it a moment later.
-    if (JSON.stringify([before?.style?.design, before?.style?.motion]) !== JSON.stringify([b.style?.design, b.style?.motion])) {
-      void mediaUrls(designImages(b.style?.design)).then((urls) =>
-        postToCanvas(frame.current, {
-          t: 'design',
-          id: b.id,
-          css: blockCss(`#${blockDomId(b)}`, b.style, { image: (m) => urls.get(m) ?? null, forceHover: 'nova-hover' }),
-        }),
-      );
+    const look = (x: Block | undefined) => JSON.stringify([x?.style?.design, x?.style?.motion, x?.type === 'layout' ? x.props.els : null]);
+    if (look(before) !== look(b)) {
+      const els = b.type === 'layout' ? elsOf(b) : [];
+      void mediaUrls([...designImages(b.style?.design), ...elementImages(els)]).then((urls) => {
+        const opts = { image: (m: string) => urls.get(m) ?? null, forceHover: 'nova-hover' };
+        postToCanvas(frame.current, { t: 'design', id: b.id, css: blockCss(`#${blockDomId(b)}`, b.style, opts) + elementsCss(els, opts) });
+      });
     }
     // A new entrance plays as soon as the block is back from the server.
     const motionChanged = JSON.stringify(before?.style?.motion) !== JSON.stringify(b.style?.motion);
@@ -354,8 +381,91 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     void renderAll().catch(() => {});
   };
 
+  /* ---------- elements of the free layout ---------- */
+
+  /** Changes a layout block's element tree, re-renders it and selects `select` (if given). */
+  const changeEls = (blockId: string, fn: (els: El[]) => El[], select?: string | null) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    if (!b) return;
+    const next: Block = { ...b, props: { ...b.props, els: fn(elsOf(b)) } };
+    doc.setData((d) => updateBlock(d, blockId, () => next));
+    blocksRef.current = blocksRef.current.map((x) => (x.id === blockId ? next : x));
+    void renderBlock(blockId)
+      .then(() => {
+        if (select === undefined) return;
+        setSelectedEl(select);
+        postToCanvas(frame.current, { t: 'select-el', block: blockId, el: select, scroll: false });
+      })
+      .catch(() => {});
+  };
+
+  const selectElement = (elId: string | null) => {
+    setSelectedEl(elId);
+    setElPicker(null);
+    postToCanvas(frame.current, { t: 'select-el', block: selected, el: elId, scroll: true });
+  };
+
+  /** New element: into the selected container, after the selected element, or at the end. */
+  const insertElement = (kind: ElKind) => {
+    if (!selectedBlock) return;
+    const el = createEl(kind);
+    const info = selectedElInfo;
+    changeEls(
+      selectedBlock.id,
+      (els) =>
+        !info
+          ? insertEl(els, null, els.length, el)
+          : info.el.kind === 'box'
+            ? insertEl(els, info.el.id, info.el.children?.length ?? 0, el)
+            : insertEl(els, info.parent?.id ?? null, info.index + 1, el),
+      el.id,
+    );
+    setElPicker(null);
+    if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
+  };
+
+  const duplicateElement = (blockId: string, elId: string) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    const copy = cloneEl(info.el);
+    changeEls(blockId, (els) => insertEl(els, info.parent?.id ?? null, info.index + 1, copy), copy.id);
+  };
+
+  const removeElement = (blockId: string, elId: string) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
+    changeEls(blockId, (els) => removeEl(els, elId), info.parent?.id ?? null);
+    toast(t('«{name}» entfernt.', { name: elLabel(info.el) }), { action: { label: t('Rückgängig'), run: () => doc.undo() } });
+  };
+
+  const moveElementBy = (blockId: string, elId: string, dir: -1 | 1) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    changeEls(blockId, (els) => moveEl(els, elId, info.parent?.id ?? null, dir > 0 ? info.index + 2 : info.index - 1), elId);
+  };
+
+  /** Puts the element into a new container at the same place – the start of a row or a card. */
+  const wrapElement = (blockId: string, elId: string) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    const wrapper = createEl('box', {}, { children: [info.el] });
+    changeEls(blockId, (els) => insertEl(removeEl(els, elId), info.parent?.id ?? null, info.index, wrapper), wrapper.id);
+  };
+
+  const changeElement = (blockId: string, el: El) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    if (!b) return;
+    changeBlock({ ...b, props: { ...b.props, els: updateEl(elsOf(b), el.id, () => el) } });
+  };
+
   const selectBlock = (blockId: string, scroll = true) => {
     setSelected(blockId);
+    setSelectedEl(null);
     postToCanvas(frame.current, { t: 'select', id: blockId, scroll });
   };
 
@@ -517,7 +627,31 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
             <div className="canvas-overlay">
               <AnimatePresence>
-                {selectedBlock && toolbarPos && !picker && (
+                {selectedBlock && selectedElInfo && elRect && !picker && (
+                  <ElementToolbar
+                    key={`el-${selectedElInfo.el.id}`}
+                    found={selectedElInfo}
+                    top={elRect.top > 52 ? elRect.top - 44 : Math.max(6, elRect.top + 8)}
+                    left={Math.max(8, elRect.left)}
+                    locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                    onSelect={selectElement}
+                    onSelectBlock={() => selectElement(null)}
+                    onEdit={() => setPanel('inspector')}
+                    onMove={(dir) => moveElementBy(selectedBlock.id, selectedElInfo.el.id, dir)}
+                    onInsert={(r) =>
+                      setElPicker({
+                        top: r.top - (frame.current?.getBoundingClientRect().top ?? 0),
+                        left: r.left - (frame.current?.getBoundingClientRect().left ?? 0),
+                        width: r.width,
+                        height: r.height,
+                      })
+                    }
+                    onDuplicate={() => duplicateElement(selectedBlock.id, selectedElInfo.el.id)}
+                    onWrap={() => wrapElement(selectedBlock.id, selectedElInfo.el.id)}
+                    onRemove={() => removeElement(selectedBlock.id, selectedElInfo.el.id)}
+                  />
+                )}
+                {selectedBlock && !selectedElInfo && toolbarPos && !picker && (
                   <motion.div
                     key={selectedBlock.id}
                     className="block-toolbar"
@@ -556,6 +690,21 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                             <Icon name="arrowDown" size="s" />
                           </button>
                         </Tip>
+                        {selectedBlock.type === 'layout' && (
+                          <Tip label={t('Element einfügen')}>
+                            <button
+                              className="btn icon-only"
+                              onClick={(e) => {
+                                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const f = frame.current?.getBoundingClientRect();
+                                setElPicker({ top: r.top - (f?.top ?? 0), left: r.left - (f?.left ?? 0), width: r.width, height: r.height });
+                              }}
+                              aria-label={t('Element einfügen')}
+                            >
+                              <Icon name="box" size="s" />
+                            </button>
+                          </Tip>
+                        )}
                         <Tip label={t('Block darunter einfügen')}>
                           <button
                             className="btn icon-only"
@@ -585,6 +734,16 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   </motion.div>
                 )}
               </AnimatePresence>
+              <RPopover.Root open={Boolean(elPicker)} onOpenChange={(o) => !o && setElPicker(null)}>
+                <RPopover.Anchor asChild>
+                  <span style={{ position: 'absolute', top: elPicker?.top ?? 0, left: elPicker?.left ?? 0, width: elPicker?.width ?? 0, height: elPicker?.height ?? 0 }} />
+                </RPopover.Anchor>
+                <RPopover.Portal>
+                  <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
+                    <ElementPicker onPick={insertElement} into={selectedElInfo?.el.kind === 'box' ? elLabel(selectedElInfo.el) : null} />
+                  </RPopover.Content>
+                </RPopover.Portal>
+              </RPopover.Root>
               <RPopover.Root open={Boolean(picker)} onOpenChange={(o) => !o && setPicker(null)}>
                 <RPopover.Anchor asChild>
                   <span
@@ -651,13 +810,34 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               transition={{ type: 'spring', stiffness: 520, damping: 44 }}
             >
               <header>
-                <h2>{panel === 'inspector' && selectedBlock ? tl(BLOCK_MAP[selectedBlock.type]?.label) : panelTitle(panel)}</h2>
+                <h2>
+                  {panel === 'inspector' && selectedElInfo
+                    ? elLabel(selectedElInfo.el)
+                    : panel === 'inspector' && selectedBlock
+                      ? tl(BLOCK_MAP[selectedBlock.type]?.label)
+                      : panelTitle(panel)}
+                </h2>
                 <button className="btn ghost icon-only s" onClick={() => setPanel(null)} aria-label={t('Schliessen')}>
                   <Icon name="x" />
                 </button>
               </header>
               <div className="side-body">
-                {panel === 'inspector' && selectedBlock && (
+                {panel === 'inspector' && selectedBlock && selectedElInfo && (
+                  <TokenColors.Provider value={tokenColors}>
+                    <ElementInspector
+                      key={selectedElInfo.el.id}
+                      el={selectedElInfo.el}
+                      onChange={(el) => changeElement(selectedBlock.id, el)}
+                      device={device}
+                      onDevice={setDevice}
+                      designState={designState}
+                      onDesignState={setDesignState}
+                      onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
+                      pro={session.pro}
+                    />
+                  </TokenColors.Provider>
+                )}
+                {panel === 'inspector' && selectedBlock && !selectedElInfo && (
                   <TokenColors.Provider value={tokenColors}>
                     <Inspector
                       key={selectedBlock.id}

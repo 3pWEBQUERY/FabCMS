@@ -5523,3 +5523,157 @@ body.scrubbing.v * {
   font-size: var(--t-xs);
   color: var(--ink-2);
 }
+
+/* ---------- free layout: ready-made layouts in the block picker ---------- */
+
+.lt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem 0.6rem;
+}
+.lt-tile {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 550 0.6875rem / 1.2 var(--font);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    transform 0.12s;
+}
+.lt-tile:hover,
+.lt-tile:focus-visible {
+  border-color: var(--sel);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+.lt {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+  background: var(--sunken);
+  fill: var(--ink-3);
+}
+.lt .acc {
+  fill: var(--sel);
+}
+.lt .img {
+  fill: color-mix(in srgb, var(--sel) 22%, var(--sunken));
+}
+.lt .card {
+  fill: var(--panel);
+  stroke: var(--line-2);
+  stroke-width: 1;
+}
+.lt .ghost {
+  fill: none;
+  stroke: var(--sel);
+  stroke-width: 1.2;
+}
+.lt .dark {
+  fill: var(--ink-2);
+}
+.lt .light {
+  fill: var(--panel);
+}
+.lt .dash {
+  fill: none;
+  stroke: var(--line-2);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2.5;
+}
+.lt .plus {
+  stroke: var(--ink-3);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* ---------- free layout: element toolbar and picker ---------- */
+
+.el-toolbar {
+  max-width: calc(100% - 16px);
+  background: #1e3f8f;
+}
+.el-crumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0.25rem;
+}
+.el-crumbs button,
+.el-crumbs .here {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.625rem;
+  padding: 0 0.4rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: rgb(255 255 255 / 0.65);
+  font: 600 var(--t-xs) / 1 var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.el-crumbs button:hover {
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+}
+.el-crumbs button::after {
+  content: '›';
+  margin-left: 0.4rem;
+  opacity: 0.5;
+}
+.el-crumbs .here {
+  color: #fff;
+  cursor: default;
+}
+@media (max-width: 620px) {
+  .el-crumbs button {
+    display: none;
+  }
+}
+.el-picker {
+  width: 19rem;
+  padding: 0.25rem 0.5rem 0.6rem;
+}
+.el-picker .dp-menu-head {
+  padding: 0.4rem 0.25rem 0.35rem;
+}
+.el-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.el-picker-grid button {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.3rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 550 var(--t-xs) / 1.2 var(--font);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    color 0.12s,
+    transform 0.12s;
+}
+.el-picker-grid button:hover,
+.el-picker-grid button:focus-visible {
+  border-color: var(--sel);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+.el-picker-grid .icon {
+  color: var(--sel);
+}

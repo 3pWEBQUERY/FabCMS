@@ -232,7 +232,8 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   // layout
   const display = pick(p.display, ['block', 'flex', 'grid', 'none'] as const);
   add('display', display);
-  if (display === 'grid' && num(p.columns, 1, 12)) add('grid-template-columns', `repeat(${num(p.columns, 1, 12)},minmax(0,1fr))`);
+  // Also on its own: tablet and phone change the column count of a grid set on desktop.
+  if (num(p.columns, 1, 12)) add('grid-template-columns', `repeat(${num(p.columns, 1, 12)},minmax(0,1fr))`);
   add('flex-direction', pick(p.direction, ['row', 'column', 'row-reverse', 'column-reverse'] as const));
   if (typeof p.wrap === 'boolean') add('flex-wrap', p.wrap ? 'wrap' : 'nowrap');
   const justify = pick(p.justify, Object.keys(JUSTIFY) as (keyof typeof JUSTIFY)[]);

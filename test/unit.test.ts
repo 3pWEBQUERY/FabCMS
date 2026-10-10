@@ -30,6 +30,21 @@ import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
+import {
+  cloneEl,
+  createEl,
+  EL_DEFS,
+  elementsCss,
+  elementsHeadings,
+  elementsText,
+  findEl,
+  insertEl,
+  LAYOUT_PRESETS,
+  moveEl,
+  removeEl,
+  sanitizeEls,
+  type El,
+} from '../src/shared/elements';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -827,6 +842,16 @@ describe('admin translations', () => {
       texts.add(b.description);
       walk(b.fields);
     }
+    // Elements of the free layout and its ready-made layouts too.
+    for (const e of Object.values(EL_DEFS)) {
+      texts.add(e.label);
+      texts.add(e.description);
+      walk(e.fields);
+    }
+    for (const l of LAYOUT_PRESETS) {
+      texts.add(l.label);
+      texts.add(l.description);
+    }
     const missing = [...texts].filter((k) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en);
     expect(missing).toEqual([]);
   });
@@ -1049,19 +1074,30 @@ describe('visual design', () => {
 
   it('keeps everything typed into the panel inside the rule', () => {
     const evil = 'red;}body{display:none}';
-    const css = designCss('#b', {
-      desktop: {
-        color: evil,
-        bg: 'url(javascript:alert(1))',
-        pt: '1px;}*{x:y',
-        fontSize: 'calc(1px)',
-        width: '10px</style><script>',
-        bgImage: '../../etc',
-        display: 'contents' as never,
-        gradient: { type: 'linear', angle: 45, stops: [{ color: evil, at: 0 }, { color: '#000', at: 100 }] },
-        shadow: { x: 0, y: 4, blur: 8, spread: 0, color: 'expression(alert(1))' },
+    const css = designCss(
+      '#b',
+      {
+        desktop: {
+          color: evil,
+          bg: 'url(javascript:alert(1))',
+          pt: '1px;}*{x:y',
+          fontSize: 'calc(1px)',
+          width: '10px</style><script>',
+          bgImage: '../../etc',
+          display: 'contents' as never,
+          gradient: {
+            type: 'linear',
+            angle: 45,
+            stops: [
+              { color: evil, at: 0 },
+              { color: '#000', at: 100 },
+            ],
+          },
+          shadow: { x: 0, y: 4, blur: 8, spread: 0, color: 'expression(alert(1))' },
+        },
       },
-    }, { image: () => 'x");}body{a:b' });
+      { image: () => 'x");}body{a:b' },
+    );
     expect(css).not.toMatch(/body|script|javascript|expression|calc|contents|;}\*/);
     expect(cssLength('2.5rem')).toBe('2.5rem');
     expect(cssLength('12')).toBe('12px');
@@ -1105,8 +1141,84 @@ describe('animations', () => {
 
   it('only hides content while JavaScript runs and motion is welcome, with a fallback', () => {
     const hide = MOTION_CSS.split('\n').find((l) => l.includes('opacity:0'))!;
-    expect(MOTION_CSS).toContain('@media (prefers-reduced-motion:no-preference){\nbody:not([data-nova-edit]) [data-anim]:not(.anim-ready)');
+    expect(MOTION_CSS).toContain('@media (prefers-reduced-motion:no-preference){\nbody:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)');
     expect(hide).toContain('body:not([data-nova-edit])');
     expect(MOTION_CSS).toContain('animation:nova-show 0s 4s forwards');
+  });
+});
+
+describe('free layout', () => {
+  const tree = (): El[] => [
+    { id: 'a', kind: 'heading', props: { text: 'Titel', level: '2' } },
+    {
+      id: 'row',
+      kind: 'box',
+      props: {},
+      children: [
+        { id: 'b', kind: 'text', props: { html: '<p>Eins</p>' } },
+        { id: 'c', kind: 'box', props: {}, children: [{ id: 'd', kind: 'button', props: { label: 'Los', href: '/x' } }] },
+      ],
+    },
+  ];
+
+  it('finds, inserts, moves and removes elements in the tree', () => {
+    const t0 = tree();
+    expect(findEl(t0, 'd')).toMatchObject({ path: 'els.1.children.1.children.0', index: 0 });
+    expect(findEl(t0, 'd')!.ancestors.map((x) => x.id)).toEqual(['row', 'c']);
+    // Into another container, and down within the same parent.
+    const moved = moveEl(t0, 'a', 'c', 0);
+    expect(findEl(moved, 'a')!.parent!.id).toBe('c');
+    expect(moved.map((x) => x.id)).toEqual(['row']);
+    const down = moveEl(tree(), 'b', 'row', 2);
+    expect(down[1].children!.map((x) => x.id)).toEqual(['c', 'b']);
+    // A container can't go into itself or its children.
+    expect(moveEl(tree(), 'row', 'c', 0)).toEqual(tree());
+    expect(removeEl(tree(), 'c')[1].children!.map((x) => x.id)).toEqual(['b']);
+    expect(insertEl(tree(), null, 1, createEl('divider')).map((x) => x.kind)).toEqual(['heading', 'divider', 'box']);
+    const copy = cloneEl(tree()[1]);
+    expect(copy.id).not.toBe('row');
+    expect(copy.children![1].children![0].id).not.toBe('d');
+  });
+
+  it('cleans what comes in: known kinds, safe links, clean text, bounded size', () => {
+    const els = sanitizeEls([
+      { id: 'x', kind: 'button', props: { label: '<b>Klick</b>', href: 'javascript:alert(1)', variant: 'evil' } },
+      { id: 'x', kind: 'text', props: { html: '<p onclick="x()">Hi<script>alert(1)</script></p>' } },
+      { id: 'y', kind: 'script', props: {} },
+      { id: 'z"><img src=x>', kind: 'heading', props: { text: 'A', level: '9' } },
+      { id: 'b', kind: 'box', props: { tag: 'script', href: '/ok' }, children: [{ kind: 'image', props: { image: '../../etc/passwd' } }] },
+    ]);
+    expect(els.map((e) => e.kind)).toEqual(['button', 'text', 'heading', 'box']);
+    expect(els[0].props).toEqual({ label: '<b>Klick</b>', href: undefined, variant: 'primary' });
+    expect(els[1].id).not.toBe('x');
+    expect(els[1].props.html).not.toMatch(/onclick|script/);
+    expect(els[2].id).toMatch(/^[\w-]+$/);
+    expect(els[2].props.level).toBe('2');
+    expect(els[3].props).toEqual({ tag: 'div', href: '/ok' });
+    expect(els[3].children![0].props.image).toBeNull();
+    let deep: unknown = [];
+    for (let i = 0; i < 20; i++) deep = [{ kind: 'box', props: {}, children: deep }];
+    let depth = 0;
+    let cur = sanitizeEls(deep);
+    while (cur.length) {
+      depth++;
+      cur = cur[0].children ?? [];
+    }
+    expect(depth).toBeLessThanOrEqual(9);
+    expect(sanitizeEls(Array.from({ length: 500 }, () => ({ kind: 'divider', props: {} }))).length).toBe(300);
+  });
+
+  it('gives SEO, search and the page its texts, headings and CSS', () => {
+    expect(elementsText(tree())).toBe('Titel Eins Los');
+    expect(elementsHeadings(tree())).toEqual([{ level: 2, text: 'Titel', field: 'els.0.props.text' }]);
+    const css = elementsCss([{ id: 'q', kind: 'box', props: {}, design: { desktop: { gap: '$s-5' }, mobile: { direction: 'column' } }, motion: { enter: 'up' } }]);
+    expect(css).toContain('#e-q{gap:var(--s-5)}');
+    expect(css).toContain('@media (max-width:40rem){#e-q{flex-direction:column}}');
+    expect(css).toContain('#e-q{--anim-dur:700ms');
+    // A grid set on desktop changes its column count on smaller screens.
+    expect(elementsCss([{ id: 'g', kind: 'box', props: {}, design: { desktop: { display: 'grid', columns: 3 }, mobile: { columns: 1 } } }])).toContain(
+      '@media (max-width:40rem){#e-g{grid-template-columns:repeat(1,minmax(0,1fr))}}',
+    );
+    for (const p of LAYOUT_PRESETS) expect(sanitizeEls(p.els()).length).toBe(p.els().length);
   });
 });

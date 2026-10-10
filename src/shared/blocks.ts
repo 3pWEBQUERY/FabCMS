@@ -1,6 +1,7 @@
 import type { FieldDef, LinkValue } from './fields';
 import type { Block } from './types';
 import { shortId, stripHtml } from './text';
+import { elementsHeadings, elementsLinks, elementsMedia, elementsText, type El } from './elements';
 
 export type BlockCategory = 'text' | 'media' | 'structure' | 'sell' | 'contact' | 'collections' | 'code';
 
@@ -1037,6 +1038,30 @@ export const BLOCKS: BlockDef[] = [
     defaults: { heading: 'Zum Herunterladen', files: [] },
     text: (p) => sentences(p.heading, ...(p.files ?? []).flatMap((f: any) => [f.title, f.text])),
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
+    type: 'layout',
+    label: 'Freies Layout',
+    description: 'Eigene Anordnung aus Containern, Titeln, Texten, Bildern und Knöpfen – alles frei gestaltbar.',
+    icon: 'layout',
+    category: 'structure',
+    fields: [
+      {
+        key: 'width',
+        type: 'select',
+        label: 'Breite',
+        options: [
+          { value: 'content', label: 'Inhaltsbreite' },
+          { value: 'full', label: 'Ganze Breite' },
+        ],
+        default: 'content',
+      },
+    ],
+    defaults: { width: 'content', els: [] },
+    text: (p) => elementsText((p.els as El[]) ?? []),
+    headings: (p) => elementsHeadings((p.els as El[]) ?? []),
+    images: (p) => elementsMedia((p.els as El[]) ?? []),
+    links: (p) => elementsLinks((p.els as El[]) ?? []),
   },
   {
     type: 'section',

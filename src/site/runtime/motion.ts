@@ -33,8 +33,9 @@ export function prepare(el: HTMLElement): number {
   const stagger = Number(el.dataset.animItems) || 0;
   let total = 0;
   if (stagger) {
-    const items = itemsOf(el);
-    const head = headOf(el, items);
+    // A layout container staggers its own children; a block finds its cards itself.
+    const items = el.hasAttribute('data-self') ? [...el.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.tagName !== 'STYLE') : itemsOf(el);
+    const head = el.hasAttribute('data-self') ? null : headOf(el, items);
     const list = head ? [head, ...items] : items;
     if (list.length) {
       el.classList.add('anim-items');
