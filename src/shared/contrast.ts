@@ -26,6 +26,10 @@ export interface ContrastIssue {
   fix: string | null;
   /** The colour comes from the block or element itself, so setting its text colour helps. */
   own: boolean;
+  /** Text in the site's header or footer (then `block` is empty): its colours come from the site design. */
+  global?: 'header' | 'footer';
+  /** Measured with the designed hover look on. */
+  hover?: boolean;
 }
 
 const channel = (v: number) => {

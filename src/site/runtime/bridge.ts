@@ -36,6 +36,7 @@ style.textContent = `
 [data-nova-field]:empty::before{content:attr(data-placeholder);opacity:.4;pointer-events:none;white-space:nowrap}
 [data-nova-global]{cursor:pointer}
 [data-nova-global]:hover{outline:1px dashed rgba(43,89,195,.45);outline-offset:-1px}
+.nova-still,.nova-still *{transition:none!important}
 .nova-section-ref{position:relative}
 .nova-section-ref::after{content:"Wiederverwendbare Sektion – Doppelklick zum Bearbeiten";position:absolute;top:8px;right:8px;font:600 11px/1 system-ui,sans-serif;background:#1b1a17;color:#fff;padding:5px 8px;border-radius:5px;opacity:0;transition:opacity .15s;pointer-events:none}
 [data-nova-block]:hover .nova-section-ref::after{opacity:1}
@@ -932,76 +933,138 @@ const overlaps = (a: DOMRect, b: DOMRect) => {
   return w > 0 && h > 0 && w * h > 0.2 * b.width * b.height;
 };
 
-function measureContrast(): ContrastIssue[] {
-  const tops = blocks();
-  // Pictures, videos and background images: text on them can't be measured from colours.
-  const painted = [...main.querySelectorAll<HTMLElement>('*')].filter((x) => /^(IMG|VIDEO|CANVAS|IFRAME|PICTURE)$/.test(x.tagName) || getComputedStyle(x).backgroundImage !== 'none');
-  const page = rgba(getComputedStyle(d.body).backgroundColor);
-  const white: Rgba = { r: 255, g: 255, b: 255, a: 1 };
-  const seen = new Set<Element>();
-  const found = new Map<string, { strictest: number; issue: ContrastIssue }>();
-  const walker = d.createTreeWalker(main, NodeFilter.SHOW_TEXT);
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const el = n.parentElement;
-    if (!el || seen.has(el) || !n.textContent?.trim()) continue;
-    seen.add(el);
-    if (el.closest('script,style,noscript,[hidden],[aria-hidden="true"],.nova-peer,.nova-cmt,nova-chrome')) continue;
-    const block = tops.find((b) => b.contains(el));
-    if (!block) continue;
-    const cs = getComputedStyle(el);
-    const box = el.getBoundingClientRect();
-    if (box.width < 2 || box.height < 2 || cs.visibility !== 'visible' || cs.backgroundClip === 'text') continue;
-    const fg = rgba(cs.color);
-    if (!fg || fg.a < 0.05) continue;
-    // Layers behind the text, from the text outwards, until one is solid.
-    const layers: Rgba[] = [];
-    let solid: Element = d.documentElement;
-    let unknown = false;
-    let faded = false;
-    for (let a: Element | null = el; a && a !== d.documentElement; a = a.parentElement) {
-      const as = getComputedStyle(a);
-      if (Number(as.opacity) < 0.1) faded = true;
-      if (as.backgroundImage !== 'none') {
-        unknown = true;
-        break;
-      }
-      const c = rgba(as.backgroundColor);
-      if (c && c.a > 0) layers.push(c);
-      if (c && c.a >= 0.999) {
-        solid = a;
-        break;
-      }
+// Blocks and elements with a designed hover look. In the editor their CSS also
+// carries a `.nova-hover` rule, which shows that look without the mouse.
+function hoverTargets(): HTMLElement[] {
+  const out = new Set<HTMLElement>();
+  const visit = (rules: CSSRuleList) => {
+    for (const r of rules) {
+      if (r instanceof CSSStyleRule) {
+        for (const sel of r.selectorText.split(',')) {
+          const base = sel.trim();
+          if (!base.endsWith('.nova-hover')) continue;
+          try {
+            main.querySelectorAll<HTMLElement>(base.slice(0, -'.nova-hover'.length)).forEach((x) => out.add(x));
+          } catch {
+            /* a selector this browser can't take apart */
+          }
+        }
+      } else if (r instanceof CSSGroupingRule) visit(r.cssRules);
     }
-    if (faded || unknown) continue;
-    if (painted.some((p) => p !== el && !el.contains(p) && solid.contains(p) && overlaps(p.getBoundingClientRect(), box))) continue;
-    let bg = page && page.a >= 0.999 && solid === d.documentElement ? page : white;
-    for (const l of layers.reverse()) bg = composite(l, bg);
-    const ratio = contrastRatio(composite(fg, bg), bg);
-    const need = needFor(parseFloat(cs.fontSize), Number(cs.fontWeight) || 400);
-    if (ratio >= need) continue;
-    const els: string[] = [];
-    for (let a: HTMLElement | null = el.closest<HTMLElement>('[data-nova-el]'); a && block.contains(a); a = a.parentElement?.closest<HTMLElement>('[data-nova-el]') ?? null) els.push(a.dataset.novaEl!);
-    const owner = (els[0] ? elEl(els[0]) : null) ?? block;
-    const oc = rgba(getComputedStyle(owner).color);
-    const own = Boolean(oc && Math.abs(oc.r - fg.r) + Math.abs(oc.g - fg.g) + Math.abs(oc.b - fg.b) < 4);
-    // Same colours in the same place: one entry, shown with its worst text, fixed for the strictest limit.
-    const key = [block.dataset.novaBlock, els[0] ?? '', toHex(fg), fg.a.toFixed(2), toHex(bg)].join('|');
-    const prev = found.get(key);
-    const strictest = Math.max(need, prev?.strictest ?? 0);
-    const issue: ContrastIssue = {
-      block: block.dataset.novaBlock!,
-      els,
-      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60),
-      ratio,
-      need,
-      fg: toHex(composite(fg, bg)),
-      bg: toHex(bg),
-      fix: fixColor(fg, bg, strictest),
-      own,
-    };
-    found.set(key, { strictest, issue: prev && prev.issue.ratio / prev.issue.need <= ratio / need ? { ...prev.issue, fix: issue.fix } : issue });
+  };
+  for (const sheet of d.styleSheets) {
+    try {
+      visit(sheet.cssRules);
+    } catch {
+      /* stylesheets from another origin can't be read */
+    }
   }
-  return [...found.values()].map((x) => x.issue).slice(0, 60);
+  return [...out];
+}
+
+function measureContrast(): ContrastIssue[] {
+  const root = d.documentElement;
+  // Measured without transitions, or colours would be caught halfway.
+  root.classList.add('nova-still');
+  // The hover look being designed right now is put aside: the normal look is measured as normal.
+  const held = [...d.querySelectorAll<HTMLElement>('.nova-hover')];
+  held.forEach((x) => x.classList.remove('nova-hover'));
+  try {
+    const tops = blocks();
+    const globals = [...d.querySelectorAll<HTMLElement>('[data-nova-global]')];
+    // Pictures, videos and background images: text on them can't be measured from colours.
+    const painted = [main, ...globals].flatMap((r) => [...r.querySelectorAll<HTMLElement>('*')]).filter((x) => /^(IMG|VIDEO|CANVAS|IFRAME|PICTURE)$/.test(x.tagName) || getComputedStyle(x).backgroundImage !== 'none');
+    const page = rgba(getComputedStyle(d.body).backgroundColor);
+    const white: Rgba = { r: 255, g: 255, b: 255, a: 1 };
+    const found = new Map<string, { strictest: number; issue: ContrastIssue }>();
+    const scan = (scope: HTMLElement, hover: boolean) => {
+      const global = scope.closest<HTMLElement>('[data-nova-global]')?.dataset.novaGlobal as ContrastIssue['global'];
+      const seen = new Set<Element>();
+      const walker = d.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const el = n.parentElement;
+        if (!el || seen.has(el) || !n.textContent?.trim()) continue;
+        seen.add(el);
+        if (el.closest('script,style,noscript,[hidden],[aria-hidden="true"],.nova-peer,.nova-cmt,nova-chrome')) continue;
+        const block = global ? null : tops.find((b) => b.contains(el));
+        if (!global && !block) continue;
+        const cs = getComputedStyle(el);
+        const box = el.getBoundingClientRect();
+        if (box.width < 2 || box.height < 2 || cs.visibility !== 'visible' || cs.backgroundClip === 'text') continue;
+        const fg = rgba(cs.color);
+        if (!fg || fg.a < 0.05) continue;
+        // Layers behind the text, from the text outwards, until one is solid.
+        const layers: Rgba[] = [];
+        let solid: Element = root;
+        let unknown = false;
+        let faded = false;
+        for (let a: Element | null = el; a && a !== root; a = a.parentElement) {
+          const as = getComputedStyle(a);
+          if (Number(as.opacity) < 0.1) faded = true;
+          if (as.backgroundImage !== 'none') {
+            unknown = true;
+            break;
+          }
+          const c = rgba(as.backgroundColor);
+          if (c && c.a > 0) layers.push(c);
+          if (c && c.a >= 0.999) {
+            solid = a;
+            break;
+          }
+        }
+        if (faded || unknown) continue;
+        if (painted.some((p) => p !== el && !el.contains(p) && solid.contains(p) && overlaps(p.getBoundingClientRect(), box))) continue;
+        let bg = page && page.a >= 0.999 && solid === root ? page : white;
+        for (const l of layers.reverse()) bg = composite(l, bg);
+        const ratio = contrastRatio(composite(fg, bg), bg);
+        const need = needFor(parseFloat(cs.fontSize), Number(cs.fontWeight) || 400);
+        if (ratio >= need) continue;
+        const els: string[] = [];
+        if (block) for (let a: HTMLElement | null = el.closest<HTMLElement>('[data-nova-el]'); a && block.contains(a); a = a.parentElement?.closest<HTMLElement>('[data-nova-el]') ?? null) els.push(a.dataset.novaEl!);
+        // Header and footer take their colours from the site design, never from something on this page.
+        let own = false;
+        if (block) {
+          const owner = (els[0] ? elEl(els[0]) : null) ?? block;
+          const oc = rgba(getComputedStyle(owner).color);
+          own = Boolean(oc && Math.abs(oc.r - fg.r) + Math.abs(oc.g - fg.g) + Math.abs(oc.b - fg.b) < 4);
+        }
+        // Same colours in the same place: one entry, shown with its worst text, fixed for the strictest limit.
+        // A hover look with the colours of the normal one adds nothing new.
+        const key = [global ?? block!.dataset.novaBlock, els[0] ?? '', toHex(fg), fg.a.toFixed(2), toHex(bg)].join('|');
+        const prev = found.get(key);
+        if (hover && prev && !prev.issue.hover) continue;
+        const strictest = Math.max(need, prev?.strictest ?? 0);
+        const issue: ContrastIssue = {
+          block: block?.dataset.novaBlock ?? '',
+          els,
+          text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60),
+          ratio,
+          need,
+          fg: toHex(composite(fg, bg)),
+          bg: toHex(bg),
+          fix: fixColor(fg, bg, strictest),
+          own,
+          ...(global ? { global } : {}),
+          ...(hover ? { hover } : {}),
+        };
+        found.set(key, { strictest, issue: prev && prev.issue.ratio / prev.issue.need <= ratio / need ? { ...prev.issue, fix: issue.fix } : issue });
+      }
+    };
+    scan(main, false);
+    globals.forEach((g) => scan(g, false));
+    for (const h of hoverTargets()) {
+      h.classList.add('nova-hover');
+      scan(h, true);
+      h.classList.remove('nova-hover');
+      void getComputedStyle(h).color;
+    }
+    return [...found.values()].map((x) => x.issue).slice(0, 60);
+  } finally {
+    held.forEach((x) => x.classList.add('nova-hover'));
+    // Styles settle before transitions come back, so nothing fades in or out.
+    void getComputedStyle(root).color;
+    root.classList.remove('nova-still');
+  }
 }
 
 // Measured again shortly after anything on the page changes.
@@ -1180,6 +1243,7 @@ addEventListener('message', (e) => {
       const ftr = doc.querySelector('[data-nova-global="footer"]');
       if (hdr) d.querySelector('[data-nova-global="header"]')?.replaceWith(hdr);
       if (ftr) d.querySelector('[data-nova-global="footer"]')?.replaceWith(ftr);
+      if (hdr || ftr) sendContrast();
       setupFields(main);
       setupMotion(main, true);
       setupWidgets(main, true);
@@ -1312,6 +1376,10 @@ addEventListener('message', (e) => {
       applyVariants();
       sendRect();
       sendContrast();
+      break;
+    }
+    case 'show-global': {
+      d.querySelector(`[data-nova-global="${m.which === 'footer' ? 'footer' : 'header'}"]`)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
       break;
     }
     case 'hover-state': {

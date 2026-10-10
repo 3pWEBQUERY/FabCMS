@@ -7405,6 +7405,14 @@ textarea.dg-input {
   text-overflow: ellipsis;
   font-size: var(--t-s);
 }
+.ct-place {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ct-place::after {
+  content: ' · ';
+  font-weight: 400;
+}
 .ct-ok {
   display: flex;
   gap: 0.4rem;

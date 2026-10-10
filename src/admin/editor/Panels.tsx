@@ -18,6 +18,8 @@ import type { EntryDoc } from '../lib/useEntryDoc';
 import { countEls, type El } from '../../shared/elements';
 import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
+import { GlobalContrast } from './design/contrast';
+import type { ContrastIssue } from '../../shared/contrast';
 
 /* ---------- SEO coach ---------- */
 
@@ -415,10 +417,11 @@ export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: (
 
 /* ---------- header & footer ---------- */
 
-export function GlobalPanel({ which }: { which: 'header' | 'footer' }) {
+export function GlobalPanel({ which, contrast }: { which: 'header' | 'footer'; contrast: ContrastIssue[] }) {
   const { settings } = useSession();
   return (
     <div className="stack">
+      <GlobalContrast issues={contrast} />
       <p className="small muted">
         {which === 'header' ? t('Kopfzeile und Menü sind auf allen Seiten gleich.') : t('Die Fusszeile ist auf allen Seiten gleich.')} {t('Änderungen wirken überall.')}
       </p>

@@ -544,4 +544,12 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Non ancora mostrato. Il conteggio inizia appena il pop-up è pubblicato – senza cookie e senza dati sui visitatori.',
     en: 'Not shown yet. Counting starts once the pop-up is published – without cookies or anything about visitors.',
   },
+  'Beim Darüberfahren': { fr: 'Au survol', it: 'Al passaggio del mouse', en: 'On hover' },
+  '{n} Stellen schwer lesbar': { fr: '{n} endroits peu lisibles', it: '{n} punti poco leggibili', en: '{n} places hard to read' },
+  'Kopf- und Fusszeile nehmen ihre Farben aus dem Design der Website.': {
+    fr: "L'en-tête et le pied de page prennent leurs couleurs dans le design du site.",
+    it: "L'intestazione e il piè di pagina prendono i colori dal design del sito.",
+    en: 'The header and footer take their colours from the site design.',
+  },
+  'Farben ändern': { fr: 'Modifier les couleurs', it: 'Modifica i colori', en: 'Change colours' },
 };

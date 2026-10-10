@@ -461,7 +461,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
         </DesignSection>
       )}
 
-      {!hover && <ContrastNote onFix={(c) => prop('color').set(c)} />}
+      <ContrastNote onFix={(c) => prop('color').set(c)} />
       <DesignSection id="type" title={t('Text & Farben')} icon="type" count={count('type')} defaultOpen={block}>
         {color('color', t('Textfarbe'))}
         {color('accent', t('Akzentfarbe'))}
