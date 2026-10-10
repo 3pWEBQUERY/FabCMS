@@ -115,6 +115,9 @@ type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
 const DEVICE_WIDTH: Record<Device, string> = { desktop: '100%', tablet: '834px', mobile: '390px' };
+const MIN_CANVAS = 320;
+/** The screen size a width belongs to – the same limits as the design's media queries (64rem, 40rem). */
+const deviceFor = (w: number): Device => (w <= 640 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop');
 const panelTitle = (p: Exclude<Panel, null>): string =>
   ({
     inspector: t('Block'),
@@ -152,6 +155,19 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const stylesSave = useRef(0);
   const [panel, setPanel] = useState<Panel>(focusComment ? 'comments' : null);
   const [device, setDevice] = useState<Device>('desktop');
+  // Any width by dragging the canvas edge; the screen size being designed follows the width.
+  const [customWidth, setCustomWidth] = useState<number | null>(null);
+  const frameBox = useRef<HTMLDivElement>(null);
+  const widthDrag = useRef<{ x: number; w: number; max: number } | null>(null);
+  const chooseDevice = (d: Device) => {
+    setCustomWidth(null);
+    setDevice(d);
+  };
+  const resizeTo = (w: number, max: number) => {
+    const next = Math.round(Math.min(max, Math.max(MIN_CANVAS, w)));
+    setCustomWidth(next);
+    setDevice(deviceFor(next));
+  };
   const [designState, setDesignState] = useState<DesignState>('normal');
   const [tokenColors, setTokenColors] = useState<Record<string, string>>({});
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
@@ -1037,7 +1053,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           <Segmented
             label={t('Vorschau-Grösse')}
             value={device}
-            onChange={setDevice}
+            onChange={chooseDevice}
             options={[
               { value: 'desktop', label: '', icon: 'desktop', title: t('Computer') },
               { value: 'tablet', label: '', icon: 'tablet', title: t('Tablet') },
@@ -1104,13 +1120,65 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         </div>
       )}
       <div className="editor-stage">
-        <div className="canvas-wrap" style={{ padding: device === 'desktop' ? 0 : '1rem 0' }}>
+        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? 0 : '1rem 0' }}>
           <motion.div
+            ref={frameBox}
             className="canvas-frame"
             animate={glide}
-            style={{ width: DEVICE_WIDTH[device], position: 'relative', transition: 'width .32s cubic-bezier(.2,.7,.2,1)', maxWidth: '100%' }}
+            style={{
+              width: customWidth !== null ? `${customWidth}px` : DEVICE_WIDTH[device],
+              position: 'relative',
+              transition: widthDrag.current ? 'none' : 'width .32s cubic-bezier(.2,.7,.2,1)',
+              maxWidth: '100%',
+            }}
           >
+            <div
+              className={`canvas-size hide-m${device === 'desktop' && customWidth === null ? ' inside' : ''}`}
+              role="slider"
+              tabIndex={0}
+              aria-label={t('Breite der Vorschau')}
+              aria-valuemin={MIN_CANVAS}
+              aria-valuemax={frameBox.current?.parentElement?.clientWidth ?? 2560}
+              aria-valuenow={Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0)}
+              aria-valuetext={t('{n} px', { n: Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0) })}
+              title={t('Ziehen für jede Breite dazwischen')}
+              onPointerDown={(e) => {
+                const box = frameBox.current;
+                if (!box?.parentElement) return;
+                e.preventDefault();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                widthDrag.current = { x: e.clientX, w: box.getBoundingClientRect().width, max: box.parentElement.clientWidth };
+              }}
+              onPointerMove={(e) => {
+                const drag = widthDrag.current;
+                // The canvas sits in the middle: one edge moved is twice the width (this is the left edge).
+                if (drag) resizeTo(drag.w - 2 * (e.clientX - drag.x), drag.max);
+              }}
+              onPointerUp={() => {
+                widthDrag.current = null;
+              }}
+              onPointerCancel={() => {
+                widthDrag.current = null;
+              }}
+              onKeyDown={(e) => {
+                const box = frameBox.current;
+                if (!box?.parentElement || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+                e.preventDefault();
+                const step = (e.shiftKey ? 100 : 10) * (e.key === 'ArrowLeft' ? -1 : 1);
+                resizeTo(box.getBoundingClientRect().width + step, box.parentElement.clientWidth);
+              }}
+            />
             <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
+            {customWidth !== null && (
+              <div className="canvas-width" role="status">
+                <span>
+                  {t('{n} px', { n: customWidth })} · {device === 'desktop' ? t('Computer') : device === 'tablet' ? t('Tablet') : t('Handy')}
+                </span>
+                <button type="button" onClick={() => chooseDevice(device)} aria-label={t('Zurück zur festen Breite')}>
+                  <Icon name="x" size="s" />
+                </button>
+              </div>
+            )}
             <div className="canvas-overlay">
               <AnimatePresence>
                 {selectedBlock && selectedElInfo && elRect && !picker && (
@@ -1333,7 +1401,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           el={selectedElInfo.el}
                           onChange={(el) => changeElement(selectedBlock.id, el)}
                           device={device}
-                          onDevice={setDevice}
+                          onDevice={chooseDevice}
                           designState={designState}
                           onDesignState={setDesignState}
                           onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
@@ -1357,7 +1425,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           block={selectedBlock}
                           onChange={changeBlock}
                           device={device}
-                          onDevice={setDevice}
+                          onDevice={chooseDevice}
                           designState={designState}
                           onDesignState={setDesignState}
                           onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}

@@ -2437,6 +2437,75 @@ button.list-item {
   border: 0;
   display: block;
 }
+/* drag the canvas edge to any width */
+/* on the left edge: the page's scrollbar keeps the right one */
+.canvas-size {
+  position: absolute;
+  top: 0;
+  left: -14px;
+  bottom: 0;
+  z-index: 4;
+  width: 14px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.canvas-size::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  width: 4px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 2px;
+  background: var(--ink-3, #9a958c);
+  opacity: 0.55;
+  transition: opacity 0.12s;
+}
+.canvas-size:hover::after,
+.canvas-size:focus-visible::after {
+  opacity: 1;
+  background: var(--accent);
+}
+.canvas-size:focus-visible {
+  outline: none;
+}
+.canvas-size.inside {
+  left: 0;
+}
+.canvas-size.inside::after {
+  left: 4px;
+}
+.canvas-width {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(27, 26, 23, 0.86);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+.canvas-width button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.canvas-width button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
 .canvas-overlay {
   position: absolute;
   inset: 0;

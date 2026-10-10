@@ -603,4 +603,8 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: '«{title}» è già collegato a questo pop-up – il test parte non appena entrambi sono pubblicati. Si può terminare lì.',
     en: '“{title}” is already linked to this pop-up – the test runs as soon as both are published. It can be ended there.',
   },
+  'Breite der Vorschau': { fr: "Largeur de l'aperçu", it: "Larghezza dell'anteprima", en: 'Preview width' },
+  '{n} px': { fr: '{n} px', it: '{n} px', en: '{n} px' },
+  'Ziehen für jede Breite dazwischen': { fr: 'Glisser pour toute largeur intermédiaire', it: 'Trascina per qualsiasi larghezza intermedia', en: 'Drag for any width in between' },
+  'Zurück zur festen Breite': { fr: 'Revenir à la largeur fixe', it: 'Torna alla larghezza fissa', en: 'Back to the fixed width' },
 };
