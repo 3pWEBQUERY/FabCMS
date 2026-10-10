@@ -38,7 +38,7 @@ export interface RenderContext {
   preloadMedia: (ids: unknown[]) => Promise<void>;
   /** Image to preload for LCP. */
   lcpImage: string | null;
-  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile'>;
+  needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare'>;
   /** Signed age gate already passed. */
   ageOk: boolean;
   cartCount: number;

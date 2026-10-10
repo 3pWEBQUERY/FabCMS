@@ -129,4 +129,14 @@ export const blocks: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Maggiori informazioni nell’<a href="/datenschutz">informativa sulla privacy</a>.',
     en: 'More in our <a href="/datenschutz">privacy policy</a>.',
   },
+
+  // Before/after, notices
+  Vorher: { fr: 'Avant', it: 'Prima', en: 'Before' },
+  Nachher: { fr: 'Après', it: 'Dopo', en: 'After' },
+  '{a} und {z} vergleichen': { fr: 'Comparer {a} et {z}', it: 'Confronta {a} e {z}', en: 'Compare {a} and {z}' },
+  Sichtbar: { fr: 'Visible', it: 'Visibile', en: 'Visible' },
+  'Gerade nicht sichtbar': { fr: 'Pas visible pour le moment', it: 'Al momento non visibile', en: 'Not visible right now' },
+  '{from} bis {until}': { fr: 'du {from} au {until}', it: 'dal {from} al {until}', en: '{from} to {until}' },
+  'ab {from}': { fr: 'à partir du {from}', it: 'dal {from}', en: 'from {from}' },
+  'bis {until}': { fr: 'jusqu’au {until}', it: 'fino al {until}', en: 'until {until}' },
 };

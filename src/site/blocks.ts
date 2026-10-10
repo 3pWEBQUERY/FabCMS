@@ -446,6 +446,99 @@ const R: Record<string, Renderer> = {
     }</blockquote></div>`;
   },
 
+  async columns(b, ctx) {
+    const p = b.props as P;
+    const items = (p.items as P[]) ?? [];
+    const count = ['2', '3', '4'].includes(p.count) ? p.count : '3';
+    const sizes = count === '2' ? '(min-width: 56rem) 38rem, 100vw' : count === '3' ? '(min-width: 56rem) 25rem, 100vw' : '(min-width: 56rem) 19rem, 50vw';
+    const head = heading(ctx, p, 'heading', 'intro'); // first: it decides the level of the column titles
+    const cols = await Promise.all(
+      items.map(async (it, i) => {
+        const img = await ctx.media(it.image);
+        return html`<div class="col">${img ? html`<div class="ph">${picture(img, { sizes, maxWidth: 960, ratio: '3/2' })}</div>` : ''}${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
+          it.text || ctx.edit ? html`<p${field(ctx.edit, `items.${i}.text`, 'multi')}>${lines(it.text)}</p>` : ''
+        }${it.link?.href ? btn(it.link, false, ctx.edit, `items.${i}.link`) : ''}</div>`;
+      }),
+    );
+    return html`<div class="wrap">${head}<div class="cols cols-${count}">${cols}</div></div>`;
+  },
+
+  timeline(b, ctx) {
+    const p = b.props as P;
+    const items = (p.items as P[]) ?? [];
+    return html`<div class="wrap">${heading(ctx, p)}<ol class="tl">${items.map(
+      (it, i) =>
+        html`<li><span class="tl-when"${field(ctx.edit, `items.${i}.when`)}>${it.when}</span><div>${hx(ctx, it.title, field(ctx.edit, `items.${i}.title`))}${
+          it.text || ctx.edit ? html`<p${field(ctx.edit, `items.${i}.text`, 'multi')}>${lines(it.text)}</p>` : ''
+        }</div></li>`,
+    )}</ol></div>`;
+  },
+
+  table(b, ctx) {
+    const p = b.props as P;
+    // Empty headings drop their column – unless a row still has something in it.
+    const rows = (p.rows as P[]) ?? [];
+    const keys = (['a', 'b', 'c', 'd'] as const).filter((k, i) => i === 0 || p[`h${i + 1}`] || rows.some((r) => r[k]));
+    const head = keys.map((_, i) => String(p[`h${['a', 'b', 'c', 'd'].indexOf(keys[i]) + 1}`] ?? ''));
+    const last = keys.length - 1;
+    const cell = (i: number) => cx(i === last && p.right !== false && keys.length > 1 && 'num');
+    return html`<div class="wrap">${heading(ctx, p)}<div class="tbl-wrap"><table class="tbl">${
+      head.some(Boolean) ? html`<thead><tr>${head.map((h, i) => html`<th scope="col" class="${cell(i)}">${h}</th>`)}</tr></thead>` : ''
+    }<tbody>${rows.map(
+      (r) =>
+        html`<tr>${keys.map((k, i) =>
+          i === 0 ? html`<th scope="row">${r[k]}</th>` : html`<td class="${cell(i)}" data-label="${head[i]}">${r[k]}</td>`,
+        )}</tr>`,
+    )}</tbody></table></div>${p.note || ctx.edit ? html`<p class="tbl-note"${field(ctx.edit, 'note')}>${p.note}</p>` : ''}</div>`;
+  },
+
+  async compare(b, ctx) {
+    const p = b.props as P;
+    const [before, after] = await Promise.all([ctx.media(p.before), ctx.media(p.after)]);
+    if (!before || !after) return empty(ctx, 'Wähl ein Bild für vorher und eins für nachher.');
+    ctx.needs.add('compare');
+    const opts = { sizes: '(min-width: 78rem) 78rem, 100vw', maxWidth: 1920 };
+    const a = p.beforeLabel || t(ctx, 'Vorher');
+    const z = p.afterLabel || t(ctx, 'Nachher');
+    return html`<div class="wrap">${heading(ctx, p)}<figure class="cmp-fig"><div class="cmp" style="--pos:50%">${picture(after, opts)}<div class="cmp-before" aria-hidden="true">${picture(before, opts)}</div><span class="cmp-label cmp-a">${a}</span><span class="cmp-label cmp-z">${z}</span><input class="cmp-range" type="range" min="0" max="100" value="50" aria-label="${t(
+      ctx,
+      '{a} und {z} vergleichen',
+      { a, z },
+    )}"></div>${p.caption || ctx.edit ? html`<figcaption${field(ctx.edit, 'caption')}>${p.caption}</figcaption>` : ''}</figure></div>`;
+  },
+
+  notice(b, ctx) {
+    const p = b.props as P;
+    // Today in the site's time zone, as YYYY-MM-DD; «until» counts the whole day.
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: ctx.settings.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(ctx.now ?? new Date());
+    const shown = (!p.from || today >= p.from) && (!p.until || today <= p.until);
+    if (!shown && !ctx.edit) return html``;
+    const when = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' });
+    const hint =
+      ctx.edit && (p.from || p.until)
+        ? html`<span class="ntc-when">${
+            shown ? t(ctx, 'Sichtbar') : t(ctx, 'Gerade nicht sichtbar')
+          } · ${p.from && p.until ? t(ctx, '{from} bis {until}', { from: when(p.from), until: when(p.until) }) : p.from ? t(ctx, 'ab {from}', { from: when(p.from) }) : t(ctx, 'bis {until}', { until: when(p.until) })}</span>`
+        : '';
+    return html`<div class="wrap"><div class="ntc ntc-${p.tone === 'quiet' ? 'quiet' : 'accent'}" role="note"><p${field(ctx.edit, 'text', 'multi')}>${lines(p.text)}</p>${
+      p.link?.href ? btn(p.link, false, ctx.edit, 'link') : ''
+    }${hint}</div></div>`;
+  },
+
+  async downloads(b, ctx) {
+    const p = b.props as P;
+    const files = (await Promise.all(((p.files as P[]) ?? []).map(async (f) => ({ f, m: await ctx.media(f.file) })))).filter((x) => x.m && !(x.m as { private?: boolean }).private);
+    if (!files.length) return ctx.edit ? html`<div class="wrap">${heading(ctx, p)}${empty(ctx, 'Füg Dateien aus der Mediathek hinzu.')}</div>` : html``;
+    const size = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toLocaleString(L(ctx), { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+    const kind = (name: string) => (name.split('.').pop() ?? '').toUpperCase();
+    return html`<div class="wrap">${heading(ctx, p)}<ul class="dl">${files.map(
+      ({ f, m }) =>
+        html`<li><a href="${originalUrl(m!)}" download><span class="dl-title">${f.title || m!.filename}</span><span class="dl-meta">${kind(m!.filename)} · ${size(m!.size)}</span>${
+          f.text ? html`<span class="dl-text">${f.text}</span>` : ''
+        }</a></li>`,
+    )}</ul></div>`;
+  },
+
   stats(b, ctx) {
     const p = b.props as P;
     return html`<div class="wrap">${heading(ctx, p)}<div class="stats">${((p.items as P[]) ?? []).map(

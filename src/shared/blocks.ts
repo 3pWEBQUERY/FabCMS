@@ -129,8 +129,7 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => {
       const out: HeadingRef[] = [];
       if (p.heading) out.push({ level: 2, text: p.heading, field: 'heading' });
-      for (const m of String(p.body ?? '').matchAll(/<h([2-4])[^>]*>(.*?)<\/h\1>/gi))
-        out.push({ level: Number(m[1]), text: stripHtml(m[2]), field: 'body' });
+      for (const m of String(p.body ?? '').matchAll(/<h([2-4])[^>]*>(.*?)<\/h\1>/gi)) out.push({ level: Number(m[1]), text: stripHtml(m[2]), field: 'body' });
       return out;
     },
     links: (p) => richLinks(p.body),
@@ -294,10 +293,7 @@ export const BLOCKS: BlockDef[] = [
       style: 'numbered',
     },
     text: (p) => sentences(p.heading, p.intro, ...(p.items ?? []).flatMap((i: any) => [i.title, i.text])),
-    headings: (p) => [
-      ...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
-      ...(p.items ?? []).map((i: any) => ({ level: 3, text: i.title, field: 'items' })),
-    ],
+    headings: (p) => [...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []), ...(p.items ?? []).map((i: any) => ({ level: 3, text: i.title, field: 'items' }))],
   },
   {
     type: 'cta',
@@ -450,15 +446,28 @@ export const BLOCKS: BlockDef[] = [
       heading: 'Preise',
       intro: '',
       plans: [
-        { name: 'Basis', price: 'CHF 90', period: 'pro Stunde', description: '', features: 'Beratung vor Ort\nOfferte innert 48 h', link: { label: 'Anfragen', href: '/kontakt' }, highlight: false },
-        { name: 'Pauschal', price: 'ab CHF 1 200', period: 'pro Projekt', description: '', features: 'Fixpreis\nMaterial inklusive\nGarantie 2 Jahre', link: { label: 'Anfragen', href: '/kontakt' }, highlight: true },
+        {
+          name: 'Basis',
+          price: 'CHF 90',
+          period: 'pro Stunde',
+          description: '',
+          features: 'Beratung vor Ort\nOfferte innert 48 h',
+          link: { label: 'Anfragen', href: '/kontakt' },
+          highlight: false,
+        },
+        {
+          name: 'Pauschal',
+          price: 'ab CHF 1 200',
+          period: 'pro Projekt',
+          description: '',
+          features: 'Fixpreis\nMaterial inklusive\nGarantie 2 Jahre',
+          link: { label: 'Anfragen', href: '/kontakt' },
+          highlight: true,
+        },
       ],
     },
     text: (p) => sentences(p.heading, p.intro, ...(p.plans ?? []).map((x: any) => `${x.name} ${x.price ?? ''} ${x.features ?? ''}`)),
-    headings: (p) => [
-      ...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
-      ...(p.plans ?? []).map((x: any) => ({ level: 3, text: x.name, field: 'plans' })),
-    ],
+    headings: (p) => [...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []), ...(p.plans ?? []).map((x: any) => ({ level: 3, text: x.name, field: 'plans' }))],
     links: (p) => (p.plans ?? []).flatMap((x: any) => linkHref(x.link)),
   },
   {
@@ -645,7 +654,15 @@ export const BLOCKS: BlockDef[] = [
       { key: 'monthly', type: 'boolean', label: 'Monatliche Spende anbieten', default: true },
       { key: 'showTotal', type: 'boolean', label: 'Gesammelten Betrag zeigen (auch ohne Ziel)' },
     ],
-    defaults: { heading: 'Jetzt unterstützen', intro: 'Jeder Franken hilft – und kommt an.', campaign: '', goal: null, amounts: '20, 50, 100, 250', monthly: true, showTotal: false },
+    defaults: {
+      heading: 'Jetzt unterstützen',
+      intro: 'Jeder Franken hilft – und kommt an.',
+      campaign: '',
+      goal: null,
+      amounts: '20, 50, 100, 250',
+      monthly: true,
+      showTotal: false,
+    },
     text: (p) => sentences(p.heading, p.intro),
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
@@ -815,6 +832,211 @@ export const BLOCKS: BlockDef[] = [
     headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
   },
   {
+    type: 'columns',
+    label: 'Raster',
+    description: 'Zwei bis vier Spalten mit Bild, Titel, Text und Link – für Angebote, Bereiche oder Teams.',
+    icon: 'columns',
+    category: 'structure',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'intro', type: 'textarea', label: 'Einleitung', inline: true },
+      {
+        key: 'items',
+        type: 'group',
+        label: 'Spalten',
+        itemLabel: 'Spalte',
+        max: 12,
+        fields: [
+          { key: 'image', type: 'image', label: 'Bild' },
+          { key: 'title', type: 'text', label: 'Titel', required: true },
+          { key: 'text', type: 'textarea', label: 'Text' },
+          link('link', 'Link'),
+        ],
+      },
+      {
+        key: 'count',
+        type: 'select',
+        label: 'Spalten nebeneinander',
+        options: [
+          { value: '2', label: 'Zwei' },
+          { value: '3', label: 'Drei' },
+          { value: '4', label: 'Vier' },
+        ],
+        default: '3',
+      },
+    ],
+    defaults: {
+      heading: 'Was wir machen',
+      intro: '',
+      count: '3',
+      items: [
+        { image: null, title: 'Beratung', text: 'Wir schauen uns an, was du hast, und sagen ehrlich, was es braucht.', link: null },
+        { image: null, title: 'Umsetzung', text: 'Sauber gemacht, zum vereinbarten Termin und Preis.', link: null },
+        { image: null, title: 'Unterhalt', text: 'Auch nach Jahren noch da, wenn etwas klemmt.', link: null },
+      ],
+    },
+    text: (p) => sentences(p.heading, p.intro, ...(p.items ?? []).flatMap((i: any) => [i.title, i.text])),
+    headings: (p) => [
+      ...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+      ...(p.items ?? []).map((i: any) => ({ level: p.heading ? 3 : 2, text: i.title, field: 'items' })),
+    ],
+    images: (p) => (p.items ?? []).map((i: any) => i.image).filter(Boolean),
+    links: (p) => (p.items ?? []).flatMap((i: any) => linkHref(i.link)),
+  },
+  {
+    type: 'timeline',
+    label: 'Ablauf & Chronik',
+    description: 'Schritte oder Jahre untereinander, mit einer Linie verbunden – für die Firmengeschichte oder «So läuft es ab».',
+    icon: 'timeline',
+    category: 'structure',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      {
+        key: 'items',
+        type: 'group',
+        label: 'Einträge',
+        itemLabel: 'Eintrag',
+        fields: [
+          { key: 'when', type: 'text', label: 'Wann', help: 'Ein Jahr, ein Datum oder ein Schritt, z. B. «1987» oder «Woche 1»', maxLength: 24 },
+          { key: 'title', type: 'text', label: 'Titel', required: true },
+          { key: 'text', type: 'textarea', label: 'Text' },
+        ],
+      },
+    ],
+    defaults: {
+      heading: 'Unsere Geschichte',
+      items: [
+        { when: '1987', title: 'Der Anfang', text: 'Zwei Tische, eine Küche und viel Mut.' },
+        { when: '2004', title: 'Umbau', text: 'Mehr Platz in der Küche – die Gaststube bleibt, wie sie war.' },
+        { when: 'Heute', title: 'Die zweite Generation', text: 'Gleiche Haltung, ein paar neue Ideen.' },
+      ],
+    },
+    text: (p) => sentences(p.heading, ...(p.items ?? []).flatMap((i: any) => [i.when, i.title, i.text])),
+    headings: (p) => [
+      ...(p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+      ...(p.items ?? []).map((i: any) => ({ level: p.heading ? 3 : 2, text: i.title, field: 'items' })),
+    ],
+  },
+  {
+    type: 'table',
+    label: 'Tabelle',
+    description: 'Preise, Leistungen oder technische Angaben in Zeilen und Spalten. Auf dem Handy wird jede Zeile zur kleinen Karte.',
+    icon: 'table',
+    category: 'text',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'h1', type: 'text', label: 'Spalte 1', required: true, width: 'half' },
+      { key: 'h2', type: 'text', label: 'Spalte 2', width: 'half' },
+      { key: 'h3', type: 'text', label: 'Spalte 3', width: 'half' },
+      { key: 'h4', type: 'text', label: 'Spalte 4', width: 'half', help: 'Leere Spalten werden nicht angezeigt.' },
+      {
+        key: 'rows',
+        type: 'group',
+        label: 'Zeilen',
+        itemLabel: 'Zeile',
+        fields: [
+          { key: 'a', type: 'text', label: 'Spalte 1', required: true },
+          { key: 'b', type: 'text', label: 'Spalte 2' },
+          { key: 'c', type: 'text', label: 'Spalte 3' },
+          { key: 'd', type: 'text', label: 'Spalte 4' },
+        ],
+      },
+      { key: 'right', type: 'boolean', label: 'Letzte Spalte rechtsbündig', help: 'Für Preise und Zahlen.', default: true },
+      { key: 'note', type: 'text', label: 'Hinweis unter der Tabelle', inline: true },
+    ],
+    defaults: {
+      heading: 'Preise',
+      h1: 'Leistung',
+      h2: 'Dauer',
+      h3: 'Preis',
+      h4: '',
+      rows: [
+        { a: 'Haarschnitt', b: '45 Min', c: '68.–', d: '' },
+        { a: 'Waschen, Schneiden, Föhnen', b: '60 Min', c: '89.–', d: '' },
+        { a: 'Farbe', b: '90 Min', c: 'ab 120.–', d: '' },
+      ],
+      right: true,
+      note: 'Alle Preise in CHF, inkl. MwSt.',
+    },
+    text: (p) => sentences(p.heading, ...(p.rows ?? []).map((r: any) => [r.a, r.b, r.c, r.d].filter(Boolean).join(' ')), p.note),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
+    type: 'compare',
+    label: 'Vorher/Nachher',
+    description: 'Zwei Bilder übereinander mit einem Schieber dazwischen – für Renovationen, Frisuren, Gärten.',
+    icon: 'compare',
+    category: 'media',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      { key: 'before', type: 'image', label: 'Bild vorher', required: true, width: 'half' },
+      { key: 'after', type: 'image', label: 'Bild nachher', required: true, width: 'half', help: 'Am besten im gleichen Ausschnitt fotografiert.' },
+      { key: 'beforeLabel', type: 'text', label: 'Beschriftung vorher', width: 'half' },
+      { key: 'afterLabel', type: 'text', label: 'Beschriftung nachher', width: 'half' },
+      { key: 'caption', type: 'text', label: 'Bildunterschrift', inline: true },
+    ],
+    defaults: { heading: '', before: null, after: null, beforeLabel: 'Vorher', afterLabel: 'Nachher', caption: '' },
+    text: (p) => sentences(p.heading, p.caption),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+    images: (p) => [p.before, p.after].filter(Boolean),
+  },
+  {
+    type: 'notice',
+    label: 'Hinweis',
+    description: 'Eine auffällige Mitteilung, z. B. Betriebsferien – auf Wunsch nur in einem bestimmten Zeitraum sichtbar.',
+    icon: 'info',
+    category: 'text',
+    fields: [
+      { key: 'text', type: 'textarea', label: 'Text', inline: true, required: true, maxLength: 400 },
+      link('link', 'Link'),
+      {
+        key: 'tone',
+        type: 'select',
+        label: 'Darstellung',
+        options: [
+          { value: 'accent', label: 'Auffällig' },
+          { value: 'quiet', label: 'Zurückhaltend' },
+        ],
+        default: 'accent',
+      },
+      { key: 'from', type: 'date', label: 'Anzeigen ab', width: 'half', help: 'Leer = sofort.' },
+      { key: 'until', type: 'date', label: 'Anzeigen bis und mit', width: 'half', help: 'Leer = bis du ihn löschst.' },
+    ],
+    defaults: {
+      text: 'Betriebsferien vom 20. Juli bis 10. August. Ab dem 11. August sind wir wieder für dich da.',
+      link: null,
+      tone: 'accent',
+      from: '',
+      until: '',
+    },
+    text: (p) => sentences(p.text),
+    links: (p) => linkHref(p.link),
+  },
+  {
+    type: 'downloads',
+    label: 'Downloads',
+    description: 'Dateien zum Herunterladen – Speisekarte als PDF, Anmeldeformular, Preisliste – mit Typ und Grösse.',
+    icon: 'download',
+    category: 'media',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Überschrift', inline: true },
+      {
+        key: 'files',
+        type: 'group',
+        label: 'Dateien',
+        itemLabel: 'Datei',
+        fields: [
+          { key: 'file', type: 'file', label: 'Datei', required: true },
+          { key: 'title', type: 'text', label: 'Titel', help: 'Leer = Dateiname' },
+          { key: 'text', type: 'text', label: 'Kurze Beschreibung' },
+        ],
+      },
+    ],
+    defaults: { heading: 'Zum Herunterladen', files: [] },
+    text: (p) => sentences(p.heading, ...(p.files ?? []).flatMap((f: any) => [f.title, f.text])),
+    headings: (p) => (p.heading ? [{ level: 2, text: p.heading, field: 'heading' }] : []),
+  },
+  {
     type: 'section',
     label: 'Wiederverwendbare Sektion',
     description: 'Ein Abschnitt, der auf mehreren Seiten gleich ist. Einmal ändern, überall aktuell.',
@@ -877,9 +1099,7 @@ export function blocksText(blocks: Block[] | undefined): string {
 }
 
 export function blocksHeadings(blocks: Block[] | undefined): (HeadingRef & { blockId: string })[] {
-  return (blocks ?? []).flatMap((b, i) =>
-    (BLOCK_MAP[b.type]?.headings?.(b.props, i === 0) ?? []).map((h) => ({ ...h, blockId: b.id })),
-  );
+  return (blocks ?? []).flatMap((b, i) => (BLOCK_MAP[b.type]?.headings?.(b.props, i === 0) ?? []).map((h) => ({ ...h, blockId: b.id })));
 }
 
 export function blocksImages(blocks: Block[] | undefined): { blockId: string; media: string }[] {
@@ -889,4 +1109,3 @@ export function blocksImages(blocks: Block[] | undefined): { blockId: string; me
 export function blocksLinks(blocks: Block[] | undefined): { blockId: string; href: string }[] {
   return (blocks ?? []).flatMap((b) => (BLOCK_MAP[b.type]?.links?.(b.props) ?? []).map((href) => ({ blockId: b.id, href })));
 }
-

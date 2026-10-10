@@ -5,7 +5,7 @@ import { openStatus, compactHours, parseTime } from '../src/shared/hours';
 import { parseDay, formatDay, addMonths, monthGrid, longDay } from '../src/shared/dates';
 import { computeSlots, zonedToUtc, localDay, type BookingResource, type BookingService } from '../src/shared/booking';
 import { analyzeSeo } from '../src/shared/seo-analyze';
-import { createBlock, sentences } from '../src/shared/blocks';
+import { BLOCKS, createBlock, sentences } from '../src/shared/blocks';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath } from '../src/shared/paths';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
@@ -35,6 +35,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { entrySlots, getAt, setAt, slotKey } from '../src/shared/text-slots';
+import type { FieldDef } from '../src/shared/fields';
 import { plannedSizes } from '../src/server/video';
 import { checkStructure, zipEntries } from '../src/server/scan';
 import { zipSync, strToU8 } from 'fflate';
@@ -639,6 +640,24 @@ describe('admin translations', () => {
 
   it('has French, Italian and English for every interface text', () => {
     const missing = [...keys].filter(([k]) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en).map(([k, f]) => `${f}: ${k}`);
+    expect(missing).toEqual([]);
+  });
+
+  it('has French, Italian and English for every block: name, description, fields, help, choices', () => {
+    const texts = new Set<string>();
+    const walk = (fields: FieldDef[]) => {
+      for (const f of fields) {
+        for (const x of [f.label, f.help, f.placeholder, f.itemLabel]) if (x) texts.add(x);
+        for (const o of f.options ?? []) texts.add(o.label);
+        if (f.fields) walk(f.fields);
+      }
+    };
+    for (const b of BLOCKS) {
+      texts.add(b.label);
+      texts.add(b.description);
+      walk(b.fields);
+    }
+    const missing = [...texts].filter((k) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en);
     expect(missing).toEqual([]);
   });
 

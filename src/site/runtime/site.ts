@@ -234,6 +234,30 @@ if (statsEl) {
   }
 }
 
+/* ---------- before/after ---------- */
+// Pointer and touch move the line directly; the (invisible) range input is there for keyboard and screen readers.
+d.querySelectorAll<HTMLElement>('.cmp').forEach((box) => {
+  const range = box.querySelector<HTMLInputElement>('.cmp-range');
+  if (!range) return;
+  const show = () => box.style.setProperty('--pos', `${range.value}%`);
+  const at = (x: number) => {
+    const r = box.getBoundingClientRect();
+    range.value = String(Math.round(Math.min(100, Math.max(0, ((x - r.left) / r.width) * 100))));
+    show();
+  };
+  range.addEventListener('input', show);
+  // The browser would otherwise start dragging the image and cancel the pointer.
+  box.addEventListener('dragstart', (e) => e.preventDefault());
+  box.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    at(e.clientX);
+    box.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => at(ev.clientX);
+    box.addEventListener('pointermove', move);
+    box.addEventListener('pointerup', () => box.removeEventListener('pointermove', move), { once: true });
+  });
+});
+
 /* ---------- two-click embeds ---------- */
 const store = {
   get: (k: string) => {

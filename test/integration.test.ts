@@ -1734,4 +1734,30 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(without).toContain('<h2 class="hi">');
     expect(without).not.toContain('<h3 class="hi">');
   });
+
+  it('shows notices only in their time window and turns tables into labelled cells', async () => {
+    const anon = { cookies: new Map() };
+    const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    const notice = (text: string, from: string, until: string) => ({ id: Math.random().toString(36).slice(2, 10), type: 'notice', props: { text, tone: 'accent', from, until } });
+    const created = await req('POST', '/api/entries', {
+      collection: 'pages',
+      data: {
+        title: 'Hinweise',
+        blocks: [
+          { id: 'h1', type: 'hero', props: { variant: 'statement', title: 'Hinweise', text: '' } },
+          notice('Vorbei', day(-10), day(-2)),
+          notice('Jetzt', day(-1), day(1)),
+          notice('Bald', day(3), ''),
+          { id: 'tb', type: 'table', props: { heading: 'Preise', h1: 'Leistung', h2: 'Preis', h3: '', h4: '', right: true, note: '', rows: [{ a: 'Haarschnitt', b: '68.–' }] } },
+        ],
+      },
+    });
+    await req('POST', `/api/entries/${created.data.entry.id}/publish`, {});
+    const html = (await req('GET', `/${created.data.entry.slug}`, undefined, anon)).data as string;
+    expect(html).toContain('>Jetzt</p>');
+    expect(html).not.toContain('>Vorbei</p>');
+    expect(html).not.toContain('>Bald</p>');
+    expect(html).toContain('<th scope="row">Haarschnitt</th><td class="num" data-label="Preis">68.–</td>');
+    expect(html.slice(html.indexOf('<table'))).not.toContain('data-label=""');
+  });
 });
