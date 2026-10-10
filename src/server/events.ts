@@ -58,8 +58,16 @@ function pump() {
     });
   }
 }
-/** Resolves once every queued delivery has had its attempt (tests, shutdown). */
-export const deliveriesIdle = () => (!running && !queue.length ? Promise.resolve() : new Promise<void>((r) => idleWaiters.push(r)));
+/** Events still looking up their webhooks before anything is queued. */
+const emitting = new Set<Promise<void>>();
+
+/** Resolves once every event is queued and every queued delivery has had its attempt (tests, shutdown). */
+export async function deliveriesIdle(): Promise<void> {
+  while (emitting.size || running || queue.length) {
+    if (emitting.size) await Promise.all([...emitting]);
+    else await new Promise<void>((r) => idleWaiters.push(r));
+  }
+}
 
 export interface DeliveryResult {
   ok: boolean;
@@ -124,14 +132,17 @@ export async function redeliver(id: string): Promise<DeliveryResult> {
 
 /** Fire-and-forget delivery to every webhook subscribed to the event (Zapier, Make, own code). Content events can be limited to some types. */
 export function emit(event: NovaEvent, data: Record<string, unknown>): void {
-  void (async () => {
+  const job: Promise<void> = (async () => {
     const settings = await getSettings();
     for (const h of settings.webhooks) {
       if (!h.active || !h.events.includes(event)) continue;
       if (event.startsWith('entry.') && h.collections?.length && !h.collections.includes(String(data.collection))) continue;
       await deliver(h, event, data);
     }
-  })().catch((e) => console.warn('[webhook]', (e as Error).message));
+  })()
+    .catch((e) => console.warn('[webhook]', (e as Error).message))
+    .finally(() => emitting.delete(job));
+  emitting.add(job);
 }
 
 /**

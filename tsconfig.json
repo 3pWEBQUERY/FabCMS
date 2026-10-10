@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "allowUnreachableCode": false,
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
     "esModuleInterop": true,

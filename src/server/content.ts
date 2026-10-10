@@ -341,12 +341,12 @@ export async function updateEntry(
   }).then((e) => {
     // Open editors (real-time room) follow changes made elsewhere: API, CLI, restore.
     if (!ctx.collab) void import('./collab').then((m) => m.externalChange(id)).catch(() => {});
+    emitSettled(id, async () => {
+      const [now] = await sql`select id, collection, slug, status, data from entries where id = ${id}`;
+      return now ? entryPayload(await getCollection(now.collection as string), now as unknown as Entry) : null;
+    });
     return e;
   });
-      emitSettled(id, async () => {
-        const [now] = await sql`select id, collection, slug, status, data from entries where id = ${id}`;
-        return now ? entryPayload(await getCollection(now.collection as string), now as unknown as Entry) : null;
-      });
 }
 
 /**

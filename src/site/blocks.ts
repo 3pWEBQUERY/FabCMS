@@ -1032,8 +1032,10 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
         return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;
       return html`<div class="${cls()}"${attrs}>${await ctx.entryView(p.show === 'default' ? 'default' : 'blocks')}</div>`;
     }
+    default:
+      // A kind this version doesn't know (stored by a newer one): nothing.
+      return html``;
   }
-  return html``;
 }
 
 /**

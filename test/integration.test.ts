@@ -2528,10 +2528,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       });
       return new Response('', { status: String(url).endsWith('/down') && failing ? 503 : 200 });
     }) as typeof fetch;
-    const flush = async () => {
-      await new Promise((r) => setTimeout(r, 60));
-      await deliveriesIdle();
-    };
+    const flush = () => deliveriesIdle();
     const of = (u: string, ev?: string) => got.filter((g) => g.url === `https://hooks.test/${u}` && (!ev || g.event === ev));
     try {
       // Changes waiting from earlier tests go out first, to nobody.
@@ -2746,4 +2743,5 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(forced.data.done).toEqual([first.id]);
     await req('DELETE', `/api/entries/${page.data.entry.id}`);
   });
+
 });
