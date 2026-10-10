@@ -21,3 +21,8 @@ setInterval(() => {
   const now = Date.now();
   for (const [k, hits] of buckets) if (hits.every((t) => now - t > 3_600_000)) buckets.delete(k);
 }, 600_000).unref();
+
+/** Forget all hits – for tests that sign in many people from one address. */
+export function resetRateLimits(): void {
+  buckets.clear();
+}

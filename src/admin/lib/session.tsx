@@ -8,6 +8,8 @@ export interface SessionUser extends User {
   allowed_modes: Mode[];
   /** Name of a role made in the Werkbank (built-in roles have their label in the interface). */
   role_name?: string | null;
+  /** The role asks for a second factor and there is none yet. */
+  must_setup_2fa?: boolean;
 }
 
 export interface ThemeInfo {

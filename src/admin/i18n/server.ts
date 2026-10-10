@@ -1393,4 +1393,35 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Views for everyone are created by people allowed to publish.',
   },
   'Diese Ansicht gibt es nicht mehr.': { fr: 'Cette vue n’existe plus.', it: 'Questa vista non esiste più.', en: 'This view no longer exists.' },
+  'Richte zuerst die Zwei-Faktor-Anmeldung ein.': {
+    fr: 'Configure d’abord la connexion à deux facteurs.',
+    it: 'Configura prima l’accesso a due fattori.',
+    en: 'Set up two-factor sign-in first.',
+  },
+  'Für deine Rolle braucht es einen zweiten Faktor. Melde dich mit deinem Passkey an.': {
+    fr: 'Ton rôle exige un second facteur. Connecte-toi avec ton passkey.',
+    it: 'Il tuo ruolo richiede un secondo fattore. Accedi con la tua passkey.',
+    en: 'Your role requires a second factor. Sign in with your passkey.',
+  },
+  'Dieser Passkey prüft weder Fingerabdruck noch PIN. Für deine Rolle braucht es das – oder einen Code aus einer App.': {
+    fr: 'Ce passkey ne vérifie ni empreinte ni PIN. Ton rôle l’exige – ou un code d’une app.',
+    it: 'Questa passkey non verifica né impronta né PIN. Il tuo ruolo lo richiede – oppure un codice da un’app.',
+    en: 'This passkey checks neither fingerprint nor PIN. Your role needs that – or a code from an app.',
+  },
+  'Deine Rolle verlangt einen zweiten Faktor. Richte zuerst einen Passkey ein, dann kannst du den Code ausschalten.': {
+    fr: 'Ton rôle exige un second facteur. Configure d’abord un passkey, puis tu pourras désactiver le code.',
+    it: 'Il tuo ruolo richiede un secondo fattore. Configura prima una passkey, poi potrai disattivare il codice.',
+    en: 'Your role requires a second factor. Set up a passkey first, then you can turn off the code.',
+  },
+  'Deine Rolle verlangt einen zweiten Faktor. Richte zuerst einen weiteren Passkey oder den Code aus der App ein.': {
+    fr: 'Ton rôle exige un second facteur. Configure d’abord un autre passkey ou le code de l’app.',
+    it: 'Il tuo ruolo richiede un secondo fattore. Configura prima un’altra passkey o il codice dell’app.',
+    en: 'Your role requires a second factor. Set up another passkey or the app code first.',
+  },
+  'Die Rolle «{role}» gibt es nicht.': { fr: 'Le rôle «{role}» n’existe pas.', it: 'Il ruolo «{role}» non esiste.', en: 'The role «{role}» doesn’t exist.' },
+  'Nur die Inhaberin oder der Inhaber kann das für die eigene Rolle ändern.': {
+    fr: 'Seul·e le ou la propriétaire peut modifier cela pour son propre rôle.',
+    it: 'Solo la o il titolare può modificarlo per il proprio ruolo.',
+    en: 'Only the owner can change this for their own role.',
+  },
 };

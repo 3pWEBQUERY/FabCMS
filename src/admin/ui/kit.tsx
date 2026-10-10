@@ -852,16 +852,16 @@ export function DateTimeInput({
 
 /* ---------- small controls ---------- */
 
-export function Switch({ checked, onChange, label, id }: { checked: boolean; onChange: (v: boolean) => void; label?: string; id?: string }) {
-  return <button type="button" role="switch" id={id} aria-checked={checked} aria-label={label} className="switch" onClick={() => onChange(!checked)} />;
+export function Switch({ checked, onChange, label, id, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: string; id?: string; disabled?: boolean }) {
+  return <button type="button" role="switch" id={id} aria-checked={checked} aria-label={label} className="switch" disabled={disabled} onClick={() => onChange(!checked)} />;
 }
 
-export function Toggle({ checked, onChange, label, help }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; help?: ReactNode }) {
+export function Toggle({ checked, onChange, label, help, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; help?: ReactNode; disabled?: boolean }) {
   const id = useId();
   return (
     <div className="row" style={{ alignItems: 'flex-start', gap: '0.75rem' }}>
-      <Switch id={id} checked={checked} onChange={onChange} />
-      <label htmlFor={id} style={{ cursor: 'pointer', display: 'grid', gap: '0.1rem' }}>
+      <Switch id={id} checked={checked} onChange={onChange} disabled={disabled} />
+      <label htmlFor={id} style={{ cursor: disabled ? 'default' : 'pointer', display: 'grid', gap: '0.1rem' }}>
         <span style={{ fontWeight: 550, fontSize: 'var(--t-s)' }}>{label}</span>
         {help && <span className="field-help">{help}</span>}
       </label>

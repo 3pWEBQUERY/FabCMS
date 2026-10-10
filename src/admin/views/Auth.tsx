@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthentication, WebAuthnAbortService } from '@simplewebauthn/browser';
+import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthentication, startRegistration, WebAuthnAbortService } from '@simplewebauthn/browser';
 import { api } from '../lib/api';
 import { Field } from '../ui/kit';
 import { Icon, NovaMark } from '../ui/icons';
@@ -197,6 +197,106 @@ export function SetupOwner({ onDone }: { onDone: () => void }) {
           {t('Weiter')}
         </button>
       </form>
+    </main>
+  );
+}
+
+/**
+ * The role of this person asks for a second factor and there is none yet:
+ * before anything else, set up a passkey or a code from an authenticator app.
+ */
+export function SetupTwoFactor({ name, onDone }: { name: string; onDone: () => void }) {
+  const [totp, setTotp] = useState<{ secret: string; svg: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const passkey = () =>
+    run(async () => {
+      const options = await api.post<Parameters<typeof startRegistration>[0]['optionsJSON']>('/api/me/passkeys/options');
+      const response = await startRegistration({ optionsJSON: options });
+      await api.post('/api/me/passkeys', { response, name: /iPhone|iPad|Android|Mac OS X|Windows/.exec(navigator.userAgent)?.[0].replace('Mac OS X', 'Mac') ?? 'Passkey' });
+      onDone();
+    });
+  const enable = (e: FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      await api.post('/api/me/totp/enable', { code });
+      onDone();
+    });
+  };
+  const logout = () =>
+    run(async () => {
+      await api.post('/api/logout');
+      onDone();
+    });
+  return (
+    <main className="auth">
+      <div className="auth-card">
+        <NovaMark size={32} />
+        <div>
+          <h1>{t('Zweiten Faktor einrichten')}</h1>
+          <p className="muted">{t('Hallo {name}. Für deine Rolle verlangt diese Website neben dem Passwort einen zweiten Faktor. Das dauert eine Minute.', { name })}</p>
+        </div>
+        {totp ? (
+          <form className="stack" onSubmit={enable}>
+            <div className="qr" dangerouslySetInnerHTML={{ __html: totp.svg }} aria-label={t('QR-Code für die Authenticator-App')} />
+            <p className="small">{t('1. QR-Code mit der App scannen – oder den Schlüssel von Hand eingeben:')}</p>
+            <code className="mono small" style={{ wordBreak: 'break-all' }}>
+              {totp.secret.match(/.{1,4}/g)?.join(' ')}
+            </code>
+            <Field label={t('2. Den sechsstelligen Code eingeben:')} htmlFor="setup-code">
+              <input
+                id="setup-code"
+                className="input num"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9 ]{6,7}"
+                required
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                style={{ fontSize: '1.4rem', letterSpacing: '0.3em' }}
+              />
+            </Field>
+            <button className="btn primary l" disabled={busy} aria-busy={busy || undefined}>
+              {t('Aktivieren')}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setTotp(null)}>
+              {t('Zurück')}
+            </button>
+          </form>
+        ) : (
+          <div className="stack">
+            {browserSupportsWebAuthn() && (
+              <button className="btn primary l" disabled={busy} onClick={() => void passkey()}>
+                <Icon name="key" /> {t('Passkey auf diesem Gerät')}
+              </button>
+            )}
+            <button className="btn l" disabled={busy} onClick={() => void run(async () => setTotp(await api.post('/api/me/totp/start')))}>
+              <Icon name="shield" /> {t('Code aus einer Authenticator-App')}
+            </button>
+          </div>
+        )}
+        {error && (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="button" className="btn ghost s" disabled={busy} onClick={() => void logout()}>
+          {t('Abmelden')}
+        </button>
+      </div>
     </main>
   );
 }

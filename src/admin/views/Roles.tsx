@@ -21,6 +21,8 @@ export interface RoleInfo {
 export interface RolesData {
   capabilities: { cap: Capability; label: string; group: string }[];
   roles: RoleInfo[];
+  /** Roles whose people must sign in with a second factor. */
+  require2fa?: string[];
 }
 
 export function useRoles() {
@@ -303,5 +305,57 @@ function RemoveRole({ data, role, onClose, onDone }: { data: RolesData; role: Ro
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Which roles must sign in with a second factor. People without one are
+ * asked to set it up at their next click; until then they can do nothing else.
+ */
+export function TwoFactorPolicy({ data, missing, onChange }: { data: RolesData; missing: (role: string) => number; onChange: () => void }) {
+  const { user: me } = useSession();
+  const toast = useToast();
+  const required = new Set(data.require2fa ?? []);
+  const toggle = async (r: RoleInfo, on: boolean) => {
+    if (
+      on &&
+      r.id === me.role &&
+      missing(r.id) &&
+      !(await confirm({
+        title: t('Auch für deine eigene Rolle?'),
+        message: t('Du hast selbst noch keinen zweiten Faktor. Nova fragt dich gleich danach, ihn einzurichten.'),
+        confirm: t('Einschalten'),
+      }))
+    )
+      return;
+    try {
+      const next = on ? [...required, r.id] : [...required].filter((x) => x !== r.id);
+      await api.put('/api/security/2fa', { roles: next });
+      onChange();
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>{t('Zwei-Faktor-Pflicht')}</h2>
+      </div>
+      <div className="form-section">
+        <p className="small muted">{t('Wer eine dieser Rollen hat, meldet sich mit Passwort und Code aus einer App an – oder mit einem Passkey.')}</p>
+        {data.roles
+          .filter((r) => r.id !== 'member')
+          .map((r) => (
+            <Toggle
+              key={r.id}
+              checked={required.has(r.id)}
+              disabled={r.id === 'owner' && me.role !== 'owner'}
+              onChange={(v) => void toggle(r, v)}
+              label={roleName(r)}
+              help={required.has(r.id) && missing(r.id) ? t('Ohne zweiten Faktor: {n} – wird beim nächsten Klick zur Einrichtung geführt.', { n: missing(r.id) }) : undefined}
+            />
+          ))}
+      </div>
+    </section>
   );
 }

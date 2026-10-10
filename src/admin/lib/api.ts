@@ -40,6 +40,8 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
   const data = type.includes('application/json') ? await res.json() : null;
   if (!res.ok) {
     if (res.status === 401 && !url.startsWith('/api/login') && !url.startsWith('/api/session')) window.dispatchEvent(new CustomEvent('nova:unauthorized'));
+    // The role now asks for a second factor: the session reloads and shows the setup.
+    if (res.status === 403 && data?.details?.code === 'setup-2fa') window.dispatchEvent(new CustomEvent('nova:unauthorized'));
     throw new ApiError(res.status, data?.error ? translateError(data) : t('Fehler {status}', { status: res.status }), data?.details);
   }
   return data as T;

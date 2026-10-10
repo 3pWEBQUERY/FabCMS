@@ -12,6 +12,7 @@ import {
   hasUsers,
   requireCap,
   requireUser,
+  requires2fa,
   type AppEnv,
 } from '../auth';
 import { hashPassword, token, totpSecret, totpUri, verifyPassword, verifyTotp } from '../lib/crypto';
@@ -85,6 +86,9 @@ export function authApi(app: Hono<AppEnv>) {
     const ok = await verifyPassword(body.password, u?.password_hash ?? 'scrypt$32768$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
     if (!u || !ok) throw new HttpError(401, 'E-Mail oder Passwort stimmen nicht.');
     if (u.role === 'member') throw forbidden('Dieses Konto hat keinen Zugang zur Verwaltung.');
+    // With a second factor required, a passkey without an app code means: sign in with the passkey.
+    if (!u.totp_enabled && requires2fa(await getSettings(), u.role as string) && (await sql`select 1 from passkeys where user_id = ${u.id} limit 1`).length)
+      throw forbidden('Für deine Rolle braucht es einen zweiten Faktor. Melde dich mit deinem Passkey an.');
     await createSession(c, u.id as string, u.totp_enabled as boolean);
     if (u.totp_enabled) return c.json({ twoFactor: true });
     await sql`update users set sessions_count = sessions_count + 1, last_login_at = now() where id = ${u.id}`;
@@ -107,6 +111,8 @@ export function authApi(app: Hono<AppEnv>) {
     if (u.role === 'member') throw forbidden('Dieses Konto hat keinen Zugang zur Verwaltung.');
     // A passkey with fingerprint/face/PIN is two factors in one. Without that check, 2FA still applies.
     const needs2fa = Boolean(u.totp_enabled) && !userVerified;
+    if (!userVerified && !u.totp_enabled && requires2fa(await getSettings(), u.role as string))
+      throw forbidden('Dieser Passkey prüft weder Fingerabdruck noch PIN. Für deine Rolle braucht es das – oder einen Code aus einer App.');
     await createSession(c, u.id as string, needs2fa);
     if (needs2fa) return c.json({ twoFactor: true });
     await sql`update users set sessions_count = sessions_count + 1, last_login_at = now() where id = ${u.id}`;
@@ -135,6 +141,10 @@ export function authApi(app: Hono<AppEnv>) {
 
   app.delete('/api/me/passkeys/:id', async (c) => {
     const u = requireUser(c);
+    if (!u.totp_enabled && requires2fa(await getSettings(), u.role)) {
+      const [{ n }] = await sql`select count(*)::int as n from passkeys where user_id = ${u.id} and id <> ${c.req.param('id')}`;
+      if (!n) throw badRequest('Deine Rolle verlangt einen zweiten Faktor. Richte zuerst einen weiteren Passkey oder den Code aus der App ein.');
+    }
     await sql`delete from passkeys where id = ${c.req.param('id')} and user_id = ${u.id}`;
     await audit(c, 'passkey.remove');
     return c.json({ ok: true });
@@ -225,6 +235,8 @@ export function authApi(app: Hono<AppEnv>) {
     const { password: pw } = z.object({ password: z.string() }).parse(await c.req.json());
     const [u] = await sql`select password_hash from users where id = ${user.id}`;
     if (!(await verifyPassword(pw, u.password_hash as string))) throw badRequest('Das Passwort stimmt nicht.');
+    if (requires2fa(await getSettings(), user.role) && !(await sql`select 1 from passkeys where user_id = ${user.id} limit 1`).length)
+      throw badRequest('Deine Rolle verlangt einen zweiten Faktor. Richte zuerst einen Passkey ein, dann kannst du den Code ausschalten.');
     await sql`update users set totp_enabled = false, totp_secret = null where id = ${user.id}`;
     await audit(c, 'user.2fa.disable');
     return c.json({ ok: true });
@@ -234,7 +246,7 @@ export function authApi(app: Hono<AppEnv>) {
 
   app.get('/api/users', async (c) => {
     requireCap(c, 'users.manage');
-    const rows = await sql`select ${PUBLIC_USER} from users order by created_at`;
+    const rows = await sql`select ${PUBLIC_USER}, exists (select 1 from passkeys p where p.user_id = users.id) as has_passkey from users order by created_at`;
     return c.json({ users: rows });
   });
 

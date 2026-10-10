@@ -8,7 +8,7 @@ import { watchTableCards } from './lib/table-cards';
 import { SessionProvider, type SessionUser } from './lib/session';
 import { ToastProvider } from './ui/toast';
 import { TooltipProvider } from './ui/kit';
-import { Login, SetupOwner, TwoFactor } from './views/Auth';
+import { Login, SetupOwner, SetupTwoFactor, TwoFactor } from './views/Auth';
 import { Shell } from './shell/Shell';
 import { Splash, TopProgress } from './ui/loading';
 import type { Capability } from '../shared/roles';
@@ -78,6 +78,7 @@ function App() {
   if (session.setupRequired) return <SetupOwner onDone={load} />;
   if (session.twoFactorPending) return <TwoFactor onDone={load} />;
   if (!session.user) return <Login siteName={session.site.name} onDone={load} />;
+  if (session.user.must_setup_2fa) return <SetupTwoFactor name={session.user.name} onDone={load} />;
   return (
     <SessionProvider user={session.user} caps={session.caps ?? []} onLogout={load}>
       {session.site.setupDone === false && (session.caps ?? []).includes('settings.manage') ? (

@@ -43,10 +43,18 @@ const csrf: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
+/** What someone who still has to set up a second factor may reach. */
+const SETUP_2FA_PATHS = /^\/api\/(session|logout|me\/totp\/(start|enable)|me\/passkeys(\/options)?)$/;
+
 export function apiRoutes(app: Hono<AppEnv>) {
   app.use('/api/*', async (c, next) => {
     if (c.req.path.startsWith('/api/v1/')) return next();
     return csrf(c, next);
+  });
+  // A role that asks for a second factor: until one is set up, only that (and signing out) works.
+  app.use('/api/*', async (c, next) => {
+    if (c.get('user')?.must_setup_2fa && !SETUP_2FA_PATHS.test(c.req.path)) throw new HttpError(403, 'Richte zuerst die Zwei-Faktor-Anmeldung ein.', { code: 'setup-2fa' });
+    return next();
   });
   authApi(app);
   viewsApi(app);

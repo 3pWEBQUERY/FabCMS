@@ -7,7 +7,7 @@ import { sha256, token } from './lib/crypto';
 import { clientIp, forbidden, HttpError } from './lib/http';
 import { can, modesOf, type Capability } from '../shared/roles';
 import { ensureRoles } from './roles';
-import type { Mode, Role, User } from '../shared/types';
+import type { Mode, Role, SiteSettings, User } from '../shared/types';
 import { getSettings } from './settings';
 
 export const SESSION_COOKIE = 'nova_session';
@@ -16,7 +16,12 @@ const SESSION_DAYS = 30;
 export interface AuthUser extends User {
   session_id: string;
   allowed_modes: Mode[];
+  /** The role asks for a second factor and this person has none yet: only setting one up is allowed. */
+  must_setup_2fa: boolean;
 }
+
+/** Whether people with this role must use a second factor. */
+export const requires2fa = (s: Pick<SiteSettings, 'security'>, role: string) => Boolean(s.security?.require2fa?.includes(role));
 
 export type AppEnv = {
   Variables: {
@@ -54,7 +59,7 @@ export const loadUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (raw) {
     const id = sha256(raw);
     const [row] = await sql`
-      select s.id as session_id, s.pending_2fa, s.last_seen_at, u.*
+      select s.id as session_id, s.pending_2fa, s.last_seen_at, u.*, (u.totp_enabled or exists (select 1 from passkeys p where p.user_id = u.id)) as has_2fa
       from sessions s join users u on u.id = s.user_id
       where s.id = ${id} and s.expires_at > now()`;
     if (row?.pending_2fa) {
@@ -63,8 +68,8 @@ export const loadUser: MiddlewareHandler<AppEnv> = async (c, next) => {
       const settings = await getSettings();
       await ensureRoles();
       const allowed = modesOf(row.role as Role, settings.roleModes);
-      const { password_hash: _p, totp_secret: _t, pending_2fa: _pd, last_seen_at, ...user } = row;
-      c.set('user', { ...(user as unknown as User), session_id: row.session_id, allowed_modes: allowed });
+      const { password_hash: _p, totp_secret: _t, pending_2fa: _pd, last_seen_at, has_2fa, ...user } = row;
+      c.set('user', { ...(user as unknown as User), session_id: row.session_id, allowed_modes: allowed, must_setup_2fa: requires2fa(settings, row.role as string) && !has_2fa });
       // Touch at most every 10 minutes and extend the sliding expiry.
       if (Date.now() - new Date(last_seen_at).getTime() > 600_000) {
         await sql`update sessions set last_seen_at = now(), expires_at = now() + interval '30 days' where id = ${id}`;

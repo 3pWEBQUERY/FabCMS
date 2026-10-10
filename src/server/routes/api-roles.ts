@@ -2,9 +2,10 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 import { sql } from '../db';
 import { audit, requireCap, type AppEnv } from '../auth';
-import { getSettings } from '../settings';
+import { getSettings, updateSettings } from '../settings';
 import { createRole, deleteRole, ensureRoles, updateRole } from '../roles';
-import { CAP_INFO, ROLE_CAPS, ROLE_LABELS, ROLE_ORDER, capsOf, customRole, modesOf } from '../../shared/roles';
+import { forbidden, badRequest } from '../lib/http';
+import { CAP_INFO, ROLE_CAPS, ROLE_LABELS, ROLE_ORDER, capsOf, customRole, isBuiltinRole, modesOf } from '../../shared/roles';
 
 const roleInput = z.object({
   name: z.string().trim().min(1, 'Die Rolle braucht einen Namen.').max(60),
@@ -25,6 +26,7 @@ export function rolesApi(app: Hono<AppEnv>) {
     const mine = new Set(capsOf(me.role));
     return c.json({
       capabilities: CAP_INFO,
+      require2fa: settings.security?.require2fa ?? [],
       roles: [
         ...ROLE_ORDER.map((id) => ({
           id,
@@ -41,6 +43,23 @@ export function rolesApi(app: Hono<AppEnv>) {
         }),
       ],
     });
+  });
+
+  /** Roles whose people must sign in with a second factor. */
+  app.put('/api/security/2fa', async (c) => {
+    const me = requireCap(c, 'users.manage');
+    const { roles } = z.object({ roles: z.array(z.string().max(40)).max(60) }).parse(await c.req.json());
+    await ensureRoles();
+    const next = [...new Set(roles)];
+    const unknown = next.find((r) => r === 'member' || (!isBuiltinRole(r) && !customRole(r)));
+    if (unknown) throw badRequest(`Die Rolle «${unknown}» gibt es nicht.`);
+    const s = await getSettings();
+    const before = s.security?.require2fa ?? [];
+    // Only the owner decides about the owner's own sign-in.
+    if (me.role !== 'owner' && before.includes('owner') !== next.includes('owner')) throw forbidden('Nur die Inhaberin oder der Inhaber kann das für die eigene Rolle ändern.');
+    await updateSettings({ security: { ...s.security, require2fa: next } });
+    await audit(c, 'security.2fa', 'settings', 'security', { roles: next });
+    return c.json({ require2fa: next });
   });
 
   app.post('/api/roles', async (c) => {

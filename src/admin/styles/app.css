@@ -689,6 +689,10 @@ input[type='radio']:disabled {
 .switch[aria-checked='true']::after {
   transform: translateX(0.95rem);
 }
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 /* segmented control */
 .seg {

@@ -28,6 +28,8 @@ import type { Entry } from '../src/shared/types';
 import { outbox } from '../src/server/mail';
 import { foodMail } from '../src/server/ordering';
 import { tr } from '../src/site/i18n';
+import { totpCode } from '../src/server/lib/crypto';
+import { resetRateLimits } from '../src/server/lib/ratelimit';
 import { env } from '../src/server/env';
 import { handleStripeEvent } from '../src/server/shop';
 
@@ -2794,6 +2796,47 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(pre.data.html).toContain('Bergkäse');
     expect((await req('POST', '/api/mail/preview', { kind: 'gibts-nicht', lang: 'de' })).status).toBe(404);
     await req('PATCH', '/api/settings', { mail: { logo: true, color: '', signature: '', footer: '', texts: {} } });
+  });
+
+  it('asks people of a role for a second factor before anything else', async () => {
+    resetRateLimits();
+    expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);
+    expect((await req('PUT', '/api/security/2fa', { roles: ['gibts-nicht'] })).status).toBe(400);
+    const tom = await req('POST', '/api/users', { email: 'tom@example.ch', name: 'Tom', role: 'author' });
+    const tomC = new Map<string, string>();
+    await req('POST', '/api/login', { email: 'tom@example.ch', password: tom.data.temporaryPassword }, { cookies: tomC });
+    expect((await req('GET', '/api/entries?collection=posts', undefined, { cookies: tomC })).status).toBe(200);
+
+    expect((await req('PUT', '/api/security/2fa', { roles: ['author'] })).data.require2fa).toEqual(['author']);
+    expect((await req('GET', '/api/roles')).data.require2fa).toEqual(['author']);
+    // From the next request on, only setting up a factor is open.
+    const session = await req('GET', '/api/session', undefined, { cookies: tomC });
+    expect(session.data.user.must_setup_2fa).toBe(true);
+    const blocked = await req('GET', '/api/entries?collection=posts', undefined, { cookies: tomC });
+    expect(blocked.status).toBe(403);
+    expect(blocked.data.details).toEqual({ code: 'setup-2fa' });
+    const { secret } = (await req('POST', '/api/me/totp/start', {}, { cookies: tomC })).data;
+    expect((await req('POST', '/api/me/totp/enable', { code: totpCode(secret) }, { cookies: tomC })).status).toBe(200);
+    expect((await req('GET', '/api/session', undefined, { cookies: tomC })).data.user.must_setup_2fa).toBe(false);
+    expect((await req('GET', '/api/entries?collection=posts', undefined, { cookies: tomC })).status).toBe(200);
+    // The only factor can't be switched off while the role asks for it.
+    expect((await req('POST', '/api/me/totp/disable', { password: tom.data.temporaryPassword }, { cookies: tomC })).status).toBe(400);
+
+    // A passkey-only account doesn't get in with the password alone, and keeps its last passkey.
+    const pia = await req('POST', '/api/users', { email: 'pia@example.ch', name: 'Pia', role: 'author' });
+    await sql`insert into passkeys (id, user_id, public_key) values ('pk-pia', ${pia.data.user.id}, '\\x00')`;
+    const piaC = new Map<string, string>();
+    expect((await req('POST', '/api/login', { email: 'pia@example.ch', password: pia.data.temporaryPassword }, { cookies: piaC })).status).toBe(403);
+    await req('PUT', '/api/security/2fa', { roles: [] });
+    expect((await req('POST', '/api/login', { email: 'pia@example.ch', password: pia.data.temporaryPassword }, { cookies: piaC })).status).toBe(200);
+    await req('PUT', '/api/security/2fa', { roles: ['author'] });
+    expect((await req('DELETE', '/api/me/passkeys/pk-pia', undefined, { cookies: piaC })).status).toBe(400);
+
+    // The Werkbank's settings can't switch the rule off on the side.
+    await req('PATCH', '/api/settings', { security: { allowCustomScripts: false, require2fa: [] } });
+    expect((await req('GET', '/api/roles')).data.require2fa).toEqual(['author']);
+    await req('PUT', '/api/security/2fa', { roles: [] });
+    resetRateLimits();
   });
 
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {

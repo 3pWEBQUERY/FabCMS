@@ -16,7 +16,7 @@ import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { MODULES } from '../../shared/collections';
 import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
-import { RightsMatrix, roleName, useRoles } from './Roles';
+import { RightsMatrix, roleName, TwoFactorPolicy, useRoles } from './Roles';
 import { MissingPages } from './NotFound';
 import { MailSettings } from './MailSettings';
 import { shortId } from '../../shared/text';
@@ -1285,8 +1285,10 @@ function ModuleSettings() {
 function TeamSettings() {
   const { user: me, pro } = useSession();
   const toast = useToast();
-  const { data, reload } = useApi<{ users: User[] }>('/api/users');
+  const { data, reload } = useApi<{ users: (User & { has_passkey?: boolean })[] }>('/api/users');
   const { data: roles, reload: reloadRoles } = useRoles();
+  const required = new Set(roles?.require2fa ?? []);
+  const lacks2fa = (u: User & { has_passkey?: boolean }) => !u.totp_enabled && !u.has_passkey;
   const { draft, set, dirty, save, reset } = useSettingsDraft();
   const [invite, setInvite] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: 'editor' as Role });
@@ -1338,9 +1340,10 @@ function TeamSettings() {
                     </div>
                     <div className="xsmall muted">
                       {u.email} · {u.last_login_at ? t('zuletzt {date}', { date: formatDate(u.last_login_at) }) : t('noch nie angemeldet')}
-                      {u.totp_enabled ? ' · 2FA' : ''}
+                      {lacks2fa(u) ? '' : ' · 2FA'}
                     </div>
                   </div>
+                  {required.has(u.role) && lacks2fa(u) && <span className="badge warn">{t('2FA fehlt')}</span>}
                   <Select
                     inline
                     label={t('Rolle von {name}', { name: u.name })}
@@ -1399,6 +1402,7 @@ function TeamSettings() {
             </ul>
           )}
         </section>
+        {roles && data && <TwoFactorPolicy data={roles} missing={(role) => data.users.filter((u) => u.role === role && lacks2fa(u)).length} onChange={() => void reloadRoles()} />}
         {pro && roles ? (
           <RightsMatrix
             data={roles}

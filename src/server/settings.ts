@@ -98,7 +98,7 @@ export function defaultSettings(): SiteSettings {
     webhooks: [],
     hooks: [],
     extensionCss: [],
-    security: { allowCustomScripts: false },
+    security: { allowCustomScripts: false, require2fa: [] },
     firstPublishedAt: null,
     setupDone: false,
     legal: { generatedAt: null },

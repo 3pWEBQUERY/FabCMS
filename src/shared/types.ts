@@ -294,7 +294,11 @@ export interface SiteSettings {
   hooks: ServerHook[];
   /** CSS of installed extensions, by extension id. */
   extensionCss: { id: string; css: string }[];
-  security: { allowCustomScripts: boolean };
+  security: {
+    allowCustomScripts: boolean;
+    /** Roles whose people must sign in with a second factor (app code or passkey). */
+    require2fa?: string[];
+  };
   firstPublishedAt: string | null;
   setupDone: boolean;
   legal: { generatedAt: string | null };

@@ -1533,4 +1533,31 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     en: 'Confirm account, reset password, access.',
   },
   Sprache: { fr: 'Langue', it: 'Lingua', en: 'Language' },
+  'Zweiten Faktor einrichten': { fr: 'Configurer un second facteur', it: 'Configura un secondo fattore', en: 'Set up a second factor' },
+  'Hallo {name}. Für deine Rolle verlangt diese Website neben dem Passwort einen zweiten Faktor. Das dauert eine Minute.': {
+    fr: 'Bonjour {name}. Pour ton rôle, ce site exige un second facteur en plus du mot de passe. Cela prend une minute.',
+    it: 'Ciao {name}. Per il tuo ruolo questo sito richiede un secondo fattore oltre alla password. Ci vuole un minuto.',
+    en: 'Hi {name}. For your role, this website asks for a second factor besides the password. It takes a minute.',
+  },
+  'Passkey auf diesem Gerät': { fr: 'Passkey sur cet appareil', it: 'Passkey su questo dispositivo', en: 'Passkey on this device' },
+  'Code aus einer Authenticator-App': { fr: 'Code d’une app d’authentification', it: 'Codice da un’app di autenticazione', en: 'Code from an authenticator app' },
+  'Auch für deine eigene Rolle?': { fr: 'Aussi pour ton propre rôle?', it: 'Anche per il tuo ruolo?', en: 'For your own role too?' },
+  'Du hast selbst noch keinen zweiten Faktor. Nova fragt dich gleich danach, ihn einzurichten.': {
+    fr: 'Tu n’as pas encore de second facteur. Nova te demandera tout de suite de le configurer.',
+    it: 'Non hai ancora un secondo fattore. Nova ti chiederà subito di configurarlo.',
+    en: 'You don’t have a second factor yet. Nova will ask you to set one up right away.',
+  },
+  Einschalten: { fr: 'Activer', it: 'Attiva', en: 'Turn on' },
+  'Zwei-Faktor-Pflicht': { fr: 'Second facteur obligatoire', it: 'Secondo fattore obbligatorio', en: 'Required second factor' },
+  'Wer eine dieser Rollen hat, meldet sich mit Passwort und Code aus einer App an – oder mit einem Passkey.': {
+    fr: 'Les personnes ayant l’un de ces rôles se connectent avec mot de passe et code d’une app – ou avec un passkey.',
+    it: 'Chi ha uno di questi ruoli accede con password e codice da un’app – oppure con una passkey.',
+    en: 'People with one of these roles sign in with password and a code from an app – or with a passkey.',
+  },
+  'Ohne zweiten Faktor: {n} – wird beim nächsten Klick zur Einrichtung geführt.': {
+    fr: 'Sans second facteur: {n} – sera guidé vers la configuration au prochain clic.',
+    it: 'Senza secondo fattore: {n} – al prossimo clic verrà guidato alla configurazione.',
+    en: 'Without a second factor: {n} – will be led to the setup on the next click.',
+  },
+  '2FA fehlt': { fr: '2FA manquante', it: '2FA mancante', en: '2FA missing' },
 };
