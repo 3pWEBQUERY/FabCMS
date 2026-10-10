@@ -1599,4 +1599,113 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       if (k.data.title !== 'Kontakt') await sql`update entries set data = jsonb_set(data, '{title}', '"Kontakt"'), published_data = jsonb_set(published_data, '{title}', '"Kontakt"') where collection = 'pages' and slug = 'kontakt'`;
     }
   });
+
+  it('connects the Google Search Console, submits the sitemap and shows the search numbers', async () => {
+    expect((await req('GET', '/api/gsc')).data).toMatchObject({ configured: false, connected: false });
+    expect((await req('POST', '/api/gsc/connect')).status).toBe(400);
+
+    const settings = (await req('GET', '/api/settings')).data.settings;
+    const base = (settings.baseUrl || env.publicUrl).replace(/\/$/, '');
+    const own = `sc-domain:${new URL(base).hostname.replace(/^www\./, '')}`;
+    const realFetch = globalThis.fetch;
+    const calls: { url: string; method: string; auth?: string; body?: string }[] = [];
+    let revoked = false;
+    const jwt = (claims: object) => ['e30', Buffer.from(JSON.stringify(claims)).toString('base64url'), 'sig'].join('.');
+    const reply = (body: unknown, status = 200) => new Response(body === null ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      if (!/googleapis\.com|accounts\.google\.com/.test(u)) return realFetch(url, init);
+      calls.push({ url: u, method: init?.method ?? 'GET', auth: (init?.headers as Record<string, string>)?.Authorization, body: init?.body ? String(init.body) : undefined });
+      if (u === 'https://oauth2.googleapis.com/token') {
+        const p = new URLSearchParams(String(init?.body));
+        expect(p.get('client_secret')).toBe('geheim');
+        if (p.get('grant_type') === 'authorization_code' && p.get('code') === 'good-code')
+          return reply({ access_token: 'at-1', expires_in: 3600, refresh_token: 'rt-1', id_token: jwt({ email: 'sandra@gmail.com' }) });
+        if (p.get('grant_type') === 'refresh_token' && p.get('refresh_token') === 'rt-1' && !revoked) return reply({ access_token: 'at-2', expires_in: 3600 });
+        return reply({ error: 'invalid_grant' }, 400);
+      }
+      if (u.startsWith('https://oauth2.googleapis.com/revoke')) return reply({});
+      if (u === 'https://www.googleapis.com/webmasters/v3/sites')
+        return reply({
+          siteEntry: [
+            { siteUrl: 'https://andere.ch/', permissionLevel: 'siteOwner' },
+            { siteUrl: own, permissionLevel: 'siteFullUser' },
+            { siteUrl: 'https://fremd.ch/', permissionLevel: 'siteUnverifiedUser' },
+          ],
+        });
+      if (u.includes('/sitemaps/')) return reply(null, 204);
+      if (u.endsWith('/searchAnalytics/query')) {
+        const q = JSON.parse(String(init?.body));
+        const dim = q.dimensions[0];
+        if (!dim) return reply({ rows: [{ clicks: 42, impressions: 1300, ctr: 0.0323, position: 8.44 }] });
+        if (dim === 'query') return reply({ rows: [{ keys: ['gasthaus linde'], clicks: 30, impressions: 200, ctr: 0.15, position: 1.2 }] });
+        if (dim === 'page') return reply({ rows: [{ keys: [`${base}/kontakt`], clicks: 12, impressions: 300, ctr: 0.04, position: 5 }] });
+        return reply({ rows: [{ keys: ['2026-10-01'], clicks: 3, impressions: 90, ctr: 0.03, position: 9 }] });
+      }
+      return reply({}, 404);
+    }) as typeof fetch;
+    env.google.clientId = 'nova.apps.googleusercontent.com';
+    env.google.clientSecret = 'geheim';
+    try {
+      const start = await req('POST', '/api/gsc/connect');
+      const auth = new URL(start.data.url);
+      expect(auth.origin + auth.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
+      expect(auth.searchParams.get('redirect_uri')).toBe(`${env.publicUrl.replace(/\/$/, '')}/api/gsc/callback`);
+      expect(auth.searchParams.get('access_type')).toBe('offline');
+      expect(auth.searchParams.get('scope')).toContain('https://www.googleapis.com/auth/webmasters');
+      const state = auth.searchParams.get('state')!;
+
+      // Back from Google: tokens, the matching property, the sitemap.
+      const back = await req('GET', `/api/gsc/callback?code=good-code&state=${state}`);
+      expect(back.status).toBe(302);
+      expect(back.headers.get('location')).toBe('/admin/einstellungen/seo?gsc=verbunden');
+      const status = (await req('GET', '/api/gsc')).data;
+      expect(status).toMatchObject({ connected: true, email: 'sandra@gmail.com', site: own, sites: ['https://andere.ch/', own] });
+      expect(status.sitemapAt).toBeTruthy();
+      const sitemapCall = calls.find((c) => c.url.includes('/sitemaps/'))!;
+      expect(sitemapCall.method).toBe('PUT');
+      expect(decodeURIComponent(sitemapCall.url)).toContain(`/sites/${own}/sitemaps/${base}/sitemap.xml`);
+
+      // The token is stored encrypted and never leaves through the settings.
+      const [row] = await sql`select value from settings where key = 'gsc'`;
+      expect(JSON.stringify(row.value)).not.toContain('rt-1');
+      expect(JSON.stringify((await req('GET', '/api/settings')).data)).not.toContain('rt-1');
+
+      // Numbers for the statistics, own pages as paths.
+      const report = (await req('GET', '/api/gsc/report?days=28')).data.report;
+      expect(report.totals).toEqual({ clicks: 42, impressions: 1300, ctr: 3.2, position: 8.4 });
+      expect(report.queries[0]).toMatchObject({ query: 'gasthaus linde', clicks: 30 });
+      expect(report.pages[0]).toMatchObject({ page: '/kontakt', clicks: 12 });
+      expect(calls.filter((c) => c.url.endsWith('/searchAnalytics/query')).every((c) => c.auth?.startsWith('Bearer at-'))).toBe(true);
+
+      // Another property of the same account – but not someone else's.
+      expect((await req('POST', '/api/gsc/site', { site: 'https://fremd.ch/' })).status).toBe(400);
+      expect((await req('POST', '/api/gsc/site', { site: 'https://andere.ch/' })).data.site).toBe('https://andere.ch/');
+
+      // A forged answer from «Google» does nothing.
+      await req('POST', '/api/gsc/connect');
+      const forged = await req('GET', '/api/gsc/callback?code=good-code&state=falsch');
+      expect(forged.headers.get('location')).toBe('/admin/einstellungen/seo?gsc=abgelehnt');
+
+      // Access withdrawn at Google: a clear message.
+      revoked = true;
+      const gone = await req('GET', '/api/gsc/report?days=7');
+      expect(gone.status).toBe(409);
+      expect(gone.data.error).toContain('Verbinde die Search Console bitte neu');
+      revoked = false;
+
+      // Only for those who may change the settings.
+      const ina = new Map<string, string>();
+      const pw = (await req('POST', '/api/users', { email: 'gsc-autor@example.ch', name: 'Gina', role: 'author' })).data.temporaryPassword;
+      await req('POST', '/api/login', { email: 'gsc-autor@example.ch', password: pw }, { cookies: ina });
+      expect((await req('GET', '/api/gsc', undefined, { cookies: ina })).status).toBe(403);
+
+      expect((await req('DELETE', '/api/gsc')).data.connected).toBe(false);
+      expect(calls.some((c) => c.url.startsWith('https://oauth2.googleapis.com/revoke?token=rt-1'))).toBe(true);
+    } finally {
+      globalThis.fetch = realFetch;
+      env.google.clientId = '';
+      env.google.clientSecret = '';
+    }
+  });
 });

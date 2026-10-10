@@ -16,6 +16,7 @@ import { orderingApi } from './api-ordering';
 import { importApi } from './api-import';
 import { commentsApi } from './api-comments';
 import { aiApi } from './api-ai';
+import { gscApi } from './api-gsc';
 
 /**
  * CSRF protection for the admin API: state-changing requests must carry the
@@ -55,4 +56,5 @@ export function apiRoutes(app: Hono<AppEnv>) {
   importApi(app);
   commentsApi(app);
   aiApi(app);
+  gscApi(app);
 }

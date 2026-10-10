@@ -154,8 +154,64 @@ export function Stats() {
               </section>
             )}
           </div>
+          <GoogleSearch days={Number(days)} />
         </div>
       )}
     </div>
+  );
+}
+
+interface GscReport {
+  from: string;
+  to: string;
+  totals: { clicks: number; impressions: number; ctr: number; position: number };
+  queries: { query: string; clicks: number; impressions: number; position: number }[];
+  pages: { page: string; clicks: number; impressions: number }[];
+}
+
+/** Numbers from the Google Search Console, when it is connected (Einstellungen → Suchmaschinen). */
+function GoogleSearch({ days }: { days: number }) {
+  const { data, error } = useApi<{ report: GscReport | null }>(`/api/gsc/report?days=${days}`);
+  const report = data?.report;
+  if (error) return <p className="small muted">{error}</p>;
+  if (!report) return null;
+  const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(adminLocale(), { day: 'numeric', month: 'short' });
+  return (
+    <section className="stack">
+      <div>
+        <h2 className="section-title">{t('Google-Suche')}</h2>
+        <p className="xsmall muted">
+          {t('Aus der Google Search Console, {from} bis {to}. Google liefert die Zahlen etwa zwei Tage später.', { from: day(report.from), to: day(report.to) })}
+        </p>
+      </div>
+      <div className="kpis">
+        <Kpi label={t('Klicks aus der Google-Suche')} value={report.totals.clicks} />
+        <Kpi label={t('Mal in den Ergebnissen gezeigt')} value={report.totals.impressions} />
+        <Kpi label={t('Klickrate')} value={report.totals.ctr} suffix=" %" />
+        <Kpi label={t('Durchschnittliche Position')} value={report.totals.position} />
+      </div>
+      <div className="grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))' }}>
+        <section className="card">
+          <div className="card-head">
+            <h2>{t('Suchbegriffe')}</h2>
+          </div>
+          <div style={{ padding: '0.5rem' }}>
+            {report.queries.length ? (
+              <BarList valueLabel={t('Klicks pro Suchbegriff')} rows={report.queries.map((q) => ({ label: q.query, value: q.clicks || 0 }))} />
+            ) : (
+              <p className="small muted card-pad">{t('Noch keine Suchbegriffe – Google zeigt sie erst ab ein paar Klicks.')}</p>
+            )}
+          </div>
+        </section>
+        <section className="card">
+          <div className="card-head">
+            <h2>{t('Seiten in der Google-Suche')}</h2>
+          </div>
+          <div style={{ padding: '0.5rem' }}>
+            <BarList valueLabel={t('Klicks pro Seite')} rows={report.pages.map((p) => ({ label: p.page, value: p.clicks }))} />
+          </div>
+        </section>
+      </div>
+    </section>
   );
 }

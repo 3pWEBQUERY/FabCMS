@@ -71,6 +71,11 @@ export const env = {
     key: e.MEILI_KEY ?? e.MEILI_MASTER_KEY ?? '',
     index: e.MEILI_INDEX ?? 'nova',
   },
+  /** Optional Google OAuth client for the Search Console connection. */
+  google: {
+    clientId: e.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: e.GOOGLE_CLIENT_SECRET ?? '',
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

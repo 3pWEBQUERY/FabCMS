@@ -647,4 +647,23 @@ export const views: Record<string, { fr: string; it: string; en: string }> = {
   },
   'auf Viren geprüft (ClamAV)': { fr: 'vérifié contre les virus (ClamAV)', it: 'controllato contro i virus (ClamAV)', en: 'virus-checked (ClamAV)' },
   'Aufbau geprüft': { fr: 'structure vérifiée', it: 'struttura controllata', en: 'structure checked' },
+  'Google-Suche': { fr: 'Recherche Google', it: 'Ricerca Google', en: 'Google Search' },
+  'Aus der Google Search Console, {from} bis {to}. Google liefert die Zahlen etwa zwei Tage später.': {
+    fr: 'De la Google Search Console, du {from} au {to}. Google fournit les chiffres avec environ deux jours de retard.',
+    it: 'Dalla Google Search Console, dal {from} al {to}. Google fornisce i dati con circa due giorni di ritardo.',
+    en: 'From the Google Search Console, {from} to {to}. Google delivers the numbers about two days later.',
+  },
+  'Klicks aus der Google-Suche': { fr: 'Clics depuis la recherche Google', it: 'Clic dalla ricerca Google', en: 'Clicks from Google Search' },
+  'Mal in den Ergebnissen gezeigt': { fr: 'Affichages dans les résultats', it: 'Volte mostrato nei risultati', en: 'Times shown in results' },
+  Klickrate: { fr: 'Taux de clics', it: 'Percentuale di clic', en: 'Click-through rate' },
+  'Durchschnittliche Position': { fr: 'Position moyenne', it: 'Posizione media', en: 'Average position' },
+  Suchbegriffe: { fr: 'Termes de recherche', it: 'Termini di ricerca', en: 'Search terms' },
+  'Klicks pro Suchbegriff': { fr: 'Clics par terme de recherche', it: 'Clic per termine di ricerca', en: 'Clicks per search term' },
+  'Noch keine Suchbegriffe – Google zeigt sie erst ab ein paar Klicks.': {
+    fr: 'Pas encore de termes de recherche – Google ne les montre qu’à partir de quelques clics.',
+    it: 'Ancora nessun termine di ricerca – Google li mostra solo dopo qualche clic.',
+    en: 'No search terms yet – Google only shows them after a few clicks.',
+  },
+  'Seiten in der Google-Suche': { fr: 'Pages dans la recherche Google', it: 'Pagine nella ricerca Google', en: 'Pages in Google Search' },
+  'Klicks pro Seite': { fr: 'Clics par page', it: 'Clic per pagina', en: 'Clicks per page' },
 };

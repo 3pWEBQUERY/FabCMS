@@ -4,7 +4,7 @@ import { LanguageSettings } from './Languages';
 import { Fragment, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
-import { Link, navigate } from '../lib/router';
+import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
 import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, Toggle, confirm } from '../ui/kit';
@@ -667,10 +667,10 @@ function SeoSettings() {
               help={t('Für SafeSearch: Google zeigt die Website dann nicht bei eingeschaltetem Jugendschutz.')}
             />
             <p className="xsmall muted">
-              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>.{' '}
-              {t('Die Google Search Console verbindest du, indem du dort die Sitemap einreichst.')}
+              Sitemap: <a href="/sitemap.xml">/sitemap.xml</a> · Robots: <a href="/robots.txt">/robots.txt</a>
             </p>
           </Section>
+          <GscSection />
           <SearchSection />
           <Section title={t('Statistik')}>
             <Toggle
@@ -742,6 +742,133 @@ function SeoSettings() {
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
+  );
+}
+
+interface GscStatus {
+  configured: boolean;
+  redirectUri: string;
+  connected: boolean;
+  email: string;
+  site: string | null;
+  sites: string[];
+  connectedAt: string | null;
+  sitemapAt: string | null;
+}
+
+/** Google Search Console: connect, choose the property, sitemap. */
+function GscSection() {
+  const toast = useToast();
+  const { query } = usePath();
+  const { data, setData } = useApi<GscStatus>('/api/gsc');
+  const [busy, setBusy] = useState<string | null>(null);
+  // Back from Google: say how it went, once.
+  useEffect(() => {
+    const r = query.get('gsc');
+    if (!r) return;
+    const msg: Record<string, [string, boolean]> = {
+      verbunden: [t('Search Console verbunden, Sitemap eingereicht.'), true],
+      property: [t('Search Console verbunden. Wähl noch die Property für diese Website.'), true],
+      abgebrochen: [t('Die Verbindung wurde bei Google abgebrochen.'), false],
+      abgelehnt: [t('Diese Antwort von Google passt nicht zu deiner Anfrage. Starte die Verbindung bitte nochmals.'), false],
+      fehler: [t('Die Verbindung hat nicht geklappt. Prüf die Angaben des OAuth-Clients und versuch es nochmals.'), false],
+    };
+    const [text, ok] = msg[r] ?? msg.fehler;
+    toast(text, { kind: ok ? 'info' : 'bad' });
+    navigate('/einstellungen/seo', { replace: true });
+  }, []);
+  const run = async (what: string, fn: () => Promise<GscStatus | void>, done?: string) => {
+    setBusy(what);
+    try {
+      const r = await fn();
+      if (r) setData(r);
+      if (done) toast(done);
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    } finally {
+      setBusy(null);
+    }
+  };
+  if (!data) return null;
+  return (
+    <Section title={t('Google Search Console')} sub={t('Reicht die Sitemap bei Google ein und zeigt in der Statistik, mit welchen Suchbegriffen Leute die Website finden.')}>
+      {!data.configured ? (
+        <p className="small muted">
+          {withEl(t('Dafür braucht es einen OAuth-Client bei Google (Typ «Webanwendung», Weiterleitungs-URI {uri}): {id} und {secret} in den Variablen des Dienstes setzen.'), {
+            uri: <code>{data.redirectUri}</code>,
+            id: <code>GOOGLE_CLIENT_ID</code>,
+            secret: <code>GOOGLE_CLIENT_SECRET</code>,
+          })}
+        </p>
+      ) : !data.connected ? (
+        <div>
+          <button
+            type="button"
+            className="btn"
+            aria-busy={busy === 'connect' || undefined}
+            onClick={() =>
+              void run('connect', async () => {
+                location.href = (await api.post<{ url: string }>('/api/gsc/connect')).url;
+              })
+            }
+          >
+            <Icon name="link" size="s" /> <span>{t('Mit Google verbinden')}</span>
+          </button>
+        </div>
+      ) : (
+        <div className="stack tight">
+          <p className="small">
+            {data.email ? t('Verbunden mit dem Google-Konto {email}.', { email: data.email }) : t('Mit Google verbunden.')}{' '}
+            {data.sitemapAt ? t('Sitemap eingereicht am {date}.', { date: formatDate(data.sitemapAt) }) : ''}
+          </p>
+          {data.sites.length ? (
+            <Field label={t('Property')} help={!data.site ? t('Keine Property passt genau zur Adresse der Website – wähl die richtige aus.') : undefined}>
+              <Select
+                value={data.site ?? ''}
+                onChange={(v) => v && void run('site', () => api.post<GscStatus>('/api/gsc/site', { site: v }), t('Property gewählt, Sitemap eingereicht.'))}
+                options={[
+                  ...(data.site ? [] : [{ value: '', label: t('Bitte wählen') }]),
+                  ...data.sites.map((x) => ({ value: x, label: x.replace(/^sc-domain:/, t('Domain: ')) })),
+                ]}
+              />
+            </Field>
+          ) : (
+            <p className="small muted">{t('Dieses Google-Konto hat noch keine bestätigte Property. Füg die Website in der Search Console hinzu und verbinde danach neu.')}</p>
+          )}
+          <div className="row wrap">
+            {data.site && (
+              <button
+                type="button"
+                className="btn s"
+                aria-busy={busy === 'sitemap' || undefined}
+                onClick={() => void run('sitemap', () => api.post<GscStatus>('/api/gsc/sitemap'), t('Sitemap eingereicht.'))}
+              >
+                <span>{t('Sitemap erneut einreichen')}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn ghost s"
+              aria-busy={busy === 'off' || undefined}
+              onClick={() =>
+                void run('off', async () => {
+                  if (
+                    await confirm({
+                      title: t('Search Console trennen?'),
+                      message: t('Nova gibt den Zugang bei Google zurück. In der Search Console selbst bleibt alles, wie es ist.'),
+                      confirm: t('Trennen'),
+                    })
+                  )
+                    return api.del<GscStatus>('/api/gsc');
+                })
+              }
+            >
+              <span>{t('Trennen')}</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }
 

@@ -1190,4 +1190,45 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Meilisearch non è raggiungibile. Controlla MEILI_HOST e MEILI_KEY.',
     en: 'Meilisearch can’t be reached. Check MEILI_HOST and MEILI_KEY.',
   },
+  'Für die Search Console fehlen GOOGLE_CLIENT_ID und GOOGLE_CLIENT_SECRET in den Variablen des Dienstes.': {
+    fr: 'Pour la Search Console, GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET manquent dans les variables du service.',
+    it: 'Per la Search Console mancano GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nelle variabili del servizio.',
+    en: 'The Search Console needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the service’s variables.',
+  },
+  'Google hat die Verbindung beendet. Verbinde die Search Console bitte neu.': {
+    fr: 'Google a mis fin à la connexion. Reconnectez la Search Console.',
+    it: 'Google ha chiuso il collegamento. Ricollega la Search Console.',
+    en: 'Google ended the connection. Please connect the Search Console again.',
+  },
+  'Google hat die Anmeldung nicht bestätigt. Prüf GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET und die Weiterleitungs-URI.': {
+    fr: 'Google n’a pas confirmé la connexion. Vérifiez GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET et l’URI de redirection.',
+    it: 'Google non ha confermato l’accesso. Controlla GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e l’URI di reindirizzamento.',
+    en: 'Google didn’t confirm the sign-in. Check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and the redirect URI.',
+  },
+  'Dieses Google-Konto hat keinen Zugriff auf die Property. Wähl eine andere oder verbinde ein Konto mit Zugriff.': {
+    fr: 'Ce compte Google n’a pas accès à la propriété. Choisissez-en une autre ou connectez un compte qui y a accès.',
+    it: 'Questo account Google non ha accesso alla proprietà. Scegline un’altra o collega un account con accesso.',
+    en: 'This Google account has no access to the property. Pick another one or connect an account with access.',
+  },
+  'Die Search Console hat nicht geantwortet. Versuch es später nochmal.': {
+    fr: 'La Search Console n’a pas répondu. Réessayez plus tard.',
+    it: 'La Search Console non ha risposto. Riprova più tardi.',
+    en: 'The Search Console didn’t answer. Try again later.',
+  },
+  'Google hat keinen dauerhaften Zugang erteilt. Verbinde bitte nochmals.': {
+    fr: 'Google n’a pas accordé d’accès permanent. Reconnectez-vous.',
+    it: 'Google non ha concesso un accesso permanente. Ricollegati.',
+    en: 'Google didn’t grant lasting access. Please connect again.',
+  },
+  'Die Search Console ist nicht verbunden.': { fr: 'La Search Console n’est pas connectée.', it: 'La Search Console non è collegata.', en: 'The Search Console isn’t connected.' },
+  'Diese Property gehört nicht zum verbundenen Google-Konto.': {
+    fr: 'Cette propriété n’appartient pas au compte Google connecté.',
+    it: 'Questa proprietà non appartiene all’account Google collegato.',
+    en: 'This property doesn’t belong to the connected Google account.',
+  },
+  'Wähl zuerst die Property für diese Website.': {
+    fr: 'Choisissez d’abord la propriété de ce site.',
+    it: 'Scegli prima la proprietà per questo sito.',
+    en: 'First choose the property for this website.',
+  },
 };
