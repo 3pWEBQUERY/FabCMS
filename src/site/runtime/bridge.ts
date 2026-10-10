@@ -100,6 +100,13 @@ shadow.innerHTML = `<style>
 .guide{position:absolute;display:none;background:#e8408a;pointer-events:none}
 .guide.on{display:block}
 .gv{width:1px}.gh{height:1px}
+/* layout grid: the site's content width and columns, over the page */
+.grid{position:fixed;inset:0;display:none;pointer-events:none}
+.grid.on{display:block}
+.grid-in{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:min(100% - 2*var(--gutter,1.5rem),var(--max,72rem));display:grid;grid-template-columns:repeat(12,1fr);column-gap:1.25rem;box-shadow:-1px 0 0 rgba(232,64,138,.55),1px 0 0 rgba(232,64,138,.55)}
+.grid-in span{background:rgba(232,64,138,.07)}
+@media (max-width:64rem){.grid-in{grid-template-columns:repeat(8,1fr)}.grid-in span:nth-child(n+9){display:none}}
+@media (max-width:40rem){.grid-in{grid-template-columns:repeat(4,1fr);column-gap:1rem}.grid-in span:nth-child(n+5){display:none}}
 .pz{position:absolute;display:none;touch-action:none}
 .pz.on{display:block}
 .pz-t,.pz-b{cursor:ns-resize}.pz-l,.pz-r{cursor:ew-resize}
@@ -130,6 +137,7 @@ shadow.innerHTML = `<style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
 <div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="grid" aria-hidden="true"><div class="grid-in">${'<span></span>'.repeat(12)}</div></div>
 <div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
 <div class="rich" role="toolbar" aria-label="Formatierung">
@@ -1548,6 +1556,9 @@ addEventListener('message', (e) => {
       d.querySelector(`[data-nova-global="${m.which === 'footer' ? 'footer' : 'header'}"]`)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
       break;
     }
+    case 'grid':
+      shadow.querySelector('.grid')?.classList.toggle('on', Boolean(m.on));
+      break;
     case 'hover-state': {
       // While hover is being designed, the selected block shows its hover look without the mouse.
       d.querySelectorAll('.nova-hover').forEach((x) => x.classList.remove('nova-hover'));

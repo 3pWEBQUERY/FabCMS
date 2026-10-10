@@ -654,4 +654,6 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Suchen – Enter fügt das erste ein': { fr: 'Rechercher – Entrée insère le premier', it: 'Cerca – Invio inserisce il primo', en: 'Search – Enter inserts the first' },
   'Elemente suchen': { fr: 'Rechercher des éléments', it: 'Cerca elementi', en: 'Search elements' },
   'Nichts gefunden.': { fr: 'Rien trouvé.', it: 'Nessun risultato.', en: 'Nothing found.' },
+  'Raster einblenden': { fr: 'Afficher la grille', it: 'Mostra la griglia', en: 'Show grid' },
+  'Raster ausblenden': { fr: 'Masquer la grille', it: 'Nascondi la griglia', en: 'Hide grid' },
 };

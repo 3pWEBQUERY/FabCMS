@@ -168,6 +168,14 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [device, setDevice] = useState<Device>('desktop');
   // Any width by dragging the canvas edge; the screen size being designed follows the width.
   const [customWidth, setCustomWidth] = useState<number | null>(null);
+  // The site's content width and columns over the canvas; remembered in this browser.
+  const [grid, setGrid] = useState(() => {
+    try {
+      return localStorage.getItem('nova-grid') === '1';
+    } catch {
+      return false;
+    }
+  });
   const frameBox = useRef<HTMLDivElement>(null);
   const widthDrag = useRef<{ x: number; w: number; max: number } | null>(null);
   const chooseDevice = (d: Device) => {
@@ -514,6 +522,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const motionChanged = JSON.stringify(before?.style?.motion) !== JSON.stringify(b.style?.motion);
     scheduleBlockRender(b.id, motionChanged && b.style?.motion?.enter ? () => postToCanvas(frame.current, { t: 'motion-play', id: b.id }) : undefined);
   };
+
+  useEffect(() => {
+    if (ready) postToCanvas(frame.current, { t: 'grid', on: grid });
+    try {
+      localStorage.setItem('nova-grid', grid ? '1' : '0');
+    } catch {
+      /* not remembered */
+    }
+  }, [grid, ready, canvasKey]);
 
   // While the hover look is being designed, the canvas shows it on the selected block.
   useEffect(() => {
@@ -1185,6 +1202,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               </Tip>
             ))}
         </div>
+        <Tip label={grid ? t('Raster ausblenden') : t('Raster einblenden')}>
+          <button className="btn ghost icon-only hide-m" aria-pressed={grid} onClick={() => setGrid(!grid)} aria-label={t('Raster')}>
+            <Icon name="columns" />
+          </button>
+        </Tip>
         <Tip label={t('Tastenkürzel')} keys="?">
           <button className="btn ghost icon-only hide-m" onClick={() => setHelp(true)} aria-label={t('Tastenkürzel')}>
             <Icon name="keyboard" />
