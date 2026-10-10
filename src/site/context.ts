@@ -38,6 +38,8 @@ export interface RenderContext {
   preloadMedia: (ids: unknown[]) => Promise<void>;
   /** Image to preload for LCP. */
   lcpImage: string | null;
+  /** Components whose design is already on the page (once per page, for all their places). */
+  components: Set<string>;
   needs: Set<'lightbox' | 'consent' | 'cart' | 'form' | 'filter' | 'turnstile' | 'compare' | 'age' | 'motion' | 'widgets'>;
   /** Signed age gate already passed. */
   ageOk: boolean;

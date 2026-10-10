@@ -76,6 +76,7 @@ export function createContext(input: {
     preloadMedia: loader.preload,
     lcpImage: null,
     needs: new Set(),
+    components: new Set(),
     ageOk: input.ageOk ?? false,
     ageEid: input.ageEid ?? false,
     cartCount: input.cartCount ?? 0,

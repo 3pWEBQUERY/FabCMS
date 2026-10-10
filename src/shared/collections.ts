@@ -422,7 +422,20 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
     name: 'Sektionen',
     singular: 'Sektion',
     icon: 'link',
-    fields: [{ key: 'title', type: 'text', label: 'Name der Sektion', required: true, help: 'Nur intern sichtbar.' }],
+    fields: [
+      { key: 'title', type: 'text', label: 'Name der Sektion', required: true, help: 'Nur intern sichtbar.' },
+      {
+        key: 'kind',
+        type: 'select',
+        label: 'Art',
+        options: [
+          { value: 'section', label: 'Sektion – ein ganzer Abschnitt' },
+          { value: 'component', label: 'Komponente – ein Element im freien Layout' },
+        ],
+        default: 'section',
+        help: 'Komponenten setzt du im freien Layout ein; Texte und Bilder lassen sich pro Stelle anpassen.',
+      },
+    ],
     route: null,
     list_route: null,
     has_blocks: true,

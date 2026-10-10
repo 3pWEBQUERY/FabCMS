@@ -9,6 +9,7 @@ import { FieldList } from '../../ui/FieldInput';
 import { Field, Segmented, Select } from '../../ui/kit';
 import { DesignPanel } from '../design/DesignPanel';
 import { MotionPanel } from '../design/MotionPanel';
+import { ComponentInspector } from './Components';
 import { ItemsEditor } from './ItemsEditor';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
@@ -25,6 +26,8 @@ export function ElementInspector({
   source,
   onSelect,
   locked,
+  onOpenComponent,
+  onDetach,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -41,10 +44,13 @@ export function ElementInspector({
   /** Selects another element (an entry of tabs, accordion, slider). */
   onSelect: (id: string) => void;
   locked: boolean;
+  /** Components: open the original, or turn this place into its own elements. */
+  onOpenComponent: (id: string) => void;
+  onDetach: (master: El[]) => void;
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
-  const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind === 'box' || !def.fields.length ? 'style' : 'content');
+  const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
   return (
     <div className="stack">
       <p className="small muted">{tl(def.description)}</p>
@@ -58,7 +64,8 @@ export function ElementInspector({
           { value: 'motion' as const, label: t('Animation') },
         ]}
       />
-      {tab === 'content' && (
+      {tab === 'content' && el.kind === 'component' && <ComponentInspector el={el} onChange={onChange} onOpen={onOpenComponent} onDetach={onDetach} locked={locked} />}
+      {tab === 'content' && el.kind !== 'component' && (
         <div className="stack">
           {source && BINDABLE[el.kind] && (
             <div className="bind-box">

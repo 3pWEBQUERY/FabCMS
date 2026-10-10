@@ -5688,6 +5688,66 @@ body.scrubbing.v * {
   letter-spacing: 0.02em;
 }
 
+/* ---------- components: purple, like everywhere else ---------- */
+
+:root {
+  --comp: #7c4de0;
+}
+.el-picker-comps {
+  display: grid;
+  gap: 0.25rem;
+}
+.el-picker-comps button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: 550 var(--t-s) / 1.2 var(--font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.el-picker-comps button:hover,
+.el-picker-comps button:focus-visible {
+  border-color: var(--comp);
+}
+.el-picker-comps .icon,
+.comp-btn .icon {
+  color: var(--comp);
+}
+.el-picker-note {
+  margin: 0;
+  padding: 0 0.25rem;
+}
+.comp-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--comp) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--comp) 28%, transparent);
+}
+.comp-card > div {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.comp-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 8px;
+  background: var(--comp);
+  color: #fff;
+}
+
 /* ---------- entries of accordion, tabs, slider, marquee ---------- */
 
 .items-ed {

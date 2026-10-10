@@ -32,7 +32,9 @@ import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmpt
 import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
 import {
+  applyOverrides,
   cloneEl,
+  componentEls,
   createEl,
   EL_DEFS,
   elementsCss,
@@ -1265,6 +1267,51 @@ describe('free layout', () => {
     expect(mq.children).toHaveLength(1);
     // The number of slides side by side is a CSS variable, no inline style.
     expect(elementsCss([slider])).toContain(`:is(#e-${slider.id},.e-${slider.id}){--per-d:4}`);
+  });
+
+  it('lets component instances change only texts, pictures and links of the original', () => {
+    const [inst] = sanitizeEls([
+      {
+        kind: 'component',
+        props: {
+          ref: 'not-a-uuid',
+          overrides: {
+            h: { text: '  Neu ', level: '1', html: '<p onclick="x()">Hi</p>' },
+            b: { label: 'Los', href: 'javascript:alert(1)' },
+            i: { image: '../../etc', alt: 'Bild' },
+            'x"><': { text: 'weg' },
+            e: {},
+          },
+        },
+      },
+    ]);
+    expect(inst.props.ref).toBeNull();
+    expect(inst.props.overrides).toEqual({ h: { text: 'Neu', html: '<p>Hi</p>' }, b: { label: 'Los', href: '' }, i: { alt: 'Bild' } });
+    expect(sanitizeEls([{ kind: 'component', props: { ref: '0E0CED42-1F90-48B0-A4A2-4D0CA6099BF5' } }])[0].props.ref).toBe('0E0CED42-1F90-48B0-A4A2-4D0CA6099BF5');
+    const master: El[] = [
+      {
+        id: 'card',
+        kind: 'box',
+        props: {},
+        children: [
+          { id: 'h', kind: 'heading', props: { text: 'Original', level: '3' } },
+          { id: 'b', kind: 'button', props: { label: 'Mehr', href: '/a', variant: 'primary' } },
+        ],
+      },
+    ];
+    // A heading takes its text from the override, never its level; a container nothing at all.
+    const out = applyOverrides(master, { h: { text: 'Hier', level: '1' }, b: { href: '/b' }, card: { text: 'nein' } });
+    expect(out[0].children![0].props).toEqual({ text: 'Hier', level: '3' });
+    expect(out[0].children![1].props).toEqual({ label: 'Mehr', href: '/b', variant: 'primary' });
+    expect(out[0].props).toEqual({});
+    expect(master[0].children![0].props.text).toBe('Original');
+    expect(
+      componentEls([
+        { type: 'text', props: {} },
+        { type: 'layout', props: { els: master } },
+      ]),
+    ).toBe(master);
+    expect(componentEls(undefined)).toEqual([]);
   });
 
   it('starts entry containers filled and adds entries like the last one', () => {

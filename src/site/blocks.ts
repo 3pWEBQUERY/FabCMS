@@ -4,7 +4,7 @@ import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockCss, blockDomId, designImages } from '../shared/design';
 import { motionAttrs } from '../shared/motion';
-import { BOX_TAGS, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, SPACER_SIZES, type El } from '../shared/elements';
+import { applyOverrides, BOX_TAGS, componentEls, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
@@ -838,6 +838,10 @@ interface ElRender {
   copy?: boolean;
   /** Extra attributes for this one element (a tab's panel). */
   extra?: string;
+  /** Inside a component instance in the editor: where its own texts go (they are written in place). */
+  over?: string;
+  /** Components inside components – stops loops. */
+  depth?: number;
 }
 
 /** Elements one after the other; `start` is the index of the first in its container. */
@@ -894,7 +898,11 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
   const handles = rc.edit && !rc.copy;
   const cls = (extra = '') => `el el-${el.kind} e-${el.id}${extra ? ` ${extra}` : ''}`;
   const val = (prop: string) => bound(el, prop, rc, ctx);
-  const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => (val(prop).set ? '' : field(rc.edit, `${path}.props.${prop}`, kind));
+  const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => {
+    if (val(prop).set) return '';
+    if (rc.over) return OVERRIDABLE[el.kind]?.includes(prop) ? field(true, `${rc.over}.${el.id}.${prop}`, kind) : '';
+    return field(rc.edit, `${path}.props.${prop}`, kind);
+  };
   const hrefOf = () => {
     const b = val('href');
     return b.set ? String(b.value || '') : typeof p.href === 'string' ? p.href : '';
@@ -993,15 +1001,53 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       const speed = (MARQUEE_SPEEDS as readonly string[]).includes(String(p.speed)) ? String(p.speed) : 'medium';
       const group = await renderEls(kids, ctx, { ...rc, path: `${path}.children` });
       // The second run makes the loop seamless – for the eye only.
-      const copy = await renderEls(kids, ctx, { ...rc, path: `${path}.children`, edit: false, copy: true });
+      const copy = await renderEls(kids, ctx, { ...rc, path: `${path}.children`, edit: false, copy: true, over: undefined });
       return html`<div class="${cls(`mq-${speed}${p.direction === 'right' ? ' mq-right' : ''}${p.pause !== false ? ' mq-pause' : ''}`)}"${attrs}><div class="mq-track"><div class="mq-group"${
         handles ? raw(` data-nova-box="${el.id}"`) : ''
       }>${group}</div><div class="mq-group" aria-hidden="true" inert>${copy}</div></div></div>`;
     }
     case 'list':
       return renderList(el, ctx, rc, attrs, cls());
+    case 'component':
+      return renderComponent(el, ctx, rc, attrs, cls());
   }
   return html``;
+}
+
+/**
+ * A component instance: the original's elements with this place's own texts,
+ * pictures and links. In the editor the instance is one piece – double-click
+ * opens the original, its texts are written in place as this place's own.
+ */
+async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const handles = rc.edit && !rc.copy;
+  const depth = (rc.depth ?? 0) + 1;
+  const src = depth <= 3 && typeof p.ref === 'string' ? await sectionBlocks(p.ref, ctx.preview) : null;
+  const master = src ? componentEls(src.blocks) : [];
+  if (!master.length) return handles ? html`<div class="${cls} el-empty"${attrs}>Diese Komponente gibt es nicht mehr oder sie ist leer.</div>` : html``;
+  // Its design once per page – the class reaches every place (in the editor each block brings its own).
+  let css = '';
+  if (ctx.edit || !ctx.components.has(p.ref)) {
+    ctx.components.add(p.ref);
+    const images = new Map<string, string>();
+    for (const id of new Set(elementImages(master))) {
+      const m = await ctx.media(id);
+      if (m) images.set(id, variantUrl(m, 1920, 'webp'));
+    }
+    css = elementsCss(master, { image: (id) => images.get(id) ?? null }).replace(/</g, '');
+  }
+  const inner = await renderEls(applyOverrides(master, p.overrides as Overrides), ctx, {
+    path: 'els',
+    edit: false,
+    copy: true,
+    entry: rc.entry,
+    over: handles ? `${rc.path}.props.overrides` : undefined,
+    depth,
+  });
+  return html`<div class="${cls}"${attrs}${handles ? raw(` data-nova-section="${p.ref}" data-nova-component="${esc(src!.title)}"`) : ''}>${
+    css ? html`<style data-nova-comp>${raw(css)}</style>` : ''
+  }${inner}</div>`;
 }
 
 /**

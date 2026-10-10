@@ -12,7 +12,24 @@ import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
 
-export const EL_KINDS = ['box', 'heading', 'text', 'image', 'button', 'icon', 'video', 'spacer', 'divider', 'counter', 'accordion', 'tabs', 'slider', 'marquee', 'list'] as const;
+export const EL_KINDS = [
+  'box',
+  'heading',
+  'text',
+  'image',
+  'button',
+  'icon',
+  'video',
+  'spacer',
+  'divider',
+  'counter',
+  'accordion',
+  'tabs',
+  'slider',
+  'marquee',
+  'list',
+  'component',
+] as const;
 export type ElKind = (typeof EL_KINDS)[number];
 
 /** Kinds that hold other elements. */
@@ -38,6 +55,13 @@ export interface El {
   /** Inside a CMS list: props filled from the entry (prop → 'title' | 'url' | 'date' | 'field:key'). */
   bind?: Record<string, string>;
 }
+
+/**
+ * A component is an element tree kept in its own «sections» entry (kind
+ * «component»). Instances point to it and may change these props per place.
+ */
+export const OVERRIDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'alt', 'href'], button: ['label', 'href'] };
+export type Overrides = Record<string, Record<string, unknown>>;
 
 /** What each kind can take from an entry. */
 export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
@@ -304,6 +328,15 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     ],
     defaults: { speed: 'medium', direction: 'left', pause: true },
   },
+  component: {
+    kind: 'component',
+    group: 'cms',
+    label: 'Komponente',
+    description: 'Ein Baustein, den du einmal gestaltest und überall einsetzt. Änderst du das Original, ändert er sich überall.',
+    icon: 'component',
+    fields: [],
+    defaults: { ref: null, overrides: {} },
+  },
   list: {
     kind: 'list',
     group: 'cms',
@@ -500,6 +533,45 @@ export const countEls = (els: El[]) => {
 
 /* ---------- cleaning on save ---------- */
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Per-place changes of an instance: only texts, pictures and links, cleaned like the props themselves. */
+function cleanOverrides(v: unknown): Overrides {
+  if (!isObj(v)) return {};
+  const out: Overrides = {};
+  for (const [id, raw] of Object.entries(v).slice(0, 100)) {
+    if (!ID.test(id) || !isObj(raw)) continue;
+    const o: Record<string, unknown> = {};
+    if (typeof raw.text === 'string') o.text = plain(raw.text, 300);
+    if (typeof raw.html === 'string') o.html = sanitizeRichText(raw.html);
+    if (typeof raw.label === 'string') o.label = plain(raw.label, 80);
+    if (typeof raw.alt === 'string') o.alt = plain(raw.alt, 300);
+    if (typeof raw.href === 'string') o.href = href(raw.href) ?? '';
+    if (typeof raw.image === 'string' && MEDIA.test(raw.image)) o.image = raw.image;
+    if (Object.keys(o).length) out[id] = o;
+  }
+  return out;
+}
+
+/** The component's tree with the instance's own texts, pictures and links. */
+export function applyOverrides(els: El[], overrides: Overrides | undefined): El[] {
+  if (!overrides || !Object.keys(overrides).length) return els;
+  return mapEls(els, (el) => {
+    const o = overrides[el.id];
+    if (!o) return el;
+    const allowed = OVERRIDABLE[el.kind] ?? [];
+    const props = { ...el.props };
+    for (const [k, v] of Object.entries(o)) if (allowed.includes(k)) props[k] = v;
+    return { ...el, props };
+  });
+}
+
+/** The element tree a component keeps: its first free layout. */
+export function componentEls(blocks: { type: string; props: Record<string, unknown> }[] | undefined): El[] {
+  const lay = blocks?.find((b) => b.type === 'layout');
+  return (lay?.props.els as El[] | undefined) ?? [];
+}
+
 const MAX_ELS = 300;
 const MAX_DEPTH = 8;
 const ID = /^[\w-]{1,24}$/;
@@ -554,6 +626,8 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       };
     case 'marquee':
       return { speed: one(p.speed, MARQUEE_SPEEDS, 'medium'), direction: p.direction === 'right' ? 'right' : 'left', pause: p.pause !== false };
+    case 'component':
+      return { ref: typeof p.ref === 'string' && UUID.test(p.ref) ? p.ref : null, overrides: cleanOverrides(p.overrides) };
     case 'list':
       return {
         collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',

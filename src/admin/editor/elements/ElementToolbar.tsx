@@ -25,6 +25,7 @@ export function ElementToolbar({
   onAddItem,
   onDuplicate,
   onWrap,
+  onComponent,
   onRemove,
 }: {
   found: Found;
@@ -40,6 +41,8 @@ export function ElementToolbar({
   onAddItem: () => void;
   onDuplicate: () => void;
   onWrap: () => void;
+  /** Saves the element as a component – or, for an instance, opens its original. */
+  onComponent: () => void;
   onRemove: () => void;
 }) {
   const siblings = found.parent ? (found.parent.children?.length ?? 1) : null;
@@ -110,6 +113,11 @@ export function ElementToolbar({
               <Icon name="box" size="s" />
             </button>
           </Tip>
+          <Tip label={found.el.kind === 'component' ? t('Original bearbeiten') : t('Als Komponente speichern')}>
+            <button className="btn icon-only comp-btn" onClick={onComponent} aria-label={found.el.kind === 'component' ? t('Original bearbeiten') : t('Als Komponente speichern')}>
+              <Icon name="component" size="s" />
+            </button>
+          </Tip>
           <Tip label={t('Entfernen')}>
             <button className="btn icon-only" onClick={onRemove} aria-label={t('Entfernen')}>
               <Icon name="trash" size="s" />
@@ -121,8 +129,18 @@ export function ElementToolbar({
   );
 }
 
-/** The kinds of elements, to insert one. */
-export function ElementPicker({ onPick, into }: { onPick: (kind: ElKind) => void; into: string | null }) {
+/** The kinds of elements, to insert one – and the site's own components. */
+export function ElementPicker({
+  onPick,
+  into,
+  components,
+  onPickComponent,
+}: {
+  onPick: (kind: ElKind) => void;
+  into: string | null;
+  components: { id: string; title: string }[];
+  onPickComponent: (c: { id: string; title: string }) => void;
+}) {
   return (
     <div className="el-picker">
       <span className="dp-menu-head">{into ? t('In «{name}» einfügen', { name: into }) : t('Element einfügen')}</span>
@@ -130,7 +148,7 @@ export function ElementPicker({ onPick, into }: { onPick: (kind: ElKind) => void
         <section key={g} className="el-picker-group">
           <h3 className="el-picker-title">{tl(EL_GROUP_LABELS[g])}</h3>
           <div className="el-picker-grid">
-            {EL_KINDS.filter((k) => EL_DEFS[k].group === g).map((k) => (
+            {EL_KINDS.filter((k) => EL_DEFS[k].group === g && k !== 'component').map((k) => (
               <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
                 <Icon name={EL_DEFS[k].icon} />
                 <span>{tl(EL_DEFS[k].label)}</span>
@@ -139,6 +157,21 @@ export function ElementPicker({ onPick, into }: { onPick: (kind: ElKind) => void
           </div>
         </section>
       ))}
+      <section className="el-picker-group">
+        <h3 className="el-picker-title">{t('Komponenten')}</h3>
+        {components.length ? (
+          <div className="el-picker-comps">
+            {components.map((c) => (
+              <button key={c.id} type="button" onClick={() => onPickComponent(c)}>
+                <Icon name="component" size="s" />
+                <span>{c.title}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="xsmall faint el-picker-note">{t('Noch keine. Wähl ein Element und speichere es mit dem Rauten-Symbol als Komponente.')}</p>
+        )}
+      </section>
     </div>
   );
 }

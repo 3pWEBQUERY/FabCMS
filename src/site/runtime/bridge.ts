@@ -51,6 +51,11 @@ a[href]{cursor:default}
 [data-nova-el-drag]{opacity:.35}
 [data-nova-ghost]{pointer-events:none}
 .el-marquee:hover .mq-track,.el-marquee:has([data-nova-el-selected]) .mq-track,.el-marquee[data-nova-el-selected] .mq-track{animation-play-state:paused}
+[data-nova-component]{position:relative}
+[data-nova-component][data-nova-el-hover]{outline-color:rgba(124,77,224,.75)!important}
+[data-nova-component][data-nova-el-selected]{outline-color:#7c4de0!important}
+[data-nova-component]::after{content:"◆ " attr(data-nova-component);position:absolute;top:-1px;left:-1px;z-index:3;padding:3px 7px 4px;border-radius:0 0 6px 0;background:#7c4de0;color:#fff;font:600 11px/1 system-ui,sans-serif;white-space:nowrap;opacity:0;transition:opacity .12s;pointer-events:none}
+[data-nova-component]:is([data-nova-el-hover],[data-nova-el-selected])::after{opacity:1}
 `;
 d.head.append(style);
 
@@ -414,6 +419,8 @@ d.addEventListener('contextmenu', (e) => {
 });
 
 d.addEventListener('dblclick', (e) => {
+  // Double-click opens a section or a component's original – but selects words in its texts.
+  if ((e.target as HTMLElement).closest('[data-nova-field]')) return;
   const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-section]');
   if (ref) post({ t: 'section', id: ref.dataset.novaSection });
 });

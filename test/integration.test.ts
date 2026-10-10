@@ -2215,4 +2215,67 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(ed).toContain('data-nova-field="els.2.children.0.name"');
     expect(ed).toMatch(/<details[^>]+data-nova-el="q1"[^>]* open/);
   });
+
+  it('reuses components: one original, own texts per place, changes everywhere after publishing', async () => {
+    const card = {
+      id: 'kc',
+      kind: 'box',
+      props: {},
+      design: { desktop: { bg: '$surface', pt: '$s-5' } },
+      children: [
+        { id: 'kh', kind: 'heading', props: { text: 'Beratung', level: '3' } },
+        { id: 'kb', kind: 'button', props: { label: 'Termin', href: '/termin', variant: 'primary' } },
+      ],
+    };
+    const comp = await req('POST', '/api/entries', {
+      collection: 'sections',
+      data: { title: 'Angebots-Karte', kind: 'component', blocks: [{ id: 'cl', type: 'layout', props: { els: [card] } }] },
+    });
+    expect(comp.status).toBe(200);
+    expect(comp.data.entry.data.kind).toBe('component');
+    await req('POST', `/api/entries/${comp.data.entry.id}/publish`, {});
+    const ref = comp.data.entry.id;
+    const els = [
+      { id: 'i1', kind: 'component', props: { ref, overrides: { kh: { text: 'Beratung <vor Ort>' }, kb: { href: 'javascript:alert(1)' } } } },
+      { id: 'i2', kind: 'component', props: { ref, overrides: {} } },
+      { id: 'i3', kind: 'component', props: { ref: '00000000-0000-4000-8000-000000000000' } },
+    ];
+    const page = await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Angebote', blocks: [{ id: 'lay4', type: 'layout', props: { els } }] } });
+    expect(page.status).toBe(200);
+    expect(page.data.entry.data.blocks[0].props.els[0].props.overrides).toEqual({ kh: { text: 'Beratung <vor Ort>' }, kb: { href: '' } });
+    await req('POST', `/api/entries/${page.data.entry.id}/publish`, {});
+    const get = async () => (await req('GET', `/${page.data.entry.slug}`, undefined, { cookies: new Map() })).data as string;
+    let html = await get();
+    // Each place: the original's elements, its own texts – the ids stay unique on the page.
+    expect(html).toContain('<div class="el el-component e-i1" id="e-i1">');
+    expect(html).toContain('<h3 class="el el-heading e-kh">Beratung &lt;vor Ort&gt;</h3>');
+    expect(html).toContain('<h3 class="el el-heading e-kh">Beratung</h3>');
+    expect(html).not.toContain('id="e-kh"');
+    expect(html).not.toContain('e-i3');
+    // The original's design comes once for all its places.
+    expect(html.match(/<style data-nova-comp>/g)?.length).toBe(1);
+    expect(html).toContain('<style data-nova-comp>:is(#e-kc,.e-kc){padding-top:var(--s-5);background-color:var(--surface);--bg:var(--surface)}');
+    // A change to the original shows on every place once it is published – own texts stay.
+    const master = comp.data.entry;
+    const next = structuredClone(master.data);
+    next.blocks[0].props.els[0].children[1].props.label = 'Jetzt buchen';
+    next.blocks[0].props.els[0].children[0].props.text = 'Persönliche Beratung';
+    await req('PUT', `/api/entries/${master.id}`, { data: next, version: master.version });
+    expect(await get()).not.toContain('Jetzt buchen');
+    await req('POST', `/api/entries/${master.id}/publish`, {});
+    html = await get();
+    expect(html.match(/Jetzt buchen/g)?.length).toBe(2);
+    expect(html).toContain('Beratung &lt;vor Ort&gt;');
+    expect(html).toContain('>Persönliche Beratung</h3>');
+    // In the editor a place is one piece: double-click opens the original, texts are its own.
+    const canvas = await req('POST', '/api/render', { entryId: page.data.entry.id, data: page.data.entry.data, blockId: 'lay4' });
+    const ed = canvas.data.html as string;
+    expect(ed).toContain(`data-nova-el="i1" data-nova-kind-el="component" data-nova-section="${ref}" data-nova-component="Angebots-Karte"`);
+    expect(ed).toContain('data-nova-field="els.0.props.overrides.kh.text"');
+    expect(ed).not.toContain('data-nova-el="kh"');
+    expect(ed).toContain('Diese Komponente gibt es nicht mehr');
+    // Sections still list as sections – a component is not offered as a block.
+    const list = await req('GET', '/api/entries?collection=sections&limit=200');
+    expect(list.data.entries.find((e: { id: string }) => e.id === ref).fields.kind).toBe('component');
+  });
 });

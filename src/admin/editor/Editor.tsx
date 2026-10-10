@@ -14,6 +14,7 @@ import { Presence } from '../ui/Presence';
 import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { Segmented, Tip } from '../ui/kit';
+import { ComponentDialog } from './elements/Components';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
 import { ModeSwitch } from '../shell/ModeSwitch';
@@ -146,7 +147,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const renderSeq = useRef<Record<string, number>>({});
   const blocksRef = useRef<Block[]>([]);
   blocksRef.current = doc.data?.blocks ?? [];
-  const { data: sectionsData } = useApi<{ entries: { id: string; title: string }[] }>('/api/entries?collection=sections&limit=200');
+  const { data: sectionsData, reload: reloadSections } = useApi<{ entries: { id: string; title: string; fields?: { kind?: string } }[] }>(
+    '/api/entries?collection=sections&limit=200',
+  );
+  // Sections are whole blocks; components are elements of the free layout.
+  const components = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'component' && s.id !== id);
+  const sections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind !== 'component' && s.id !== id);
+  const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
 
   const studio = session.mode !== 'werkbank';
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
@@ -588,6 +595,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
       { label: t('Design kopieren'), icon: 'style', keys: KEYS.copyStyle, run: copyStyle },
       { label: t('Design einfügen'), icon: 'style', keys: KEYS.pasteStyle, run: pasteStyle, disabled: locked },
       ...(el ? [{ label: t('In Container packen'), icon: 'box', run: () => wrapElement(selectedBlock.id, el.el.id), disabled: locked }] : []),
+      ...(el
+        ? [
+            el.el.kind === 'component'
+              ? { label: t('Original bearbeiten'), icon: 'component', run: () => openComponent(String(el.el.props.ref)) }
+              : { label: t('Als Komponente speichern'), icon: 'component', run: () => setComponentFor({ block: selectedBlock.id, el: el.el.id }), disabled: locked },
+          ]
+        : []),
       'sep',
       { label: el ? t('Nach vorne') : t('Nach oben'), icon: 'arrowUp', keys: KEYS.up, run: () => runAction('move-up'), disabled: locked },
       { label: el ? t('Nach hinten') : t('Nach unten'), icon: 'arrowDown', keys: KEYS.down, run: () => runAction('move-down'), disabled: locked },
@@ -601,6 +615,55 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         run: () => (el ? removeElement(selectedBlock.id, el.el.id) : void removeBlock(selectedBlock.id)),
       },
     ];
+  };
+
+  /* ---------- components: one original, many places ---------- */
+
+  const componentName = (at: { block: string; el: string }) => {
+    const b = blocksRef.current.find((x) => x.id === at.block);
+    const info = b && findEl(elsOf(b), at.el);
+    return info ? (info.el.name ?? '') : '';
+  };
+
+  /** The element becomes the original of a new component; in its place stays the first instance. */
+  const createComponent = async (blockId: string, elId: string, name: string) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info) return;
+    const r = await api.post<{ entry: { id: string } }>('/api/entries', {
+      collection: 'sections',
+      data: { title: name, kind: 'component', blocks: [{ id: shortId(8), type: 'layout', props: { width: 'content', els: [info.el] }, style: {} }] },
+    });
+    let published = true;
+    await api.post(`/api/entries/${r.entry.id}/publish`, {}).catch(() => (published = false));
+    // How it sits in its parent stays with the place, not the original.
+    const PLACE = ['alignSelf', 'grow', 'order', 'span'] as const;
+    const design: Design = {};
+    for (const bp of ['desktop', 'tablet', 'mobile'] as const) {
+      const own = info.el.design?.[bp];
+      const keep = own ? Object.fromEntries(PLACE.filter((k) => own[k] !== undefined).map((k) => [k, own[k]])) : {};
+      if (Object.keys(keep).length) design[bp] = keep;
+    }
+    const inst = createEl('component', { ref: r.entry.id, overrides: {} }, { name, ...(Object.keys(design).length ? { design } : {}) });
+    changeEls(blockId, (els) => updateEl(els, elId, () => inst), inst.id);
+    void reloadSections();
+    toast(
+      published
+        ? t('«{name}» ist jetzt eine Komponente. Du findest sie unter «Element einfügen».', { name })
+        : t('«{name}» ist gespeichert, erscheint auf der Website aber erst, wenn jemand sie veröffentlicht.', { name }),
+    );
+  };
+
+  const openComponent = (ref: string) => navigate(`/inhalte/sections/${ref}`);
+
+  /** This place gets its own copy of the elements and no longer follows the original. */
+  const detachComponent = (blockId: string, elId: string, master: El[]) => {
+    const b = blocksRef.current.find((x) => x.id === blockId);
+    const info = b && findEl(elsOf(b), elId);
+    if (!info || !master.length) return;
+    const own = master.length === 1 ? cloneEl(master[0]) : createEl('box', {}, { children: master.map(cloneEl) });
+    changeEls(blockId, (els) => updateEl(els, elId, () => own), own.id);
+    toast(t('Von der Komponente gelöst – diese Stelle hat jetzt ihre eigenen Elemente.'));
   };
 
   /** One more question, tab, slide or marquee entry – like the last one. */
@@ -799,6 +862,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           </button>
         </Tip>
         <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
+        <ComponentDialog
+          open={Boolean(componentFor)}
+          suggestion={componentFor ? componentName(componentFor) : ''}
+          onClose={() => setComponentFor(null)}
+          onCreate={async (name) => {
+            if (componentFor) await createComponent(componentFor.block, componentFor.el, name);
+            setComponentFor(null);
+          }}
+        />
         <span className="hide-m">
           <ModeSwitch />
         </span>
@@ -843,6 +915,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                     onAddItem={() => addItem(selectedBlock.id, selectedElInfo.el.id)}
                     onDuplicate={() => duplicateElement(selectedBlock.id, selectedElInfo.el.id)}
                     onWrap={() => wrapElement(selectedBlock.id, selectedElInfo.el.id)}
+                    onComponent={() =>
+                      selectedElInfo.el.kind === 'component'
+                        ? openComponent(String(selectedElInfo.el.props.ref))
+                        : setComponentFor({ block: selectedBlock.id, el: selectedElInfo.el.id })
+                    }
                     onRemove={() => removeElement(selectedBlock.id, selectedElInfo.el.id)}
                   />
                 )}
@@ -938,6 +1015,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
                     <ElementPicker
                       onPick={insertElement}
+                      components={components}
+                      onPickComponent={(c) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }))}
                       into={selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null}
                     />
                   </RPopover.Content>
@@ -951,9 +1030,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </RPopover.Anchor>
                 <RPopover.Portal>
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    {picker && (
-                      <BlockPicker sections={(sectionsData?.entries ?? []).filter((s) => s.id !== id)} onPick={(type, props) => void insertBlock(type, picker.index, props)} />
-                    )}
+                    {picker && <BlockPicker sections={sections} onPick={(type, props) => void insertBlock(type, picker.index, props)} />}
                   </RPopover.Content>
                 </RPopover.Portal>
               </RPopover.Root>
@@ -1037,6 +1114,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                       source={listSource}
                       onSelect={selectElement}
                       locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                      onOpenComponent={openComponent}
+                      onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
                     />
                   </TokenColors.Provider>
                 )}
