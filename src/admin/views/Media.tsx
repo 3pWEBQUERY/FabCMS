@@ -283,6 +283,12 @@ function MediaDetail({ media, onClose, onChange, onDelete }: { media: MediaRow; 
             <p className="xsmall faint">
               {media.width && media.height ? `${media.width} × ${media.height} px · ` : ''}
               {sizeLabel(media.size)} · {formatDate(media.created_at)}
+              {media.scan && (
+                <>
+                  {' · '}
+                  <span title={media.scan.version}>{media.scan.engine === 'clamav' ? t('auf Viren geprüft (ClamAV)') : t('Aufbau geprüft')}</span>
+                </>
+              )}
             </p>
           </div>
           <div className="stack">

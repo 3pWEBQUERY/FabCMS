@@ -60,6 +60,11 @@ export const env = {
     ffmpeg: e.FFMPEG_PATH ?? 'ffmpeg',
     ffprobe: e.FFPROBE_PATH ?? 'ffprobe',
   },
+  /** Optional ClamAV (clamd over TCP) for every upload, e.g. «clamav.railway.internal». */
+  clamav: {
+    host: e.CLAMAV_HOST ?? '',
+    port: Number(e.CLAMAV_PORT ?? 3310),
+  },
   setupCode: e.NOVA_SETUP_CODE ?? '',
   trustProxy: bool(e.TRUST_PROXY, true),
 };

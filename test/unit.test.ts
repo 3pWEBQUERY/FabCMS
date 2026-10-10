@@ -36,6 +36,9 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { entrySlots, getAt, setAt, slotKey } from '../src/shared/text-slots';
 import { plannedSizes } from '../src/server/video';
+import { checkStructure, zipEntries } from '../src/server/scan';
+import { zipSync, strToU8 } from 'fflate';
+import { deflateSync } from 'node:zlib';
 
 describe('rich text sanitizer', () => {
   it('drops scripts, handlers and dangerous urls', () => {
@@ -775,5 +778,42 @@ describe('video web versions', () => {
     ]);
     expect(plannedSizes(1280, 720)).toEqual([{ p: 720, width: 1280, height: 720 }]);
     expect(plannedSizes(641, 361)).toEqual([{ p: 361, width: 642, height: 362 }]);
+  });
+});
+
+describe('upload checks', () => {
+  const pdf = (body: string) => Buffer.from(`%PDF-1.7\n1 0 obj\n<< /Type /Catalog ${body} >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF`, 'latin1');
+  const pdfWithStream = (content: string) => {
+    const data = deflateSync(Buffer.from(content, 'latin1'));
+    return Buffer.concat([
+      Buffer.from('%PDF-1.7\n2 0 obj\n<< /Type /ObjStm /Filter /FlateDecode /Length ' + data.length + ' >>\nstream\n', 'latin1'),
+      data,
+      Buffer.from('\nendstream\nendobj\n%%EOF', 'latin1'),
+    ]);
+  };
+  const zip = (files: Record<string, string>) => Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))));
+
+  it('takes ordinary files', () => {
+    expect(() => checkStructure(pdf('/Pages 2 0 R'), '.pdf')).not.toThrow();
+    expect(() => checkStructure(pdfWithStream('<< /Type /Page /Contents 5 0 R >>'), '.pdf')).not.toThrow();
+    expect(() => checkStructure(zip({ 'word/document.xml': '<w:document/>', '[Content_Types].xml': '<Types/>' }), '.docx')).not.toThrow();
+    expect(() => checkStructure(zip({ 'OEBPS/reader.js': 'x', 'OEBPS/ch1.xhtml': '<p/>' }), '.epub')).not.toThrow();
+    expect(() => checkStructure(zip({ 'fotos/a.jpg': 'x', 'liesmich.txt': 'Hallo' }), '.zip')).not.toThrow();
+  });
+
+  it('refuses PDFs that run code, also hidden in compressed streams or escaped names', () => {
+    expect(() => checkStructure(pdf('/OpenAction << /S /JavaScript /JS (app.alert(1)) >>'), '.pdf')).toThrow(/JavaScript/);
+    expect(() => checkStructure(pdf('/OpenAction << /S /J#61vaScript >>'), '.pdf')).toThrow(/JavaScript/);
+    expect(() => checkStructure(pdfWithStream('<< /S /JavaScript /JS 7 0 R >>'), '.pdf')).toThrow(/JavaScript/);
+    expect(() => checkStructure(pdf('/OpenAction << /S /Launch /F (cmd.exe) >>'), '.pdf')).toThrow(/startet Programme/);
+    expect(() => checkStructure(pdf('/Names << /EmbeddedFiles 3 0 R >>'), '.pdf')).toThrow(/angehängte Dateien/);
+  });
+
+  it('refuses macros, programs and programs in archives', () => {
+    expect(() => checkStructure(zip({ 'word/document.xml': 'x', 'word/vbaProject.bin': 'x' }), '.docx')).toThrow(/Makros/);
+    expect(() => checkStructure(zip({ 'Rechnung.pdf.exe': 'x' }), '.zip')).toThrow(/Rechnung\.pdf\.exe/);
+    expect(() => checkStructure(zip({ 'ordner/start.vbs': 'x' }), '.zip')).toThrow(/start\.vbs/);
+    expect(() => checkStructure(Buffer.from('MZ\x90\x00rest', 'latin1'), '.txt')).toThrow(/Programmdateien/);
+    expect(zipEntries(zip({ 'a/b.txt': 'x', 'c.txt': 'y' })).sort()).toEqual(['a/b.txt', 'c.txt']);
   });
 });

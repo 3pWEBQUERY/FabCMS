@@ -1102,4 +1102,21 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Serve una chiave di Anthropic: imposta {var} nelle variabili del servizio Railway, poi riavvia.',
     en: 'This needs a key from Anthropic: set {var} in the Railway service’s variables, then restart.',
   },
+  'Hochgeladene Dateien prüfen': { fr: 'Vérifier les fichiers téléversés', it: 'Controllare i file caricati', en: 'Checking uploaded files' },
+  'Jede Datei – aus der Mediathek und aus Formularen der Website – wird vor dem Speichern geprüft: keine Programme, keine Office-Makros, keine Archive mit Programmen, keine PDFs mit JavaScript oder angehängten Dateien.':
+    {
+      fr: 'Chaque fichier – de la médiathèque comme des formulaires du site – est vérifié avant d’être enregistré : pas de programmes, pas de macros Office, pas d’archives contenant des programmes, pas de PDF avec JavaScript ou fichiers joints.',
+      it: 'Ogni file – dalla mediateca e dai moduli del sito – viene controllato prima del salvataggio: niente programmi, niente macro di Office, niente archivi con programmi, niente PDF con JavaScript o file allegati.',
+      en: 'Every file – from the media library and from website forms – is checked before it is stored: no programs, no Office macros, no archives containing programs, no PDFs with JavaScript or attached files.',
+    },
+  'Zusätzlich sucht ClamAV mit seinen Signaturen nach Schadsoftware. Funde werden abgelehnt und in den Benachrichtigungen gemeldet.': {
+    fr: 'En plus, ClamAV recherche les logiciels malveillants à l’aide de ses signatures. Les fichiers détectés sont refusés et signalés dans les notifications.',
+    it: 'Inoltre ClamAV cerca software dannoso con le sue firme. I file rilevati vengono rifiutati e segnalati nelle notifiche.',
+    en: 'In addition, ClamAV looks for malware using its signatures. Anything found is refused and reported in the notifications.',
+  },
+  'Für eine Virenprüfung mit Signaturen einen ClamAV-Dienst hinzufügen und {var} setzen.': {
+    fr: 'Pour une vérification antivirus par signatures, ajoutez un service ClamAV et définissez {var}.',
+    it: 'Per un controllo antivirus con firme, aggiungi un servizio ClamAV e imposta {var}.',
+    en: 'For a signature-based virus check, add a ClamAV service and set {var}.',
+  },
 };

@@ -281,6 +281,8 @@ export interface MediaItem {
   lqip?: string | null;
   /** Web versions of a video (see server/video.ts). */
   video?: VideoInfo | null;
+  /** How the upload was checked (server/scan.ts); null for uploads from before. */
+  scan?: { engine: 'basic' | 'clamav'; version?: string; at: string } | null;
 }
 
 export interface VideoRendition {

@@ -1309,6 +1309,17 @@ function DataSettings() {
             </a>
           </div>
         </section>
+        <section className="card card-pad stack tight">
+          <h2 style={{ fontSize: 'var(--t-m)', fontWeight: 650 }}>{t('Hochgeladene Dateien prüfen')}</h2>
+          <p className="small muted">
+            {t(
+              'Jede Datei – aus der Mediathek und aus Formularen der Website – wird vor dem Speichern geprüft: keine Programme, keine Office-Makros, keine Archive mit Programmen, keine PDFs mit JavaScript oder angehängten Dateien.',
+            )}{' '}
+            {bundle?.system.clamav
+              ? t('Zusätzlich sucht ClamAV mit seinen Signaturen nach Schadsoftware. Funde werden abgelehnt und in den Benachrichtigungen gemeldet.')
+              : withEl(t('Für eine Virenprüfung mit Signaturen einen ClamAV-Dienst hinzufügen und {var} setzen.'), { var: <code>CLAMAV_HOST</code> })}
+          </p>
+        </section>
         <section className="card">
           <div className="card-head">
             <h2>{t('Auskunft & Löschung')}</h2>

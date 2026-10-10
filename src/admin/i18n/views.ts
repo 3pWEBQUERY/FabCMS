@@ -645,4 +645,6 @@ export const views: Record<string, { fr: string; it: string; en: string }> = {
     it: 'L’originale è già adatto al web e più leggero di una nuova versione – sul sito gira direttamente.',
     en: 'The original is already fit for the web and smaller than a new version – the website plays it directly.',
   },
+  'auf Viren geprüft (ClamAV)': { fr: 'vérifié contre les virus (ClamAV)', it: 'controllato contro i virus (ClamAV)', en: 'virus-checked (ClamAV)' },
+  'Aufbau geprüft': { fr: 'structure vérifiée', it: 'struttura controllata', en: 'structure checked' },
 };

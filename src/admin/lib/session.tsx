@@ -22,7 +22,7 @@ export interface SettingsBundle {
   settings: SiteSettings;
   themes: ThemeInfo[];
   fontPairs: { id: string; label: string; display: string; body: string }[];
-  system: { storage: 'bucket' | 'local'; mail: boolean; stripe: boolean; stripeWebhook: boolean; turnstile: boolean; ai: boolean; publicUrl: string };
+  system: { storage: 'bucket' | 'local'; mail: boolean; stripe: boolean; stripeWebhook: boolean; turnstile: boolean; ai: boolean; clamav: boolean; publicUrl: string };
 }
 
 interface SessionValue {

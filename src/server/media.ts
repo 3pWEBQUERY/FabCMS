@@ -1,7 +1,9 @@
 import sharp from 'sharp';
 import { queueVideo } from './video';
 import { extname } from 'node:path';
-import { sql } from './db';
+import { sql, json } from './db';
+import { MalwareFound, scanUpload, type ScanResult } from './scan';
+import { notify } from './notify';
 import { storage } from './storage';
 import type { MediaEdits, MediaItem } from '../shared/types';
 import { badRequest } from './lib/http';
@@ -88,15 +90,29 @@ export async function storeUpload(input: UploadInput): Promise<MediaItem> {
   } else if (FILE_TYPES[ext] && magicMatches(buffer, ext)) {
     mime = FILE_TYPES[ext];
   } else {
-    throw badRequest(
-      'Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio und Office-Dokumente.',
-    );
+    throw badRequest('Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio und Office-Dokumente.');
+  }
+
+  let scan: ScanResult;
+  try {
+    scan = await scanUpload(buffer, storedExt);
+  } catch (e) {
+    if (e instanceof MalwareFound) {
+      console.warn(`[scan] ${filename}: ${e.signature}`);
+      await notify({
+        kind: 'system',
+        cap: 'settings.manage',
+        title: `Upload abgelehnt: Schadsoftware in «${filename}»`,
+        body: `${e.signature} – ${input.folder === 'Formulare' ? 'über ein Formular der Website' : 'in der Mediathek'}. Die Datei wurde nicht gespeichert.`,
+      });
+    }
+    throw e;
   }
 
   const [row] = await sql`
-    insert into media (storage_key, filename, mime, size, width, height, alt, folder, uploaded_by, private)
+    insert into media (storage_key, filename, mime, size, width, height, alt, folder, uploaded_by, private, scan)
     values ('', ${filename}, ${mime}, ${buffer.length}, ${width}, ${height}, ${input.alt ?? ''}, ${input.folder ?? ''},
-            ${input.userId ?? null}, ${input.private ?? false})
+            ${input.userId ?? null}, ${input.private ?? false}, ${json(scan)})
     returning id`;
   const key = `media/${row.id}/original${storedExt}`;
   await storage.put(key, buffer, mime);

@@ -75,6 +75,7 @@ export function systemApi(app: Hono<AppEnv>) {
         stripeWebhook: Boolean(env.stripe.webhookSecret),
         turnstile: Boolean(env.turnstile.siteKey),
         ai: Boolean(env.ai.key),
+        clamav: Boolean(env.clamav.host),
         publicUrl: env.publicUrl,
       },
     });

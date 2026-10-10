@@ -1114,4 +1114,49 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Funziona solo con i video della mediateca.',
     en: 'This only works with videos from the media library.',
   },
+  'In der Datei wurde Schadsoftware gefunden ({name}). Sie wurde nicht gespeichert.': {
+    fr: 'Un logiciel malveillant a été trouvé dans le fichier ({name}). Il n’a pas été enregistré.',
+    it: 'Nel file è stato trovato software dannoso ({name}). Non è stato salvato.',
+    en: 'Malware was found in the file ({name}). It was not stored.',
+  },
+  'Upload abgelehnt: Schadsoftware in «{name}»': {
+    fr: 'Téléversement refusé : logiciel malveillant dans « {name} »',
+    it: 'Caricamento rifiutato: software dannoso in «{name}»',
+    en: 'Upload refused: malware in “{name}”',
+  },
+  'Programmdateien werden nicht angenommen.': {
+    fr: 'Les fichiers programmes ne sont pas acceptés.',
+    it: 'I file di programma non sono accettati.',
+    en: 'Program files are not accepted.',
+  },
+  'Dokumente mit Makros oder ActiveX werden nicht angenommen. Speichere die Datei ohne Makros (als .docx/.xlsx) und lade sie nochmals hoch.': {
+    fr: 'Les documents avec macros ou ActiveX ne sont pas acceptés. Enregistrez le fichier sans macros (en .docx/.xlsx) et téléversez-le à nouveau.',
+    it: 'I documenti con macro o ActiveX non sono accettati. Salva il file senza macro (come .docx/.xlsx) e caricalo di nuovo.',
+    en: 'Documents with macros or ActiveX are not accepted. Save the file without macros (as .docx/.xlsx) and upload it again.',
+  },
+  'Im Archiv steckt eine Programmdatei («{name}»). Solche Archive werden nicht angenommen.': {
+    fr: 'L’archive contient un fichier programme (« {name} »). De telles archives ne sont pas acceptées.',
+    it: 'Nell’archivio c’è un file di programma («{name}»). Archivi di questo tipo non sono accettati.',
+    en: 'The archive contains a program file (“{name}”). Archives like that are not accepted.',
+  },
+  'Diese PDF enthält JavaScript. Speichere sie neu als PDF (z. B. über «Drucken → Als PDF sichern») und lade sie nochmals hoch.': {
+    fr: 'Ce PDF contient du JavaScript. Enregistrez-le à nouveau en PDF (p. ex. via « Imprimer → Enregistrer en PDF ») et téléversez-le à nouveau.',
+    it: 'Questo PDF contiene JavaScript. Salvalo di nuovo come PDF (p. es. con «Stampa → Salva come PDF») e caricalo di nuovo.',
+    en: 'This PDF contains JavaScript. Save it again as a PDF (e.g. via “Print → Save as PDF”) and upload it again.',
+  },
+  'Diese PDF startet Programme oder enthält angehängte Dateien. Speichere sie neu als PDF (z. B. über «Drucken → Als PDF sichern») und lade sie nochmals hoch.': {
+    fr: 'Ce PDF lance des programmes ou contient des fichiers joints. Enregistrez-le à nouveau en PDF (p. ex. via « Imprimer → Enregistrer en PDF ») et téléversez-le à nouveau.',
+    it: 'Questo PDF avvia programmi o contiene file allegati. Salvalo di nuovo come PDF (p. es. con «Stampa → Salva come PDF») e caricalo di nuovo.',
+    en: 'This PDF starts programs or contains attached files. Save it again as a PDF (e.g. via “Print → Save as PDF”) and upload it again.',
+  },
+  'Die Virenprüfung ist gerade nicht erreichbar. Versuch es in einer Minute nochmal.': {
+    fr: 'La vérification antivirus n’est pas joignable pour le moment. Réessayez dans une minute.',
+    it: 'Il controllo antivirus al momento non è raggiungibile. Riprova tra un minuto.',
+    en: 'The virus check can’t be reached right now. Try again in a minute.',
+  },
+  'Die Virenprüfung hat die Datei nicht prüfen können. Versuch es nochmal oder frag die Person, die Nova betreibt.': {
+    fr: 'La vérification antivirus n’a pas pu contrôler le fichier. Réessayez ou demandez à la personne qui gère Nova.',
+    it: 'Il controllo antivirus non è riuscito a verificare il file. Riprova o chiedi alla persona che gestisce Nova.',
+    en: 'The virus check couldn’t check the file. Try again or ask the person who runs Nova.',
+  },
 };

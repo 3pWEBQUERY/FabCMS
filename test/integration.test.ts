@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { videoQueueIdle } from '../src/server/video';
 import { storage } from '../src/server/storage';
-import type { AddressInfo } from 'node:net';
+import { createServer, type AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import WebSocket from 'ws';
 import sharp from 'sharp';
@@ -1384,5 +1384,79 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect((await app.request(`/media/${media.id}/video/270.mp4`)).status).toBe(404);
     expect(await storageHas(`media/${media.id}/video/270.mp4`)).toBe(false);
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('checks uploads before storing them, with ClamAV when it is there', async () => {
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const upload = async (name: string, body: string | Buffer, type: string) => {
+      const form = new FormData();
+      form.append('file', new File([typeof body === 'string' ? body : new Uint8Array(body)], name, { type }));
+      const r = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      return { status: r.status, data: (await r.json()) as any };
+    };
+    const count = async () => Number((await sql`select count(*)::int as n from media`)[0].n);
+
+    // Without ClamAV: the structure is checked.
+    const plain = await upload('Menu.pdf', '%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF', 'application/pdf');
+    expect(plain.status).toBe(200);
+    expect(plain.data.media[0].scan.engine).toBe('basic');
+    const before = await count();
+    const js = await upload('Flyer.pdf', '%PDF-1.4\n1 0 obj << /OpenAction << /S /JavaScript /JS (app.launchURL("x")) >> >> endobj\n%%EOF', 'application/pdf');
+    expect(js.status).toBe(400);
+    expect(js.data.error).toContain('JavaScript');
+    expect(await count()).toBe(before);
+
+    // A stand-in for clamd that speaks INSTREAM like the real one.
+    const seen: number[] = [];
+    const clam = createServer((sock) => {
+      let buf = Buffer.alloc(0);
+      sock.on('data', (d) => {
+        buf = Buffer.concat([buf, d as Buffer]);
+        const text = buf.toString('latin1');
+        if (text.startsWith('zVERSION\0')) return sock.end('ClamAV 1.4.1/27431/Fri Oct  9 08:00:00 2026\0');
+        if (!text.startsWith('zINSTREAM\0')) return;
+        let at = 10;
+        const parts: Buffer[] = [];
+        while (at + 4 <= buf.length) {
+          const len = buf.readUInt32BE(at);
+          if (len === 0) {
+            const file = Buffer.concat(parts);
+            seen.push(file.length);
+            return sock.end(file.includes('EICAR-NOVA-TEST') ? 'stream: Eicar-Test-Signature FOUND\0' : 'stream: OK\0');
+          }
+          if (at + 4 + len > buf.length) return;
+          parts.push(buf.subarray(at + 4, at + 4 + len));
+          at += 4 + len;
+        }
+      });
+    });
+    await new Promise<void>((r) => clam.listen(0, '127.0.0.1', r));
+    env.clamav.host = '127.0.0.1';
+    env.clamav.port = (clam.address() as AddressInfo).port;
+    try {
+      const big = Buffer.alloc(200 * 1024, 'a'); // several chunks
+      const ok = await upload('Preise.txt', big, 'text/plain');
+      expect(ok.status).toBe(200);
+      expect(ok.data.media[0].scan).toMatchObject({ engine: 'clamav', version: 'ClamAV 1.4.1/27431' });
+      expect(seen[seen.length - 1]).toBe(big.length);
+
+      const n = await count();
+      const bad = await upload('Rechnung.txt', 'Hallo EICAR-NOVA-TEST', 'text/plain');
+      expect(bad.status).toBe(422);
+      expect(bad.data.error).toBe('In der Datei wurde Schadsoftware gefunden (Eicar-Test-Signature). Sie wurde nicht gespeichert.');
+      expect(await count()).toBe(n);
+      await new Promise((r) => setTimeout(r, 50));
+      const [notice] = await sql`select title, body from notifications where title like 'Upload abgelehnt%'`;
+      expect(notice.title).toBe('Upload abgelehnt: Schadsoftware in «Rechnung.txt»');
+      expect(notice.body).toContain('Eicar-Test-Signature');
+
+      // Configured but down: nothing slips through unchecked.
+      await new Promise((r) => clam.close(r));
+      const down = await upload('Später.txt', 'Hallo', 'text/plain');
+      expect(down.status).toBe(503);
+      expect(await count()).toBe(n);
+    } finally {
+      env.clamav.host = '';
+    }
   });
 });
