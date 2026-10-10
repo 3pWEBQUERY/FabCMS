@@ -10,6 +10,8 @@ import { startScheduler } from './scheduler';
 import { runtimeScript } from '../site/assets';
 import { backfillPlaceholders } from './media';
 import { sql } from './db';
+import type { Server } from 'node:http';
+import { attachCollab, flushRooms } from './collab';
 
 async function main() {
   const applied = await migrate(join(process.cwd(), 'migrations'));
@@ -23,7 +25,7 @@ async function main() {
   await Promise.all([runtimeScript('site'), runtimeScript('bridge'), runtimeScript('fields')]);
 
   const app = createApp();
-  serve({ fetch: app.fetch, port: env.port, hostname: process.env.HOST ?? '0.0.0.0' }, () => {
+  const server = serve({ fetch: app.fetch, port: env.port, hostname: process.env.HOST ?? '0.0.0.0' }, () => {
     console.info(`[nova] läuft auf Port ${env.port} – ${env.publicUrl}`);
     console.info(`[nova] Speicher: ${s3Configured() ? `Bucket «${env.s3.bucket}»` : `lokal (${env.localStorageDir}) – für Railway BUCKET/ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY setzen`}`);
   });
@@ -36,6 +38,8 @@ async function main() {
     console.info('  └──────────────────────────────────────────────┘');
     console.info('');
   }
+  // Real-time editing over WebSocket (/api/collab/:entry).
+  attachCollab(server as Server);
   startScheduler();
   // Loading previews for images uploaded before they existed; runs once, in the background.
   void backfillPlaceholders()
@@ -47,6 +51,7 @@ async function main() {
     .catch((e) => console.error('[nova] Vorschaubilder:', e));
 
   const shutdown = async () => {
+    await flushRooms().catch(() => {});
     await sql.end({ timeout: 5 });
     process.exit(0);
   };

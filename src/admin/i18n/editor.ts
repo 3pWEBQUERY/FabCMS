@@ -459,4 +459,11 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   Erledigt: { fr: 'Réglé', it: 'Risolto', en: 'Resolve' },
   'Wieder öffnen': { fr: 'Rouvrir', it: 'Riapri', en: 'Reopen' },
   bearbeitet: { fr: 'modifié', it: 'modificato', en: 'edited' },
+  '{name} bearbeitet gerade mit': { fr: '{name} modifie en même temps', it: '{name} sta modificando insieme a te', en: '{name} is editing too' },
+  'Keine Live-Verbindung – Änderungen werden direkt gespeichert, die anderen sehen sie nach dem Neuladen.': {
+    fr: 'Pas de connexion en direct – les modifications sont enregistrées directement, les autres les verront après rechargement.',
+    it: 'Nessuna connessione in diretta – le modifiche vengono salvate direttamente, gli altri le vedranno dopo aver ricaricato.',
+    en: 'No live connection – changes are saved directly; others will see them after reloading.',
+  },
+  'Nicht live': { fr: 'Pas en direct', it: 'Non in diretta', en: 'Not live' },
 };

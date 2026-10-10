@@ -15,6 +15,7 @@ import { validateFields } from '../../shared/fields';
 import { isTranslatable } from '../../shared/i18n';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { CommentsPanel, useComments } from '../editor/Comments';
+import { Presence } from '../ui/Presence';
 import type { CollectionDef } from '../../shared/types';
 
 const Editor = lazy(() => import('../editor/Editor').then((m) => ({ default: m.Editor })));
@@ -112,6 +113,7 @@ function EntryForm({ id, lang }: { id: string; lang: string | null }) {
                 <Icon name="undo" />
               </button>
             </Tip>
+            <Presence peers={doc.peers} link={doc.link} />
             <StatusBadge status={doc.entry.status} />
             <LangSwitch doc={doc} />
             <PublishControls doc={doc} />

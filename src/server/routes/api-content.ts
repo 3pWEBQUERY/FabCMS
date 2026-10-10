@@ -20,6 +20,7 @@ import {
   type SaveContext,
 } from '../content';
 import { deleteMedia } from '../media';
+import { externalChange } from '../collab';
 import { badRequest, forbidden, notFound } from '../lib/http';
 import { can } from '../../shared/roles';
 import type { Entry, EntryData } from '../../shared/types';
@@ -289,6 +290,7 @@ export function contentApi(app: Hono<AppEnv>) {
     if (!cur.published_data) throw badRequest('Es gibt keine veröffentlichte Fassung, zu der man zurückkehren könnte.');
     const [e] =
       await sql`update entries set data = published_data, slug = coalesce(published_slug, slug), version = version + 1, updated_at = now() where id = ${cur.id} returning *`;
+    void externalChange(cur.id);
     await audit(c, 'entry.discard', cur.collection, cur.id);
     return c.json({ entry: e });
   });

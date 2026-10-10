@@ -219,6 +219,8 @@ export interface SaveContext {
   userId: string;
   canCode: boolean;
   studioOnly: boolean;
+  /** Saved by the real-time room itself (no need to tell the room). */
+  collab?: boolean;
 }
 
 export function sanitizeEntryData(c: CollectionDef, data: Record<string, unknown>, prev: EntryData | null, ctx: SaveContext): EntryData {
@@ -314,6 +316,10 @@ export async function updateEntry(
       await tx`insert into revisions (entry_id, data, kind, user_id) values (${id}, ${json(clean)}, 'autosave', ${ctx.userId})`;
     }
     return e as unknown as Entry;
+  }).then((e) => {
+    // Open editors (real-time room) follow changes made elsewhere: API, CLI, restore.
+    if (!ctx.collab) void import('./collab').then((m) => m.externalChange(id)).catch(() => {});
+    return e;
   });
 }
 

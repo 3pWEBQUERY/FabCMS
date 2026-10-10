@@ -37,6 +37,8 @@ style.textContent = `
 .nova-cmt{all:initial;position:absolute;top:10px;right:10px;z-index:5;display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px 0 7px;border-radius:13px 13px 13px 3px;background:#f2b84b;color:#1b1a17;font:650 12px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22)}
 .nova-cmt:hover{background:#f5c66a}
 .nova-cmt svg{width:14px;height:14px}
+.nova-peer{position:absolute;inset:0;z-index:4;pointer-events:none;outline:2px solid var(--peer);outline-offset:-2px}
+.nova-peer span{position:absolute;top:-1px;left:-1px;padding:3px 7px 4px;background:var(--peer);color:#fff;font:600 11px/1 system-ui,sans-serif;border-radius:0 0 6px 0;white-space:nowrap}
 .nova-dragging{z-index:50;box-shadow:0 24px 64px -16px rgba(0,0,0,.35);transition:none!important;cursor:grabbing}
 .nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 a[href]{cursor:default}
@@ -454,6 +456,26 @@ function htmlToElement(html: string): HTMLElement {
   return t.content.firstElementChild as HTMLElement;
 }
 
+/* ---------- presence: blocks others are on ---------- */
+
+let peers: { name: string; color: string; block: string | null }[] = [];
+function paintPeers() {
+  d.querySelectorAll('.nova-peer').forEach((x) => x.remove());
+  const byBlock = new Map<string, { name: string; color: string }[]>();
+  for (const p of peers) if (p.block) byBlock.set(p.block, [...(byBlock.get(p.block) ?? []), p]);
+  for (const [id, list] of byBlock) {
+    const el = blockEl(id);
+    if (!el) continue;
+    const box = d.createElement('div');
+    box.className = 'nova-peer';
+    box.style.setProperty('--peer', list[0].color);
+    const tag = d.createElement('span');
+    tag.textContent = list.map((p) => p.name.split(' ')[0]).join(', ');
+    box.append(tag);
+    el.append(box);
+  }
+}
+
 /* ---------- comment bubbles: open threads per block ---------- */
 
 let commentCounts: Record<string, number> = {};
@@ -501,6 +523,7 @@ addEventListener('message', (e) => {
       setupFields(next);
       if (selected === m.id) next.setAttribute('data-nova-selected', '');
       paintComments();
+      paintPeers();
       sendRect();
       break;
     }
@@ -573,6 +596,7 @@ addEventListener('message', (e) => {
       if (selected && blockEl(selected)) blockEl(selected)!.setAttribute('data-nova-selected', '');
       else select(null, true);
       paintComments();
+      paintPeers();
       sendRect();
       break;
     }
@@ -591,6 +615,11 @@ addEventListener('message', (e) => {
         }, reduced ? 0 : 300);
       }
       if (el) flash(el);
+      break;
+    }
+    case 'presence': {
+      peers = (m.peers as typeof peers) ?? [];
+      paintPeers();
       break;
     }
     case 'comments': {

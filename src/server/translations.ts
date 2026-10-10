@@ -204,6 +204,7 @@ export async function saveTranslation(e: Entry, lang: Lang, input: { data: Recor
     insert into entry_translations (entry_id, lang, collection, slug, data, updated_by)
     values (${e.id}, ${lang}, ${c.id}, ${slug}, ${json(text)}, ${ctx.userId || null})
     on conflict (entry_id, lang) do update set data = excluded.data, slug = excluded.slug, version = entry_translations.version + 1, updated_at = now(), updated_by = excluded.updated_by`;
+  if (!ctx.collab) void import('./collab').then((m) => m.externalChange(e.id, lang)).catch(() => {});
   return translationView(e, lang);
 }
 
@@ -242,6 +243,7 @@ export async function discardTranslation(e: Entry, lang: Lang) {
   const [t] =
     await sql`update entry_translations set data = published_data, slug = coalesce(published_slug, slug), version = version + 1, updated_at = now() where entry_id = ${e.id} and lang = ${lang} and published_data is not null returning 1`;
   if (!t) throw badRequest('Es gibt keine veröffentlichte Fassung, zu der man zurückkehren könnte.');
+  void import('./collab').then((m) => m.externalChange(e.id, lang)).catch(() => {});
   return translationView(e, lang);
 }
 

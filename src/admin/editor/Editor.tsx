@@ -10,6 +10,7 @@ import { navigate, usePath } from '../lib/router';
 import { useApi, useHotkey, modKey, useMediaQuery } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { CommentsPanel, useComments } from './Comments';
+import { Presence } from '../ui/Presence';
 import { Icon } from '../ui/icons';
 import { Segmented, Tip } from '../ui/kit';
 import { PublishControls, SaveStatus } from '../ui/Publish';
@@ -134,6 +135,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           if (m.id === selected) setRect(m.rect);
           break;
         case 'edit':
+          lastLocal.current[m.id] = Date.now();
           doc.setData((d) => updateBlock(d, m.id, (b) => ({ ...b, props: setIn(b.props, m.path, m.value) })));
           break;
         case 'insert-at':
@@ -184,6 +186,32 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   useEffect(() => {
     if (ready) postToCanvas(frame.current, { t: 'init', studio });
   }, [studio, ready]);
+
+  // Changes from others: only their blocks re-render; the block I'm typing in waits until I pause.
+  const lastLocal = useRef<Record<string, number>>({});
+  const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!doc.remote.seq || !ready) return;
+    if (doc.remote.structure) {
+      void renderAll(doc.remote.changed).catch(() => {});
+      return;
+    }
+    const later: string[] = [];
+    for (const bid of doc.remote.changed) {
+      if (Date.now() - (lastLocal.current[bid] ?? 0) < 1500) later.push(bid);
+      else void renderBlock(bid).catch(() => {});
+    }
+    if (later.length) {
+      if (waiting.current) clearTimeout(waiting.current);
+      waiting.current = setTimeout(() => later.forEach((bid) => void renderBlock(bid).catch(() => {})), 1600);
+    }
+  }, [doc.remote.seq]);
+
+  // Others see which block I'm on; I see theirs outlined in their colour.
+  useEffect(() => doc.setPresence(selected), [selected, doc.link]);
+  useEffect(() => {
+    if (ready) postToCanvas(frame.current, { t: 'presence', peers: doc.peers.map((p) => ({ name: p.name, color: p.color, block: p.block })) });
+  }, [doc.peers, ready]);
 
   // Undo/redo replace data wholesale: re-render and show what changed.
   const prevBlocks = useRef<Block[]>([]);
@@ -353,6 +381,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           <strong className="ellipsis">{doc.data?.title || '…'}</strong>
           <span className="ellipsis mono">{doc.path ?? ''}</span>
         </div>
+        <Presence peers={doc.peers} link={doc.link} />
         <SaveStatus
           state={doc.saveState}
           error={doc.error}

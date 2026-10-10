@@ -21,6 +21,8 @@ import { validQrIban, isQrIban, mod10, qrReference, scorReference, qrPayload, re
 import { generateSdk } from '../src/server/sdk';
 import { runHook, checkHookCode } from '../src/server/hooks';
 import { DICT } from '../src/site/dict';
+import * as Y from 'yjs';
+import { applyData, toData, changedBlocks } from '../src/shared/collab-doc';
 import { ADMIN_DICT } from '../src/admin/i18n/all';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
@@ -571,7 +573,11 @@ describe('website translations', () => {
   });
 
   it('keeps the placeholders of every text', () => {
-    const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+    const ph = (s: string) =>
+      [...s.matchAll(/\{(\w+)\}/g)]
+        .map((m) => m[1])
+        .sort()
+        .join(',');
     const broken = Object.entries(DICT).flatMap(([de, v]) => (['fr', 'it', 'en'] as const).filter((l) => ph(v[l]) !== ph(de)).map((l) => `${l}: ${de}`));
     expect(broken).toEqual([]);
     expect(tr('fr', 'Sprache')).toBe('Langue');
@@ -579,14 +585,30 @@ describe('website translations', () => {
   });
 
   it('translates opening hours and keeps shared fields shared', () => {
-    const hours = [1, 2, 3, 4, 5].map((day) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] })).concat([{ day: 6, closed: true, slots: [] }, { day: 7, closed: true, slots: [] }]);
-    expect(compactHoursL(hours, 'fr')).toEqual([{ days: 'Lu–Ve', time: '09:00–18:00' }, { days: 'Sa–Di', time: 'fermé' }]);
+    const hours = [1, 2, 3, 4, 5]
+      .map((day) => ({ day, closed: false, slots: [{ from: '09:00', to: '18:00' }] }))
+      .concat([
+        { day: 6, closed: true, slots: [] },
+        { day: 7, closed: true, slots: [] },
+      ]);
+    expect(compactHoursL(hours, 'fr')).toEqual([
+      { days: 'Lu–Ve', time: '09:00–18:00' },
+      { days: 'Sa–Di', time: 'fermé' },
+    ]);
     // Friday 2026-10-09 20:00 in Zurich: closed, opens Monday.
     expect(openStatus(hours, 'Europe/Zurich', new Date('2026-10-09T18:00:00Z'), 'it')?.label).toBe('Chiuso – apre lunedì alle 09:00');
     const fields = [
       { key: 'title', type: 'text', label: 'Titel' },
       { key: 'price', type: 'money', label: 'Preis' },
-      { key: 'prices', type: 'group', label: 'Preise', fields: [{ key: 'label', type: 'text', label: 'Grösse' }, { key: 'price', type: 'money', label: 'Preis' }] },
+      {
+        key: 'prices',
+        type: 'group',
+        label: 'Preise',
+        fields: [
+          { key: 'label', type: 'text', label: 'Grösse' },
+          { key: 'price', type: 'money', label: 'Preis' },
+        ],
+      },
     ] as never[];
     const text = translatableData(fields, { title: 'Plat', price: 1, prices: [{ label: 'grand', price: 1 }] }, false);
     expect(text).toEqual({ title: 'Plat', prices: [{ label: 'grand' }] });
@@ -616,8 +638,72 @@ describe('admin translations', () => {
   });
 
   it('keeps placeholders identical', () => {
-    const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+    const ph = (s: string) =>
+      [...s.matchAll(/\{(\w+)\}/g)]
+        .map((m) => m[1])
+        .sort()
+        .join(',');
     const broken = Object.entries(ADMIN_DICT).flatMap(([de, v]) => (['fr', 'it', 'en'] as const).filter((l) => ph(v[l]) !== ph(de)).map((l) => `${l}: ${de}`));
     expect(broken).toEqual([]);
+  });
+});
+
+describe('collaborative document', () => {
+  const base = {
+    title: 'A',
+    seo: { title: '' },
+    blocks: [
+      { id: 'b1', type: 'text', props: { heading: 'H', body: 'x' } },
+      { id: 'b2', type: 'hero', props: { title: 'T' } },
+    ],
+  } as never;
+  const fork = (from: Y.Doc) => {
+    const d = new Y.Doc();
+    Y.applyUpdate(d, Y.encodeStateAsUpdate(from));
+    return d;
+  };
+  const sync = (a: Y.Doc, b: Y.Doc) => {
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+  };
+
+  it('round-trips entry data', () => {
+    const d = new Y.Doc();
+    applyData(d, base);
+    expect(toData(d)).toEqual(base);
+    applyData(d, { ...(base as object), title: 'B' } as never);
+    expect(toData(d).title).toBe('B');
+  });
+
+  it('merges edits of different props, blocks and fields without losing any', () => {
+    const server = new Y.Doc();
+    applyData(server, base);
+    const a = fork(server);
+    const b = fork(server);
+    const da = toData(a);
+    // A: heading of b1, adds b3. B: body of b1, moves b2 first, changes the title.
+    applyData(a, { ...da, blocks: [{ ...da.blocks![0], props: { heading: 'H2', body: 'x' } }, da.blocks![1], { id: 'b3', type: 'cta', props: {} }] } as never);
+    const db = toData(b);
+    applyData(b, { ...db, title: 'Neu', blocks: [db.blocks![1], { ...db.blocks![0], props: { heading: 'H', body: 'y' } }] } as never);
+    sync(a, b);
+    const merged = toData(a);
+    expect(merged).toEqual(toData(b));
+    expect(merged.title).toBe('Neu');
+    const b1 = merged.blocks!.find((x) => x.id === 'b1')!;
+    // The moved block keeps the move; edits on it from the other side are kept where they don't collide.
+    expect(merged.blocks!.map((x) => x.id).sort()).toEqual(['b1', 'b2', 'b3']);
+    expect(b1.props).toMatchObject({ body: 'y' });
+    expect(merged.blocks!.filter((x) => x.id === 'b1')).toHaveLength(1);
+  });
+
+  it('reports which blocks changed', () => {
+    const next = {
+      ...(base as object),
+      blocks: [
+        { id: 'b1', type: 'text', props: { heading: 'H', body: 'z' } },
+        { id: 'b2', type: 'hero', props: { title: 'T' } },
+      ],
+    } as never;
+    expect(changedBlocks(base, next)).toEqual({ changed: ['b1'], structure: false });
   });
 });

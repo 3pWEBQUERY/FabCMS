@@ -5,6 +5,13 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
+import WebSocket from 'ws';
+import * as Y from 'yjs';
+import * as syncProtocol from 'y-protocols/sync';
+import * as encoding from 'lib0/encoding';
+import * as decoding from 'lib0/decoding';
+import { attachCollab } from '../src/server/collab';
+import { applyData, toData } from '../src/shared/collab-doc';
 import { rm } from 'node:fs/promises';
 import { sql } from '../src/server/db';
 import { migrate } from '../src/server/migrate';
@@ -1059,6 +1066,101 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(authorNotes.data.items).toHaveLength(0);
     const settings = await req('PATCH', '/api/settings', { name: 'Gehackt' }, { cookies: author });
     expect(settings.status).toBe(403);
+  });
+
+  it('edits together in real time: shared document, one writer, changes from outside', async () => {
+    const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
+    await new Promise((r) => server.once('listening', r));
+    attachCollab(server as never);
+    const port = (server.address() as AddressInfo).port;
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const [page] = await sql`select id, data from entries where collection = 'pages' and slug = 'kontakt'`;
+
+    const connect = (headers: Record<string, string>) =>
+      new Promise<{ doc: Y.Doc; ws: WebSocket; statuses: { t: string; message?: string }[]; send: (type: number, body: string) => void }>((resolve, reject) => {
+        const doc = new Y.Doc();
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/api/collab/${page.id}`, { headers: { origin: `http://127.0.0.1:${port}`, ...headers } });
+        const statuses: { t: string; message?: string }[] = [];
+        const raw = (b: Uint8Array) => ws.readyState === ws.OPEN && ws.send(b);
+        ws.on('unexpected-response', (_req, res) => reject(new Error(`HTTP ${res.statusCode}`)));
+        ws.on('open', () => {
+          const e = encoding.createEncoder();
+          encoding.writeVarUint(e, 0);
+          syncProtocol.writeSyncStep1(e, doc);
+          raw(encoding.toUint8Array(e));
+        });
+        ws.on('message', (data: Buffer) => {
+          const d = decoding.createDecoder(new Uint8Array(data));
+          const type = decoding.readVarUint(d);
+          if (type === 0) {
+            const reply = encoding.createEncoder();
+            encoding.writeVarUint(reply, 0);
+            const kind = syncProtocol.readSyncMessage(d, reply, doc, ws);
+            if (encoding.length(reply) > 1) raw(encoding.toUint8Array(reply));
+            if (kind === syncProtocol.messageYjsSyncStep2) resolve({ doc, ws, statuses, send });
+          } else if (type === 2) statuses.push(JSON.parse(decoding.readVarString(d)));
+        });
+        doc.on('update', (u: Uint8Array, origin: unknown) => {
+          if (origin === ws) return;
+          const e = encoding.createEncoder();
+          encoding.writeVarUint(e, 0);
+          syncProtocol.writeUpdate(e, u);
+          raw(encoding.toUint8Array(e));
+        });
+        const send = (type: number, body: string) => {
+          const e = encoding.createEncoder();
+          encoding.writeVarUint(e, type);
+          encoding.writeVarString(e, body);
+          raw(encoding.toUint8Array(e));
+        };
+      });
+    const until = async (check: () => boolean) => {
+      for (let i = 0; i < 100 && !check(); i++) await new Promise((r) => setTimeout(r, 20));
+      expect(check()).toBe(true);
+    };
+
+    try {
+      // No session, or a page from elsewhere: no connection.
+      await expect(connect({})).rejects.toThrow('HTTP 401');
+      await expect(connect({ cookie, origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
+
+      const a = await connect({ cookie });
+      const b = await connect({ cookie });
+      expect(toData(a.doc)).toEqual(toData(b.doc));
+      const first = toData(a.doc).blocks![0];
+      // At the same time: A edits a prop of the first block, B the title.
+      const da = toData(a.doc);
+      applyData(a.doc, { ...da, blocks: da.blocks!.map((x, i) => (i === 0 ? { ...x, props: { ...x.props, heading: 'Gleichzeitig A' } } : x)) });
+      applyData(b.doc, { ...toData(b.doc), title: 'Kontakt (B)' });
+      await until(() => toData(a.doc).title === 'Kontakt (B)' && (toData(b.doc).blocks![0].props as { heading?: string }).heading === 'Gleichzeitig A');
+
+      // The room saves (on request here), once, for everyone.
+      a.send(3, '{}');
+      await until(() => a.statuses.some((x) => x.t === 'saved') && b.statuses.some((x) => x.t === 'saved'));
+      const [saved] = await sql`select data from entries where id = ${page.id}`;
+      expect(saved.data.title).toBe('Kontakt (B)');
+      expect(saved.data.blocks.find((x: { id: string }) => x.id === first.id).props.heading).toBe('Gleichzeitig A');
+      expect((await sql`select 1 from entry_ydocs where entry_id = ${page.id}`).length).toBe(1);
+
+      // Changed elsewhere (API, CLI): the open editors follow.
+      const cur = await req('GET', `/api/entries/${page.id}`);
+      await req('PUT', `/api/entries/${page.id}`, { data: { ...cur.data.entry.data, title: 'Von aussen' } });
+      await until(() => toData(b.doc).title === 'Von aussen');
+
+      // A hook that says no: everyone sees why, nothing is lost in the shared document.
+      await req('PATCH', '/api/settings', {
+        hooks: [{ id: '', name: 'Nein', event: 'entry.beforeSave', collection: 'pages', code: 'function hook() { throw new Error("Bitte nicht jetzt."); }', active: true }],
+      });
+      applyData(a.doc, { ...toData(a.doc), title: 'Abgelehnt' });
+      a.send(3, '{}');
+      await until(() => b.statuses.some((x) => x.t === 'error' && x.message === 'Bitte nicht jetzt.'));
+      expect(toData(b.doc).title).toBe('Abgelehnt');
+      await req('PATCH', '/api/settings', { hooks: [] });
+      a.ws.close();
+      b.ws.close();
+    } finally {
+      server.close();
+    }
   });
 
   it('keeps comments on entries, with threads, mentions and personal notices', async () => {
