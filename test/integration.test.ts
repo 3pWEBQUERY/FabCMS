@@ -3099,6 +3099,44 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [tee, shirt]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('shows what goes with a product: picked by hand, bought together, same category – never sold out', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const mk = async (slug: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'products', data: { price: 500, ...data }, slug })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const glas = await mk('honigglas', { title: 'Honigglas', category: 'Imkerei' });
+    const loeffel = await mk('honigloeffel', { title: 'Honiglöffel', category: 'Imkerei' });
+    const leer = await mk('wabenhonig', { title: 'Wabenhonig', category: 'Imkerei', stock: 0 });
+    const brot = await mk('zopf', { title: 'Butterzopf', category: 'Bäckerei' });
+    const tuch = await mk('geschirrtuch', { title: 'Geschirrtuch', category: 'Küche' });
+    const kerze = await mk('bienenwachskerze', { title: 'Bienenwachskerze', category: 'Haus' });
+    // By hand: the candle. Bought together: the bread (twice, paid) and the cloth (once, but not paid).
+    const data = (await req('GET', `/api/entries/${glas.id}`)).data.entry.data;
+    await req('PUT', `/api/entries/${glas.id}`, { data: { ...data, related: [{ product: kerze.id }] } });
+    await req('POST', `/api/entries/${glas.id}/publish`, {});
+    const order = async (n: string, status: string, ids: string[]) =>
+      sql`insert into orders (number, token, status, email, customer, items, subtotal, total, payment_method)
+        values (${n}, ${n}, ${status}, 'x@example.ch', '{}', ${sql.json(ids.map((productId) => ({ productId, qty: 1 })))}, 0, 0, 'invoice')`;
+    await order('T-REL1', 'paid', [glas.id, brot.id]);
+    await order('T-REL2', 'fulfilled', [brot.id, glas.id]);
+    await order('T-REL3', 'pending', [glas.id, tuch.id]);
+
+    const page = (await req('GET', '/laden/honigglas', undefined, anon)).data as string;
+    const section = page.slice(page.indexOf('id="rel-h"'));
+    const titles = [...section.matchAll(/<h3 class="hi">([^<]+)<\/h3>/g)].map((m) => m[1]);
+    expect(titles).toEqual(['Bienenwachskerze', 'Butterzopf', 'Honiglöffel']);
+    expect(section).not.toContain('Wabenhonig');
+    expect(section).not.toContain('Geschirrtuch');
+    // Switched off: nothing.
+    await req('PATCH', '/api/settings', { shop: { related: false } });
+    expect((await req('GET', '/laden/honigglas', undefined, anon)).data).not.toContain('id="rel-h"');
+    await req('PATCH', '/api/settings', { shop: { related: true } });
+    await sql`delete from orders where number like 'T-REL%'`;
+    for (const e of [glas, loeffel, leer, brot, tuch, kerze]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

@@ -155,6 +155,14 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
       },
       { key: 'stockAlert', type: 'number', label: 'Warnen ab Bestand', help: 'Leer = wie in den Shop-Einstellungen.', min: 0, width: 'half' },
       {
+        key: 'related',
+        type: 'group',
+        label: 'Passt dazu',
+        itemLabel: 'Produkt',
+        help: 'Von Hand gewählte Produkte stehen zuerst. Sonst schlägt Nova vor, was oft zusammen gekauft wird oder in derselben Kategorie ist.',
+        fields: [{ key: 'product', type: 'relation', collection: 'products', label: 'Produkt' }],
+      },
+      {
         key: 'variants',
         type: 'group',
         label: 'Varianten',

@@ -1633,4 +1633,17 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Quando un prodotto esaurito torna disponibile – a tutti coloro che l’hanno chiesto.',
     en: 'When a sold-out product is in stock again – to everyone who asked.',
   },
+  Produktseite: { fr: 'Page produit', it: 'Pagina prodotto', en: 'Product page' },
+  '«Passt dazu» unter jedem Produkt': { fr: '«Va bien avec» sous chaque produit', it: '«Si abbina a» sotto ogni prodotto', en: '«Goes well with» under every product' },
+  'Bis zu vier Produkte: von Hand gewählte zuerst, dann was oft zusammen gekauft wird, dann aus derselben Kategorie. Ausverkauftes nie.': {
+    fr: 'Jusqu’à quatre produits : d’abord ceux choisis à la main, puis ceux souvent achetés ensemble, puis de la même catégorie. Jamais d’épuisés.',
+    it: 'Fino a quattro prodotti: prima quelli scelti a mano, poi quelli spesso acquistati insieme, poi della stessa categoria. Mai esauriti.',
+    en: 'Up to four products: hand-picked first, then those often bought together, then from the same category. Never sold-out ones.',
+  },
+  'Passt dazu': { fr: 'Va bien avec', it: 'Si abbina a', en: 'Goes well with' },
+  'Von Hand gewählte Produkte stehen zuerst. Sonst schlägt Nova vor, was oft zusammen gekauft wird oder in derselben Kategorie ist.': {
+    fr: 'Les produits choisis à la main passent en premier. Sinon, Nova propose ce qui est souvent acheté ensemble ou de la même catégorie.',
+    it: 'I prodotti scelti a mano vengono prima. Altrimenti Nova propone ciò che si compra spesso insieme o della stessa categoria.',
+    en: 'Hand-picked products come first. Otherwise Nova suggests what is often bought together or in the same category.',
+  },
 };

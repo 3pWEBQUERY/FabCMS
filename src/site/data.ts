@@ -48,6 +48,46 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
   return { items: await localized(rows as unknown as PublicEntry[], c), total: Number(rows[0]?.total ?? 0) };
 }
 
+/** Sold out: no stock left, or none in any variant. */
+const soldOut = (d: EntryData) => {
+  const variants = (d.variants as { stock?: number | null }[] | undefined) ?? [];
+  return variants.length ? variants.every((v) => v.stock === 0) : d.stock === 0;
+};
+
+/**
+ * Products that go with this one: picked by hand first, then those most
+ * often in the same paid orders, then the newest of the same category –
+ * only what can be bought right now.
+ */
+export async function relatedProducts(c: CollectionDef, id: string, data: EntryData, limit = 4): Promise<PublicEntry[]> {
+  const picked = ((data.related as { product?: unknown }[] | undefined) ?? [])
+    .map((r) => r.product)
+    .filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x));
+  const together = await sql`
+    select l ->> 'productId' as id, count(distinct o.id)::int as n
+    from orders o, jsonb_array_elements(o.items) l
+    where o.status in ('paid', 'fulfilled') and o.created_at > now() - interval '1 year'
+      and o.items @> ${sql.json([{ productId: id }])} and l ->> 'productId' <> ${id}
+    group by 1 order by n desc, 1 limit 12`;
+  const category = typeof data.category === 'string' && data.category ? data.category : null;
+  const same = category
+    ? await sql`
+        select id from entries where collection = 'products' and status = 'published' and id <> ${id}
+          and lower(published_data ->> 'category') = lower(${category})
+        order by published_at desc nulls last limit 12`
+    : [];
+  const order = [...new Set([...picked, ...together.map((r) => r.id as string), ...same.map((r) => r.id as string)])].filter((x) => x !== id);
+  if (!order.length) return [];
+  const rows = await sql`
+    select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, null as author_name
+    from entries e where e.collection = 'products' and e.status = 'published' and e.id = any(${order}::uuid[])`;
+  const byId = new Map((await localized(rows as unknown as PublicEntry[], c)).map((r) => [r.id, r]));
+  return order
+    .map((x) => byId.get(x))
+    .filter((r): r is PublicEntry => Boolean(r) && !soldOut(r!.data))
+    .slice(0, limit);
+}
+
 export async function categoriesOf(collection: string): Promise<string[]> {
   const rows = await sql`
     select distinct published_data ->> 'category' as c from entries

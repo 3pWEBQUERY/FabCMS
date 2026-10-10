@@ -5,7 +5,7 @@ import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
 import { ownBlocks, renderBlocks, postTeasers, productCards, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, approvedReviews, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { popupConf, popupOnPath, popupWindow } from '../shared/popups';
 import { starText, summarize, type Review } from '../shared/reviews';
 import {
@@ -590,7 +590,19 @@ async function productTemplate(ctx: RenderContext, c: CollectionDef, e: RenderEn
         }<div class="qty"><div class="fld"><label for="qty">${t(ctx, 'Menge')}</label><input id="qty" name="qty" type="number" min="1" max="${typeof baseStock === 'number' && !variants.length ? Math.min(99, baseStock) : 99}" value="1" inputmode="numeric"></div><button class="btn">${t(ctx, 'In den Warenkorb')}</button></div>${
           lowStock ? html`<p class="stock low">${t(ctx, 'Nur noch {n} Stück an Lager', { n: baseStock as number })}</p>` : ''
         }</form>`
-  }${restockForm(ctx, e.id, soldOut, variants)}${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>${ctx.settings.shop.reviews ? reviewsSection(ctx, e.id, reviews) : ''}`;
+  }${restockForm(ctx, e.id, soldOut, variants)}${d.description ? html`<div class="prose">${raw(d.description as string)}</div>` : ''}</div></div>${
+    ctx.settings.shop.related ? await relatedSection(ctx, c, e.id, d) : ''
+  }${ctx.settings.shop.reviews ? reviewsSection(ctx, e.id, reviews) : ''}`;
+}
+
+/** «Passt dazu»: up to four products that go with this one. */
+async function relatedSection(ctx: RenderContext, c: CollectionDef, id: string, d: EntryData): Promise<Html> {
+  const items = await relatedProducts(c, id, d);
+  if (!items.length) return html``;
+  ctx.hl = 3;
+  const cards = await productCards(ctx, items);
+  ctx.hl = 2;
+  return html`<section class="b sp-m related" aria-labelledby="rel-h"><div class="wrap"><h2 id="rel-h">${t(ctx, 'Passt dazu')}</h2>${cards}</div></section>`;
 }
 
 /** Sold out (all of it, or some variants): leave an address and hear once when it is back. */

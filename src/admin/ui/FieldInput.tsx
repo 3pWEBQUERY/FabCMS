@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { FieldDef, LinkValue } from '../../shared/fields';
 import { defaultsFor } from '../../shared/fields';
 import { shortId } from '../../shared/text';
@@ -490,6 +490,7 @@ function GroupItem({
   onRemove,
   open,
   setOpen,
+  linked,
 }: {
   field: FieldDef;
   item: Item;
@@ -498,10 +499,16 @@ function GroupItem({
   onRemove: () => void;
   open: boolean;
   setOpen: (o: boolean) => void;
+  /** Titles of the entries a relation in the group can point to. */
+  linked?: Map<string, string>;
 }) {
   const controls = useDragControls();
   const titleField = field.fields?.find((f) => ['text', 'email'].includes(f.type));
-  const title = (titleField && (item[titleField.key] as string)) || (field.itemLabel ? `${tl(field.itemLabel)} ${index + 1}` : t('Eintrag {n}', { n: index + 1 }));
+  const relation = field.fields?.find((f) => f.type === 'relation');
+  const title =
+    (titleField && (item[titleField.key] as string)) ||
+    (relation && linked?.get(item[relation.key] as string)) ||
+    (field.itemLabel ? `${tl(field.itemLabel)} ${index + 1}` : t('Eintrag {n}', { n: index + 1 }));
   return (
     <Reorder.Item
       value={item}
@@ -554,6 +561,10 @@ export function GroupInput({ field, value, onChange }: { field: FieldDef; value:
     onChange(next.map(({ _k, ...rest }) => rest));
   };
   const max = field.max ?? Infinity;
+  // A group of links («Passt dazu») shows each entry by its name.
+  const relation = field.fields?.find((f) => f.type === 'relation');
+  const { data: targets } = useApi<{ entries: { id: string; title: string }[] }>(relation ? `/api/entries?collection=${relation.collection ?? 'pages'}&limit=500` : null);
+  const linked = useMemo(() => new Map((targets?.entries ?? []).map((e) => [e.id, e.title])), [targets]);
   return (
     <div className="repeat">
       <Reorder.Group axis="y" values={items} onReorder={commit} style={{ padding: 0, margin: 0, display: 'grid', gap: '0.5rem' }}>
@@ -567,6 +578,7 @@ export function GroupInput({ field, value, onChange }: { field: FieldDef; value:
             setOpen={(o) => setOpenKey(o ? it._k : null)}
             onChange={(v) => commit(items.map((x) => (x._k === it._k ? v : x)))}
             onRemove={() => commit(items.filter((x) => x._k !== it._k))}
+            linked={linked}
           />
         ))}
       </Reorder.Group>

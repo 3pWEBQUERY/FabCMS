@@ -303,4 +303,5 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Ti abbiamo inviato questo unico messaggio perché l’avevi chiesto. Poi abbiamo cancellato il tuo indirizzo.',
     en: 'We sent you this one message because you asked for it. We have since deleted your address.',
   },
+  'Passt dazu': { fr: 'Va bien avec', it: 'Si abbina a', en: 'Goes well with' },
 };

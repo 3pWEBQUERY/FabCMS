@@ -1209,6 +1209,14 @@ function ShopSettings() {
             />
           </Field>
         </Section>
+        <Section title={t('Produktseite')}>
+          <Toggle
+            checked={sh.related}
+            onChange={(v) => setS({ related: v })}
+            label={t('«Passt dazu» unter jedem Produkt')}
+            help={t('Bis zu vier Produkte: von Hand gewählte zuerst, dann was oft zusammen gekauft wird, dann aus derselben Kategorie. Ausverkauftes nie.')}
+          />
+        </Section>
         <Section title={t('Lager')} sub={t('Sinkt der Bestand durch eine Bestellung auf diese Zahl oder darunter, meldet sich Nova – einmal pro Produkt und Variante.')}>
           <Field label={t('Warnen ab Bestand')} htmlFor="ls-n" help={t('Pro Produkt lässt sich eine eigene Grenze setzen.')}>
             <input

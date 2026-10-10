@@ -75,6 +75,7 @@ export function defaultSettings(): SiteSettings {
       orderPrefix: 'B-',
       notifyEmail: '',
       reviews: false,
+      related: true,
       cartReminders: { enabled: false, hours: 4 },
       lowStock: { threshold: 3, email: true },
     },

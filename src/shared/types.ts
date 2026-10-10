@@ -216,6 +216,8 @@ export interface SiteSettings {
     notifyEmail: string;
     /** Customers rate products with stars and a text; shown after approval. */
     reviews: boolean;
+    /** «Passt dazu» under every product. */
+    related: boolean;
     /** One mail for a cart left at the checkout – only for those who tick the box there. */
     cartReminders: { enabled: boolean; hours: number };
     /** Warn from this stock on (products may set their own); by mail too when `email`. */
