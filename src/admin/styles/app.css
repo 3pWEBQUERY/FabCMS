@@ -1203,6 +1203,83 @@ button.list-item {
 .table .right {
   text-align: right;
 }
+/* Phones: one card per row – first column as title, the rest as «label … value»,
+   a trailing action column top right. Labels come from lib/table-cards.ts. */
+@media (max-width: 760px) {
+  .table-wrap {
+    overflow: visible;
+  }
+  .table,
+  .table tbody {
+    display: block;
+  }
+  .table thead {
+    display: none;
+  }
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.3rem 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .table td {
+    grid-column: 1 / -1;
+    display: block;
+    padding: 0;
+    border: 0;
+    max-width: none !important;
+    text-align: right;
+    white-space: normal;
+  }
+  .table td.ellipsis,
+  .table td.nowrap {
+    white-space: nowrap;
+  }
+  .table td::before {
+    content: attr(data-label);
+    float: left;
+    margin-right: 1rem;
+    color: var(--ink-3);
+    font-size: var(--t-xs);
+    font-weight: 500;
+    line-height: 1.7;
+  }
+  .table td[data-blank]:not(:first-child) {
+    display: none;
+  }
+  .table td[data-label='']::before,
+  .table td:first-child::before {
+    content: none;
+  }
+  .table td:first-child {
+    grid-column: 1;
+    text-align: left;
+    font-size: var(--t-m);
+    font-weight: 600;
+  }
+  .table td:first-child:only-child,
+  .table td[colspan] {
+    grid-column: 1 / -1;
+  }
+  .table td:last-child[data-label='']:not(:first-child) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .table td[data-label=''] {
+    text-align: left;
+  }
+  .table tbody tr.clickable:hover {
+    background: none;
+  }
+  .table tbody tr.clickable:active {
+    background: var(--panel-2);
+  }
+}
 .thumb {
   width: 2.5rem;
   height: 2.5rem;

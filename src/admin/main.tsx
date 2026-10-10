@@ -4,6 +4,7 @@ import './styles/app.css';
 import { api } from './lib/api';
 import { loadAdminLang, pickAdminLang, t, tm } from './lib/i18n';
 import { registerOffline } from './lib/offline';
+import { watchTableCards } from './lib/table-cards';
 import { SessionProvider, type SessionUser } from './lib/session';
 import { ToastProvider } from './ui/toast';
 import { TooltipProvider } from './ui/kit';
@@ -91,6 +92,7 @@ function App() {
 }
 
 registerOffline();
+watchTableCards();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
