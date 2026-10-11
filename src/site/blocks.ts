@@ -9,7 +9,7 @@ import { slidesCss } from '../shared/bg-media';
 import { dividerHtml } from '../shared/dividers';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
-import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, headlineWords, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
@@ -847,6 +847,13 @@ const R: Record<string, Renderer> = {
  * How an element is drawn: where it sits in the props (for editing in place),
  * whether this copy can be edited, and the entry when it repeats in a CMS list.
  */
+/** The id of the element a button shows or hides – its «Sprungmarke» if it has one. */
+function actTarget(target: string, rc: ElRender): string {
+  let found: El | undefined;
+  if (rc.root) walkEls(rc.root, (x) => void (x.id === target && (found = x)));
+  return found ? elDomId(found) : `e-${target}`;
+}
+
 interface ElRender {
   path: string;
   edit: boolean;
@@ -888,7 +895,7 @@ function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'bo
   // Hidden until a button shows it – in the editor it stays in view, marked, so it can be designed.
   const hidden = el.hidden ? (rc.edit ? ' data-nova-hidden' : ' hidden') : '';
   return raw(
-    `${!rc.copy && (rc.edit || !rc.list) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"${el.pinned ? ' data-nova-pinned' : ''}` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
+    `${!rc.copy && (rc.edit || !rc.list) ? ` id="${elDomId(el)}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"${el.pinned ? ' data-nova-pinned' : ''}` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
       motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
     }${hidden}${rc.extra ?? ''}`,
   );
@@ -1049,7 +1056,7 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       // Shows or hides another element: a real button, wired up by the site's script (copies in a list have no ids to aim at).
       if (el.act && !rc.list && !rc.copy) {
         ctx.needs.add('reveal');
-        return html`<button type="button" class="${cls(variant)}" data-act="${el.act.do}" aria-controls="e-${el.act.target}"${attrs}><span${editField('label')}>${label}</span></button>`;
+        return html`<button type="button" class="${cls(variant)}" data-act="${el.act.do}" aria-controls="${actTarget(el.act.target, rc)}"${attrs}><span${editField('label')}>${label}</span></button>`;
       }
       return html`<a class="${cls(variant)}" href="${hrefOf() || '#'}"${attrs}><span${editField('label')}>${label}</span></a>`;
     }
@@ -1474,7 +1481,7 @@ async function renderFilter(el: El, ctx: RenderContext, rc: ElRender, attrs: Htm
   const uid = el.id;
   const reset = [...keep].map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
   ctx.needs.add('widgets');
-  return html`<form class="${cls}"${attrs} method="get" action="${ctx.path}#e-${loop.id}" role="search" data-filter>${keep.map(
+  return html`<form class="${cls}"${attrs} method="get" action="${ctx.path}#${elDomId(loop)}" role="search" data-filter>${keep.map(
     ([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`,
   )}${
     p.search !== false
@@ -1503,7 +1510,7 @@ async function renderFilter(el: El, ctx: RenderContext, rc: ElRender, attrs: Htm
         )}</select></div>`
       : ''
   }<button class="btn filter-go">${t(ctx, 'Filtern')}</button>${
-    active ? html`<a class="filter-reset" href="${ctx.path}${reset ? `?${reset}` : ''}#e-${loop.id}">${t(ctx, 'Zurücksetzen')}</a>` : ''
+    active ? html`<a class="filter-reset" href="${ctx.path}${reset ? `?${reset}` : ''}#${elDomId(loop)}">${t(ctx, 'Zurücksetzen')}</a>` : ''
   }</form>`;
 }
 

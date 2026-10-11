@@ -75,6 +75,8 @@ import {
   variantsCss,
   walkEls,
   headlineText,
+  cleanAnchor,
+  elDomId,
   type El,
   type ElKind,
 } from '../src/shared/elements';
@@ -2130,6 +2132,28 @@ describe('Animierte Überschrift', () => {
     const one = sanitizeEls([{ id: 'b', kind: 'headline', props: { before: 'Wir backen', words: 'Brot\nZöpfe', after: '', level: '1' } }]);
     expect(elementsText(one)).toContain('Wir backen Brot, Zöpfe');
     expect(elementsHeadings(one)).toEqual([{ level: 1, text: 'Wir backen Brot, Zöpfe', field: 'els.0.props.before' }]);
+  });
+});
+
+describe('Sprungmarken für Elemente', () => {
+  it("tidies what is typed, keeps each once and never takes the page's own ids", () => {
+    expect(cleanAnchor('Kontakt & Anfahrt')).toBe('kontakt-und-anfahrt');
+    expect(cleanAnchor('Über uns!')).toBe('ueber-uns');
+    expect(cleanAnchor('2024 Rückblick')).toBe('rueckblick');
+    expect(cleanAnchor('e-abc')).toBeUndefined();
+    expect(cleanAnchor('b-hero')).toBeUndefined();
+    expect(cleanAnchor('<script>')).toBe('script');
+    const els = sanitizeEls([
+      { id: 'a', kind: 'heading', props: { text: 'Team' }, anchor: 'Team' },
+      { id: 'b', kind: 'box', props: {}, children: [{ id: 'c', kind: 'text', props: {}, anchor: 'team' }] },
+    ]);
+    expect(els[0].anchor).toBe('team');
+    // The second one in the same layout – even deeper down – goes without.
+    expect(els[1].children![0].anchor).toBeUndefined();
+    expect(elDomId(els[0])).toBe('team');
+    expect(elDomId(els[1])).toBe('e-b');
+    // A copy can't share it.
+    expect(cloneEl(els[0]).anchor).toBeUndefined();
   });
 });
 

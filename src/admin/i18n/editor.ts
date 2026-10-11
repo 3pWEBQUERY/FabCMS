@@ -1118,4 +1118,20 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   Leuchtstift: { fr: 'Surligneur', it: 'Evidenziatore', en: 'Highlighter' },
   Durchgestrichen: { fr: 'Barré', it: 'Barrato', en: 'Struck through' },
   'Wörter in der Akzentfarbe': { fr: 'Mots dans la couleur d’accent', it: 'Parole nel colore d’accento', en: 'Words in the accent colour' },
+  'Diese Sprungmarke trägt schon ein anderes Element in diesem Bereich – wähl eine andere.': {
+    fr: 'Un autre élément de cette section porte déjà cette ancre – choisis-en une autre.',
+    it: 'Un altro elemento di questa sezione ha già questa ancora – scegline un’altra.',
+    en: 'Another element in this section already has this anchor – pick a different one.',
+  },
+  'Verlinke mit «#{anchor}» auf dieser Seite, von anderen Seiten mit der Seitenadresse davor.': {
+    fr: 'Crée un lien avec «#{anchor}» sur cette page, depuis d’autres pages avec l’adresse de la page devant.',
+    it: 'Collega con «#{anchor}» in questa pagina, da altre pagine con l’indirizzo della pagina davanti.',
+    en: 'Link with “#{anchor}” on this page, or from other pages with the page address in front.',
+  },
+  'Damit Links wie /#team direkt zu diesem Element springen.': {
+    fr: 'Pour que des liens comme /#team mènent directement à cet élément.',
+    it: 'Perché i link come /#team portino direttamente a questo elemento.',
+    en: 'So links like /#team jump straight to this element.',
+  },
+  team: { fr: 'equipe', it: 'team', en: 'team' },
 };

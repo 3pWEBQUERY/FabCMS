@@ -11,7 +11,7 @@ import type { CollectionDef } from './types';
 import { cssColor, designCss, designImages, type CompileOptions, type Design, type StyleProps } from './design';
 import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
-import { shortId, stripHtml } from './text';
+import { shortId, slugify, stripHtml } from './text';
 import { loopQuery } from './query';
 import { cleanConds, type Cond } from './conditions';
 
@@ -87,6 +87,8 @@ export interface El {
   hidden?: boolean;
   /** Locked in the layers: the canvas passes it over, so it can't be moved or deleted by accident. */
   pinned?: boolean;
+  /** «Sprungmarke»: its id in the page instead of e-…, so links like /seite#team land here. */
+  anchor?: string;
   /** «Nur zeigen, wenn …»: all of them must hold (shared/conditions.ts). */
   show?: Cond[];
 }
@@ -1232,7 +1234,10 @@ export function cloneEl(el: El): El {
   const copy = (x: El): El => {
     const id = shortId(8);
     ids.set(x.id, id);
-    return { ...structuredClone(x), id, children: x.children?.map(copy) };
+    // A «Sprungmarke» stays with the original: two of the same can't be jumped to.
+    const { anchor, ...rest } = structuredClone(x);
+    void anchor;
+    return { ...rest, id, children: x.children?.map(copy) };
   };
   const out = copy(el);
   const retarget = (x: El): El => ({
@@ -1543,8 +1548,25 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
   }
 }
 
+/**
+ * A «Sprungmarke» as typed («Unser Team» → unser-team): letters, digits and
+ * dashes, starting with a letter – never one of the page's own ids (e-…, b-…).
+ */
+export function cleanAnchor(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const a = slugify(v)
+    .replace(/\//g, '-')
+    .replace(/^[^a-z]+/, '')
+    .slice(0, 60)
+    .replace(/-+$/, '');
+  return a && !/^[eb]-/.test(a) ? a : undefined;
+}
+
+/** The id an element carries in the page: its «Sprungmarke», or e-… */
+export const elDomId = (el: Pick<El, 'id' | 'anchor'>) => cleanAnchor(el.anchor) || `e-${el.id}`;
+
 /** The element tree as stored: known kinds, clean props, bounded size and depth. */
-export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, seen = new Set<string>()): El[] {
+export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, seen = new Set<string>(), anchors = new Set<string>()): El[] {
   if (!Array.isArray(input) || depth > MAX_DEPTH) return [];
   const out: El[] = [];
   for (const raw of input) {
@@ -1571,13 +1593,19 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
       el.act = { do: raw.act.do as ElAct, target: raw.act.target };
     if (raw.hidden === true) el.hidden = true;
     if (raw.pinned === true) el.pinned = true;
+    // Each «Sprungmarke» once in a layout: the first keeps it.
+    const anchor = cleanAnchor(raw.anchor);
+    if (anchor && !anchors.has(anchor)) {
+      anchors.add(anchor);
+      el.anchor = anchor;
+    }
     const show = cleanConds(raw.show);
     if (show.length) el.show = show;
     if (isObj(raw.bind)) {
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;
     }
-    if (isContainer(kind)) el.children = sanitizeEls(raw.children, depth + 1, budget, seen);
+    if (isContainer(kind)) el.children = sanitizeEls(raw.children, depth + 1, budget, seen, anchors);
     out.push(el);
   }
   return out;

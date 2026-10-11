@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, bindKind, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, bindKind, cleanAnchor, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -162,6 +162,7 @@ export function ElementInspector({
           <Field label={t('Name in den Ebenen')} help={t('Hilft, im Aufbau den Überblick zu behalten.')}>
             <input className="input" value={el.name ?? ''} placeholder={tl(def.label)} maxLength={60} onChange={(e) => onChange({ ...el, name: e.target.value || undefined })} />
           </Field>
+          <AnchorField el={el} els={blockEls} onChange={onChange} />
         </div>
       )}
       {tab === 'style' && variants && <VariantBar v={variants} locked={locked} />}
@@ -239,4 +240,43 @@ function bindOptions(c: CollectionDef, kind: ElKind, prop: string): { value: str
         ]
       : [];
   return [{ value: 'title', label: t('Titel') }, ...(kind !== 'text' || prop === 'html' ? [{ value: 'date', label: t('Datum') }] : []), ...extras, ...own];
+}
+
+/**
+ * «Sprungmarke»: the element's own id in the page, so a menu entry or button
+ * can jump right here (#team, or /ueber-uns#team from elsewhere).
+ */
+function AnchorField({ el, els, onChange }: { el: El; els: El[]; onChange: (el: El) => void }) {
+  const clean = cleanAnchor(el.anchor);
+  let taken = false;
+  walkEls(els, (x) => {
+    if (x.id !== el.id && clean && cleanAnchor(x.anchor) === clean) taken = true;
+  });
+  return (
+    <Field
+      label={t('Sprungmarke')}
+      htmlFor={`anchor-${el.id}`}
+      error={taken ? t('Diese Sprungmarke trägt schon ein anderes Element in diesem Bereich – wähl eine andere.') : null}
+      help={
+        clean
+          ? t('Verlinke mit «#{anchor}» auf dieser Seite, von anderen Seiten mit der Seitenadresse davor.', { anchor: clean })
+          : t('Damit Links wie /#team direkt zu diesem Element springen.')
+      }
+    >
+      <div className="input-affix">
+        <span>#</span>
+        <input
+          id={`anchor-${el.id}`}
+          className="input"
+          value={el.anchor ?? ''}
+          placeholder={t('team')}
+          maxLength={60}
+          aria-invalid={taken || undefined}
+          onChange={(e) => onChange({ ...el, anchor: e.target.value || undefined })}
+          // Tidied when leaving the field: «Unser Team» becomes unser-team.
+          onBlur={() => el.anchor !== clean && onChange({ ...el, anchor: clean })}
+        />
+      </div>
+    </Field>
+  );
 }
