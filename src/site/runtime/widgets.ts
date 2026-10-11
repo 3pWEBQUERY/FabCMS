@@ -192,6 +192,76 @@ let counters: IntersectionObserver | null = null;
 
 /* ---------- all of it ---------- */
 
+/* ---------- countdown ---------- */
+
+const countdowns = new Set<HTMLElement>();
+let ticking = 0;
+
+function tick() {
+  const now = Date.now();
+  for (const el of countdowns) {
+    if (!el.isConnected) {
+      countdowns.delete(el);
+      continue;
+    }
+    const left = Math.max(0, Math.floor((Number(el.dataset.countdown) - now) / 1000));
+    if (!left) {
+      countdowns.delete(el);
+      // Over: its own words, or gone.
+      const done = el.dataset.done;
+      if (done) {
+        const p = document.createElement('p');
+        p.className = `${el.className} cd-done`;
+        p.textContent = done;
+        el.replaceWith(p);
+      } else el.remove();
+      continue;
+    }
+    const v: Record<string, number> = { d: Math.floor(left / 86400), h: Math.floor((left % 86400) / 3600), m: Math.floor((left % 3600) / 60), s: left % 60 };
+    el.querySelectorAll<HTMLElement>('[data-cd]').forEach((n) => {
+      const unit = n.dataset.cd!;
+      const text = unit === 'd' ? String(v[unit]) : String(v[unit]).padStart(2, '0');
+      if (n.textContent !== text) n.textContent = text;
+    });
+  }
+  if (!countdowns.size) {
+    clearInterval(ticking);
+    ticking = 0;
+  }
+}
+
+/* ---------- share: copy the link ---------- */
+
+function setupShare(btn: HTMLButtonElement) {
+  btn.addEventListener('click', async () => {
+    const url = btn.dataset.share ?? location.href;
+    const label = btn.textContent ?? '';
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.textContent = btn.dataset.done ?? label;
+      btn.setAttribute('aria-live', 'polite');
+      setTimeout(() => (btn.textContent = label), 2200);
+    } catch {
+      // No clipboard (old browser, no permission): the address to copy by hand.
+      prompt('', url);
+    }
+  });
+}
+
+/* ---------- reading progress (where CSS cannot follow the scroll by itself) ---------- */
+
+function setupProgress(bars: HTMLElement[]) {
+  if (CSS.supports('animation-timeline: scroll()')) return;
+  const update = () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    const share = max > 0 ? Math.min(1, scrollY / max) : 0;
+    bars.forEach((b) => b.style.setProperty('--pp', share.toFixed(4)));
+  };
+  addEventListener('scroll', update, { passive: true });
+  addEventListener('resize', update);
+  update();
+}
+
 export function setupWidgets(root: ParentNode, edit = false) {
   root.querySelectorAll<HTMLElement>('[data-tabs]').forEach((box) => {
     if (ready.has(box)) return;
@@ -204,6 +274,20 @@ export function setupWidgets(root: ParentNode, edit = false) {
     setupSlider(box, edit);
   });
   if (edit) return;
+  root.querySelectorAll<HTMLElement>('[data-countdown]').forEach((el) => {
+    if (ready.has(el)) return;
+    ready.add(el);
+    countdowns.add(el);
+  });
+  if (countdowns.size && !ticking) ticking = window.setInterval(tick, 1000);
+  root.querySelectorAll<HTMLButtonElement>('button[data-share]').forEach((b) => {
+    if (ready.has(b)) return;
+    ready.add(b);
+    setupShare(b);
+  });
+  const bars = [...root.querySelectorAll<HTMLElement>('[data-progress]')].filter((b) => !ready.has(b));
+  bars.forEach((b) => ready.add(b));
+  if (bars.length) setupProgress(bars);
   counters ??= new IntersectionObserver(
     (entries) =>
       entries.forEach((e) => {

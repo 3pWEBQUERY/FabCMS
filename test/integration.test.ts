@@ -3946,6 +3946,56 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, ...posts]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('fills a table of contents, counts down to a moment and shares the page without scripts', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const els = [
+      { id: 'tcx', kind: 'toc', props: { levels: '23', numbered: true } },
+      { id: 'tcd', kind: 'countdown', props: { to: '2999-01-01T10:00', units: 'dhm', done: 'Vorbei' } },
+      { id: 'tcp', kind: 'countdown', props: { to: '2001-01-01T10:00', done: 'Schon vorbei' } },
+      { id: 'tcs', kind: 'share', props: { networks: ['copy', 'mail', 'whatsapp'] } },
+      { id: 'tcg', kind: 'progress', props: { place: 'bottom', size: 6 } },
+      { id: 'tch1', kind: 'heading', props: { text: 'Anreise & Parkplätze', level: '2' } },
+      { id: 'tch2', kind: 'heading', props: { text: 'Mit dem Zug', level: '3' } },
+      { id: 'tch3', kind: 'heading', props: { text: 'Öffnungszeiten', level: '2' } },
+    ];
+    const page = (
+      await req('POST', '/api/entries', {
+        collection: 'pages',
+        slug: 'toc-test',
+        data: {
+          title: 'Anreise',
+          blocks: [
+            { id: 'tcb', type: 'layout', props: { els } },
+            { id: 'tct', type: 'text', props: { body: '<h2>Aus dem Text</h2><p>x</p>' } },
+          ],
+        },
+      })
+    ).data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/toc-test', undefined, anon)).data as string;
+    const toc = html.slice(html.indexOf('id="e-tcx"'), html.indexOf('</nav>', html.indexOf('id="e-tcx"')));
+    // Element headings keep their ids, others get one from their text; H3 indented; numbered list.
+    expect(toc).toContain('<ol><li class="toc-2"><a href="#e-tch1">Anreise &amp; Parkplätze</a></li><li class="toc-3"><a href="#e-tch2">Mit dem Zug</a></li>');
+    expect(toc).toMatch(/<a href="#aus-dem-text">Aus dem Text<\/a>/);
+    expect(html).toMatch(/<h2 id="aus-dem-text"/);
+    // The countdown carries its moment for the script and starts with the right numbers; past ones say their words.
+    expect(html).toMatch(
+      /role="timer" data-countdown="\d{13,}" data-done="Vorbei"><span class="cd-part"><span class="cd-n" data-cd="d">\d+<\/span><span class="cd-l">Tage<\/span>/,
+    );
+    expect(html).not.toContain('data-cd="s"');
+    expect(html).toMatch(/class="el el-countdown e-tcp cd-done" id="e-tcp">Schon vorbei<\/p>/);
+    expect(html).toMatch(/<button type="button" class="share-copy" data-share="[^"]+\/toc-test"/);
+    expect(html).toContain('href="mailto:?subject=Anreise&amp;body=');
+    expect(html).toContain('href="https://wa.me/?text=Anreise%20');
+    expect(html).not.toMatch(/<script[^>]+(facebook|linkedin|twitter)/);
+    expect(html).toContain('el-progress-bottom" id="e-tcg" style="--pg:6px" aria-hidden="true" data-progress>');
+    // Too few headings: the list stays hidden on the page.
+    await req('PUT', `/api/entries/${page.id}`, { data: { title: 'Anreise', blocks: [{ id: 'tcb', type: 'layout', props: { els: [els[0], els[5]] } }] } });
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    expect((await req('GET', '/toc-test', undefined, anon)).data).toMatch(/data-toc="23" data-toc-numbered hidden>/);
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

@@ -43,6 +43,7 @@ import { cleanConds, condsHold, type CondEnv } from '../src/shared/conditions';
 import { fieldKey, freeAddress, keyFields, newType, STUDIO_FIELD_TYPES, TYPE_PRESETS, typeAddress } from '../src/shared/type-presets';
 import {
   applyOverrides,
+  bindKind,
   canvasPlacement,
   cloneEl,
   componentEls,
@@ -2152,5 +2153,24 @@ describe('Nur zeigen, wenn …', () => {
         { id: 'b', kind: 'box', props: {}, show: [{ if: 'member', is: 'in' }], children: [{ id: 'c', kind: 'text', props: { html: '<p>Nur Mitglieder</p>' } }] },
       ]),
     ).toBe('Für alle');
+  });
+});
+
+describe('Countdown, Inhaltsverzeichnis, Teilen, Lesefortschritt', () => {
+  it('keeps their settings in a safe form', () => {
+    const [cd, toc, share, bar] = sanitizeEls([
+      { id: 'n1', kind: 'countdown', props: { to: '2026-12-24T18:00:00Z', units: 'weeks', done: '<b>Los!</b>' }, bind: { to: 'field:start' } },
+      { id: 'n2', kind: 'toc', props: { levels: '4', numbered: 'ja' } },
+      { id: 'n3', kind: 'share', props: { networks: ['mail', 'tiktok', 'copy'] } },
+      { id: 'n4', kind: 'progress', props: { place: 'left', size: 99 } },
+    ]);
+    expect(cd.props).toEqual({ to: '2026-12-24T18:00', units: 'dhms', done: '<b>Los!</b>' });
+    expect(cd.bind).toEqual({ to: 'field:start' });
+    expect(toc.props).toEqual({ title: '', levels: '2', numbered: false });
+    // Only known ways, in their own order.
+    expect(share.props.networks).toEqual(['copy', 'mail']);
+    expect(sanitizeEls([{ id: 'n5', kind: 'share', props: { networks: ['tiktok'] } }])[0].props.networks).toEqual(['copy', 'mail']);
+    expect(bar.props).toEqual({ place: 'top', size: 12 });
+    expect(bindKind('to')).toBe('date');
   });
 });

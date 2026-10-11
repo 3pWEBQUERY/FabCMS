@@ -308,4 +308,12 @@ export const core: Record<string, { fr: string; it: string; en: string }> = {
   '{n} von 5 Sternen, {count} Bewertungen': { fr: '{n} étoiles sur 5, {count} avis', it: '{n} stelle su 5, {count} recensioni', en: '{n} out of 5 stars, {count} reviews' },
   Rechtliches: { fr: 'Mentions légales', it: 'Note legali', en: 'Legal' },
   'An Lager': { fr: 'En stock', it: 'Disponibile', en: 'In stock' },
+  Inhalt: { fr: 'Sommaire', it: 'Indice', en: 'Contents' },
+  Tage: { fr: 'jours', it: 'giorni', en: 'days' },
+  Stunden: { fr: 'heures', it: 'ore', en: 'hours' },
+  Minuten: { fr: 'minutes', it: 'minuti', en: 'minutes' },
+  Sekunden: { fr: 'secondes', it: 'secondi', en: 'seconds' },
+  Teilen: { fr: 'Partager', it: 'Condividi', en: 'Share' },
+  'Link kopiert': { fr: 'Lien copié', it: 'Link copiato', en: 'Link copied' },
+  'Link kopieren': { fr: 'Copier le lien', it: 'Copia link', en: 'Copy link' },
 };

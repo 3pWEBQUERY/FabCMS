@@ -644,7 +644,17 @@ export function contentApi(app: Hono<AppEnv>) {
       ctx.h1 = collection.id !== 'pages' || index > 0;
       ctx.sectionNo = blocks.slice(0, index).filter((b) => HEADED_BLOCKS.has(b.type) && (b.props as { heading?: string }).heading).length;
       const html = await renderBlocks([blocks[index]], { ...ctx, depth: 0, blockIndex: index } as typeof ctx);
-      return c.json({ html: html.value, needs: [...ctx.needs] });
+      let out = html.value;
+      // A table of contents lists the whole page's headings: taken from the page drawn in full.
+      if (out.includes('<!--nova-toc-->')) {
+        const full = await canvasContext(c, e, { ...data, blocks }, true, lang);
+        const page = await renderPage(full.ctx, full.collection, full.renderEntry);
+        out = out.replace(
+          /<nav [^>]*id="(e-[\w-]+)"[^>]*data-toc="[\s\S]*?<\/nav>/g,
+          (nav, id: string) => new RegExp(`<nav [^>]*id="${id}"[\\s\\S]*?</nav>`).exec(page)?.[0] ?? nav,
+        );
+      }
+      return c.json({ html: out, needs: [...ctx.needs] });
     }
     return c.json({ html: await renderPage(ctx, collection, renderEntry) });
   }

@@ -35,6 +35,10 @@ export const EL_KINDS = [
   'stock',
   'rating',
   'counter',
+  'countdown',
+  'toc',
+  'share',
+  'progress',
   'accordion',
   'tabs',
   'slider',
@@ -102,14 +106,21 @@ export interface Variant {
 }
 
 /** What each kind can take from an entry. */
-export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
+export const BINDABLE: Partial<Record<ElKind, string[]>> = {
+  heading: ['text'],
+  text: ['html'],
+  image: ['image', 'href'],
+  button: ['label', 'href'],
+  box: ['href'],
+  countdown: ['to'],
+};
 const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:name|tagline|page|phone|phone-link|email|email-link|address|hours|year|copyright|home|logo))$/;
 
 /**
  * Dynamic data from the website itself, for any element anywhere – in a
  * header or footer as on a page. Grouped by what a property takes.
  */
-export const SITE_BINDS: Record<'text' | 'href' | 'image', [string, string][]> = {
+export const SITE_BINDS: Record<'text' | 'href' | 'image' | 'date', [string, string][]> = {
   text: [
     ['site:page', 'Titel dieser Seite oder Übersicht'],
     ['site:name', 'Name der Website'],
@@ -127,10 +138,11 @@ export const SITE_BINDS: Record<'text' | 'href' | 'image', [string, string][]> =
     ['site:email-link', 'E-Mail schreiben'],
   ],
   image: [['site:logo', 'Logo']],
+  date: [],
 };
 
-/** What a property takes: a picture, a link, or text. */
-export const bindKind = (prop: string): 'text' | 'href' | 'image' => (prop === 'image' ? 'image' : prop === 'href' ? 'href' : 'text');
+/** What a property takes: a picture, a link, a moment (countdowns), or text. */
+export const bindKind = (prop: string): 'text' | 'href' | 'image' | 'date' => (prop === 'image' ? 'image' : prop === 'href' ? 'href' : prop === 'to' ? 'date' : 'text');
 
 export interface ElDef {
   kind: ElKind;
@@ -163,6 +175,16 @@ export const SHAPES = {
 export type ShapeKind = keyof typeof SHAPES;
 export const SHAPE_KINDS = Object.keys(SHAPES) as ShapeKind[];
 export const MARQUEE_SPEEDS = ['slow', 'medium', 'fast'] as const;
+
+export const SHARE_WAYS = ['copy', 'mail', 'whatsapp', 'linkedin', 'facebook', 'x'] as const;
+export const SHARE_LABELS: Record<(typeof SHARE_WAYS)[number], string> = {
+  copy: 'Link kopieren',
+  mail: 'E-Mail',
+  whatsapp: 'WhatsApp',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+  x: 'X',
+};
 
 /** Shop elements: a product chosen by hand, else the one of the loop or product page around them. */
 const PRODUCT_FIELD: FieldDef = {
@@ -435,6 +457,90 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     icon: 'divider',
     fields: [],
     defaults: {},
+  },
+  countdown: {
+    kind: 'countdown',
+    group: 'interactive',
+    label: 'Countdown',
+    description: 'Zählt Tage, Stunden, Minuten und Sekunden bis zu einem Zeitpunkt – fest gewählt oder aus dem Eintrag, z. B. dem Beginn eines Events.',
+    icon: 'clock',
+    fields: [
+      { key: 'to', type: 'datetime', label: 'Bis', help: 'In der Zeitzone der Website.' },
+      {
+        key: 'units',
+        type: 'select',
+        label: 'Zeigen',
+        options: [
+          { value: 'dhms', label: 'Tage, Stunden, Minuten, Sekunden' },
+          { value: 'dhm', label: 'Tage, Stunden, Minuten' },
+          { value: 'd', label: 'Nur Tage' },
+        ],
+        default: 'dhms',
+      },
+      { key: 'done', type: 'text', label: 'Danach', placeholder: 'z. B. Es hat begonnen!', help: 'Leer = der Countdown verschwindet.' },
+    ],
+    defaults: { to: '', units: 'dhms', done: '' },
+  },
+  toc: {
+    kind: 'toc',
+    group: 'site',
+    label: 'Inhaltsverzeichnis',
+    description: 'Listet die Zwischentitel der Seite als Sprungmarken – stellt sich selbst zusammen, auch für jeden Beitrag einer Vorlage.',
+    icon: 'list',
+    fields: [
+      { key: 'title', type: 'text', label: 'Überschrift', placeholder: 'Inhalt' },
+      {
+        key: 'levels',
+        type: 'select',
+        label: 'Welche Titel',
+        options: [
+          { value: '2', label: 'Nur Zwischentitel (H2)' },
+          { value: '23', label: 'Mit Untertiteln (H2 und H3)' },
+        ],
+        default: '2',
+      },
+      { key: 'numbered', type: 'boolean', label: 'Nummeriert' },
+    ],
+    defaults: { title: 'Inhalt', levels: '2', numbered: false },
+  },
+  share: {
+    kind: 'share',
+    group: 'site',
+    label: 'Teilen',
+    description: 'Links zum Teilen der Seite – oder in einer Schleife des Eintrags. Ohne Skripte von Facebook & Co., ohne Tracking.',
+    icon: 'external',
+    fields: [
+      { key: 'label', type: 'text', label: 'Beschriftung', placeholder: 'Teilen' },
+      {
+        key: 'networks',
+        type: 'multiselect',
+        label: 'Wege',
+        options: SHARE_WAYS.map((value) => ({ value, label: SHARE_LABELS[value] })),
+      },
+    ],
+    defaults: { label: 'Teilen', networks: ['copy', 'mail', 'whatsapp', 'linkedin'] },
+  },
+  progress: {
+    kind: 'progress',
+    group: 'site',
+    label: 'Lesefortschritt',
+    description: 'Ein dünner Balken am Bildschirmrand, der beim Lesen wächst – ideal in der Vorlage für Beiträge.',
+    icon: 'scroll',
+    fields: [
+      {
+        key: 'place',
+        type: 'select',
+        label: 'Wo',
+        options: [
+          { value: 'top', label: 'Oben' },
+          { value: 'bottom', label: 'Unten' },
+        ],
+        default: 'top',
+        width: 'half',
+      },
+      { key: 'size', type: 'number', label: 'Dicke in Pixeln', min: 2, max: 12, width: 'half' },
+    ],
+    defaults: { place: 'top', size: 4 },
   },
   counter: {
     kind: 'counter',
@@ -1021,6 +1127,20 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { status: p.status !== false };
     case 'terms':
       return { collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : '' };
+    case 'countdown':
+      return {
+        to: typeof p.to === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(p.to.slice(0, 16)) ? p.to.slice(0, 16) : '',
+        units: one(p.units, ['dhms', 'dhm', 'd'] as const, 'dhms'),
+        done: plain(p.done, 120),
+      };
+    case 'toc':
+      return { title: plain(p.title, 60), levels: one(String(p.levels ?? '2'), ['2', '23'] as const, '2'), numbered: p.numbered === true };
+    case 'share': {
+      const ways = Array.isArray(p.networks) ? SHARE_WAYS.filter((w) => (p.networks as unknown[]).includes(w)) : [];
+      return { label: plain(p.label, 40), networks: ways.length ? ways : ['copy', 'mail'] };
+    }
+    case 'progress':
+      return { place: one(p.place, ['top', 'bottom'] as const, 'top'), size: typeof p.size === 'number' ? Math.min(12, Math.max(2, Math.round(p.size))) : 4 };
     case 'price':
       return { product: productRef(p.product), compare: p.compare !== false, sale: p.sale !== false };
     case 'addtocart':

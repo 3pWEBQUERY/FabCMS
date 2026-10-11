@@ -19,7 +19,7 @@ import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared
 import { listServices, openDays, slotsFor } from '../server/booking';
 import { localDay, zonedToUtc, type BookingService } from '../shared/booking';
 import { MONTHS, longDay } from '../shared/dates';
-import { formatPrice, readingTime, stripHtml } from '../shared/text';
+import { formatPrice, readingTime, slugify, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { entryAccess, mayRead } from '../shared/members';
 import { accountLink, membershipBox } from './members';
@@ -1158,6 +1158,20 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     case 'stock':
     case 'rating':
       return renderShopEl(el, ctx, rc, attrs, cls());
+    case 'countdown':
+      return renderCountdown(el, ctx, rc, attrs, cls());
+    case 'toc': {
+      const title = typeof p.title === 'string' && p.title && p.title !== 'Inhalt' ? p.title : t(ctx, 'Inhalt');
+      // Filled in once the whole page is drawn (fillToc): only then are all its headings known.
+      return html`<nav class="${cls()}"${attrs} aria-label="${title}" data-toc="${p.levels === '23' ? '23' : '2'}"${p.numbered ? raw(' data-toc-numbered') : ''}><p class="toc-h">${title}</p>${raw('<!--nova-toc-->')}</nav>`;
+    }
+    case 'share':
+      return renderShare(el, ctx, rc, attrs, cls());
+    case 'progress': {
+      const size = Math.min(12, Math.max(2, Number(p.size) || 4));
+      ctx.needs.add('widgets');
+      return html`<div class="${cls(`el-progress-${p.place === 'bottom' ? 'bottom' : 'top'}`)}"${attrs} style="--pg:${size}px" aria-hidden="true" data-progress><span></span></div>`;
+    }
     case 'entrybody': {
       if (!ctx.entryView || rc.list || rc.copy)
         return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;
@@ -1317,6 +1331,105 @@ async function renderTerms(el: El, ctx: RenderContext, attrs: Html, cls: string)
   return html`<nav class="${cls} filters"${attrs} aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${String(active === '' && !here?.tag)}">${t(ctx, 'Alle')}</a>${cats.map(
     (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${String(active === cat.toLowerCase())}">${cat}</a>`,
   )}</nav>`;
+}
+
+/* ---------- countdown, sharing, table of contents ---------- */
+
+/** The moment a countdown runs to, in milliseconds: from the entry (date field) or as set – wall time in the site's zone. */
+function countdownTarget(el: El, ctx: RenderContext, rc: ElRender): number | null {
+  const tz = ctx.settings.timezone;
+  const wall = (v: unknown): number | null => {
+    if (typeof v !== 'string' || !v) return null;
+    const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(v.slice(0, 16));
+    if (m) return zonedToUtc(m[1], m[2] ? Number(m[2]) * 60 + Number(m[3]) : 0, tz).getTime();
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? t : null;
+  };
+  const src = el.bind?.to;
+  if (src) {
+    const entry = rc.entry ?? currentEntry(ctx);
+    if (!entry) return null;
+    if (src === 'date') return wall(entry.e.data.date) ?? wall(entry.e.published_at);
+    if (src.startsWith('field:')) return wall(entry.e.data[src.slice(6)]);
+    return null;
+  }
+  return wall(el.props.to);
+}
+
+function renderCountdown(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Html {
+  const p = el.props as P;
+  const target = countdownTarget(el, ctx, rc);
+  if (target === null) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle, bis wann der Countdown zählt.</div>` : html``;
+  const left = Math.max(0, Math.floor((target - ctx.now.getTime()) / 1000));
+  const done = typeof p.done === 'string' ? p.done : '';
+  if (!left) return done ? html`<p class="${cls} cd-done"${attrs}>${done}</p>` : rc.edit ? html`<div class="${cls} el-empty"${attrs}>Der Zeitpunkt ist vorbei – auf der Website verschwindet der Countdown.</div>` : html``;
+  ctx.needs.add('widgets');
+  const units = p.units === 'd' ? ['d'] : p.units === 'dhm' ? ['d', 'h', 'm'] : ['d', 'h', 'm', 's'];
+  const value = { d: Math.floor(left / 86400), h: Math.floor((left % 86400) / 3600), m: Math.floor((left % 3600) / 60), s: left % 60 } as Record<string, number>;
+  const label = { d: t(ctx, 'Tage'), h: t(ctx, 'Stunden'), m: t(ctx, 'Minuten'), s: t(ctx, 'Sekunden') } as Record<string, string>;
+  return html`<div class="${cls}"${attrs} role="timer" data-countdown="${target}" data-done="${done}">${units.map(
+    (u) => html`<span class="cd-part"><span class="cd-n" data-cd="${u}">${u === 'd' ? String(value[u]) : String(value[u]).padStart(2, '0')}</span><span class="cd-l">${label[u]}</span></span>`,
+  )}</div>`;
+}
+
+/** Share links: the entry of the loop, else this page. Plain links – no scripts of the networks. */
+function renderShare(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Html {
+  const p = el.props as P;
+  const entry = rc.entry;
+  const path = entry ? (entryPath(entry.c, entry.e.slug) ?? ctx.path) : ctx.path;
+  const url = ctx.base + path;
+  const title = String(entry?.e.data.title ?? ctx.current?.data.title ?? ctx.settings.name);
+  const e = encodeURIComponent;
+  const ways = (Array.isArray(p.networks) ? p.networks : ['copy', 'mail']).filter((w): w is string => typeof w === 'string');
+  const links: Record<string, string> = {
+    mail: `mailto:?subject=${e(title)}&body=${e(url)}`,
+    whatsapp: `https://wa.me/?text=${e(`${title} ${url}`)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${e(url)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${e(url)}`,
+    x: `https://x.com/intent/post?url=${e(url)}&text=${e(title)}`,
+  };
+  const names: Record<string, string> = { mail: t(ctx, 'E-Mail'), whatsapp: 'WhatsApp', linkedin: 'LinkedIn', facebook: 'Facebook', x: 'X' };
+  const label = typeof p.label === 'string' && p.label && p.label !== 'Teilen' ? p.label : t(ctx, 'Teilen');
+  if (ways.includes('copy')) ctx.needs.add('widgets');
+  return html`<div class="${cls}"${attrs}><span class="share-h">${label}</span><ul>${ways.map((w) =>
+    w === 'copy'
+      ? html`<li><button type="button" class="share-copy" data-share="${url}" data-done="${t(ctx, 'Link kopiert')}">${t(ctx, 'Link kopieren')}</button></li>`
+      : links[w]
+        ? html`<li><a href="${links[w]}"${w === 'mail' ? '' : raw(' target="_blank" rel="noopener"')}>${names[w]}</a></li>`
+        : '',
+  )}</ul></div>`;
+}
+
+/**
+ * Inhaltsverzeichnis: once the page is drawn, every list gets the headings of
+ * the page's content (H2, or H2 and H3); headings without an id get one from
+ * their text. Without enough headings the list stays out of sight.
+ */
+export function fillToc(page: string, edit: boolean): string {
+  if (!page.includes('<!--nova-toc-->')) return page;
+  const used = new Set<string>([...page.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const heads: { level: number; id: string; text: string }[] = [];
+  const withIds = page.replace(/<h([23])((?:\s[^>]*)?)>([\s\S]*?)<\/h\1>/g, (all, level: string, rest: string, inner: string) => {
+    const text = stripHtml(inner).replace(/\s+/g, ' ').trim();
+    if (!text) return all;
+    let id = /\sid="([^"]+)"/.exec(rest)?.[1] ?? '';
+    if (!id) {
+      const base = slugify(text).replace(/\//g, '-').slice(0, 60) || 'abschnitt';
+      let next = base;
+      for (let n = 2; used.has(next); n++) next = `${base}-${n}`;
+      used.add(next);
+      id = next;
+      rest = ` id="${id}"${rest}`;
+    }
+    heads.push({ level: Number(level), id, text });
+    return `<h${level}${rest}>${inner}</h${level}>`;
+  });
+  return withIds.replace(/(<nav [^>]*data-toc="(2|23)"[^>]*)>([\s\S]*?)<!--nova-toc-->/g, (_, open: string, levels: string, head: string) => {
+    const list = heads.filter((h) => h.level === 2 || levels === '23');
+    if (list.length < 2) return edit ? `${open}>${head}<p class="el-empty">Hier erscheinen die Zwischentitel der Seite, sobald es mindestens zwei gibt.</p>` : `${open} hidden>${head}`;
+    const tag = open.includes('data-toc-numbered') ? 'ol' : 'ul';
+    return `${open}>${head}<${tag}>${list.map((h) => `<li class="toc-${h.level}"><a href="#${esc(h.id)}">${esc(h.text)}</a></li>`).join('')}</${tag}>`;
+  });
 }
 
 /* ---------- shop elements ---------- */

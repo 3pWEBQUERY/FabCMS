@@ -311,6 +311,30 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .el-hours ul{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
 .el-hours .open-now{margin-bottom:.5rem}
 .el-terms.filters{margin-bottom:0}
+.el-countdown{display:flex;flex-wrap:wrap;gap:var(--s-4);font-variant-numeric:tabular-nums}
+.cd-part{display:grid;justify-items:center;min-width:4.5rem;padding:var(--s-3) var(--s-4);border:1px solid var(--line);border-radius:var(--radius,.5rem)}
+.cd-n{font-family:var(--font-display);font-size:var(--step-4);line-height:1}
+.cd-l{font-size:var(--step-n1);color:var(--ink-2)}
+.cd-done{font-weight:600}
+.el-toc{padding:var(--s-4) var(--s-5);border-left:3px solid var(--accent);background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.el-toc .toc-h{font-weight:700;margin:0 0 var(--s-2)}
+.el-toc ul,.el-toc ol{margin:0;padding-left:1.2em;display:grid;gap:.3rem}
+.el-toc ul{list-style:none;padding-left:0}
+.el-toc .toc-3{margin-left:1rem;font-size:.95em}
+.el-toc a{text-decoration:none}.el-toc a:hover{text-decoration:underline}
+main :is(h2,h3)[id]{scroll-margin-top:5.5rem}
+.el-share{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.el-share .share-h{font-weight:600;margin-right:.25rem}
+.el-share ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem}
+.el-share a,.el-share .share-copy{display:inline-block;padding:.35rem .8rem;border:1px solid var(--line);border-radius:2rem;font:inherit;font-size:var(--step-n1);color:inherit;background:none;text-decoration:none;cursor:pointer}
+.el-share a:hover,.el-share .share-copy:hover{border-color:var(--accent)}
+.el-progress{position:fixed;left:0;right:0;height:var(--pg,4px);z-index:60;pointer-events:none}
+.el-progress-top{top:0}.el-progress-bottom{bottom:0}
+.el-progress span{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(var(--pp,0))}
+@supports (animation-timeline: scroll()){.el-progress span{animation:nova-progress linear both;animation-timeline:scroll(root)}}
+@keyframes nova-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+[data-nova-edit] .el-progress{position:relative;margin-block:.5rem}
+[data-nova-edit] .el-progress span{transform:scaleX(.35);animation:none}
 .ftr-name{font-family:var(--font-display);font-size:var(--step-2);color:var(--ink);letter-spacing:var(--display-tracking);margin-bottom:.5rem;line-height:1.1}
 .ftr-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--line)}
 .ftr-bottom ul{display:flex;gap:1.25rem}

@@ -3,7 +3,7 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
-import { langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
+import { fillToc, langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, archiveTemplate, globalSection, legalPages, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { abGroups, popupConf, popupOnPath, runningPopups } from '../shared/popups';
@@ -244,7 +244,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : main}</main>${ftr}${consentBar(ctx, stats)}${pops}</body></html>`;
+  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : fillToc(main.value, ctx.edit)}</main>${ftr}${consentBar(ctx, stats)}${pops}</body></html>`;
   // Only the rules this page can use – not in the editor or previews, and not when own scripts may add classes.
   const lean = ctx.edit || ctx.preview || s.security.allowCustomScripts ? css : parts.fixed + pruneCss(parts.nova, htmlClasses(doc, new Set(await scriptClasses()))) + parts.own;
   // Animations bring their own rules (classes set by the runtime, never pruned); the editor may add some at any time.
