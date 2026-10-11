@@ -1123,4 +1123,11 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Colori e dimensioni propri per tutto il sito – selezionabili ovunque nell’editor, modificati qui in un solo punto.',
     en: 'Colours and sizes of your own for the whole website – chosen anywhere in the editor, changed here in one place.',
   },
+  'Grösse am Handy': { fr: 'Taille sur mobile', it: 'Dimensione su cellulare', en: 'Size on a phone' },
+  'Fliessend bis': { fr: 'Fluide jusqu’à', it: 'Fluido fino a', en: 'Fluid up to' },
+  'Fliessend geht mit zwei Grössen in px oder rem, z. B. 28px am Handy bis 56px am Computer.': {
+    fr: 'Le fluide fonctionne avec deux tailles en px ou rem, p. ex. 28px sur mobile jusqu’à 56px sur ordinateur.',
+    it: 'Il fluido funziona con due dimensioni in px o rem, ad es. 28px su cellulare fino a 56px su computer.',
+    en: 'Fluid works with two sizes in px or rem, e.g. 28px on a phone up to 56px on a computer.',
+  },
 };

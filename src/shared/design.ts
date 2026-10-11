@@ -97,6 +97,8 @@ export interface StyleProps {
   /* typography */
   font?: 'display' | 'body' | 'mono';
   fontSize?: string;
+  /** Fluid type: `fontSize` on a phone growing evenly up to this size on a computer. */
+  fontSizeTo?: string;
   weight?: number;
   lineHeight?: string;
   tracking?: string;
@@ -191,6 +193,34 @@ const SHAPE_CSS: Record<Exclude<(typeof SHAPE_CUTS)[number], 'none' | 'blob'>, s
   slant: 'polygon(0 0,100% 0,100% 86%,0 100%)',
   hexagon: 'polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)',
 };
+
+/* ---------- fluid sizes ---------- */
+
+/** Screen widths between which a fluid size grows: a phone and a computer. */
+export const FLUID_FROM = 375;
+export const FLUID_TO = 1280;
+
+const toPx = (v: unknown): number | null => {
+  const m = typeof v === 'string' ? /^(-?(?:\d+(?:\.\d+)?|\.\d+))(px|rem)$/.exec(v.trim()) : null;
+  return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : null;
+};
+const r4 = (n: number) => Math.round(n * 10000) / 10000;
+
+/**
+ * A size that grows with the screen, as Bricks and Webflow do with clamp():
+ * `from` on a phone (375 px), `to` on a computer (1280 px), evenly in between,
+ * never smaller or larger. Both in px or rem; anything else – none.
+ */
+export function fluidSize(from: unknown, to: unknown): string | null {
+  const a = toPx(from);
+  const b = toPx(to);
+  if (a === null || b === null || a <= 0 || b <= 0 || a === b) return null;
+  const slope = (b - a) / (FLUID_TO - FLUID_FROM);
+  const base = a - slope * FLUID_FROM;
+  const lo = Math.min(a, b) / 16;
+  const hi = Math.max(a, b) / 16;
+  return `clamp(${r4(lo)}rem,${r4(base / 16)}rem + ${r4(slope * 100)}vw,${r4(hi)}rem)`;
+}
 
 /* ---------- tokens ---------- */
 
@@ -369,7 +399,7 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   // typography
   const font = pick(p.font, ['display', 'body', 'mono'] as const);
   if (font) add('font-family', FONTS[font]);
-  add('font-size', cssLength(p.fontSize));
+  add('font-size', fluidSize(p.fontSize, p.fontSizeTo) ?? cssLength(p.fontSize));
   add('font-weight', num(p.weight, 100, 950));
   if (typeof p.lineHeight === 'string' && /^\d(?:\.\d{1,3})?$/.test(p.lineHeight)) add('line-height', p.lineHeight);
   else add('line-height', cssLength(p.lineHeight));

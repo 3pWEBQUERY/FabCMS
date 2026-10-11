@@ -45,7 +45,7 @@ import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
-import { blockCss, blockDomId, colRatios, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
+import { blockCss, blockDomId, colRatios, cssColor, cssLength, designCss, effective, fluidSize, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
 import { colorKey, pageColors, replaceColor } from '../src/shared/page-colors';
@@ -2429,6 +2429,23 @@ describe('Design-Variablen', () => {
     expect(designCss('#a', { desktop: { bg: '$v-marke', pt: '$v-abstand', borderColor: '$v-marke/50' } })).toBe(
       '#a{padding-top:var(--v-abstand);background-color:var(--v-marke);--bg:var(--v-marke);border-color:color-mix(in srgb,var(--v-marke) 50%,transparent)}',
     );
+  });
+});
+
+describe('Fliessende Schriftgrössen', () => {
+  it('grows evenly from the phone size to the computer size and no further', () => {
+    const css = fluidSize('28px', '56px')!;
+    expect(css).toBe('clamp(1.75rem,1.0249rem + 3.0939vw,3.5rem)');
+    // At 375 and 1280 pixels wide exactly the two sizes.
+    const at = (w: number) => Number(/,(-?[\d.]+)rem \+ ([\d.]+)vw/.exec(css)![1]) * 16 + (Number(/\+ ([\d.]+)vw/.exec(css)![1]) * w) / 100;
+    expect(Math.round(at(375))).toBe(28);
+    expect(Math.round(at(1280))).toBe(56);
+    // Shrinking works too: the bounds swap places.
+    expect(fluidSize('2rem', '1.5rem')).toMatch(/^clamp\(1\.5rem,[\d.]+rem \+ -[\d.]+vw,2rem\)$/);
+    expect(fluidSize('$step-3', '48px')).toBeNull();
+    expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
+    // Without a valid pair the plain size stays.
+    expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
   });
 });
 

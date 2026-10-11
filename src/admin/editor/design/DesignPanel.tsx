@@ -9,6 +9,7 @@ import {
   setDesign,
   SHAPE_CUTS,
   SIZE_TOKENS,
+  fluidSize,
   type Design,
   type DesignBp,
   type DesignState,
@@ -82,6 +83,7 @@ export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
   type: [
     'font',
     'fontSize',
+    'fontSizeTo',
     'weight',
     'lineHeight',
     'tracking',
@@ -726,8 +728,12 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                 ]}
               />
             ))}
+            {bp === 'desktop' && prop('fontSizeTo').value && !fluidSize(prop('fontSize').value, prop('fontSizeTo').value) && (
+              <p className="xsmall ia-warn">{t('Fliessend geht mit zwei Grössen in px oder rem, z. B. 28px am Handy bis 56px am Computer.')}</p>
+            )}
             <div className="dp-grid2">
-              {len('fontSize', t('Grösse'), { tokens: sizeTokens, units: ['px', 'rem', 'em', 'vw'], min: 0 })}
+              {len('fontSize', prop('fontSizeTo').value ? t('Grösse am Handy') : t('Grösse'), { tokens: sizeTokens, units: ['px', 'rem', 'em', 'vw'], min: 0 })}
+              {bp === 'desktop' && len('fontSizeTo', t('Fliessend bis'), { units: ['px', 'rem'], min: 0 })}
               {row('weight', t('Gewicht'), (p) => (
                 <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={100} max={900} step={100} ariaLabel={t('Gewicht')} />
               ))}
