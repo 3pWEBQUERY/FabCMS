@@ -8,6 +8,7 @@ import { docStoreName, markSynced, wasSynced } from './offline';
 import { CollabSession, type LinkState, type Peer } from './collab';
 import { applyData, changedBlocks, dataMap, toData } from '../../shared/collab-doc';
 import type { CollectionDef, Entry, EntryData } from '../../shared/types';
+import { describeStep, type StepLabel } from '../../shared/steps';
 
 export type SaveState = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
 
@@ -30,6 +31,11 @@ export interface EntryDoc {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  /** The steps that can be undone, oldest first – and those that can be redone, the next one first. */
+  steps: EditStep[];
+  ahead: EditStep[];
+  /** Goes back (positive) or forward (negative) this many steps at once. */
+  jump: (by: number) => void;
   /** Bumped when undo/redo replaced data wholesale (the canvas re-renders). */
   externalChange: number;
   /** Changes from other people: which blocks to re-render (or everything if the structure changed). */
@@ -48,6 +54,12 @@ export interface EntryDoc {
   translations: { lang: string; status: string; changed: boolean }[];
   /** Status of the original while a translation is edited. */
   original: { status: string; slug: string } | null;
+}
+
+/** One step to undo: what it did (unknown for steps from before the editor knew) and when. */
+export interface EditStep {
+  label: StepLabel | null;
+  at: number;
 }
 
 const SAVE_DELAY = 700;
@@ -82,7 +94,7 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
   const [error, setError] = useState<string | null>(null);
   const [externalChange, setExternalChange] = useState(0);
   const [remote, setRemote] = useState<EntryDoc['remote']>({ seq: 0, changed: [], structure: false });
-  const [hist, setHist] = useState({ past: 0, future: 0 });
+  const [hist, setHist] = useState<{ past: number; future: number; steps: EditStep[]; ahead: EditStep[] }>({ past: 0, future: 0, steps: [], ahead: [] });
   const [link, setLink] = useState<EntryDoc['link']>('off');
   const [peers, setPeers] = useState<Peer[]>([]);
 
@@ -96,6 +108,12 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
   const past = useRef<EntryData[]>([]);
   const future = useRef<EntryData[]>([]);
   const lastPush = useRef(0);
+  const pastSteps = useRef<EditStep[]>([]);
+  const futureSteps = useRef<EditStep[]>([]);
+  /** The change being written into the shared document, to name the undo step it makes. */
+  const pending = useRef<{ before: EntryData; after: EntryData } | null>(null);
+  /** An undone step keeps its name on the way to the redo list, and back. */
+  const carry = useRef<EditStep | null>(null);
   const session = useRef<CollabSession | null>(null);
   const undoer = useRef<Y.UndoManager | null>(null);
   const live = useRef(false);
@@ -224,13 +242,23 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
       docMode.current = true;
       setLocal(true);
       const um = new Y.UndoManager(dataMap(s.doc), { trackedOrigins: new Set([LOCAL]), captureTimeout: 800 });
-      const onStack = () => setHist({ past: um.undoStack.length, future: um.redoStack.length });
-      um.on('stack-item-added', onStack);
+      const stepOf = (item: { meta: Map<unknown, unknown> }) => (item.meta.get('step') as EditStep | undefined) ?? { label: null, at: 0 };
+      const onStack = () => setHist({ past: um.undoStack.length, future: um.redoStack.length, steps: um.undoStack.map(stepOf), ahead: [...um.redoStack].reverse().map(stepOf) });
+      um.on('stack-item-added', (e: { stackItem: { meta: Map<unknown, unknown> } }) => {
+        const meta = e.stackItem.meta;
+        if (!meta.has('step')) {
+          if (carry.current) meta.set('step', carry.current);
+          else if (pending.current) meta.set('step', { label: describeStep(pending.current.before, pending.current.after), at: Date.now() });
+        }
+        onStack();
+      });
       um.on('stack-item-popped', onStack);
       undoer.current = um;
       past.current = [];
       future.current = [];
-      setHist({ past: 0, future: 0 });
+      pastSteps.current = [];
+      futureSteps.current = [];
+      setHist({ past: 0, future: 0, steps: [], ahead: [] });
     };
     /** Takes over the document's content – or puts unsaved edits into it. */
     const adopt = (s: CollabSession) => {
@@ -361,6 +389,19 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
 
   /* ---------- editing ---------- */
 
+  const syncHist = () => setHist({ past: past.current.length, future: future.current.length, steps: [...pastSteps.current], ahead: [...futureSteps.current].reverse() });
+
+  /** One step back or forward – in the shared document or in the local history. */
+  const step = (back: boolean) => {
+    const um = docMode.current ? undoer.current : null;
+    if (!um) return applyHistory(back);
+    const stack = back ? um.undoStack : um.redoStack;
+    carry.current = (stack[stack.length - 1]?.meta.get('step') as EditStep | undefined) ?? null;
+    if (back) um.undo();
+    else um.redo();
+    carry.current = null;
+  };
+
   const setData = useCallback(
     (fn: (d: EntryData) => EntryData, opts: { history?: boolean } = {}) => {
       const cur = dataRef.current;
@@ -373,7 +414,11 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
         if (opts.history === false) {
           // Not undoable (e.g. a server-side fix-up): outside the tracked origin.
           applyData(session.current.doc, next, null);
-        } else applyData(session.current.doc, next, LOCAL);
+        } else {
+          pending.current = { before: cur, after: next };
+          applyData(session.current.doc, next, LOCAL);
+          pending.current = null;
+        }
         schedule();
         return;
       }
@@ -382,11 +427,16 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
         const now = Date.now();
         if (now - lastPush.current > 800 || !past.current.length) {
           past.current.push(cur);
-          if (past.current.length > HISTORY_LIMIT) past.current.shift();
+          pastSteps.current.push({ label: describeStep(cur, next), at: now });
+          if (past.current.length > HISTORY_LIMIT) {
+            past.current.shift();
+            pastSteps.current.shift();
+          }
         }
         lastPush.current = now;
         future.current = [];
-        setHist({ past: past.current.length, future: 0 });
+        futureSteps.current = [];
+        syncHist();
       }
       dataRef.current = next;
       setDataState(next);
@@ -408,14 +458,17 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     [doSave],
   );
 
-  const applyHistory = (from: React.MutableRefObject<EntryData[]>, to: React.MutableRefObject<EntryData[]>) => {
+  const applyHistory = (back: boolean) => {
+    const [from, to] = back ? [past, future] : [future, past];
+    const [fromSteps, toSteps] = back ? [pastSteps, futureSteps] : [futureSteps, pastSteps];
     const prev = from.current.pop();
     if (!prev || !dataRef.current) return;
     to.current.push(dataRef.current);
+    toSteps.current.push(fromSteps.current.pop() ?? { label: null, at: 0 });
     dataRef.current = prev;
     setDataState(prev);
     lastPush.current = 0;
-    setHist({ past: past.current.length, future: future.current.length });
+    syncHist();
     setExternalChange((n) => n + 1);
     schedule();
   };
@@ -513,8 +566,13 @@ export function useEntryDoc(id: string, lang: string | null = null): EntryDoc {
     markStockTouched: () => {
       stockTouched.current = true;
     },
-    undo: () => (docMode.current && undoer.current ? undoer.current.undo() : applyHistory(past, future)),
-    redo: () => (docMode.current && undoer.current ? undoer.current.redo() : applyHistory(future, past)),
+    undo: () => step(true),
+    redo: () => step(false),
+    jump: (by: number) => {
+      for (let i = 0; i < Math.abs(by); i++) step(by > 0);
+    },
+    steps: hist.steps,
+    ahead: hist.ahead,
     lang,
     translations,
     original,

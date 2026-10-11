@@ -2922,6 +2922,19 @@ button.list-item {
 .rev[aria-pressed='true'] {
   background: var(--hover);
 }
+.steps .rev:disabled {
+  cursor: default;
+}
+.steps .step-now {
+  background: var(--sel-soft, var(--hover));
+  font-weight: 600;
+}
+.steps .step-ahead {
+  opacity: 0.55;
+}
+.steps .step-ahead:hover {
+  opacity: 1;
+}
 .diff-add {
   background: var(--ok-soft);
   border-left: 3px solid var(--ok);

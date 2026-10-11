@@ -39,6 +39,7 @@ import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
 import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
+import { describeStep } from '../src/shared/steps';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
 import { cleanVariables, variableId, variablesCss } from '../src/shared/variables';
@@ -2447,6 +2448,30 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Arbeitsschritte', () => {
+  const page = (els: unknown[], extra: Record<string, unknown> = {}) => ({ title: 'Start', blocks: [{ id: 'b1', type: 'layout', props: { els } }], ...extra });
+  const h = { id: 'h', kind: 'heading', props: { text: 'Hallo' } };
+  const img = { id: 'i', kind: 'image', props: {} };
+  it('names what one step did to which element', () => {
+    expect(describeStep(page([h]), page([h, img]))).toEqual({ kind: 'add', what: 'Bild' });
+    expect(describeStep(page([h, img]), page([h]))).toEqual({ kind: 'del', what: 'Bild' });
+    expect(describeStep(page([h, img]), page([img, h]))).toMatchObject({ kind: 'move' });
+    expect(describeStep(page([h]), page([{ ...h, props: { text: 'Grüezi' } }]))).toEqual({ kind: 'edit', what: 'Überschrift' });
+    expect(describeStep(page([h]), page([{ ...h, design: { desktop: { color: 'red' } } }]))).toEqual({ kind: 'style', what: 'Überschrift' });
+    expect(describeStep(page([h]), page([{ ...h, name: 'Titel oben', motion: { in: 'fade' } }]))).toMatchObject({ kind: 'motion', named: 'Titel oben' });
+  });
+  it('sums up several changes and names fields and blocks', () => {
+    const box = { id: 'x', kind: 'box', props: {}, children: [img, { ...img, id: 'j' }] };
+    // A box pasted with its contents: one element added, not three.
+    expect(describeStep(page([h]), page([h, box]))).toEqual({ kind: 'add', what: 'Container' });
+    expect(describeStep(page([h, img]), page([{ ...h, props: { text: 'x' } }]))).toEqual({ kind: 'many', n: 2 });
+    expect(describeStep(page([h]), page([h], { title: 'Neu' }))).toEqual({ kind: 'field', what: 'title' });
+    expect(describeStep(page([h]), page([h], { seo: { title: 'X' } }))).toEqual({ kind: 'seo' });
+    const before = { title: 'A', blocks: [{ id: 'b1', type: 'hero', props: {} }] };
+    expect(describeStep(before, { title: 'A', blocks: [] })).toEqual({ kind: 'del', what: 'Einstieg' });
   });
 });
 

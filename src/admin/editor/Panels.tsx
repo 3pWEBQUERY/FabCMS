@@ -14,7 +14,8 @@ import { analyzeSeo, fullTitle, type SeoCheck } from '../../shared/seo-analyze';
 import { blocksImages, blocksText, BLOCK_MAP } from '../../shared/blocks';
 import { excerpt, relativeTime, shortId } from '../../shared/text';
 import type { Block, CollectionDef, EntryData } from '../../shared/types';
-import type { EntryDoc } from '../lib/useEntryDoc';
+import type { EditStep, EntryDoc } from '../lib/useEntryDoc';
+import type { StepLabel } from '../../shared/steps';
 import { countEls, footerStarter, headerStarter, type El } from '../../shared/elements';
 import { entryUrl } from '../lib/actions';
 import { AB_MIN_SHOWN } from '../../shared/popups';
@@ -538,7 +539,103 @@ function diffFields(before: EntryData, after: EntryData, col: CollectionDef) {
   return col.fields.filter((f) => JSON.stringify(before[f.key] ?? null) !== JSON.stringify(after[f.key] ?? null)).map((f) => tl(f.label));
 }
 
+const STEP_ICON: Record<StepLabel['kind'], string> = {
+  add: 'plus',
+  del: 'trash',
+  move: 'move',
+  style: 'paint',
+  motion: 'play',
+  edit: 'pen',
+  field: 'text',
+  seo: 'seo',
+  many: 'layers',
+};
+
+/** One step in words: «Neu: Bild», «Gestaltet: Überschrift», «3 Änderungen auf einmal». */
+function stepText(label: StepLabel | null, col: CollectionDef | null): string {
+  if (!label) return t('Änderung');
+  const name =
+    label.named ?? (label.kind === 'field' ? tl(col?.fields.find((f) => f.key === label.what)?.label ?? (label.what === 'title' ? 'Titel' : label.what)) : tl(label.what));
+  const what = label.n && label.n > 1 ? `${label.n} × ${name}` : name;
+  switch (label.kind) {
+    case 'add':
+      return t('Neu: {label}', { label: what });
+    case 'del':
+      return t('Entfernt: {label}', { label: what });
+    case 'move':
+      return t('Verschoben: {label}', { label: what });
+    case 'style':
+      return t('Gestaltet: {label}', { label: what });
+    case 'motion':
+      return t('Animation: {label}', { label: what });
+    case 'edit':
+      return t('Geändert: {label}', { label: what });
+    case 'field':
+      return what ? t('Feld «{label}» geändert', { label: what }) : t('Änderung');
+    case 'seo':
+      return t('Suchmaschinen-Angaben geändert');
+    case 'many':
+      return t('{n} Änderungen auf einmal', { n: label.n ?? 2 });
+  }
+}
+
+/**
+ * The steps of this session, like Elementor's «Aktionen»: what was done, newest
+ * on top, and a click goes back – or forward again – to right after that step.
+ */
+function EditSteps({ doc }: { doc: EntryDoc }) {
+  const col = doc.collection ?? null;
+  const now = new Date();
+  const when = (at: number) => (at ? relativeTime(new Date(at), now, adminLang()) : '');
+  const row = (key: string, icon: string, text: string, at: number, state: 'now' | 'past' | 'ahead', onClick?: () => void) => (
+    <button key={key} type="button" className={`rev step-${state}`} aria-current={state === 'now' ? 'step' : undefined} onClick={onClick} disabled={!onClick}>
+      <Icon name={icon} size="s" />
+      <span className="small">{text}</span>
+      <span className="xsmall faint">{when(at)}</span>
+    </button>
+  );
+  const past = doc.steps;
+  const ahead = doc.ahead;
+  return (
+    <div className="stack tight">
+      <p className="small muted">
+        {t('Alles, was du seit dem Öffnen getan hast. Ein Klick springt zurück an diese Stelle – und wieder vorwärts, solange du nichts Neues änderst.')}
+      </p>
+      <div className="stack tight steps" style={{ gap: 2 }}>
+        {[...ahead].reverse().map((s: EditStep, i) => {
+          const by = -(ahead.length - i);
+          return row(`a${i}`, STEP_ICON[s.label?.kind ?? 'edit'], stepText(s.label, col), s.at, 'ahead', () => doc.jump(by));
+        })}
+        {[...past]
+          .reverse()
+          .map((s: EditStep, i) =>
+            row(`p${i}`, STEP_ICON[s.label?.kind ?? 'edit'], stepText(s.label, col), s.at, i === 0 ? 'now' : 'past', i === 0 ? undefined : () => doc.jump(i)),
+          )}
+        {row('start', 'history', t('Geöffnet'), 0, past.length ? 'past' : 'now', past.length ? () => doc.jump(past.length) : undefined)}
+      </div>
+    </div>
+  );
+}
+
 export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: () => void }) {
+  const [tab, setTab] = useState<'steps' | 'versions'>('steps');
+  return (
+    <div className="stack">
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        label={t('Verlauf')}
+        options={[
+          { value: 'steps', label: t('Arbeitsschritte') },
+          { value: 'versions', label: t('Fassungen') },
+        ]}
+      />
+      {tab === 'steps' ? <EditSteps doc={doc} /> : <Versions doc={doc} onRestored={onRestored} />}
+    </div>
+  );
+}
+
+function Versions({ doc, onRestored }: { doc: EntryDoc; onRestored: () => void }) {
   const toast = useToast();
   const { data, reload } = useApi<{ revisions: Rev[] }>(`/api/entries/${doc.entry!.id}/revisions`);
   const [sel, setSel] = useState<number | null>(null);
