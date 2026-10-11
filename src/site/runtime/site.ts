@@ -771,6 +771,83 @@ if (acts.length) {
   });
 }
 
+/* ---------- interactions: on a click, hover or coming into view, something happens to an element ---------- */
+type Ia = { w: 'click' | 'hover' | 'view'; d: 'toggle' | 'show' | 'hide' | 'class' | 'scroll'; t: string; c?: string };
+const iaEls = d.body.dataset.novaEdit ? [] : [...d.querySelectorAll<HTMLElement>('[data-ia]')];
+if (iaEls.length) {
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  /** Does it; `on` false undoes it (the pointer left or the focus went). */
+  const run = (src: HTMLElement, ia: Ia, on: boolean): void => {
+    const t = ia.t ? d.getElementById(ia.t) : src;
+    if (!t) return;
+    if (ia.d === 'scroll') {
+      if (on) t.scrollIntoView({ behavior: calm.matches ? 'auto' : 'smooth', block: 'start' });
+      return;
+    }
+    if (ia.d === 'class') {
+      if (ia.c) t.classList.toggle(ia.c, ia.w === 'click' ? undefined : on);
+      return;
+    }
+    const shut = t.hidden !== false;
+    // «Umschalten» flips it – also back again when a hover ends.
+    const want = ia.d === 'show' ? on : ia.d === 'hide' ? !on : shut;
+    if (want === !shut) return;
+    t.hidden = !want;
+    t.toggleAttribute('data-revealed', want);
+    if (ia.w === 'click' && ia.d !== 'hide') src.setAttribute('aria-expanded', String(want));
+  };
+  iaEls.forEach((el) => {
+    let list: Ia[] = [];
+    try {
+      list = JSON.parse(el.dataset.ia ?? '[]') as Ia[];
+    } catch {
+      return;
+    }
+    const of = (w: Ia['w']) => list.filter((x) => x.w === w);
+    const clicks = of('click');
+    if (clicks.length) {
+      const opens = clicks.find((x) => x.d !== 'class' && x.d !== 'scroll' && x.d !== 'hide' && x.t);
+      if (opens) {
+        el.setAttribute('aria-controls', opens.t);
+        el.setAttribute('aria-expanded', String(!d.getElementById(opens.t)?.hidden));
+      }
+      el.addEventListener('click', (e) => {
+        // A link inside does what links do – unless the whole thing is the link.
+        if ((e.target as Element).closest('a[href]') !== el.closest('a[href]')) return;
+        if (el.matches('a[href^="#"], a:not([href])')) e.preventDefault();
+        clicks.forEach((x) => run(el, x, true));
+      });
+      if (el.getAttribute('role') === 'button')
+        el.addEventListener('keydown', (e) => {
+          if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return;
+          e.preventDefault();
+          el.click();
+        });
+    }
+    const hovers = of('hover');
+    if (hovers.length) {
+      const set = (on: boolean) => hovers.forEach((x) => run(el, x, on));
+      el.addEventListener('pointerenter', (e) => e.pointerType !== 'touch' && set(true));
+      el.addEventListener('pointerleave', (e) => e.pointerType !== 'touch' && set(false));
+      el.addEventListener('focusin', () => set(true));
+      el.addEventListener('focusout', (e) => !el.contains(e.relatedTarget as Node) && set(false));
+    }
+    const views = of('view');
+    if (views.length) {
+      const io = new IntersectionObserver(
+        (entries) =>
+          entries.forEach((en) => {
+            if (!en.isIntersecting) return;
+            io.disconnect();
+            views.forEach((x) => run(el, x, true));
+          }),
+        { threshold: 0.35 },
+      );
+      io.observe(el);
+    }
+  });
+}
+
 /* ---------- pop-ups: at most one per page view, when its trigger fires; this browser remembers it was seen ---------- */
 const pops = [...d.querySelectorAll<HTMLDialogElement>('dialog[data-pop]')];
 if (pops.length && !d.body.classList.contains('age-locked')) {

@@ -78,6 +78,7 @@ import {
   walkEls,
   headlineText,
   scopeElCss,
+  cleanIas,
   cleanAnchor,
   elDomId,
   type El,
@@ -2278,6 +2279,48 @@ describe('Kundenstimme', () => {
     expect(sanitizeEls([{ id: 'u', kind: 'testimonial', props: { stars: -2 } }])[0].props.stars).toBe(0);
     expect(elementsText([el])).toContain('Wieder gern.');
     expect(elementsMedia([el])).toEqual(['p-1']);
+  });
+});
+
+describe('Interaktionen', () => {
+  it('keeps known triggers and actions with a real target, at most six', () => {
+    const ias = cleanIas(
+      [
+        { when: 'click', do: 'toggle', target: 'more' },
+        { when: 'hover', do: 'class', target: 'a', style: 'abc123' },
+        { when: 'hover', do: 'class', target: 'self', cls: 'offen' },
+        { when: 'click', do: 'class', target: 'self' },
+        { when: 'hover', do: 'scroll', target: 'x' },
+        { when: 'click', do: 'scroll', target: 'self' },
+        { when: 'dblclick', do: 'show', target: 'x' },
+        { when: 'view', do: 'show', target: '<script>' },
+        { when: 'view', do: 'show', target: 'a' },
+      ],
+      'a',
+    );
+    expect(ias).toEqual([
+      { when: 'click', do: 'toggle', target: 'more' },
+      // Its own id is «self».
+      { when: 'hover', do: 'class', target: 'self', style: 'abc123' },
+      { when: 'hover', do: 'class', target: 'self', cls: 'offen' },
+    ]);
+    expect(
+      cleanIas(
+        Array.from({ length: 10 }, () => ({ when: 'click', do: 'toggle', target: 'b' })),
+        'a',
+      ),
+    ).toHaveLength(6);
+    // A copy aims at the copy of its target.
+    const copy = cloneEl({
+      id: 'box',
+      kind: 'box',
+      props: {},
+      children: [
+        { id: 'b1', kind: 'button', props: {}, on: [{ when: 'click', do: 'toggle', target: 't1' }] },
+        { id: 't1', kind: 'text', props: {} },
+      ],
+    });
+    expect(copy.children![0].on![0].target).toBe(copy.children![1].id);
   });
 });
 

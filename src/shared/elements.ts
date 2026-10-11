@@ -92,6 +92,8 @@ export interface El {
   pinned?: boolean;
   /** «Sprungmarke»: its id in the page instead of e-…, so links like /seite#team land here. */
   anchor?: string;
+  /** Interactions: on a click, hover or coming into view, something happens to it or another element. */
+  on?: Ia[];
   /** Werkbank: CSS of its own («&» is the element) and extra class names. */
   css?: string;
   className?: string;
@@ -101,6 +103,52 @@ export interface El {
 
 export const EL_ACTS = ['toggle', 'show', 'hide'] as const;
 export type ElAct = (typeof EL_ACTS)[number];
+
+/** What sets an interaction off, and what it does. */
+export const IA_WHEN = ['click', 'hover', 'view'] as const;
+export const IA_DO = ['toggle', 'show', 'hide', 'class', 'scroll'] as const;
+export const MAX_IA = 6;
+/**
+ * One interaction, as in Bricks or Webflow: `target` is an element of the same
+ * layout or «self». «class» switches a saved style (`style`) or – Werkbank – a
+ * class of one's own (`cls`) on the target; on hover everything goes back when
+ * the pointer leaves.
+ */
+export interface Ia {
+  when: (typeof IA_WHEN)[number];
+  do: (typeof IA_DO)[number];
+  target: string;
+  style?: string;
+  cls?: string;
+}
+
+const IA_CLS = /^[A-Za-z][\w-]{0,39}$/;
+
+/** Interactions as sent by the editor: known triggers and actions, a real target, a class to switch for «class». */
+export function cleanIas(input: unknown, self: string): Ia[] {
+  if (!Array.isArray(input)) return [];
+  const out: Ia[] = [];
+  for (const raw of input.slice(0, MAX_IA)) {
+    if (!isObj(raw)) continue;
+    const when = (IA_WHEN as readonly string[]).includes(String(raw.when)) ? (raw.when as Ia['when']) : null;
+    const act = (IA_DO as readonly string[]).includes(String(raw.do)) ? (raw.do as Ia['do']) : null;
+    const target = raw.target === 'self' || raw.target === self ? 'self' : typeof raw.target === 'string' && ID.test(raw.target) ? raw.target : null;
+    if (!when || !act || !target) continue;
+    const ia: Ia = { when, do: act, target };
+    if (act === 'class') {
+      if (typeof raw.style === 'string' && /^[a-z0-9]{6,12}$/.test(raw.style)) ia.style = raw.style;
+      else if (typeof raw.cls === 'string' && IA_CLS.test(raw.cls)) ia.cls = raw.cls;
+      else continue;
+    }
+    // Scrolling to itself on hover or in view would only jump about.
+    if (act === 'scroll' && (target === 'self' || when !== 'click')) continue;
+    out.push(ia);
+  }
+  return out;
+}
+
+/** The class an interaction switches: a saved style's own, or the Werkbank's. */
+export const iaClass = (ia: Ia) => (ia.style ? `ia-${ia.style}` : (ia.cls ?? ''));
 
 /**
  * A component is an element tree kept in its own «sections» entry (kind
@@ -1352,6 +1400,7 @@ export function cloneEl(el: El): El {
   const retarget = (x: El): El => ({
     ...x,
     ...(x.act && ids.has(x.act.target) ? { act: { ...x.act, target: ids.get(x.act.target)! } } : {}),
+    ...(x.on ? { on: x.on.map((ia) => (ids.has(ia.target) ? { ...ia, target: ids.get(ia.target)! } : ia)) } : {}),
     children: x.children?.map(retarget),
   });
   return retarget(out);
@@ -1779,6 +1828,8 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
       el.act = { do: raw.act.do as ElAct, target: raw.act.target };
     if (raw.hidden === true) el.hidden = true;
     if (raw.pinned === true) el.pinned = true;
+    const on = cleanIas(raw.on, id);
+    if (on.length) el.on = on;
     if (typeof raw.css === 'string' && raw.css.trim()) el.css = raw.css.replace(/</g, '').slice(0, MAX_EL_CSS);
     if (typeof raw.className === 'string') {
       const c = raw.className

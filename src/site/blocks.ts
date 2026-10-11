@@ -3,13 +3,13 @@ import type { BoundEntry, RenderContext } from './context';
 import { picture, originalUrl, variantUrl } from './picture';
 import { BLOCK_MAP } from '../shared/blocks';
 import { blockDomId, designImages } from '../shared/design';
-import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
+import { blockLookCss, iaStylesCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
 import { slidesCss } from '../shared/bg-media';
 import { dividerHtml } from '../shared/dividers';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
-import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, iaClass, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
@@ -894,10 +894,20 @@ function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'bo
   // The first copy carries the id and the editor's handles; copies in a CMS list only the class.
   // Hidden until a button shows it – in the editor it stays in view, marked, so it can be designed.
   const hidden = el.hidden ? (rc.edit ? ' data-nova-hidden' : ' hidden') : '';
+  // Interactions (not in the editor, nor on copies in a CMS list – they have no ids to aim at).
+  let ia = '';
+  if (el.on?.length && !rc.edit && !rc.list && !rc.copy) {
+    ctx.needs.add('reveal');
+    const list = el.on.map((x) => ({ w: x.when, d: x.do, t: x.target === 'self' ? '' : actTarget(x.target, rc), ...(x.do === 'class' ? { c: iaClass(x) } : {}) }));
+    ia = ` data-ia="${esc(JSON.stringify(list))}"`;
+    // Something clicked that isn't a link or button becomes one for the keyboard and screen readers.
+    const native = el.kind === 'button' || (typeof el.props.href === 'string' && el.props.href);
+    if (el.on.some((x) => x.when === 'click') && !native) ia += ' tabindex="0" role="button"';
+  }
   return raw(
     `${!rc.copy && (rc.edit || !rc.list) ? ` id="${elDomId(el)}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"${el.pinned ? ' data-nova-pinned' : ''}` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
       motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
-    }${hidden}${rc.extra ?? ''}`,
+    }${hidden}${ia}${rc.extra ?? ''}`,
   );
 }
 
@@ -1340,13 +1350,16 @@ async function renderComponent(el: El, ctx: RenderContext, rc: ElRender, attrs: 
     ctx.components.add(p.ref);
     const images = new Map<string, string>();
     const used = new Set<string>();
-    walkEls(master, (x) => void (styleOf(x.use) && used.add(x.use!)));
+    walkEls(master, (x) => {
+      if (styleOf(x.use)) used.add(x.use!);
+      x.on?.forEach((ia) => styleOf(ia.style) && used.add(ia.style!));
+    });
     for (const id of new Set([...elementImages(master), ...variantImages(variants), ...savedStyleImages(used, ctx.settings.styles ?? [])])) {
       const m = await ctx.media(id);
       if (m) images.set(id, variantUrl(m, 1920, 'webp'));
     }
     const opts = { image: (id: string) => images.get(id) ?? null };
-    css = (savedStylesCss(used, ctx.settings.styles ?? [], opts) + elementsCss(master, opts) + variantsCss(variants, opts)).replace(/</g, '');
+    css = (savedStylesCss(used, ctx.settings.styles ?? [], opts) + elementsCss(master, opts) + iaStylesCss(master, ctx.settings.styles ?? [], opts) + variantsCss(variants, opts)).replace(/</g, '');
   }
   const inner = await renderEls(applyOverrides(master, p.overrides as Overrides), ctx, {
     path: 'els',

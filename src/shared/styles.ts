@@ -7,7 +7,7 @@
  */
 
 import { blockCss, designCss, designImages, type CompileOptions, type Design } from './design';
-import { elementsCss, variantsCss, walkEls, type El, type Variant } from './elements';
+import { elementsCss, findEl, variantsCss, walkEls, type El, type Variant } from './elements';
 import type { Block } from './types';
 
 export interface SavedStyle {
@@ -45,8 +45,29 @@ export function stylesUsed(b: Block): string[] {
   const out = new Set<string>();
   const own = styleOf(b.style?.use);
   if (own) out.add(own);
-  if (b.type === 'layout') walkEls((b.props.els as El[] | undefined) ?? [], (el) => void (styleOf(el.use) && out.add(el.use!)));
+  // Also the ones interactions switch on and off (their pictures, and their changes reach the canvas).
+  if (b.type === 'layout')
+    walkEls((b.props.els as El[] | undefined) ?? [], (el) => {
+      if (styleOf(el.use)) out.add(el.use!);
+      el.on?.forEach((ia) => styleOf(ia.style) && out.add(ia.style!));
+    });
   return [...out];
+}
+
+/**
+ * A saved style switched by an interaction, for its target only: over the
+ * target's own design (an id and a class weigh more than an id), while it is on.
+ */
+export function iaStylesCss(els: El[], styles: SavedStyle[], opts: CompileOptions & { forceHover?: string } = {}): string {
+  const out: string[] = [];
+  walkEls(els, (el) =>
+    el.on?.forEach((ia) => {
+      const s = ia.style ? styles.find((x) => x.id === ia.style) : undefined;
+      const target = ia.target === 'self' ? el : findEl(els, ia.target)?.el;
+      if (s && target) out.push(designCss(`:is(#e-${target.id},.e-${target.id}).ia-${s.id}`, s.design, opts));
+    }),
+  );
+  return [...new Set(out)].join('');
 }
 
 /** How often each style is used in these blocks – every block and element counts once. */
@@ -90,6 +111,10 @@ export function blockLookCss(selector: string, b: Block, styles: SavedStyle[], o
   return (
     savedStylesCss(stylesUsed(b), styles, opts) +
     blockCss(selector, s, opts) +
-    (layout ? elementsCss((b.props.els as El[] | undefined) ?? [], opts) + variantsCss(b.props.variants as Variant[] | undefined, opts) : '')
+    (layout
+      ? elementsCss((b.props.els as El[] | undefined) ?? [], opts) +
+        iaStylesCss((b.props.els as El[] | undefined) ?? [], styles, opts) +
+        variantsCss(b.props.variants as Variant[] | undefined, opts)
+      : '')
   );
 }

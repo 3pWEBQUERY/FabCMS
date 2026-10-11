@@ -1,7 +1,10 @@
+import { useContext } from 'react';
 import { t, tl } from '../../lib/i18n';
+import { useSession } from '../../lib/session';
 import { Field, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
-import { EL_DEFS, walkEls, type El, type ElAct } from '../../../shared/elements';
+import { EL_DEFS, MAX_IA, walkEls, type El, type ElAct, type Ia } from '../../../shared/elements';
+import { SavedStyles } from '../design/SavedStyles';
 import { stripHtml } from '../../../shared/text';
 
 /** How an element is called in the lists: its own name, else its kind and the first words it shows. */
@@ -21,9 +24,10 @@ export function InteractionControls({ el, els, onChange, onSelect }: { el: El; e
   walkEls(els, (x) => void all.push(x));
   const targets = all.filter((x) => x.id !== el.id);
   const target = el.act ? all.find((x) => x.id === el.act!.target) : undefined;
-  // Something hidden that no button can bring back would stay invisible for good.
-  const opener = all.some((x) => x.act && x.act.target === el.id && x.act.do !== 'hide');
-  const openers = all.filter((x) => x.act?.target === el.id);
+  // Something hidden that nothing can bring back would stay invisible for good.
+  const aims = (x: El, ia: Ia) => (ia.target === 'self' ? x.id : ia.target) === el.id;
+  const opener = all.some((x) => (x.act && x.act.target === el.id && x.act.do !== 'hide') || x.on?.some((ia) => aims(x, ia) && (ia.do === 'show' || ia.do === 'toggle')));
+  const openers = all.filter((x) => x.act?.target === el.id || (x.id !== el.id && x.on?.some((ia) => aims(x, ia))));
 
   return (
     <div className="stack tight ia-box">
@@ -68,14 +72,17 @@ export function InteractionControls({ el, els, onChange, onSelect }: { el: El; e
           )}
         </>
       )}
+      <IaList el={el} targets={targets} onChange={onChange} />
       <Toggle
         checked={Boolean(el.hidden)}
         onChange={(v) => onChange({ ...el, hidden: v || undefined })}
         label={t('Anfangs versteckt')}
-        help={t('Erscheint erst, wenn ein Knopf es zeigt. Im Editor bleibt es sichtbar und ist gestrichelt markiert.')}
+        help={t('Erscheint erst, wenn ein Knopf oder eine Interaktion es zeigt. Im Editor bleibt es sichtbar und ist gestrichelt markiert.')}
       />
       {el.hidden && !opener && (
-        <p className="xsmall ia-warn">{t('Noch zeigt kein Knopf dieses Element – auf der Website bliebe es unsichtbar. Wähl bei einem Knopf «Beim Klick».')}</p>
+        <p className="xsmall ia-warn">
+          {t('Noch zeigt nichts dieses Element – auf der Website bliebe es unsichtbar. Wähl bei einem Knopf «Beim Klick» oder gib einem Element eine Interaktion.')}
+        </p>
       )}
       {openers.length > 0 && (
         <p className="xsmall muted">
@@ -90,6 +97,81 @@ export function InteractionControls({ el, els, onChange, onSelect }: { el: El; e
           ))}
         </p>
       )}
+    </div>
+  );
+}
+
+const WHEN: { value: Ia['when']; label: () => string }[] = [
+  { value: 'click', label: () => t('Beim Klick') },
+  { value: 'hover', label: () => t('Beim Darüberfahren') },
+  { value: 'view', label: () => t('Beim Sichtbarwerden') },
+];
+const DO: { value: Ia['do']; label: () => string }[] = [
+  { value: 'toggle', label: () => t('Ein- und ausblenden') },
+  { value: 'show', label: () => t('Zeigen') },
+  { value: 'hide', label: () => t('Verbergen') },
+  { value: 'class', label: () => t('Stil umschalten') },
+  { value: 'scroll', label: () => t('Hinscrollen') },
+];
+
+/**
+ * Interactions as in Bricks or Webflow: a trigger on this element, an action
+ * on it or another element of the layout. On hover everything goes back
+ * when the pointer leaves.
+ */
+function IaList({ el, targets, onChange }: { el: El; targets: El[]; onChange: (el: El) => void }) {
+  const { pro } = useSession();
+  const styles = useContext(SavedStyles)?.styles ?? [];
+  const list = el.on ?? [];
+  const set = (next: Ia[]) => onChange({ ...el, on: next.length ? next : undefined });
+  const change = (i: number, patch: Partial<Ia>) => set(list.map((x, n) => (n === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="stack tight">
+      {list.map((ia, i) => (
+        <div key={i} className="ia-row">
+          <div className="ia-grid">
+            <Select
+              label={t('Auslöser')}
+              value={ia.when}
+              onChange={(v) => change(i, { when: v as Ia['when'] })}
+              options={WHEN.map((o) => ({ value: o.value, label: o.label() }))}
+            />
+            <Select
+              label={t('Aktion')}
+              value={ia.do}
+              onChange={(v) => change(i, { do: v as Ia['do'], ...(v === 'scroll' && ia.target === 'self' ? { target: targets[0]?.id ?? 'self' } : {}) })}
+              options={DO.filter((o) => o.value !== 'scroll' || ia.when === 'click').map((o) => ({ value: o.value, label: o.label() }))}
+            />
+            <Select
+              label={t('Woran?')}
+              value={ia.target}
+              onChange={(v) => change(i, { target: v })}
+              options={[...(ia.do === 'scroll' ? [] : [{ value: 'self', label: t('An diesem Element') }]), ...targets.map((x) => ({ value: x.id, label: label(x) }))]}
+            />
+            {ia.do === 'class' && (
+              <Select
+                label={t('Welcher Stil?')}
+                value={ia.style ?? (ia.cls ? '__own' : '')}
+                onChange={(v) => change(i, v === '__own' ? { style: undefined, cls: ia.cls ?? 'aktiv' } : { style: v || undefined, cls: undefined })}
+                options={[...styles.map((x) => ({ value: x.id, label: x.name })), ...(pro ? [{ value: '__own', label: t('Eigene CSS-Klasse …') }] : [])]}
+                placeholder={styles.length ? t('Gespeicherten Stil wählen …') : t('Noch keine gespeicherten Stile')}
+              />
+            )}
+            {ia.do === 'class' && !ia.style && pro && ia.cls !== undefined && (
+              <input className="input mono" value={ia.cls} aria-label={t('CSS-Klasse')} onChange={(e) => change(i, { cls: e.target.value.replace(/[^\w-]/g, '') })} />
+            )}
+          </div>
+          <button type="button" className="btn s ghost icon-only" onClick={() => set(list.filter((_, n) => n !== i))} aria-label={t('Interaktion entfernen')}>
+            <Icon name="trash" size="s" />
+          </button>
+        </div>
+      ))}
+      {list.length < MAX_IA && (
+        <button type="button" className="btn s" style={{ justifySelf: 'start' }} onClick={() => set([...list, { when: 'click', do: 'toggle', target: targets[0]?.id ?? 'self' }])}>
+          <Icon name="plus" size="s" /> {t('Interaktion hinzufügen')}
+        </button>
+      )}
+      {list.some((x) => x.do === 'class' && !x.style && !x.cls) && <p className="xsmall ia-warn">{t('Wähl den Stil, der umgeschaltet wird.')}</p>}
     </div>
   );
 }

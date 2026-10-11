@@ -8251,3 +8251,24 @@ textarea.dg-input {
   display: block;
   min-width: 0;
 }
+
+/* Interactions: trigger, action, target (and style) per row */
+.ia-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: start;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+}
+.ia-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.ia-grid > :nth-child(3),
+.ia-grid > :nth-child(4),
+.ia-grid > :nth-child(5) {
+  grid-column: 1 / -1;
+}
