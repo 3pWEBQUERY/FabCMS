@@ -1231,6 +1231,24 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       );
       return html`<div class="${cls(`tbl-wrap${p.stripes === true ? ' tbl-stripes' : ''}`)}"${attrs}><table class="tbl">${head}<tbody>${body}</tbody></table></div>`;
     }
+    case 'skills': {
+      const items = (Array.isArray(p.items) ? p.items : []) as { label?: string; value?: number }[];
+      if (!items.length) return handles ? html`<div class="${cls('el-empty')}"${attrs}>Noch keine Balken – im Inspektor hinzufügen.</div>` : html``;
+      const max = Math.min(1000, Math.max(1, Number(p.max) || 100));
+      const unit = typeof p.unit === 'string' ? p.unit : '%';
+      const nf = new Intl.NumberFormat(L(ctx), { maximumFractionDigits: 1 });
+      // «85 %» with a narrow space, «4 / 5» without a unit.
+      const shown = (v: number) => (unit ? `${nf.format(v)}${/^[%‰]$/.test(unit) ? '\u202f' : '\u00a0'}${unit}` : `${nf.format(v)} / ${nf.format(max)}`);
+      const h = Math.min(32, Math.max(2, Number(p.height) || 8));
+      const rows = items.map((it, i) => {
+        const v = Math.min(max, Math.max(0, Number(it.value) || 0));
+        const id = `sk-${el.id}-${i}`;
+        return html`<div class="sk"><span class="sk-label" id="${id}"${rc.over ? '' : field(rc.edit, `${path}.props.items.${i}.label`)}>${it.label ?? ''}</span>${
+          p.showValue !== false ? html`<span class="sk-num">${shown(v)}</span>` : ''
+        }<span class="sk-track" role="meter" aria-labelledby="${id}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}" aria-valuetext="${shown(v)}"><span class="sk-fill" style="width:${Math.round((v / max) * 10000) / 100}%"></span></span></div>`;
+      });
+      return html`<div class="${cls(`sk-${p.look === 'inline' ? 'inline' : 'stacked'}${p.rounded === false ? ' sk-square' : ''}`)}"${attrs} style="--sk-h:${h}px">${rows}</div>`;
+    }
     case 'chart':
       return renderChart(p, ctx, { cls: cls(), attrs, caption: editField('caption'), edit: rc.edit });
     case 'social': {

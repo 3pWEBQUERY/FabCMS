@@ -1453,4 +1453,25 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'With a single series. Otherwise the values show on hover.',
   },
   'Daten zum Aufklappen als Tabelle': { fr: 'Données dépliables sous forme de tableau', it: 'Dati espandibili come tabella', en: 'Data as an expandable table' },
+  Fortschrittsbalken: { fr: 'Barres de progression', it: 'Barre di avanzamento', en: 'Progress bars' },
+  'Balken, die zeigen, wie weit etwas ist – Kenntnisse, Auslastung, Spendenziel. Sie füllen sich beim Hereinscrollen.': {
+    fr: 'Des barres qui montrent où en est quelque chose – compétences, taux d’occupation, objectif de dons. Elles se remplissent au défilement.',
+    it: 'Barre che mostrano a che punto è qualcosa – competenze, occupazione, obiettivo di donazioni. Si riempiono scorrendo.',
+    en: 'Bars that show how far along something is – skills, occupancy, a donation goal. They fill as they scroll into view.',
+  },
+  'Voller Balken bei': { fr: 'Barre pleine à', it: 'Barra piena a', en: 'Full bar at' },
+  '100 für Prozent, 5 für «4 von 5».': {
+    fr: '100 pour des pourcentages, 5 pour « 4 sur 5 ».',
+    it: '100 per le percentuali, 5 per «4 su 5».',
+    en: '100 for percent, 5 for “4 of 5”.',
+  },
+  'Leer zeigt «4 / 5».': { fr: 'Vide affiche « 4 / 5 ».', it: 'Vuoto mostra «4 / 5».', en: 'Empty shows “4 / 5”.' },
+  'Beschriftung über dem Balken': { fr: 'Libellé au-dessus de la barre', it: 'Etichetta sopra la barra', en: 'Label above the bar' },
+  'Beschriftung, Balken und Wert in einer Zeile': {
+    fr: 'Libellé, barre et valeur sur une ligne',
+    it: 'Etichetta, barra e valore su una riga',
+    en: 'Label, bar and value on one line',
+  },
+  'Runde Enden': { fr: 'Extrémités arrondies', it: 'Estremità arrotondate', en: 'Rounded ends' },
+  'Wert zeigen': { fr: 'Afficher la valeur', it: 'Mostra il valore', en: 'Show value' },
 };

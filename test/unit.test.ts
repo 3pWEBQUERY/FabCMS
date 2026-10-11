@@ -2452,6 +2452,34 @@ describe('Fliessende Schriftgrössen', () => {
   });
 });
 
+describe('Element Fortschrittsbalken', () => {
+  it('keeps every value between zero and a full bar', () => {
+    const [el] = sanitizeEls([
+      {
+        id: 's',
+        kind: 'skills',
+        props: {
+          items: [
+            { label: 'A', value: 140 },
+            { label: '<i>B</i>', value: '-3' },
+            { label: 'C', value: '4,5' },
+          ],
+          max: 5,
+          look: 'wild',
+          height: 90,
+        },
+      },
+    ]);
+    expect(el.props.items).toEqual([
+      { label: 'A', value: 5 },
+      { label: '<i>B</i>', value: 0 },
+      { label: 'C', value: 4.5 },
+    ]);
+    expect(el.props).toMatchObject({ max: 5, unit: '%', look: 'stacked', height: 32, rounded: true, showValue: true });
+    expect(sanitizeEls([{ id: 't', kind: 'skills', props: { unit: '' } }])[0].props).toMatchObject({ unit: '', max: 100, items: [] });
+  });
+});
+
 describe('Element Diagramm', () => {
   it('reads numbers as people type and paste them', () => {
     const cases: [string, number | null][] = [

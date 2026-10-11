@@ -52,6 +52,7 @@ export const EL_KINDS = [
   'totop',
   'table',
   'chart',
+  'skills',
   'accordion',
   'tabs',
   'slider',
@@ -878,6 +879,52 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       values: true,
       table: false,
       height: 300,
+    },
+  },
+  skills: {
+    kind: 'skills',
+    group: 'basic',
+    label: 'Fortschrittsbalken',
+    description: 'Balken, die zeigen, wie weit etwas ist – Kenntnisse, Auslastung, Spendenziel. Sie füllen sich beim Hereinscrollen.',
+    icon: 'stats',
+    fields: [
+      {
+        key: 'items',
+        type: 'group',
+        label: 'Balken',
+        fields: [
+          { key: 'label', type: 'text', label: 'Beschriftung' },
+          { key: 'value', type: 'number', label: 'Wert', min: 0, max: 1000 },
+        ],
+      },
+      { key: 'max', type: 'number', label: 'Voller Balken bei', min: 1, max: 1000, default: 100, help: '100 für Prozent, 5 für «4 von 5».' },
+      { key: 'unit', type: 'text', label: 'Einheit', help: 'Leer zeigt «4 / 5».', maxLength: 12 },
+      {
+        key: 'look',
+        type: 'select',
+        label: 'Anordnung',
+        options: [
+          { value: 'stacked', label: 'Beschriftung über dem Balken' },
+          { value: 'inline', label: 'Beschriftung, Balken und Wert in einer Zeile' },
+        ],
+        default: 'stacked',
+      },
+      { key: 'height', type: 'number', label: 'Dicke in Pixeln', min: 2, max: 32, default: 8 },
+      { key: 'rounded', type: 'boolean', label: 'Runde Enden' },
+      { key: 'showValue', type: 'boolean', label: 'Wert zeigen' },
+    ],
+    defaults: {
+      items: [
+        { label: 'Regionale Zutaten', value: 90 },
+        { label: 'Hausgemacht', value: 75 },
+        { label: 'Vegetarische Gerichte', value: 40 },
+      ],
+      max: 100,
+      unit: '%',
+      look: 'stacked',
+      height: 8,
+      rounded: true,
+      showValue: true,
     },
   },
   social: {
@@ -1779,6 +1826,21 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         height: typeof p.height === 'number' && Number.isFinite(p.height) ? Math.min(640, Math.max(160, Math.round(p.height))) : 300,
       };
     }
+    case 'skills': {
+      const max = typeof p.max === 'number' && Number.isFinite(p.max) ? Math.min(1000, Math.max(1, p.max)) : 100;
+      return {
+        items: (Array.isArray(p.items) ? p.items : [])
+          .filter(isObj)
+          .slice(0, 30)
+          .map((x) => ({ label: plain(x.label, 120), value: Math.min(max, Math.max(0, chartValue(x.value))) })),
+        max,
+        unit: typeof p.unit === 'string' ? plain(p.unit, 12) : '%',
+        look: one(p.look, ['stacked', 'inline'] as const, 'stacked'),
+        height: typeof p.height === 'number' && Number.isFinite(p.height) ? Math.min(32, Math.max(2, Math.round(p.height))) : 8,
+        rounded: p.rounded !== false,
+        showValue: p.showValue !== false,
+      };
+    }
     case 'social':
       return {
         look: one(p.look, ['icons', 'both', 'labels'] as const, 'icons'),
@@ -2082,6 +2144,13 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'skills')
+        out.push(
+          ((el.props.items as { label?: unknown }[]) ?? [])
+            .map((x) => x.label)
+            .filter(Boolean)
+            .join(' '),
+        );
       if (el.kind === 'chart')
         out.push([el.props.caption, ...((el.props.labels as unknown[]) ?? []), ...((el.props.series as { name?: unknown }[]) ?? []).map((x) => x.name)].filter(Boolean).join(' '));
       if (el.kind === 'table') for (const r of [el.props.cols, ...((el.props.rows as unknown[]) ?? [])] as unknown[][]) out.push((r ?? []).join(' '));

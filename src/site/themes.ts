@@ -444,6 +444,15 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.el-skills{display:grid;gap:1.1rem;--sk-r:999px}
+.el-skills.sk-square{--sk-r:0}
+.sk{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'l n' 't t';align-items:center;gap:.45rem 1rem}
+.sk-inline .sk{grid-template-columns:minmax(5rem,clamp(6rem,30%,14rem)) minmax(0,1fr) auto;grid-template-areas:'l t n';gap:1rem}
+.sk-label{grid-area:l;min-width:0}
+.sk-num{grid-area:n;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sk-track{grid-area:t;display:block;height:var(--sk-h);border-radius:var(--sk-r);background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden}
+.sk-fill{display:block;height:100%;border-radius:var(--sk-r);background:var(--accent)}
+@media (prefers-reduced-motion:no-preference){@supports (animation-timeline:view()){.sk-fill{animation:chart-right linear both;animation-timeline:view();animation-range:entry 0% entry 100%}}}
 .el-chart{margin:0;display:grid;gap:.75rem;min-width:0;font-variant-numeric:tabular-nums;container:chart/inline-size}
 .chart-cap{font-weight:600}
 .chart-legend{display:flex;flex-wrap:wrap;gap:.35rem 1rem;margin:0;padding:0;list-style:none;font-size:var(--step-n1);color:var(--ink-2)}
