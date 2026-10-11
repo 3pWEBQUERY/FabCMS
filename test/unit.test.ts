@@ -38,6 +38,7 @@ import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
 import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
+import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
 import { cleanVariables, variableId, variablesCss } from '../src/shared/variables';
@@ -2446,6 +2447,42 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Element Tabelle', () => {
+  it('keeps every row as wide as the headings and within the limits', () => {
+    const [el] = sanitizeEls([
+      {
+        id: 't',
+        kind: 'table',
+        props: { cols: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], rows: [['1'], ['1', '2', '3', '4', '5', '6', '7', '8'], 'kaputt', ['<b>x</b>']], stripes: true },
+      },
+    ]);
+    const cols = el.props.cols as string[];
+    const rows = el.props.rows as string[][];
+    expect(cols).toHaveLength(6);
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.length === 6)).toBe(true);
+    expect(rows[0]).toEqual(['1', '', '', '', '', '']);
+    expect(rows[2][0]).toBe('<b>x</b>'); // plain text, escaped when the page is rendered
+    expect(el.props).toMatchObject({ rowHeads: true, right: true, stripes: true });
+    const many = sanitizeEls([{ id: 'm', kind: 'table', props: { cols: [], rows: Array.from({ length: 90 }, () => ['x']) } }])[0];
+    expect(many.props.cols).toEqual(['']);
+    expect(many.props.rows as string[][]).toHaveLength(60);
+  });
+
+  it('reads cells pasted from a spreadsheet', () => {
+    expect(parsePastedTable('Leistung\tPreis\r\nSchnitt\t45.–\n\n')).toEqual([
+      ['Leistung', 'Preis'],
+      ['Schnitt', '45.–'],
+    ]);
+    expect(parsePastedTable('"Name";"Ort"\nAnna;Bern')).toEqual([
+      ['Name', 'Ort'],
+      ['Anna', 'Bern'],
+    ]);
+    expect(parsePastedTable('a,b')).toEqual([['a', 'b']]);
+    expect(parsePastedTable('  ')).toEqual([]);
   });
 });
 

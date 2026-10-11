@@ -49,6 +49,7 @@ export const EL_KINDS = [
   'testimonial',
   'social',
   'totop',
+  'table',
   'accordion',
   'tabs',
   'slider',
@@ -820,6 +821,28 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       level: '2',
     },
   },
+  table: {
+    kind: 'table',
+    group: 'basic',
+    label: 'Tabelle',
+    description: 'Zeilen und Spalten für Preise, Öffnungszeiten oder Angaben – Zellen direkt auf der Seite schreiben, aus Excel einfügen. Auf dem Handy wird jede Zeile zur Karte.',
+    icon: 'table',
+    fields: [
+      { key: 'rowHeads', type: 'boolean', label: 'Erste Spalte als Zeilentitel' },
+      { key: 'right', type: 'boolean', label: 'Letzte Spalte rechtsbündig', help: 'Für Preise und Zahlen.' },
+      { key: 'stripes', type: 'boolean', label: 'Zeilen abwechselnd hinterlegt' },
+    ],
+    defaults: {
+      cols: ['Leistung', 'Dauer', 'Preis'],
+      rows: [
+        ['Mittagsmenü', '45 Min.', 'CHF 24.–'],
+        ['Abendmenü', '2 Std.', 'CHF 68.–'],
+      ],
+      rowHeads: true,
+      right: true,
+      stripes: false,
+    },
+  },
   social: {
     kind: 'social',
     group: 'site',
@@ -1589,6 +1612,8 @@ const productRef = (v: unknown) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
 export const MAX_HOTSPOTS = 12;
+export const MAX_TABLE_COLS = 6;
+export const MAX_TABLE_ROWS = 60;
 /** A spot on a picture, in percent of its width or height (one decimal); anything else – the middle. */
 const pct = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v * 10) / 10)) : 50);
 
@@ -1682,6 +1707,20 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         zoom: one(String(p.zoom ?? '16'), ['13', '15', '16', '17'] as const, '16'),
         height: typeof p.height === 'number' ? Math.min(800, Math.max(200, Math.round(p.height))) : 380,
         route: p.route !== false,
+      };
+    }
+    case 'table': {
+      const cols = (Array.isArray(p.cols) ? p.cols : []).slice(0, MAX_TABLE_COLS).map((c) => plain(c, 80));
+      const width = Math.max(1, cols.length);
+      return {
+        cols: cols.length ? cols : [''],
+        rows: (Array.isArray(p.rows) ? p.rows : [])
+          .filter(Array.isArray)
+          .slice(0, MAX_TABLE_ROWS)
+          .map((r: unknown[]) => Array.from({ length: width }, (_, i) => plain(r[i], 200))),
+        rowHeads: p.rowHeads !== false,
+        right: p.right !== false,
+        stripes: p.stripes === true,
       };
     }
     case 'social':
@@ -1987,6 +2026,7 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'table') for (const r of [el.props.cols, ...((el.props.rows as unknown[]) ?? [])] as unknown[][]) out.push((r ?? []).join(' '));
       if (el.kind === 'testimonial') out.push(String(el.props.quote ?? ''), String(el.props.name ?? ''));
       if (el.kind === 'flipbox') for (const k of ['title', 'text', 'backTitle', 'backText', 'label']) out.push(String(el.props[k] ?? ''));
       if (el.kind === 'hotspots')

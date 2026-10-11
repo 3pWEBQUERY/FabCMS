@@ -8343,3 +8343,41 @@ textarea.dg-input {
     display: none;
   }
 }
+
+/* «Tabelle»: the cells in the inspector */
+.tbl-ed {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+}
+.tbl-ed .input {
+  min-width: 0;
+  padding-inline: 0.45rem;
+  font-size: var(--t-s);
+}
+.tbl-ed-head {
+  position: relative;
+}
+.tbl-ed-head .input {
+  width: 100%;
+  font-weight: 600;
+}
+/* The column's «remove» sits inside its heading and shows on hover or focus, so narrow columns keep their room. */
+.tbl-ed-head .btn {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 1px;
+  margin-block: auto;
+  opacity: 0;
+  background: var(--surface);
+}
+.tbl-ed-head:hover .btn,
+.tbl-ed-head:focus-within .btn {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tbl-ed-head .btn {
+    opacity: 1;
+  }
+}

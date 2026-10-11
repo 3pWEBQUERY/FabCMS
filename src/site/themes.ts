@@ -444,6 +444,7 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.tbl-stripes .tbl tbody tr:nth-child(odd){background:color-mix(in srgb,var(--ink) 4%,transparent)}
 .el-social{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
 .el-social a,.el-social li>span{display:inline-flex;align-items:center;gap:.45rem;color:inherit;text-decoration:none}
 .el-social .ico{width:var(--so,20px);height:var(--so,20px);flex:none}

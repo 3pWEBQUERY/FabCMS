@@ -20,6 +20,7 @@ import { LoopEntries, LoopRules, loopFields } from './LoopRules';
 import { SiteData } from './SiteData';
 import { MapPlace } from './MapPlace';
 import { HotspotPlacer } from './HotspotPlacer';
+import { TableEditor } from './TableEditor';
 import { PageAnchorsContext } from '../../ui/PageLinkInput';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
@@ -133,6 +134,7 @@ export function ElementInspector({
           <SiteData el={el} onSaved={onSiteSaved} />
           {el.kind === 'map' && <MapPlace el={el} onChange={onChange} />}
           {el.kind === 'hotspots' && <HotspotPlacer el={el} onChange={onChange} />}
+          {el.kind === 'table' && <TableEditor el={el} onChange={onChange} locked={locked} />}
           <FieldList
             fields={
               el.kind === 'list'

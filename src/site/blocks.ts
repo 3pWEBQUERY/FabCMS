@@ -1212,6 +1212,24 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       }
       return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
     }
+    case 'table': {
+      // The same table as the block: on a phone each row becomes a little card, its cells labelled by the headings.
+      const cols = (Array.isArray(p.cols) ? p.cols : []) as string[];
+      const rows = (Array.isArray(p.rows) ? p.rows : []) as string[][];
+      const last = cols.length - 1;
+      const num = (i: number) => (i === last && p.right !== false && cols.length > 1 ? raw(' class="num"') : '');
+      const cellField = (r: number, c: number) => (rc.over ? '' : field(rc.edit, `${path}.props.rows.${r}.${c}`));
+      const head = cols.some(Boolean) || rc.edit ? html`<thead><tr>${cols.map((h, i) => html`<th scope="col"${num(i)}${rc.over ? '' : field(rc.edit, `${path}.props.cols.${i}`)}>${h}</th>`)}</tr></thead>` : '';
+      const body = rows.map(
+        (r, ri) =>
+          html`<tr>${cols.map((_, ci) =>
+            ci === 0 && p.rowHeads !== false
+              ? html`<th scope="row"${cellField(ri, ci)}>${r[ci] ?? ''}</th>`
+              : html`<td${num(ci)} data-label="${cols[ci] ?? ''}"${cellField(ri, ci)}>${r[ci] ?? ''}</td>`,
+          )}</tr>`,
+      );
+      return html`<div class="${cls(`tbl-wrap${p.stripes === true ? ' tbl-stripes' : ''}`)}"${attrs}><table class="tbl">${head}<tbody>${body}</tbody></table></div>`;
+    }
     case 'social': {
       // The profiles from the website's data (Einstellungen → Social-Media): one place, every page.
       const links = (ctx.settings.social ?? []).filter((l) => l.href);
