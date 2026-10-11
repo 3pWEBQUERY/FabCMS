@@ -47,6 +47,10 @@ const HOVER_KEYS = new Set<keyof StyleProps>([
   'scale',
   'x',
   'y',
+  'textShadow',
+  'rotateX',
+  'rotateY',
+  'skew',
 ]);
 
 export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
@@ -72,10 +76,44 @@ export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
   spacing: ['mt', 'mr', 'mb', 'ml', 'pt', 'pr', 'pb', 'pl'],
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],
   position: ['position', 'top', 'right', 'bottom', 'left', 'z'],
-  type: ['font', 'fontSize', 'weight', 'lineHeight', 'tracking', 'textAlign', 'textTransform', 'italic', 'underline', 'color', 'textGradient', 'accent'],
+  type: [
+    'font',
+    'fontSize',
+    'weight',
+    'lineHeight',
+    'tracking',
+    'textAlign',
+    'textTransform',
+    'italic',
+    'underline',
+    'color',
+    'textGradient',
+    'accent',
+    'textShadow',
+    'textColumns',
+  ],
   background: ['bg', 'gradient', 'bgImage', 'bgSize', 'bgPosition', 'bgRepeat', 'bgFixed', 'overlay', 'overlayGradient'],
-  border: ['borderWidth', 'borderStyle', 'borderColor', 'radius', 'radiusTL', 'radiusTR', 'radiusBR', 'radiusBL'],
-  effects: ['shadow', 'opacity', 'blur', 'grayscale', 'saturate', 'brightness', 'blend', 'shape', 'backdrop', 'rotate', 'scale', 'x', 'y', 'cursor'],
+  border: ['borderWidth', 'borderStyle', 'borderColor', 'borderSides', 'radius', 'radiusTL', 'radiusTR', 'radiusBR', 'radiusBL'],
+  effects: [
+    'shadow',
+    'opacity',
+    'blur',
+    'grayscale',
+    'saturate',
+    'brightness',
+    'blend',
+    'shape',
+    'backdrop',
+    'rotate',
+    'scale',
+    'x',
+    'y',
+    'rotateX',
+    'rotateY',
+    'skew',
+    'perspective',
+    'cursor',
+  ],
 };
 
 const CLIPBOARD = 'nova-design-clipboard';
@@ -722,8 +760,26 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                 ]}
               />
             ))}
+            {row('textColumns', t('Textspalten'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited ?? 1} onChange={p.set} min={1} max={4} icon="columns" ariaLabel={t('Textspalten')} />
+            ))}
           </>
         )}
+        {row('textShadow', t('Textschatten'), (p) => (
+          <IconChoice
+            label={t('Textschatten')}
+            value={p.value}
+            inherited={p.inherited}
+            onChange={p.set}
+            options={[
+              { value: 'none', text: t('Kein'), label: t('Kein Schatten') },
+              { value: 's', text: 'S', label: t('Leicht') },
+              { value: 'm', text: 'M', label: t('Mittel') },
+              { value: 'l', text: 'L', label: t('Stark') },
+              { value: 'glow', text: t('Leuchten'), label: t('Leuchten in der Akzentfarbe') },
+            ]}
+          />
+        ))}
       </DesignSection>
 
       <DesignSection id="background" title={t('Hintergrund')} icon="paint" count={count('background')} defaultOpen={block}>
@@ -824,6 +880,23 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
           ))}
         </div>
         {color('borderColor', t('Farbe'))}
+        {!hover &&
+          row('borderSides', t('Seiten'), (p) => (
+            <IconChoice
+              label={t('Seiten')}
+              value={p.value}
+              inherited={p.inherited}
+              onChange={p.set}
+              options={[
+                { value: 'all', text: t('Rundum'), label: t('Rundum') },
+                { value: 'top', text: '‾', label: t('Nur oben') },
+                { value: 'bottom', text: '_', label: t('Nur unten') },
+                { value: 'y', text: '=', label: t('Oben und unten') },
+                { value: 'left', text: '▏', label: t('Nur links') },
+                { value: 'right', text: '▕', label: t('Nur rechts') },
+              ]}
+            />
+          ))}
         {!hover && (
           <>
             {len('radius', t('Ecken'), { units: ['px', 'rem', '%'], min: 0 })}
@@ -924,6 +997,22 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
           {row('scale', t('Skalieren'), (p) => (
             <NumberInput value={p.value} placeholder={p.inherited ?? 1} onChange={p.set} min={0} max={5} step={0.05} suffix="×" icon="scale" ariaLabel={t('Skalieren')} />
           ))}
+        </div>
+        <span className="dp-sub">{t('3D und Neigen')}</span>
+        <div className="dp-grid2">
+          {row('rotateX', t('Kippen nach hinten'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={-180} max={180} suffix="°" ariaLabel={t('Kippen nach hinten')} />
+          ))}
+          {row('rotateY', t('Drehen zur Seite'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={-180} max={180} suffix="°" ariaLabel={t('Drehen zur Seite')} />
+          ))}
+          {row('skew', t('Neigen'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={-45} max={45} suffix="°" ariaLabel={t('Neigen')} />
+          ))}
+          {!hover &&
+            row('perspective', t('Tiefe'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited ?? 800} onChange={p.set} min={100} max={4000} step={50} suffix="px" ariaLabel={t('Tiefe')} />
+            ))}
         </div>
         {hover && (
           <PropRow label={t('Übergang')} state={design?.transition !== undefined ? 'set' : 'none'} onReset={() => onChange({ ...(design ?? {}), transition: undefined })}>

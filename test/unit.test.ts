@@ -2337,6 +2337,19 @@ describe('Grid-Platzierung', () => {
   });
 });
 
+describe('Textschatten, Textspalten, 3D und Rahmen pro Seite', () => {
+  it('compiles them, with depth for a 3D turn and borders on chosen sides', () => {
+    const css = designCss('#t', { desktop: { textShadow: 'glow', textColumns: 2, rotateY: 20, skew: -5, borderWidth: '3px', borderSides: 'y' } });
+    expect(css).toContain('text-shadow:0 0 .5em');
+    expect(css).toContain('column-count:2;column-gap:2.5em');
+    expect(css).toContain('transform:perspective(800px) rotateY(20deg) skewX(-5deg)');
+    expect(css).toContain('border-width:0;border-top-width:3px;border-bottom-width:3px');
+    // A slant alone needs no depth; nonsense is dropped.
+    expect(designCss('#s', { desktop: { skew: 10 } })).toBe('#s{transform:skewX(10deg)}');
+    expect(designCss('#n', { desktop: { textShadow: 'neon' as 's', borderSides: 'diagonal' as 'all', borderWidth: '1px' } })).toBe('#n{border-width:1px;border-style:solid}');
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

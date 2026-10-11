@@ -101,6 +101,10 @@ export interface StyleProps {
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   italic?: boolean;
   underline?: boolean;
+  /** A shadow under the letters, or a glow in the accent colour. */
+  textShadow?: (typeof TEXT_SHADOWS)[number];
+  /** Text set in columns, like a newspaper. */
+  textColumns?: number;
   color?: string;
   /** The text itself filled with a gradient. */
   textGradient?: Gradient;
@@ -120,6 +124,8 @@ export interface StyleProps {
   borderWidth?: string;
   borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
   borderColor?: string;
+  /** Which sides carry the border – all of them by default. */
+  borderSides?: (typeof BORDER_SIDES)[number];
   radius?: string;
   radiusTL?: string;
   radiusTR?: string;
@@ -140,6 +146,11 @@ export interface StyleProps {
   backdrop?: string;
   rotate?: number;
   scale?: number;
+  /** 3D: tilt around the horizontal and vertical axis, slant, and how deep the space is. */
+  rotateX?: number;
+  rotateY?: number;
+  skew?: number;
+  perspective?: number;
   x?: string;
   y?: string;
   cursor?: 'auto' | 'pointer' | 'default';
@@ -153,6 +164,16 @@ export interface Design {
   /** Hover transition in ms. */
   transition?: number;
 }
+
+export const TEXT_SHADOWS = ['none', 's', 'm', 'l', 'glow'] as const;
+const TEXT_SHADOW_CSS: Record<(typeof TEXT_SHADOWS)[number], string> = {
+  none: 'none',
+  s: '0 1px 2px rgb(0 0 0/.35)',
+  m: '0 2px 8px rgb(0 0 0/.45)',
+  l: '0 6px 28px rgb(0 0 0/.55)',
+  glow: '0 0 .5em color-mix(in srgb,var(--accent) 70%,transparent)',
+};
+export const BORDER_SIDES = ['all', 'top', 'bottom', 'y', 'left', 'right'] as const;
 
 export const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'difference', 'exclusion', 'luminosity', 'color'] as const;
 export const SHAPE_CUTS = ['none', 'circle', 'arch', 'diamond', 'slant', 'blob', 'hexagon'] as const;
@@ -348,6 +369,13 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   add('text-transform', pick(p.textTransform, ['none', 'uppercase', 'lowercase', 'capitalize'] as const));
   if (typeof p.italic === 'boolean') add('font-style', p.italic ? 'italic' : 'normal');
   if (typeof p.underline === 'boolean') add('text-decoration-line', p.underline ? 'underline' : 'none');
+  const ts = pick(p.textShadow, TEXT_SHADOWS);
+  if (ts) add('text-shadow', TEXT_SHADOW_CSS[ts]);
+  const cols = num(p.textColumns, 1, 4);
+  if (cols) {
+    add('column-count', cols);
+    add('column-gap', '2.5em');
+  }
   const color = cssColor(p.color);
   if (color) {
     // Blocks and their parts read the theme's colours: overriding the tokens restyles everything inside.
@@ -400,7 +428,13 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   }
 
   // border
-  add('border-width', cssLength(p.borderWidth));
+  const sides = pick(p.borderSides, BORDER_SIDES);
+  const bw = cssLength(p.borderWidth);
+  if (bw && sides && sides !== 'all') {
+    const on = { top: ['top'], bottom: ['bottom'], y: ['top', 'bottom'], left: ['left'], right: ['right'] }[sides];
+    add('border-width', 0);
+    for (const side of on) add(`border-${side}-width`, bw);
+  } else add('border-width', bw);
   add('border-style', pick(p.borderStyle, ['solid', 'dashed', 'dotted', 'none'] as const) ?? (cssLength(p.borderWidth) ? 'solid' : null));
   add('border-color', cssColor(p.borderColor));
   add('border-radius', cssLength(p.radius));
@@ -436,6 +470,12 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   if (x || y) tf.push(`translate(${x ?? 0},${y ?? 0})`);
   if (num(p.rotate, -360, 360)) tf.push(`rotate(${num(p.rotate, -360, 360)}deg)`);
   if (num(p.scale, 0, 5) !== null && p.scale !== 1) tf.push(`scale(${num(p.scale, 0, 5)})`);
+  if (num(p.rotateX, -180, 180)) tf.push(`rotateX(${num(p.rotateX, -180, 180)}deg)`);
+  if (num(p.rotateY, -180, 180)) tf.push(`rotateY(${num(p.rotateY, -180, 180)}deg)`);
+  if (num(p.skew, -45, 45)) tf.push(`skewX(${num(p.skew, -45, 45)}deg)`);
+  // Depth only matters with a 3D turn; it goes first, for this element alone.
+  const depth = num(p.perspective, 100, 4000) ?? 800;
+  if (tf.some((x) => x.startsWith('rotateX') || x.startsWith('rotateY'))) tf.unshift(`perspective(${depth}px)`);
   if (tf.length) add('transform', tf.join(' '));
   add('cursor', pick(p.cursor, ['auto', 'pointer', 'default'] as const));
 
@@ -453,7 +493,7 @@ export function designCss(selector: string, d: Design | undefined, opts: Compile
   const hover = styleDeclarations(d.hover, opts);
   const ms = num(d.transition, 0, 3000) ?? 250;
   const transition = hover
-    ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms,clip-path ${ms}ms`
+    ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms,clip-path ${ms}ms,text-shadow ${ms}ms`
     : '';
   if (base || transition) out.push(`${selector}{${[base, transition].filter(Boolean).join(';')}}`);
   for (const bp of ['tablet', 'mobile'] as const) {
