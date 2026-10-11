@@ -6131,7 +6131,7 @@ body.scrubbing.v * {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
 }
-.el-picker-grid button {
+.el-picker-grid button:not(.el-star) {
   display: grid;
   justify-items: center;
   gap: 0.35rem;
@@ -6147,14 +6147,54 @@ body.scrubbing.v * {
     color 0.12s,
     transform 0.12s;
 }
-.el-picker-grid button:hover,
-.el-picker-grid button:focus-visible {
+.el-picker-grid button:not(.el-star):hover,
+.el-picker-grid button:not(.el-star):focus-visible {
   border-color: var(--sel);
   color: var(--ink);
   transform: translateY(-1px);
 }
 .el-picker-grid .icon {
   color: var(--sel);
+}
+/* The side bar's tiles carry a star: favourites go to the top */
+.el-tile {
+  position: relative;
+  display: grid;
+}
+.el-picker-grid .el-star {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.el-picker-grid .el-star .icon {
+  color: inherit;
+}
+.el-tile:hover .el-star,
+.el-star:focus-visible,
+.el-star[aria-pressed='true'] {
+  opacity: 1;
+}
+.el-star:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.el-star[aria-pressed='true'] {
+  color: #d99a06;
+}
+.el-star[aria-pressed='true'] .icon {
+  fill: currentColor;
 }
 .el-picker-group + .el-picker-group {
   margin-top: 0.55rem;

@@ -8,6 +8,7 @@ import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Menu, Tip } from '../../ui/kit';
 import { dragSource, NEW_EL } from '../dragNew';
+import { useElFavorites } from './recentEls';
 
 export const elLabel = (el: El) => el.name || tl(EL_DEFS[el.kind].label);
 
@@ -199,6 +200,40 @@ export function ElementPicker({
   );
   const comps = components.filter((c) => hit(c.title));
   const first = () => (kinds[0] ? onPick(kinds[0]) : comps[0] ? onPickComponent(comps[0]) : undefined);
+  const { favs, recent, toggle } = useElFavorites();
+  // Without a search: the starred ones, then the last used (those not starred).
+  const pinned = words.length
+    ? []
+    : [
+        { id: 'favs', title: t('Favoriten'), kinds: favs.filter((k) => kinds.includes(k)) },
+        { id: 'recent', title: t('Zuletzt verwendet'), kinds: recent.filter((k) => kinds.includes(k) && !favs.includes(k)) },
+      ].filter((x) => x.kinds.length);
+  const tile = (k: ElKind) => {
+    const pick = (
+      <button key={k} type="button" {...dragSource(drag, NEW_EL, { kind: k })} onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
+        <Icon name={EL_DEFS[k].icon} />
+        <span>{tl(EL_DEFS[k].label)}</span>
+      </button>
+    );
+    // The side bar can star them; the quick picker only shows them.
+    if (!drag) return pick;
+    const on = favs.includes(k);
+    return (
+      <div key={k} className="el-tile">
+        {pick}
+        <button
+          type="button"
+          className="el-star"
+          aria-pressed={on}
+          onClick={() => toggle(k)}
+          title={on ? t('Aus den Favoriten nehmen') : t('Zu den Favoriten')}
+          aria-label={t('«{name}» als Favorit', { name: tl(EL_DEFS[k].label) })}
+        >
+          <Icon name="star" size="s" />
+        </button>
+      </div>
+    );
+  };
   return (
     <div className="el-picker">
       <span className="dp-menu-head">{into ? t('In «{name}» einfügen', { name: into }) : t('Element einfügen')}</span>
@@ -218,19 +253,16 @@ export function ElementPicker({
         autoFocus={!drag}
       />
       {!kinds.length && !comps.length && <p className="xsmall faint el-picker-note">{t('Nichts gefunden.')}</p>}
+      {pinned.map((x) => (
+        <section key={x.id} className="el-picker-group">
+          <h3 className="el-picker-title">{x.title}</h3>
+          <div className="el-picker-grid">{x.kinds.map(tile)}</div>
+        </section>
+      ))}
       {EL_GROUPS.filter((g) => kinds.some((k) => EL_DEFS[k].group === g)).map((g) => (
         <section key={g} className="el-picker-group">
           <h3 className="el-picker-title">{tl(EL_GROUP_LABELS[g])}</h3>
-          <div className="el-picker-grid">
-            {kinds
-              .filter((k) => EL_DEFS[k].group === g)
-              .map((k) => (
-                <button key={k} type="button" {...dragSource(drag, NEW_EL, { kind: k })} onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
-                  <Icon name={EL_DEFS[k].icon} />
-                  <span>{tl(EL_DEFS[k].label)}</span>
-                </button>
-              ))}
-          </div>
+          <div className="el-picker-grid">{kinds.filter((k) => EL_DEFS[k].group === g).map(tile)}</div>
         </section>
       ))}
       {(!words.length || comps.length > 0) && (

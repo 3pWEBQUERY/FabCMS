@@ -35,6 +35,7 @@ import * as Y from 'yjs';
 import { applyData, toData, changedBlocks } from '../src/shared/collab-doc';
 import { ADMIN_DICT } from '../src/admin/i18n/all';
 import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
+import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -74,6 +75,7 @@ import {
   variantsCss,
   walkEls,
   type El,
+  type ElKind,
 } from '../src/shared/elements';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -2470,5 +2472,17 @@ describe('Baukasten', () => {
     const bridge = readFileSync('src/site/runtime/bridge.ts', 'utf8');
     expect(bridge).toContain(`'${NEW_EL}'`);
     expect(bridge).toContain(`'${NEW_BLOCK}'`);
+  });
+});
+
+describe('Zuletzt verwendet', () => {
+  it('keeps the newest first, each once, and only a few', () => {
+    expect(withRecent([], 'button')).toEqual(['button']);
+    expect(withRecent(['text', 'button', 'image'], 'button')).toEqual(['button', 'text', 'image']);
+    let list: ElKind[] = [];
+    for (const k of ['box', 'heading', 'text', 'image', 'gallery', 'button', 'icon', 'video'] as ElKind[]) list = withRecent(list, k);
+    expect(list).toHaveLength(RECENT_MAX);
+    expect(list[0]).toBe('video');
+    expect(list).not.toContain('box');
   });
 });

@@ -64,6 +64,7 @@ import {
 import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
 import { BuilderPanel, type BuilderTab } from './BuilderPanel';
+import { rememberEl } from './elements/recentEls';
 import { ContextMenu, KEYS, ShortcutsDialog, type CtxItem } from './ContextMenu';
 import { shortcutAction, type EditorAction } from '../../shared/shortcuts';
 import type { Design } from '../../shared/design';
@@ -688,6 +689,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             ? createEl(data.kind as ElKind)
             : null;
       if (!el) return;
+      rememberEl(el.kind);
       const target = at.block ? blocksRef.current.find((b) => b.id === at.block && b.type === 'layout') : undefined;
       if (target) {
         if (studio && (target.lock ?? 'none') !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
@@ -881,6 +883,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   /** New element: into the selected container, after the selected element, or at the end. */
   const insertElement = (kind: ElKind) => {
+    rememberEl(kind);
     placeElement(createEl(kind));
     if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
   };

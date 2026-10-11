@@ -1073,4 +1073,9 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Trascinalo tra due blocchi. Un clic lo aggiunge dopo il blocco scelto.',
     en: 'Drag it between two blocks. A click adds it after the chosen block.',
   },
+  Favoriten: { fr: 'Favoris', it: 'Preferiti', en: 'Favourites' },
+  'Zuletzt verwendet': { fr: 'Utilisés récemment', it: 'Usati di recente', en: 'Recently used' },
+  'Zu den Favoriten': { fr: 'Ajouter aux favoris', it: 'Aggiungi ai preferiti', en: 'Add to favourites' },
+  'Aus den Favoriten nehmen': { fr: 'Retirer des favoris', it: 'Rimuovi dai preferiti', en: 'Remove from favourites' },
+  '«{name}» als Favorit': { fr: '«{name}» en favori', it: '«{name}» come preferito', en: '“{name}” as a favourite' },
 };
