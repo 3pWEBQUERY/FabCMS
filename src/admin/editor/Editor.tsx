@@ -39,6 +39,8 @@ import { uploadFiles, type MediaRow } from '../ui/MediaPicker';
 import { TokenColors } from './design/controls';
 import { ContrastNow, ContrastPanel, worstFirst } from './design/contrast';
 import type { ContrastIssue } from '../../shared/contrast';
+import { AUDIT_ERRORS, type AuditIssue } from '../../shared/audit';
+import { AuditPanel } from './AuditPanel';
 import {
   cloneEl,
   createEl,
@@ -132,7 +134,7 @@ async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   return mediaUrlCache;
 }
 
-type Panel = 'inspector' | 'seo' | 'contrast' | 'colors' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
+type Panel = 'inspector' | 'seo' | 'contrast' | 'audit' | 'colors' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
 type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -145,6 +147,7 @@ const panelTitle = (p: Exclude<Panel, null>): string =>
     inspector: t('Block'),
     seo: t('Suchmaschinen'),
     contrast: t('Kontrast'),
+    audit: t('Prüfung'),
     colors: t('Farben dieser Seite'),
     history: t('Verlauf'),
     page: t('Seite'),
@@ -259,6 +262,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [variant, setVariant] = useState<string | null>(null);
   // Text too faint for its background, as the canvas measured it.
   const [contrast, setContrast] = useState<ContrastIssue[]>([]);
+  const [audit, setAudit] = useState<AuditIssue[]>([]);
 
   const studio = session.mode !== 'werkbank';
   const selectedBlock = doc.data?.blocks?.find((b) => b.id === selected) ?? null;
@@ -361,6 +365,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'contrast':
           setContrast(m.items ?? []);
+          break;
+        case 'audit':
+          setAudit(m.items ?? []);
           break;
         case 'select-el':
           setMulti([]);
@@ -1212,12 +1219,21 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   };
 
   // The selection's worst text; its colour can be fixed here only if it belongs to exactly what is selected.
+  const auditErrors = audit.filter((i) => AUDIT_ERRORS.has(i.kind)).length;
   const contrastHere = selected
     ? (worstFirst(contrast.filter((i) => i.block === selected && !!i.hover === (designState === 'hover') && (!selectedEl || i.els.includes(selectedEl)))).map((i) => ({
         ...i,
         own: i.own && (selectedEl ? i.els[0] === selectedEl : !i.els.length),
       }))[0] ?? null)
     : null;
+  /** A finding of «Prüfung»: its block or element selected and in view; the inspector beside it. */
+  const goToAudit = (i: AuditIssue) => {
+    if (!i.block) return;
+    setDesignState('normal');
+    setSelected(i.block);
+    setSelectedEl(i.el ?? null);
+    postToCanvas(frame.current, i.el ? { t: 'select-el', block: i.block, el: i.el, scroll: true } : { t: 'select', id: i.block, scroll: true });
+  };
   const goToIssue = (i: ContrastIssue) => {
     if (i.global) {
       setSelected(null);
@@ -1412,6 +1428,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 ['structure', 'layers', t('Aufbau')],
                 ['seo', 'seo', t('Suchmaschinen')],
                 ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
+                ['audit', 'shield', auditErrors ? t('Prüfung, {n} Fehler', { n: auditErrors }) : t('Prüfung')],
                 ['colors', 'paint', t('Farben dieser Seite')],
                 ['history', 'history', t('Verlauf')],
               ] as [Panel, string, string][]
@@ -1422,6 +1439,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
                     <Icon name={icon} />
                     {p === 'contrast' && contrast.length > 0 && <span className="dot-count">{contrast.length}</span>}
+                    {p === 'audit' && auditErrors > 0 && <span className="dot-count">{auditErrors}</span>}
                   </button>
                 </Tip>
               ))}
@@ -1828,6 +1846,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                   {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
                   {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}
+                  {panel === 'audit' && <AuditPanel issues={audit} onGo={goToAudit} />}
                   {panel === 'colors' && (
                     <TokenColors.Provider value={tokenColors}>
                       <ColorsPanel

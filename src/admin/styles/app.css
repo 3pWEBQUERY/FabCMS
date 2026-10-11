@@ -8272,3 +8272,51 @@ textarea.dg-input {
 .ia-grid > :nth-child(5) {
   grid-column: 1 / -1;
 }
+
+/* «Prüfung»: findings, errors first */
+.audit-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.audit-go {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--r-m);
+  background: var(--panel);
+  text-align: start;
+  cursor: pointer;
+}
+.audit-go:disabled {
+  cursor: default;
+}
+.audit-go:not(:disabled):hover {
+  background: var(--hover);
+}
+.audit-go > .grow {
+  display: grid;
+  gap: 0.15rem;
+}
+.audit-error .audit-go {
+  border-left-color: var(--bad, #c0392b);
+}
+.audit-error .icon {
+  color: var(--bad, #c0392b);
+}
+.audit-warn .audit-go {
+  border-left-color: var(--warn, #d99a06);
+}
+.audit-warn .icon {
+  color: var(--warn, #d99a06);
+}
+.audit-text {
+  overflow-wrap: anywhere;
+}

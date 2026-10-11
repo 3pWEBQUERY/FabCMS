@@ -11,6 +11,7 @@ import { activeTab, reveal, setupWidgets, showTab } from './widgets';
 import { shortcutAction } from '../../shared/shortcuts';
 import { alignRects, snapLines, snapTo, type AlignHow, type Rect } from '../../shared/canvas';
 import { composite, contrastRatio, fixColor, needFor, toHex, type ContrastIssue, type Rgba } from '../../shared/contrast';
+import type { AuditIssue } from '../../shared/audit';
 
 type Msg = Record<string, any>;
 const d = document;
@@ -1823,11 +1824,87 @@ function measureContrast(): ContrastIssue[] {
   }
 }
 
+/* ---------- «Prüfung»: what keeps people from using the page (shared/audit.ts) ---------- */
+
+function auditPage(): AuditIssue[] {
+  const out: AuditIssue[] = [];
+  const at = (x: Element, kind: AuditIssue['kind'], text: string) => {
+    const el = x.closest<HTMLElement>('[data-nova-el]')?.dataset.novaEl;
+    const block = x.closest<HTMLElement>('[data-nova-block]')?.dataset.novaBlock;
+    out.push({ kind, ...(block ? { block } : {}), ...(el ? { el } : {}), text: text.replace(/\s+/g, ' ').trim().slice(0, 80) });
+  };
+  // What a screen reader would call it.
+  const nameOf = (x: Element): string =>
+    (x.getAttribute('aria-label') ||
+      x.getAttribute('title') ||
+      (x.textContent ?? '').trim() ||
+      [...x.querySelectorAll('img[alt]')].map((i) => i.getAttribute('alt')).join(' ')
+    ).trim();
+  // Only what visitors see: not the editor's own markings, not what is shut away for good.
+  const seen = (x: Element) => !x.closest('[aria-hidden="true"], template, noscript, .bgm, .el-empty, .el-ph');
+  const all = <T extends Element>(sel: string) => [...main.querySelectorAll<T>(sel)].filter(seen);
+
+  for (const img of all<HTMLImageElement>('img')) {
+    if (img.closest('a, button') && nameOf(img.closest('a, button')!)) continue;
+    if (!img.hasAttribute('alt') || (img.getAttribute('alt') === '' && img.closest('[data-nova-kind-el="image"], .el-gallery, figure'))) at(img, 'img-alt', img.currentSrc.split('/').pop()?.split('?')[0] ?? '');
+  }
+  for (const a of all<HTMLAnchorElement>('a')) {
+    if (!nameOf(a)) at(a, 'link-empty', a.getAttribute('href') ?? '');
+    else if (!a.hasAttribute('data-totop') && !a.hasAttribute('data-ia') && (a.getAttribute('href') ?? '#') === '#') at(a, 'link-dead', nameOf(a));
+  }
+  for (const b of all<HTMLElement>('button, [role="button"]')) if (!nameOf(b)) at(b, 'button-empty', '');
+  // The outline: one H1, no steps left out, nothing empty.
+  const heads = all<HTMLHeadingElement>('h1, h2, h3, h4, h5, h6');
+  const h1 = heads.filter((h) => h.tagName === 'H1');
+  if (!h1.length) out.push({ kind: 'h1-none', text: '' });
+  if (h1.length > 1) h1.slice(1).forEach((h) => at(h, 'h1-many', nameOf(h)));
+  let last = 0;
+  for (const h of heads) {
+    const level = Number(h.tagName[1]);
+    if (!nameOf(h)) at(h, 'heading-empty', h.tagName);
+    else if (last && level > last + 1) at(h, 'heading-skip', `H${last} → H${level}: ${nameOf(h)}`);
+    last = level;
+  }
+  for (const f of all<HTMLInputElement>('input, select, textarea')) {
+    if (['hidden', 'submit', 'button', 'reset', 'image'].includes(f.type) || f.closest('.cmp')) continue;
+    const labelled = f.labels?.length || f.getAttribute('aria-label') || f.getAttribute('aria-labelledby') || f.getAttribute('title');
+    if (!labelled) at(f, 'field-label', f.getAttribute('name') ?? f.getAttribute('placeholder') ?? f.type);
+  }
+  for (const f of all<HTMLIFrameElement>('iframe')) if (!f.title) at(f, 'iframe-title', f.src);
+  // Two of the same id: links and buttons can only reach the first.
+  const ids = new Map<string, Element>();
+  for (const x of d.querySelectorAll<HTMLElement>('[id]')) {
+    if (!x.id || x.closest('nova-chrome')) continue;
+    if (ids.has(x.id) && main.contains(x)) at(x, 'id-double', `#${x.id}`);
+    else ids.set(x.id, x);
+  }
+  // Small print and small targets (WCAG: at least 24 × 24 pixels).
+  const small = new Set<Element>();
+  for (const x of all<HTMLElement>('p, li, span, a, td, figcaption, label')) {
+    if (!x.childNodes.length || ![...x.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())) continue;
+    const size = parseFloat(getComputedStyle(x).fontSize);
+    if (size && size < 12 && !small.has(x.parentElement!)) {
+      small.add(x);
+      at(x, 'text-small', `${Math.round(size)}px: ${nameOf(x)}`);
+    }
+  }
+  for (const x of all<HTMLElement>('a, button, [role="button"]')) {
+    // Links within a sentence may be small; icon-only targets may not.
+    if ((x.textContent ?? '').trim() || !x.querySelector('svg, img')) continue;
+    const r = x.getBoundingClientRect();
+    if (r.width && r.height && (r.width < 24 || r.height < 24)) at(x, 'target-small', `${Math.round(r.width)} × ${Math.round(r.height)}: ${nameOf(x)}`);
+  }
+  return out.slice(0, 100);
+}
+
 // Measured again shortly after anything on the page changes.
 let contrastTimer = 0;
 function sendContrast() {
   clearTimeout(contrastTimer);
-  contrastTimer = window.setTimeout(() => post({ t: 'contrast', items: measureContrast() }), 400);
+  contrastTimer = window.setTimeout(() => {
+    post({ t: 'contrast', items: measureContrast() });
+    post({ t: 'audit', items: auditPage() });
+  }, 400);
 }
 addEventListener('resize', sendContrast);
 d.fonts?.ready.then(sendContrast);

@@ -39,6 +39,7 @@ import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
 import { networkOf, socialSvg } from '../src/shared/social';
+import { auditOrder } from '../src/shared/audit';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2394,6 +2395,18 @@ describe('Social-Profile und Nach oben', () => {
     ]);
     expect(so.props).toEqual({ look: 'icons', shape: 'circle', size: 48 });
     expect(tt.props).toEqual({ label: 'Nach oben', look: 'icon', float: true });
+  });
+});
+
+describe('Prüfung', () => {
+  it('lists errors first and keeps the page order within each group', () => {
+    const list = auditOrder([
+      { kind: 'text-small', text: 'a' },
+      { kind: 'img-alt', text: 'b' },
+      { kind: 'heading-skip', text: 'c' },
+      { kind: 'link-empty', text: 'd' },
+    ]);
+    expect(list.map((i) => i.text)).toEqual(['b', 'd', 'a', 'c']);
   });
 });
 
