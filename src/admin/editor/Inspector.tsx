@@ -9,6 +9,7 @@ import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import type { DesignBp, DesignState } from '../../shared/design';
 import { DesignPanel } from './design/DesignPanel';
+import { BgMediaControls } from './design/BgMediaControls';
 import { ConditionControls } from './elements/Conditions';
 import { MotionPanel } from './design/MotionPanel';
 import { hasMotion } from '../../shared/motion';
@@ -104,6 +105,7 @@ export function Inspector({
           state={designState}
           onState={onDesignState}
           pro={pro}
+          bgMedia={<BgMediaControls value={style.media} onChange={(media) => setStyle({ media })} />}
           scheme={
             <Field label={t('Farbschema')}>
               <div className="chips">

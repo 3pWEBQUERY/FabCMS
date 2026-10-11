@@ -4088,6 +4088,52 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, shop, ...made, ...prods]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('puts a slideshow or a video behind a section, under its overlay', async () => {
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const upload = async (name: string, color: string) => {
+      const png = await sharp({ create: { width: 640, height: 400, channels: 3, background: color } })
+        .png()
+        .toBuffer();
+      const form = new FormData();
+      form.append('file', new File([new Uint8Array(png)], name, { type: 'image/png' }));
+      const r = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      return (await r.json()).media[0] as { id: string };
+    };
+    const a = await upload('bgm-a.png', '#a63');
+    const b = await upload('bgm-b.png', '#36a');
+    const blocks = [
+      {
+        id: 'bgs',
+        type: 'layout',
+        props: { els: [{ id: 'bgh', kind: 'heading', props: { text: 'Über der Diashow', level: '2' } }] },
+        style: { media: { kind: 'slides', images: [a.id, b.id, 'kein/pfad'], effect: 'kenburns', seconds: 5 }, design: { desktop: { overlay: 'rgb(0 0 0 / 0.4)' } } },
+      },
+      // An image is no video: nothing behind the section, nothing broken.
+      { id: 'bgv', type: 'layout', props: { els: [] }, style: { media: { kind: 'video', video: a.id } } },
+      { id: 'bgx', type: 'layout', props: { els: [] }, style: { media: { kind: 'iframe', src: 'https://example.ch' } } },
+    ];
+    const page = (await req('POST', '/api/entries', { collection: 'pages', slug: 'bewegter-hintergrund', data: { title: 'Bewegt', blocks } })).data.entry;
+    // Saved only in a usable form.
+    expect(page.data.blocks[0].style.media).toEqual({ kind: 'slides', images: [a.id, b.id], effect: 'kenburns', seconds: 5 });
+    expect(page.data.blocks[2].style.media).toBeUndefined();
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/bewegter-hintergrund', undefined, { cookies: new Map() })).data as string;
+    const at = html.indexOf('id="b-bgs"');
+    const section = html.slice(at - 80, html.indexOf('Über der Diashow', at));
+    expect(section).toContain('has-bgm');
+    expect(section).toContain('<div class="bgm bgm-slides" aria-hidden="true">');
+    expect(section.match(/class="bgm-slide"/g)?.length).toBe(2);
+    expect(section).toContain('animation:bgf-b-bgs 10s linear infinite');
+    expect(section).toContain('@keyframes bgz-b-bgs');
+    expect(section).toContain('<span class="bgm-tint"></span>');
+    // The overlay colour reaches the tint over the pictures.
+    expect(html).toMatch(/#b-bgs\{[^}]*--ov:rgb\(0 0 0 \/ 0\.4\)/);
+    const video = html.slice(html.indexOf('id="b-bgv"') - 80, html.indexOf('id="b-bgv"') + 400);
+    expect(video).not.toContain('has-bgm');
+    expect(video).not.toContain('<video');
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('shows a gallery of chosen pictures, or of the entry, opening them large', async () => {
     const anon = { cookies: new Map<string, string>() };
     const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');

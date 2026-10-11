@@ -344,7 +344,11 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   }
   const layers: string[] = [];
   const overlay = cssColor(p.overlay);
-  if (overlay) layers.push(`linear-gradient(${overlay},${overlay})`);
+  if (overlay) {
+    layers.push(`linear-gradient(${overlay},${overlay})`);
+    // Also over a moving background (video, slideshow), which covers the section's own layers.
+    addVar('--ov', overlay);
+  }
   const grad = gradientCss(p.gradient);
   if (grad) layers.push(grad);
   const img = typeof p.bgImage === 'string' && /^[\w-]{1,64}$/.test(p.bgImage) ? opts.image?.(p.bgImage) : null;

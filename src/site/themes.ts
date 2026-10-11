@@ -145,6 +145,12 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);le
 
 /* rhythm */
 .b{--sp:var(--sp-m);padding-block:var(--sp);position:relative}
+.has-bgm{isolation:isolate}
+.bgm{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;border-radius:inherit}
+.bgm>video,.bgm>.bgm-poster,.bgm-slide,.bgm-slide img,.bgm-tint{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bgm-tint{background:var(--ov,transparent)}
+@media (max-width:719px){.bgm video.bgm-wide{display:none}}
+@media (prefers-reduced-motion:reduce){.bgm video{display:none}.bgm-slide,.bgm-slide img{animation:none!important}.bgm-slide:first-of-type{opacity:1!important}.bgm-slide:not(:first-of-type){display:none}}
 .sp-none{--sp:0px}.sp-s{--sp:var(--sp-s)}.sp-m{--sp:var(--sp-m)}.sp-l{--sp:var(--sp-l)}
 .b[data-tone=default]+.b[data-tone=default]{padding-top:calc(var(--sp)*.4)}
 @media (max-width:40rem){.spm-none{--sp:0px}.spm-s{--sp:var(--sp-s)}.spm-m{--sp:var(--sp-m)}.spm-l{--sp:var(--sp-l)}.hide-mobile{display:none!important}}

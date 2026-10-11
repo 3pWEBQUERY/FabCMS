@@ -11,6 +11,7 @@ import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, 
 import type { Block, CollectionDef } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath, pageForLink } from '../src/shared/paths';
+import { bgMediaIds, cleanBgMedia, slidesCss } from '../src/shared/bg-media';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
 import { csvEscape } from '../src/server/lib/http';
 import { html, raw } from '../src/site/html';
@@ -2007,6 +2008,41 @@ describe('Website-Daten am Element', () => {
     expect(siteDataOf(el('menu', { source: 'footer' }))).toEqual(['footer']);
     expect(siteDataOf(el('menu', { source: 'social' }))).toEqual(['social']);
     expect(siteDataOf(el('menu', { source: 'legal' }))).toEqual([]);
+  });
+});
+
+describe('Bewegter Hintergrund', () => {
+  it('keeps only usable videos and slideshows', () => {
+    expect(cleanBgMedia({ kind: 'video', video: 'abc123', poster: '../x', phones: 'ja' })).toEqual({ kind: 'video', video: 'abc123' });
+    expect(cleanBgMedia({ kind: 'video', video: 'abc', poster: 'p1', phones: true })).toEqual({ kind: 'video', video: 'abc', poster: 'p1', phones: true });
+    expect(cleanBgMedia({ kind: 'video', video: '' })).toBeUndefined();
+    expect(cleanBgMedia({ kind: 'slides', images: ['a', 'a', 'b/../c', 'b'], effect: 'wild', seconds: 99 })).toEqual({
+      kind: 'slides',
+      images: ['a', 'b'],
+      effect: 'fade',
+      seconds: 20,
+    });
+    expect(cleanBgMedia({ kind: 'slides', images: Array.from({ length: 12 }, (_, i) => `m${i}`), effect: 'kenburns', seconds: 1 })).toMatchObject({
+      effect: 'kenburns',
+      seconds: 3,
+    });
+    expect((cleanBgMedia({ kind: 'slides', images: Array.from({ length: 12 }, (_, i) => `m${i}`) }) as { images: string[] }).images).toHaveLength(8);
+    expect(cleanBgMedia({ kind: 'slides', images: [] })).toBeUndefined();
+    expect(cleanBgMedia({ kind: 'iframe', src: 'https://evil' })).toBeUndefined();
+    expect(bgMediaIds({ kind: 'video', video: 'v', poster: 'p' })).toEqual(['v', 'p']);
+  });
+
+  it('turns a slideshow into one loop where the first picture shows at once', () => {
+    const css = slidesCss('#b-x', 'bx', 3, 6, 'fade');
+    // 3 × 6 s, each picture starting its turn before it is due: the first is already there.
+    expect(css).toContain('animation:bgf-bx 18s linear infinite');
+    expect(css).toContain('.bgm-slide:nth-child(1) img{animation-delay:-1.2s}');
+    expect(css).toContain('.bgm-slide:nth-child(3) img{animation-delay:10.8s}');
+    expect(css).not.toContain('bgz-');
+    expect(slidesCss('#b-x', 'bx', 3, 6, 'kenburns')).toContain('@keyframes bgz-bx');
+    // One picture: standing still, or a single slow zoom.
+    expect(slidesCss('#b-x', 'bx', 1, 6, 'fade')).toBe('');
+    expect(slidesCss('#b-x', 'bx', 1, 6, 'kenburns')).toContain('12s ease-out both');
   });
 });
 

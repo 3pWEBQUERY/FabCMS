@@ -5,6 +5,7 @@ import { BLOCK_MAP } from '../shared/blocks';
 import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
+import { slidesCss } from '../shared/bg-media';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
@@ -1761,13 +1762,50 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
       console.error(`[render] Block ${b.type} (${b.id}) fehlgeschlagen:`, e);
       inner = empty(c, 'Dieser Block konnte nicht angezeigt werden.');
     }
-    const wrapped = wrapBlock(b, inner, c, images);
+    const wrapped = wrapBlock(b, inner, c, images, await bgMediaHtml(b, c));
     out.push(show?.length && c.edit ? raw(wrapped.value.replace('<section ', `<section data-nova-cond="${holds ? 'on' : 'off'}" `)) : wrapped);
   }
   return join(out);
 }
 
-export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map<string, string> = new Map()): Html {
+/**
+ * A video or slideshow behind the section's content, under its overlay colour.
+ * Phones get the poster unless the video should play there too; less motion –
+ * the poster or the first picture, standing still (themes.ts).
+ */
+async function bgMediaHtml(b: Block, ctx: RenderContext): Promise<Html> {
+  const m = b.style?.media;
+  if (!m) return html``;
+  const tint = html`<span class="bgm-tint"></span>`;
+  if (m.kind === 'video') {
+    const file = await ctx.media(m.video);
+    if (!file?.mime.startsWith('video/')) return html``;
+    const v = file.video?.status === 'ready' ? file.video : null;
+    // The smallest web version that is still sharp on a wide screen; the original only as the last resort.
+    const versions = [...(v?.renditions ?? [])].sort((a, b) => a.p - b.p);
+    const pick = versions.find((r) => r.p >= 720) ?? versions[versions.length - 1];
+    const poster = await ctx.media(m.poster);
+    const posterUrl = poster ? variantUrl(poster, 1920, 'webp') : v?.poster ? `/media/${file.id}/video/${v.poster.split('/').pop()}` : '';
+    const media = m.phones ? '' : ' media="(min-width: 720px)"';
+    const sources = [
+      ...(pick ? [`<source src="/media/${esc(file.id)}/video/${pick.p}.mp4" type="video/mp4"${media}>`] : []),
+      `<source src="${esc(originalUrl(file))}" type="${esc(file.mime)}"${media}>`,
+    ].join('');
+    const still = posterUrl ? html`<img class="bgm-poster" src="${posterUrl}" alt="" loading="lazy" decoding="async">` : html``;
+    return html`<div class="bgm" aria-hidden="true">${still}<video class="${m.phones ? '' : 'bgm-wide'}" autoplay muted loop playsinline disablepictureinpicture preload="metadata"${
+      posterUrl ? raw(` poster="${esc(posterUrl)}"`) : ''
+    }>${raw(sources)}</video>${tint}</div>`;
+  }
+  const pics = (await Promise.all(m.images.map((id) => ctx.media(id)))).filter((x): x is NonNullable<typeof x> => Boolean(x?.mime.startsWith('image/')));
+  if (!pics.length) return html``;
+  const key = blockDomId(b).replace(/[^\w-]/g, '');
+  const css = slidesCss(`#${blockDomId(b)}`, key, pics.length, m.seconds, m.effect);
+  return html`<div class="bgm bgm-slides" aria-hidden="true">${css ? html`<style>${raw(css.replace(/</g, ''))}</style>` : ''}${pics.map((pic, i) =>
+    picture(pic, { className: 'bgm-slide', alt: '', maxWidth: 1920, priority: i === 0 && ctx.blockIndex === 0 }),
+  )}${tint}</div>`;
+}
+
+export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map<string, string> = new Map(), bgm: Html = html``): Html {
   const s = b.style ?? {};
   const tone = s.tone ?? 'default';
   const isCover = b.type === 'hero' && (b.props as P).variant === 'cover';
@@ -1782,6 +1820,7 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
     b.type === 'hero' && `hero-${(b.props as P).variant ?? 'statement'}`,
     s.className,
     styleOf(s.use) && `st-${s.use}`,
+    bgm.value && 'has-bgm',
   );
   const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
@@ -1792,7 +1831,7 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
   if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';
   const editAttrs = ctx.edit ? raw(` data-nova-block="${esc(b.id)}" data-nova-type="${esc(b.type)}" data-nova-lock="${esc(b.lock ?? 'none')}"`) : '';
-  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}${raw(motion ? ` ${motion}` : '')}>${css}${design}${inner}</section>`;
+  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}${raw(motion ? ` ${motion}` : '')}>${css}${design}${bgm}${inner}</section>`;
 }
 
 /** Werkbank CSS per block: `&` refers to the block; plain rules are prefixed with it. */

@@ -6,6 +6,7 @@ import type { FieldDef, LinkValue } from './fields';
 import type { Design } from './design';
 import type { Motion } from './motion';
 import type { Cond } from './conditions';
+import type { BgMedia } from './bg-media';
 
 export type Mode = 'studio' | 'werkbank';
 export type BuiltinRole = 'owner' | 'admin' | 'editor' | 'author' | 'member';
@@ -33,6 +34,8 @@ export interface BlockStyle {
   motion?: Motion;
   /** «Nur zeigen, wenn …»: the whole block only when all of them hold (shared/conditions.ts). */
   show?: Cond[];
+  /** A video or slideshow behind the content (shared/bg-media.ts). */
+  media?: BgMedia;
 }
 
 /**

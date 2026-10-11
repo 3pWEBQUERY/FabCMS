@@ -319,6 +319,12 @@ const ICON: Record<string, [string, string]> = {
 const icon = (n: string) => `<svg viewBox="0 0 20 20" aria-hidden="true"><path class="f" d="${ICON[n][0]}"/><path d="${ICON[n][1]}"/></svg>`;
 const clock = (t: number) => (Number.isFinite(t) ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}` : '–:––');
 
+// Moving section backgrounds: started where the browser held autoplay back – never for visitors who want less motion.
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+  d.querySelectorAll<HTMLVideoElement>('.bgm video').forEach((v) => {
+    if (v.paused && getComputedStyle(v).display !== 'none') void v.play().catch(() => {});
+  });
+
 d.querySelectorAll<HTMLVideoElement>('video.vid').forEach((v) => {
   v.controls = false;
   const box = d.createElement('div');

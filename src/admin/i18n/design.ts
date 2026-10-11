@@ -981,4 +981,32 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
       it: 'Sulla pagina: la maniglia in basso regola l’altezza, quelle a sinistra e a destra la larghezza del contenuto – per la dimensione di schermo scelta. Doppio clic per ripristinare, Maiusc per trascinare senza aggancio.',
       en: 'On the canvas: the handle at the bottom drags the height, the ones left and right the content width – for the chosen screen size. Double-click resets, Shift drags without snapping.',
     },
+  'Bewegter Hintergrund': { fr: 'Arrière-plan animé', it: 'Sfondo animato', en: 'Moving background' },
+  Diashow: { fr: 'Diaporama', it: 'Presentazione', en: 'Slideshow' },
+  'Läuft stumm in Schlaufe. MP4 – Nova macht daraus eine schlanke Web-Fassung.': {
+    fr: 'Tourne en boucle, sans son. MP4 – Nova en fait une version web légère.',
+    it: 'Gira in loop, senza audio. MP4 – Nova ne ricava una versione web leggera.',
+    en: 'Plays muted in a loop. MP4 – Nova turns it into a lean web version.',
+  },
+  Standbild: { fr: 'Image fixe', it: 'Immagine fissa', en: 'Still image' },
+  'Erscheint, bis das Video läuft, auf dem Handy und bei «weniger Bewegung». Leer = ein Bild aus dem Video.': {
+    fr: 'S’affiche jusqu’au démarrage de la vidéo, sur mobile et avec «moins d’animations». Vide = une image tirée de la vidéo.',
+    it: 'Compare finché il video parte, sul telefono e con «meno movimento». Vuoto = un fotogramma del video.',
+    en: 'Shows until the video plays, on phones and with «reduced motion». Empty = a frame from the video.',
+  },
+  'Auch auf dem Handy abspielen': { fr: 'Lire aussi sur mobile', it: 'Riproduci anche sul telefono', en: 'Also play on phones' },
+  'Sonst zeigt das Handy das Standbild – das schont das Datenvolumen der Besucher.': {
+    fr: 'Sinon, le mobile affiche l’image fixe – cela ménage les données des visiteurs.',
+    it: 'Altrimenti il telefono mostra l’immagine fissa – risparmia i dati dei visitatori.',
+    en: 'Otherwise phones show the still image – it spares visitors’ data.',
+  },
+  'Bis zu {n}, in dieser Reihenfolge.': { fr: 'Jusqu’à {n}, dans cet ordre.', it: 'Fino a {n}, in quest’ordine.', en: 'Up to {n}, in this order.' },
+  Überblenden: { fr: 'Fondu', it: 'Dissolvenza', en: 'Crossfade' },
+  'Überblenden mit langsamem Zoom': { fr: 'Fondu avec zoom lent', it: 'Dissolvenza con zoom lento', en: 'Crossfade with slow zoom' },
+  'Sekunden pro Bild': { fr: 'Secondes par image', it: 'Secondi per immagine', en: 'Seconds per picture' },
+  'Die Überlagerung unten liegt auch über Video und Bildern – so bleibt der Text lesbar.': {
+    fr: 'La superposition ci-dessous couvre aussi la vidéo et les images – le texte reste lisible.',
+    it: 'La sovrapposizione qui sotto copre anche video e immagini – così il testo resta leggibile.',
+    en: 'The overlay below also covers the video and pictures – so the text stays readable.',
+  },
 };
