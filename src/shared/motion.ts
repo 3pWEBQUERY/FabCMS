@@ -13,6 +13,8 @@ export const SELF_HOVERS = ['lift', 'grow', 'glow', 'tilt', 'magnet'] as const;
 /** Texts: word by word as they come into view, or lighting up word by word while scrolling. */
 export const TEXT_EFFECTS = ['words', 'scrub'] as const;
 export const LOOPS = ['float', 'pulse', 'spin', 'wiggle'] as const;
+/** Elements: follows the mouse wherever it is in the window (Webflow's «mouse move in viewport») – moving or tilting. */
+export const MOUSE_EFFECTS = ['shift', 'tilt'] as const;
 export const EASINGS = {
   smooth: 'cubic-bezier(.2,.7,.2,1)',
   spring: 'cubic-bezier(.34,1.56,.64,1)',
@@ -27,6 +29,7 @@ export type ItemHover = (typeof ITEM_HOVERS)[number];
 export type SelfHover = (typeof SELF_HOVERS)[number];
 export type TextEffect = (typeof TEXT_EFFECTS)[number];
 export type Loop = (typeof LOOPS)[number];
+export type MouseEffect = (typeof MOUSE_EFFECTS)[number];
 export type Easing = keyof typeof EASINGS;
 
 export interface Motion {
@@ -51,6 +54,10 @@ export interface Motion {
   hover?: SelfHover;
   /** Headings and texts: word by word. */
   text?: TextEffect;
+  /** Elements: follows the mouse across the window; 1–100, the opposite way with `mouseAway`. */
+  mouse?: MouseEffect;
+  mouseStrength?: number;
+  mouseAway?: boolean;
 }
 
 const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : null);
@@ -77,6 +84,8 @@ export function motionAttrs(m: Motion | undefined): string {
   if (self) out.push(`data-hover-self="${self}"`);
   const text = one(m.text, TEXT_EFFECTS);
   if (text) out.push(`data-text="${text}"`);
+  const mouse = one(m.mouse, MOUSE_EFFECTS);
+  if (mouse) out.push(`data-mouse="${mouse}" data-mouse-k="${(num(m.mouseStrength, 1, 100) ?? 30) * (m.mouseAway === true ? -1 : 1)}"`);
   return out.join(' ');
 }
 
@@ -92,7 +101,7 @@ export function motionVars(m: Motion | undefined): string {
   return vars.join(';');
 }
 
-export const hasMotion = (m: Motion | undefined) => Boolean(m && (m.enter || m.scroll || m.itemHover || m.loop || m.hover || m.text));
+export const hasMotion = (m: Motion | undefined) => Boolean(m && (m.enter || m.scroll || m.itemHover || m.loop || m.hover || m.text || m.mouse));
 
 /**
  * The CSS the runtime relies on; part of the page whenever something moves.
@@ -155,6 +164,8 @@ body:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)>:not(st
 [data-hover-self=glow]:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 12px 44px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
 [data-hover-self=tilt]{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
 [data-hover-self=magnet]{translate:var(--mx,0) var(--my,0)}
+[data-mouse=shift]{translate:calc(var(--px,0) * var(--mk,30) * .5px) calc(var(--py,0) * var(--mk,30) * .5px);transition:translate .4s cubic-bezier(.2,.7,.2,1)}
+[data-mouse=tilt]{transform:perspective(900px) rotateX(calc(var(--py,0) * var(--mk,30) * -.3deg)) rotateY(calc(var(--px,0) * var(--mk,30) * .3deg));transition:transform .4s cubic-bezier(.2,.7,.2,1)}
 }
 @keyframes nova-show{to{opacity:1;transform:none;filter:none;clip-path:none}}
 @keyframes nova-float{50%{translate:0 -10px}}

@@ -140,6 +140,9 @@ const onScroll = () => {
   }
 };
 
+const followers = new Set<HTMLElement>();
+let following = false;
+
 /* ---------- hover effects on items ---------- */
 
 function tilt(item: HTMLElement) {
@@ -251,6 +254,33 @@ export function setupMotion(root: ParentNode = document, edit = false): void {
     el.dataset.hoverBound = '1';
     if (el.dataset.hoverSelf === 'tilt') tilt(el);
     else magnet(el);
+  }
+  // Following the mouse across the window – not in the editor, where things are being clicked and dragged.
+  if (!edit) {
+    for (const el of root.querySelectorAll<HTMLElement>('[data-mouse]')) {
+      el.style.setProperty('--mk', String(Number(el.dataset.mouseK) || 30));
+      followers.add(el);
+    }
+    if (followers.size && !following) {
+      following = true;
+      let frame = 0;
+      addEventListener('pointermove', (e) => {
+        if (e.pointerType !== 'mouse' || frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          // -1 … 1 from the middle of the window.
+          const px = ((e.clientX / innerWidth - 0.5) * 2).toFixed(3);
+          const py = ((e.clientY / innerHeight - 0.5) * 2).toFixed(3);
+          for (const el of followers) {
+            if (!el.isConnected) followers.delete(el);
+            else {
+              el.style.setProperty('--px', px);
+              el.style.setProperty('--py', py);
+            }
+          }
+        });
+      });
+    }
   }
   // Texts are split only on the page: in the editor they are being written.
   if (!edit) for (const el of root.querySelectorAll<HTMLElement>('[data-text]')) setupText(el);

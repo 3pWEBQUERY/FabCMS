@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react';
-import { type Easing, type EnterEffect, type ItemHover, type Loop, type Motion, type ScrollEffect, type SelfHover, type TextEffect } from '../../../shared/motion';
+import {
+  type Easing,
+  type EnterEffect,
+  type ItemHover,
+  type Loop,
+  type Motion,
+  type MouseEffect,
+  type ScrollEffect,
+  type SelfHover,
+  type TextEffect,
+} from '../../../shared/motion';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Switch, Tip } from '../../ui/kit';
@@ -39,6 +49,12 @@ const selfHovers = (): { value: SelfHover | ''; label: string }[] => [
   { value: 'glow', label: t('Leuchten') },
   { value: 'tilt', label: t('3D-Neigen') },
   { value: 'magnet', label: t('Magnetisch') },
+];
+
+const mouseEffects = (): { value: MouseEffect | ''; label: string }[] => [
+  { value: '', label: t('Keiner') },
+  { value: 'shift', label: t('Mitbewegen') },
+  { value: 'tilt', label: t('Zur Maus neigen') },
 ];
 
 const textEffects = (): { value: TextEffect | ''; label: string }[] => [
@@ -282,6 +298,39 @@ export function MotionPanel({
             ))}
           </Tiles>
           <p className="xsmall faint">{t('«Magnetisch» zieht Knöpfe und Symbole sanft zur Maus – probier es im Editor aus.')}</p>
+        </DesignSection>
+      )}
+
+      {target === 'element' && (
+        <DesignSection id="motion-mouse" title={t('Folgt der Maus')} icon="cursor" count={m.mouse ? 1 : 0}>
+          <Tiles label={t('Wie das Element der Maus im ganzen Fenster folgt')}>
+            {mouseEffects().map((e) => (
+              <Tile
+                key={e.value}
+                kind="hover"
+                value={e.value}
+                label={e.label}
+                active={(m.mouse ?? '') === e.value}
+                onClick={() => set({ mouse: (e.value || undefined) as MouseEffect | undefined })}
+              />
+            ))}
+          </Tiles>
+          {m.mouse && (
+            <>
+              <PropRow label={t('Stärke')} state={m.mouseStrength !== undefined ? 'set' : 'none'} onReset={() => set({ mouseStrength: undefined })}>
+                <div className="mp-range">
+                  <input type="range" min={1} max={100} value={m.mouseStrength ?? 30} onChange={(e) => set({ mouseStrength: Number(e.target.value) })} aria-label={t('Stärke')} />
+                  <span className="mono">{m.mouseStrength ?? 30}</span>
+                </div>
+              </PropRow>
+              <Switch checked={Boolean(m.mouseAway)} onChange={(v) => set({ mouseAway: v || undefined })} label={t('In die Gegenrichtung')} />
+            </>
+          )}
+          <p className="xsmall faint">
+            {t(
+              'Wo die Maus im Fenster ist, dorthin bewegt oder neigt es sich – mehrere Ebenen mit verschiedener Stärke wirken räumlich. Auf der Website und in der Vorschau zu sehen, nicht mit Finger und nicht bei «weniger Bewegung».',
+            )}
+          </p>
         </DesignSection>
       )}
 

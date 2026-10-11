@@ -2365,6 +2365,15 @@ describe('Zustände Fokus und Gedrückt', () => {
   });
 });
 
+describe('Folgt der Maus', () => {
+  it('marks the element with its effect and strength, the other way round as a negative', () => {
+    expect(motionAttrs({ mouse: 'shift' })).toBe('data-mouse="shift" data-mouse-k="30"');
+    expect(motionAttrs({ mouse: 'tilt', mouseStrength: 250, mouseAway: true })).toBe('data-mouse="tilt" data-mouse-k="-100"');
+    expect(motionAttrs({ mouse: 'wobble' as 'shift' })).toBe('');
+    expect(hasMotion({ mouse: 'shift' })).toBe(true);
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

@@ -1081,4 +1081,19 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Stai progettando «Premuto»: come appare mentre lo si clicca o tocca.',
     en: 'You are designing “Pressed”: how it looks while it is clicked or tapped.',
   },
+  Mitbewegen: { fr: 'Suivre', it: 'Seguire', en: 'Move along' },
+  'Zur Maus neigen': { fr: 'S’incliner vers la souris', it: 'Inclinarsi verso il mouse', en: 'Tilt towards the mouse' },
+  'Folgt der Maus': { fr: 'Suit la souris', it: 'Segue il mouse', en: 'Follows the mouse' },
+  'Wie das Element der Maus im ganzen Fenster folgt': {
+    fr: 'Comment l’élément suit la souris dans toute la fenêtre',
+    it: 'Come l’elemento segue il mouse in tutta la finestra',
+    en: 'How the element follows the mouse across the window',
+  },
+  'In die Gegenrichtung': { fr: 'Dans le sens opposé', it: 'Nella direzione opposta', en: 'The opposite way' },
+  'Wo die Maus im Fenster ist, dorthin bewegt oder neigt es sich – mehrere Ebenen mit verschiedener Stärke wirken räumlich. Auf der Website und in der Vorschau zu sehen, nicht mit Finger und nicht bei «weniger Bewegung».':
+    {
+      fr: 'Il se déplace ou s’incline vers l’endroit où se trouve la souris – plusieurs calques d’intensités différentes donnent de la profondeur. Visible sur le site et dans l’aperçu, pas au doigt ni avec «réduire les animations».',
+      it: 'Si sposta o si inclina verso il punto in cui si trova il mouse – più livelli con intensità diverse danno profondità. Visibile sul sito e nell’anteprima, non con il dito né con «riduci movimento».',
+      en: 'It moves or tilts towards wherever the mouse is in the window – several layers at different strengths look three-dimensional. Shown on the website and in the preview, not by finger and not with “reduce motion”.',
+    },
 };
