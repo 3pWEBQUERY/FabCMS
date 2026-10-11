@@ -2047,6 +2047,36 @@ describe('Bewegter Hintergrund', () => {
   });
 });
 
+describe('Karte und Icon-Liste', () => {
+  it('keeps a map only with a real place of its own, and an icon list with safe entries', () => {
+    const [own, half, list] = sanitizeEls([
+      { id: 'm1', kind: 'map', props: { place: 'Bahnhof <b>Winterthur</b>', lat: 47.5001234567, lng: 8.7234, zoom: '19', height: 5000, route: false } },
+      { id: 'm2', kind: 'map', props: { place: 'Nur Text', lat: 47.5 } },
+      {
+        id: 'l1',
+        kind: 'iconlist',
+        props: {
+          items: [{ icon: 'phone', text: 'Anrufen', href: 'tel:+41520000000' }, { icon: '../x', text: 'Böse', href: 'javascript:alert(1)' }, 'kaputt'],
+          layout: 'quer',
+          size: 500,
+        },
+      },
+    ]);
+    // Text stays text (escaped when drawn).
+    expect(own.props).toEqual({ place: 'Bahnhof <b>Winterthur</b>', lat: 47.500123, lng: 8.7234, zoom: '16', height: 800, route: false });
+    // One coordinate is no place: the website's location instead.
+    expect(half.props).toMatchObject({ place: '', lat: null, lng: null });
+    expect(list.props).toEqual({
+      items: [
+        { icon: 'phone', text: 'Anrufen', href: 'tel:+41520000000' },
+        { icon: 'check', text: 'Böse', href: undefined },
+      ],
+      layout: 'column',
+      size: 64,
+    });
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

@@ -18,6 +18,7 @@ import { ConditionControls } from './Conditions';
 import { ImageFocus } from './ImageFocus';
 import { LoopEntries, LoopRules, loopFields } from './LoopRules';
 import { SiteData } from './SiteData';
+import { MapPlace } from './MapPlace';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -120,6 +121,7 @@ export function ElementInspector({
             </details>
           )}
           <SiteData el={el} onSaved={onSiteSaved} />
+          {el.kind === 'map' && <MapPlace el={el} onChange={onChange} />}
           <FieldList
             fields={
               el.kind === 'list'

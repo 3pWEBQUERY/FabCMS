@@ -4147,6 +4147,50 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('shows a map only after a click and a list with icons', async () => {
+    const els = [
+      { id: 'mp', kind: 'map', props: { place: 'Stadthaus', lat: 47.4996, lng: 8.7241, zoom: '17', height: 300, route: true } },
+      {
+        id: 'il',
+        kind: 'iconlist',
+        props: {
+          items: [
+            { icon: 'phone', text: 'Tel <052>', href: 'tel:+41520000000' },
+            { icon: 'clock', text: 'Täglich offen', href: '' },
+          ],
+          layout: 'row',
+          size: 24,
+        },
+      },
+    ];
+    const page = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'karte-liste', data: { title: 'Karte und Liste', blocks: [{ id: 'kl', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const get = async () => (await req('GET', '/karte-liste', undefined, { cookies: new Map() })).data as string;
+    const s = (await req('GET', '/api/settings')).data.settings;
+    await req('PATCH', '/api/settings', { consent: { ...s.consent, maps: true } });
+    let html = await get();
+    // Nothing from OpenStreetMap in the page itself: only the address to load after the click.
+    expect(html).toContain('data-consent="maps" data-src="https://www.openstreetmap.org/export/embed.html?bbox=');
+    expect(html).toContain('marker=47.4996,8.7241');
+    expect(html).not.toMatch(/<iframe[^>]*openstreetmap/);
+    expect(html).toContain('<div class="el-map-frame" style="height:300px">');
+    expect(html).toContain('href="https://www.openstreetmap.org/directions?route=%3B47.4996%2C8.7241"');
+    // Icon list: a link where there is one, the text escaped, side by side.
+    expect(html).toMatch(/<ul class="el el-iconlist e-il il-row"[^>]*style="--il:24px">/);
+    expect(html).toContain('<li><a href="tel:+41520000000"><svg');
+    expect(html).toContain('<span>Tel &lt;052&gt;</span>');
+    expect(html).toContain('Täglich offen');
+    // Maps switched off: a plain link to the map instead of the box.
+    await req('PATCH', '/api/settings', { consent: { ...s.consent, maps: false } });
+    html = await get();
+    expect(html).not.toContain('data-consent="maps"');
+    expect(html).toContain('href="https://www.openstreetmap.org/?mlat=47.4996&amp;mlon=8.7241#map=17/47.4996/8.7241"');
+    await req('PATCH', '/api/settings', { consent: s.consent });
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('shows a gallery of chosen pictures, or of the entry, opening them large', async () => {
     const anon = { cookies: new Map<string, string>() };
     const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');

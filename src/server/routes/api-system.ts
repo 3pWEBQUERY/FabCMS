@@ -62,6 +62,31 @@ async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | 
   }
 }
 
+/** A place by its address, for a map element: OpenStreetMap's Nominatim, at most once a second (its usage policy), remembered. */
+const places = new Map<string, { lat: number; lng: number; label: string } | null>();
+let lastLookup = 0;
+async function findPlace(q: string): Promise<{ lat: number; lng: number; label: string } | null | undefined> {
+  const key = q.toLowerCase();
+  if (places.has(key)) return places.get(key)!;
+  const wait = lastLookup + 1000 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastLookup = Date.now();
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, {
+      headers: { 'User-Agent': `NovaCMS/0.1 (${env.publicUrl})`, 'Accept-Language': 'de' },
+      signal: AbortSignal.timeout(6000),
+    });
+    const [hit] = (await r.json()) as { lat: string; lon: string; display_name: string }[];
+    const place = hit ? { lat: Number(hit.lat), lng: Number(hit.lon), label: hit.display_name } : null;
+    if (places.size > 500) places.clear();
+    places.set(key, place);
+    return place;
+  } catch {
+    // Not reachable (or no answer in time): undefined, unlike «not found».
+    return undefined;
+  }
+}
+
 async function publicBase() {
   const s = await getSettings();
   return (s.baseUrl || env.publicUrl).replace(/\/$/, '');
@@ -69,6 +94,16 @@ async function publicBase() {
 
 export function systemApi(app: Hono<AppEnv>) {
   /* ---------- settings ---------- */
+
+  app.get('/api/geocode', async (c) => {
+    requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const q = (c.req.query('q') ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (q.length < 3) throw badRequest('Gib eine Adresse ein, z. B. «Bahnhofstrasse 1, Zürich».');
+    const place = await findPlace(q);
+    if (place === undefined) throw new HttpError(502, 'OpenStreetMap ist gerade nicht erreichbar. Versuch es später nochmals.');
+    if (!place) throw notFound('Diesen Ort hat OpenStreetMap nicht gefunden. Versuch es mit Strasse, PLZ und Ort.');
+    return c.json({ place });
+  });
 
   app.get('/api/settings', async (c) => {
     const user = requireUser(c);

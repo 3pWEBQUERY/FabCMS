@@ -40,6 +40,8 @@ export const EL_KINDS = [
   'toc',
   'share',
   'progress',
+  'map',
+  'iconlist',
   'accordion',
   'tabs',
   'slider',
@@ -620,6 +622,69 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       },
     ],
     defaults: { label: 'Teilen', networks: ['copy', 'mail', 'whatsapp', 'linkedin'] },
+  },
+  map: {
+    kind: 'map',
+    group: 'site',
+    label: 'Karte',
+    description: 'Eine Karte von OpenStreetMap mit Stecknadel – der Standort der Website oder ein eigener Ort. Lädt erst nach einem Klick, ohne Cookies.',
+    icon: 'map',
+    fields: [
+      {
+        key: 'zoom',
+        type: 'select',
+        label: 'Ausschnitt',
+        options: [
+          { value: '13', label: 'Stadt' },
+          { value: '15', label: 'Quartier' },
+          { value: '16', label: 'Strasse' },
+          { value: '17', label: 'Gebäude' },
+        ],
+        default: '16',
+      },
+      { key: 'height', type: 'number', label: 'Höhe in Pixeln', min: 200, max: 800, default: 380 },
+      { key: 'route', type: 'boolean', label: 'Darunter «Route planen»' },
+    ],
+    defaults: { place: '', lat: null, lng: null, zoom: '16', height: 380, route: true },
+  },
+  iconlist: {
+    kind: 'iconlist',
+    group: 'basic',
+    label: 'Icon-Liste',
+    description: 'Eine Aufzählung mit einem Symbol vor jedem Eintrag – für Vorteile, Leistungen oder Kontaktdaten, auf Wunsch verlinkt.',
+    icon: 'list',
+    fields: [
+      {
+        key: 'items',
+        type: 'group',
+        label: 'Einträge',
+        fields: [
+          { key: 'icon', type: 'icon', label: 'Symbol' },
+          { key: 'text', type: 'text', label: 'Text' },
+          { key: 'href', type: 'url', label: 'Link' },
+        ],
+      },
+      {
+        key: 'layout',
+        type: 'select',
+        label: 'Anordnung',
+        options: [
+          { value: 'column', label: 'Untereinander' },
+          { value: 'row', label: 'Nebeneinander' },
+        ],
+        default: 'column',
+      },
+      { key: 'size', type: 'number', label: 'Symbolgrösse in Pixeln', min: 12, max: 64, default: 20 },
+    ],
+    defaults: {
+      items: [
+        { icon: 'check', text: 'Frisch und saisonal', href: '' },
+        { icon: 'check', text: 'Aus der Region', href: '' },
+        { icon: 'check', text: 'Mit Liebe gekocht', href: '' },
+      ],
+      layout: 'column',
+      size: 20,
+    },
   },
   progress: {
     kind: 'progress',
@@ -1258,6 +1323,29 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
     }
     case 'progress':
       return { place: one(p.place, ['top', 'bottom'] as const, 'top'), size: typeof p.size === 'number' ? Math.min(12, Math.max(2, Math.round(p.size))) : 4 };
+    case 'map': {
+      // A place of its own needs both coordinates (found in the editor); otherwise the website's location.
+      const lat = typeof p.lat === 'number' && Math.abs(p.lat) <= 90 ? Math.round(p.lat * 1e6) / 1e6 : null;
+      const lng = typeof p.lng === 'number' && Math.abs(p.lng) <= 180 ? Math.round(p.lng * 1e6) / 1e6 : null;
+      const own = lat !== null && lng !== null;
+      return {
+        place: own ? plain(p.place, 200) : '',
+        lat: own ? lat : null,
+        lng: own ? lng : null,
+        zoom: one(String(p.zoom ?? '16'), ['13', '15', '16', '17'] as const, '16'),
+        height: typeof p.height === 'number' ? Math.min(800, Math.max(200, Math.round(p.height))) : 380,
+        route: p.route !== false,
+      };
+    }
+    case 'iconlist':
+      return {
+        items: (Array.isArray(p.items) ? p.items : [])
+          .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === 'object')
+          .slice(0, 30)
+          .map((x) => ({ icon: typeof x.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(x.icon) ? x.icon : 'check', text: plain(x.text, 200), href: href(x.href) })),
+        layout: p.layout === 'row' ? 'row' : 'column',
+        size: typeof p.size === 'number' ? Math.min(64, Math.max(12, Math.round(p.size))) : 20,
+      };
     case 'price':
       return { product: productRef(p.product), compare: p.compare !== false, sale: p.sale !== false };
     case 'addtocart':
@@ -1413,6 +1501,7 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'heading' && !el.bind?.text) out.push(String(el.props.text ?? ''));
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
+      if (el.kind === 'iconlist') for (const it of (el.props.items as { text?: string }[] | undefined) ?? []) out.push(String(it?.text ?? ''));
       if (el.children) visit(el.children);
     }
   };

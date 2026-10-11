@@ -1175,6 +1175,20 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     }
     case 'share':
       return renderShare(el, ctx, rc, attrs, cls());
+    case 'map':
+      return renderMapEl(p, ctx, attrs, cls(), Boolean(handles));
+    case 'iconlist': {
+      const items = (Array.isArray(p.items) ? p.items : []) as { icon?: string; text?: string; href?: string }[];
+      if (!items.length) return handles ? html`<div class="${cls('el-empty')}"${attrs}>Noch keine Einträge – im Inspektor hinzufügen.</div>` : html``;
+      const size = Math.min(64, Math.max(12, Number(p.size) || 20));
+      const rows = items.map((it, i) => {
+        // The texts are written in place in the editor (not inside a link there, so a click doesn't leave the page).
+        const text = html`<span${rc.over ? '' : field(rc.edit, `${path}.props.items.${i}.text`)}>${it.text ?? ''}</span>`;
+        const icon = raw(siteIconSvg(it.icon) || siteIconSvg('check'));
+        return it.href && !rc.edit && !rc.inLink ? html`<li><a href="${it.href}">${icon}${text}</a></li>` : html`<li>${icon}${text}</li>`;
+      });
+      return html`<ul class="${cls(p.layout === 'row' ? 'il-row' : '')}"${attrs} style="--il:${size}px">${rows}</ul>`;
+    }
     case 'progress': {
       const size = Math.min(12, Math.max(2, Number(p.size) || 4));
       ctx.needs.add('widgets');
@@ -1189,6 +1203,35 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       // A kind this version doesn't know (stored by a newer one): nothing.
       return html``;
   }
+}
+
+/**
+ * «Karte»: OpenStreetMap with a pin at the website's place or one of its own.
+ * Nothing is loaded from OpenStreetMap before a click (the consent box); with
+ * maps switched off in the settings, a link to the map instead.
+ */
+function renderMapEl(p: P, ctx: RenderContext, attrs: Html, cls: string, edit: boolean): Html {
+  const biz = ctx.settings.business;
+  const own = typeof p.lat === 'number' && typeof p.lng === 'number';
+  const lat = own ? (p.lat as number) : biz.lat;
+  const lng = own ? (p.lng as number) : biz.lng;
+  const label = own ? String(p.place || `${lat}, ${lng}`) : [biz.street, [biz.zip, biz.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  if (typeof lat !== 'number' || typeof lng !== 'number')
+    return edit
+      ? html`<div class="${cls} el-empty"${attrs}>Für die Karte fehlt ein Ort: Adresse der Website unter «Einstellungen → Name, Logo & Kontakt» eintragen oder im Inspektor einen Ort suchen.</div>`
+      : html``;
+  const zoom = Math.min(17, Math.max(13, Number(p.zoom) || 16));
+  const route =
+    p.route !== false
+      ? html`<p class="el-map-route"><a class="btn-2" href="https://www.openstreetmap.org/directions?route=%3B${lat}%2C${lng}" rel="noopener">${t(ctx, 'Route planen')}</a></p>`
+      : html``;
+  if (!ctx.settings.consent.maps)
+    return html`<div class="${cls}"${attrs}><p><a class="btn-2" href="https://www.openstreetmap.org/?mlat=${lat}&amp;mlon=${lng}#map=${zoom}/${lat}/${lng}" rel="noopener">${t(ctx, '{address} auf der Karte öffnen', { address: label })}</a></p></div>`;
+  ctx.needs.add('consent');
+  const d = 0.004 * Math.pow(2, 16 - zoom);
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d * 1.6},${lat - d},${lng + d * 1.6},${lat + d}&layer=mapnik&marker=${lat},${lng}`;
+  const height = Math.min(800, Math.max(200, Number(p.height) || 380));
+  return html`<div class="${cls}"${attrs}><div class="el-map-frame" style="height:${height}px">${consentBox(ctx, 'maps', src, t(ctx, 'Karte: {address}', { address: label }), html``, 'map')}</div>${route}</div>`;
 }
 
 /**
