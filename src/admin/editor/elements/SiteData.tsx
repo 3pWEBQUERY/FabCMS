@@ -4,7 +4,7 @@ import { Field } from '../../ui/kit';
 import { MediaField } from '../../ui/FieldInput';
 import { HoursEditor } from '../../ui/HoursEditor';
 import { useSettingsDraft } from '../../views/settingsDraft';
-import { FooterEditor, MenuEditor, PageLinksProvider, SocialEditor } from '../../views/NavEditors';
+import { FooterEditor, MenuEditor, SocialEditor } from '../../views/NavEditors';
 import { siteDataOf, type El, type SiteKey } from '../../../shared/elements';
 
 /** «Speichern – auf allen Seiten» under website data edited in the page editor. */
@@ -107,10 +107,10 @@ export function SiteData({ el, onSaved }: { el: El; onSaved?: () => void }) {
             </>
           )}
           {(has('nav') || has('footer')) && (
-            <PageLinksProvider>
+            <>
               {has('nav') && <MenuEditor nav={draft.nav} onChange={(n) => set('nav', n)} />}
               {has('footer') && <FooterEditor footer={draft.footer} onChange={(f) => set('footer', f)} />}
-            </PageLinksProvider>
+            </>
           )}
           {has('social') && <SocialEditor social={draft.social} onChange={(v) => set('social', v)} />}
         </div>

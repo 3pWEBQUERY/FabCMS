@@ -1,8 +1,7 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useApi } from '../lib/hooks';
 import { t } from '../lib/i18n';
-import { Field, SuggestInput, Toggle } from '../ui/kit';
+import { Field, Toggle } from '../ui/kit';
+import { PageLinkInput } from '../ui/PageLinkInput';
 import { Icon } from '../ui/icons';
 import { shortId } from '../../shared/text';
 import type { NavItem, SiteSettings } from '../../shared/types';
@@ -13,19 +12,8 @@ import type { NavItem, SiteSettings } from '../../shared/types';
  * the header or footer opens them.
  */
 
-/** Page addresses offered as link targets in every menu and footer row. */
-const PageLinks = createContext<{ value: string; label: string }[]>([]);
-
-/** The site's pages as link suggestions for everything inside. */
-export function PageLinksProvider({ children }: { children: ReactNode }) {
-  const { data } = useApi<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=300');
-  const pageLinks = useMemo(() => (data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title })), [data]);
-  return <PageLinks.Provider value={pageLinks}>{children}</PageLinks.Provider>;
-}
-
 function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: (n: NavItem) => void; onRemove: () => void; depth: number }) {
   const controls = useDragControls();
-  const pageLinks = useContext(PageLinks);
   return (
     <Reorder.Item value={item} dragListener={false} dragControls={controls} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, zIndex: 4 }}>
       <div className="row nav-row" style={{ marginLeft: depth * 24, padding: '0.25rem 0' }}>
@@ -40,14 +28,7 @@ function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: 
           onChange={(e) => onChange({ ...item, label: e.target.value })}
           aria-label={t('Beschriftung')}
         />
-        <SuggestInput
-          className="input grow mono"
-          value={item.href}
-          placeholder={t('/seite')}
-          onChange={(v) => onChange({ ...item, href: v })}
-          aria-label={t('Ziel')}
-          suggestions={pageLinks}
-        />
+        <PageLinkInput className="input grow mono" value={item.href} placeholder={t('/seite')} onChange={(v) => onChange({ ...item, href: v })} aria-label={t('Ziel')} />
         {depth === 0 && (
           <button
             className="btn ghost s"
@@ -96,7 +77,6 @@ export function MenuEditor({ nav, onChange }: { nav: NavItem[]; onChange: (n: Na
 
 /** The button at the right of the menu, and whether the header stays on top. */
 export function HeaderOptions({ header, onChange }: { header: SiteSettings['header']; onChange: (h: SiteSettings['header']) => void }) {
-  const pageLinks = useContext(PageLinks);
   return (
     <>
       <div className="grid-2">
@@ -108,12 +88,7 @@ export function HeaderOptions({ header, onChange }: { header: SiteSettings['head
           />
         </Field>
         <Field label={t('Ziel des Knopfs')}>
-          <SuggestInput
-            className="input mono"
-            suggestions={pageLinks}
-            value={header.cta?.href ?? ''}
-            onChange={(v) => onChange({ ...header, cta: { label: header.cta?.label ?? '', href: v } })}
-          />
+          <PageLinkInput className="input mono" value={header.cta?.href ?? ''} onChange={(v) => onChange({ ...header, cta: { label: header.cta?.label ?? '', href: v } })} />
         </Field>
       </div>
       <Toggle checked={header.sticky} onChange={(v) => onChange({ ...header, sticky: v })} label={t('Kopfzeile beim Scrollen oben behalten')} />
@@ -123,7 +98,6 @@ export function HeaderOptions({ header, onChange }: { header: SiteSettings['head
 
 /** Text and link columns of the footer. */
 export function FooterEditor({ footer, onChange }: { footer: SiteSettings['footer']; onChange: (f: SiteSettings['footer']) => void }) {
-  const pageLinks = useContext(PageLinks);
   return (
     <>
       <Field label={t('Text')}>
@@ -155,9 +129,8 @@ export function FooterEditor({ footer, onChange }: { footer: SiteSettings['foote
                   })
                 }
               />
-              <SuggestInput
+              <PageLinkInput
                 className="input mono"
-                suggestions={pageLinks}
                 value={l.href}
                 placeholder={t('/seite')}
                 aria-label={t('Ziel')}

@@ -22,7 +22,7 @@ import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
 import { GlobalContrast } from './design/contrast';
 import { useSettingsDraft } from '../views/settingsDraft';
-import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider, SocialEditor } from '../views/NavEditors';
+import { FooterEditor, HeaderOptions, MenuEditor, SocialEditor } from '../views/NavEditors';
 import { SiteSaveBar } from './elements/SiteData';
 import type { ContrastIssue } from '../../shared/contrast';
 
@@ -618,7 +618,7 @@ export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'f
         {which === 'header' ? t('Kopfzeile und Menü sind auf allen Seiten gleich.') : t('Die Fusszeile ist auf allen Seiten gleich.')} {t('Änderungen wirken überall.')}
       </p>
       {draft && (
-        <PageLinksProvider>
+        <>
           {which === 'header' ? (
             <>
               <Field label={t('Name der Website')}>
@@ -639,7 +639,7 @@ export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'f
               <SocialEditor social={draft.social} onChange={(v) => set('social', v)} />
             </>
           )}
-        </PageLinksProvider>
+        </>
       )}
       {dirty && <SiteSaveBar save={save} reset={reset} onSaved={onSaved} />}
     </div>

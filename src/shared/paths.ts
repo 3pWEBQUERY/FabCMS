@@ -1,4 +1,5 @@
 import type { CollectionDef } from './types';
+import { slugify } from './text';
 
 /** Public URL path of an entry, or null if the collection has no detail pages. */
 export function entryPath(c: Pick<CollectionDef, 'id' | 'route'>, slug: string): string | null {
@@ -17,3 +18,19 @@ export function matchRoute(route: string, path: string): string | null {
 
 /** Paths Nova uses itself; pages can't take them. */
 export const RESERVED_PREFIXES = ['de', 'fr', 'it', 'en', 'admin', 'api', '_nova', 'media', 'warenkorb', 'kasse', 'bestellung', 'buchung', 'newsletter', 'konto', 'tickets', 'spende', 'bestellen', 'essen', 'sitemap.xml', 'robots.txt', 'feed.xml'];
+
+/**
+ * A link someone typed that may lead to a page that does not exist yet – «/team»
+ * or «Unser Team» – as the page it would become. Nothing for addresses
+ * elsewhere, e-mail, anchors, files or the home page.
+ */
+export function pageForLink(typed: string): { title: string; slug: string } | null {
+  const s = typed.trim();
+  if (!s || /^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith('//') || /^www\./i.test(s) || /^[#?]/.test(s) || s.includes('@')) return null;
+  const path = s.startsWith('/') ? s.split(/[?#]/)[0] : null;
+  if (path !== null && /\.[a-z0-9]{1,5}$/i.test(path)) return null;
+  const slug = slugify(path ?? s);
+  if (!slug) return null;
+  const words = path === null ? s.replace(/\s+/g, ' ') : (slug.split('/').pop() ?? slug).replace(/-/g, ' ');
+  return { title: (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 120), slug };
+}

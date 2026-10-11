@@ -308,11 +308,14 @@ export function SuggestInput({
   value,
   onChange,
   suggestions,
+  extra,
   ...rest
 }: {
   value: string;
   onChange: (v: string) => void;
   suggestions: { value: string; label?: string }[];
+  /** One more choice under the suggestions that does something instead of filling in a value («Neue Seite anlegen»). */
+  extra?: { label: string; icon?: string; run: () => void };
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -320,11 +323,17 @@ export function SuggestInput({
   const listId = useId();
   const q = value.trim().toLowerCase();
   const shown = suggestions.filter((s) => s.value !== value && (!q || s.value.toLowerCase().includes(q) || s.label?.toLowerCase().includes(q))).slice(0, 50);
-  const visible = open && shown.length > 0;
+  const count = shown.length + (extra ? 1 : 0);
+  const visible = open && count > 0;
   const pick = (v: string) => {
     onChange(v);
     setOpen(false);
     setActive(-1);
+  };
+  const runExtra = () => {
+    setOpen(false);
+    setActive(-1);
+    extra?.run();
   };
   return (
     <RPopover.Root open={visible} onOpenChange={setOpen}>
@@ -357,11 +366,12 @@ export function SuggestInput({
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
               e.preventDefault();
               if (!open) return setOpen(true);
-              const n = shown.length;
+              const n = count;
               if (n) setActive((a) => (e.key === 'ArrowDown' ? (a + 1) % n : (a - 1 + n) % n));
             } else if (e.key === 'Enter' && visible && active >= 0) {
               e.preventDefault();
-              pick(shown[active].value);
+              if (active < shown.length) pick(shown[active].value);
+              else runExtra();
             } else if (e.key === 'Escape' && visible) {
               e.stopPropagation();
               setOpen(false);
@@ -398,6 +408,21 @@ export function SuggestInput({
                 {s.label && <span className="xsmall muted ellipsis">{s.label}</span>}
               </div>
             ))}
+            {extra && (
+              <div
+                id={`${listId}-${shown.length}`}
+                role="option"
+                aria-selected={active === shown.length}
+                data-highlighted={active === shown.length ? '' : undefined}
+                className="menu-item sel-item sel-extra"
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseMove={() => setActive(shown.length)}
+                onClick={runExtra}
+              >
+                <Icon name={extra.icon ?? 'plus'} size="s" />
+                <span>{extra.label}</span>
+              </div>
+            )}
           </div>
         </RPopover.Content>
       </RPopover.Portal>

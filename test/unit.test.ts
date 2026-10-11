@@ -10,7 +10,7 @@ import { blockLookCss, cleanStyles, stylesUsed } from '../src/shared/styles';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField } from '../src/shared/query';
 import type { Block, CollectionDef } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
-import { matchRoute, entryPath } from '../src/shared/paths';
+import { matchRoute, entryPath, pageForLink } from '../src/shared/paths';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
 import { csvEscape } from '../src/server/lib/http';
 import { html, raw } from '../src/site/html';
@@ -2007,6 +2007,32 @@ describe('Website-Daten am Element', () => {
     expect(siteDataOf(el('menu', { source: 'footer' }))).toEqual(['footer']);
     expect(siteDataOf(el('menu', { source: 'social' }))).toEqual(['social']);
     expect(siteDataOf(el('menu', { source: 'legal' }))).toEqual([]);
+  });
+});
+
+describe('Neue Seite beim Verlinken', () => {
+  it('turns a typed link into the page it would become – only where that makes sense', () => {
+    expect(pageForLink('/team')).toEqual({ title: 'Team', slug: 'team' });
+    expect(pageForLink('/angebot/catering-service')).toEqual({ title: 'Catering service', slug: 'angebot/catering-service' });
+    expect(pageForLink('Über uns & Team')).toEqual({ title: 'Über uns & Team', slug: 'ueber-uns-und-team' });
+    expect(pageForLink('  preise ')).toEqual({ title: 'Preise', slug: 'preise' });
+    expect(pageForLink('/events?jahr=2026')).toEqual({ title: 'Events', slug: 'events' });
+    // Elsewhere, mail, phone, anchors, files and the home page are no new page.
+    for (const s of [
+      '',
+      '/',
+      'https://example.ch',
+      'mailto:a@b.ch',
+      'tel:+41520000000',
+      '#kontakt',
+      '?a=1',
+      'www.example.ch',
+      '//cdn.example.ch/x',
+      'info@example.ch',
+      '/media/menu.pdf',
+      '!!!',
+    ])
+      expect(pageForLink(s)).toBeNull();
   });
 });
 

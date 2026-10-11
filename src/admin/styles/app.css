@@ -506,6 +506,18 @@ p {
 .sel-item[data-disabled] {
   color: var(--ink-3);
 }
+/* The action under a list of suggestions («Neue Seite … anlegen»). */
+.sel-extra {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  color: var(--sel);
+  font-weight: 600;
+}
+.sel-item + .sel-extra {
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r-s) var(--r-s);
+}
 .sel-check {
   display: flex;
   color: var(--sel);

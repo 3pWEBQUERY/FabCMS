@@ -976,4 +976,10 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Website data – applies on every page',
   },
   'Leer = der Name der Website.': { fr: 'Vide = le nom du site.', it: 'Vuoto = il nome del sito.', en: 'Empty = the website’s name.' },
+  'Seite «{name}» als Entwurf angelegt. Veröffentliche sie, damit der Link auf der Website funktioniert.': {
+    fr: 'Page «{name}» créée comme brouillon. Publie-la pour que le lien fonctionne sur le site.',
+    it: 'Pagina «{name}» creata come bozza. Pubblicala perché il link funzioni sul sito.',
+    en: 'Page «{name}» created as a draft. Publish it so the link works on the website.',
+  },
+  'Neue Seite «{name}» anlegen': { fr: 'Créer la page «{name}»', it: 'Crea la pagina «{name}»', en: 'Create page «{name}»' },
 };

@@ -23,7 +23,7 @@ import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlC
 import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { SavedStylesOverview } from './SavedStylesOverview';
-import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider } from './NavEditors';
+import { FooterEditor, HeaderOptions, MenuEditor } from './NavEditors';
 import { t, tl, tm } from '../lib/i18n';
 
 interface Section {
@@ -412,7 +412,7 @@ function NavigationSettings() {
   return (
     <>
       <PageHead title={t('Menü & Fusszeile')} sub={t('Einmal ändern, auf allen Seiten aktuell.')} />
-      <PageLinksProvider>
+      <>
         <div className="card">
           <Section title={t('Hauptmenü')} sub={t('Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.')}>
             <MenuEditor nav={draft.nav} onChange={(n) => set('nav', n)} />
@@ -425,7 +425,7 @@ function NavigationSettings() {
             <p className="xsmall muted">{t('Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.')}</p>
           </Section>
         </div>
-      </PageLinksProvider>
+      </>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
   );

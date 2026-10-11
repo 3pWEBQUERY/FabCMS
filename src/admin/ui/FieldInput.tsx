@@ -7,7 +7,8 @@ import { useSession } from '../lib/session';
 import { touchScreen, useApi } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon, SiteIcon } from './icons';
-import { DateInput, DateTimeInput, Field, Popover, Select, SuggestInput, Toggle } from './kit';
+import { DateInput, DateTimeInput, Field, Popover, Select, Toggle } from './kit';
+import { PageLinkInput } from './PageLinkInput';
 import { ICON_GROUPS, SITE_ICONS, type IconDef } from '../../shared/icon-set';
 import { RichText } from './RichText';
 import { AiRewrite } from './Ai';
@@ -92,17 +93,29 @@ export function FieldInput({ field: f, value, onChange, error }: { field: FieldD
   const rewrite = (kind: SlotKind) => <AiRewrite value={(value as string) ?? ''} kind={kind} max={f.maxLength} onApply={onChange} />;
 
   switch (f.type) {
+    case 'url':
+      return wrap(
+        <PageLinkInput
+          id={id}
+          className="input"
+          inputMode="url"
+          value={(value as string) ?? ''}
+          placeholder={f.placeholder ? tl(f.placeholder) : t('/seite oder https://…')}
+          maxLength={f.maxLength ? f.maxLength + 40 : undefined}
+          aria-invalid={Boolean(error)}
+          onChange={onChange}
+        />,
+      );
     case 'text':
     case 'email':
-    case 'url':
       return wrap(
         <input
           id={id}
           className="input"
-          type={f.type === 'email' ? 'email' : f.type === 'url' ? 'text' : 'text'}
-          inputMode={f.type === 'url' ? 'url' : f.type === 'email' ? 'email' : undefined}
+          type={f.type === 'email' ? 'email' : 'text'}
+          inputMode={f.type === 'email' ? 'email' : undefined}
           value={(value as string) ?? ''}
-          placeholder={f.placeholder ? tl(f.placeholder) : f.type === 'url' ? t('/seite oder https://…') : undefined}
+          placeholder={f.placeholder ? tl(f.placeholder) : undefined}
           maxLength={f.maxLength ? f.maxLength + 40 : undefined}
           aria-invalid={Boolean(error)}
           onChange={(e) => onChange(e.target.value)}
@@ -411,7 +424,6 @@ export function MediaList({ value, onChange }: { value: string[]; onChange: (v: 
 }
 
 function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v: LinkValue | null) => void }) {
-  const { data } = useApi<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=200');
   const v = value ?? { label: '', href: '' };
   const set = (patch: Partial<LinkValue>) => {
     const next = { ...v, ...patch };
@@ -420,14 +432,7 @@ function LinkInput({ value, onChange }: { value: LinkValue | null; onChange: (v:
   return (
     <div className="grid-2" style={{ gap: '0.5rem' }}>
       <input className="input" placeholder={t('Beschriftung')} value={v.label} onChange={(e) => set({ label: e.target.value })} aria-label={t('Beschriftung')} />
-      <SuggestInput
-        className="input"
-        placeholder="/kontakt"
-        value={v.href}
-        onChange={(href) => set({ href })}
-        aria-label={t('Ziel')}
-        suggestions={(data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title }))}
-      />
+      <PageLinkInput className="input" placeholder="/kontakt" value={v.href} onChange={(href) => set({ href })} aria-label={t('Ziel')} />
     </div>
   );
 }
