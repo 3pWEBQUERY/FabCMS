@@ -7848,3 +7848,56 @@ textarea.dg-input {
   color: #7c5cff;
   margin-left: auto;
 }
+
+/* «Alle Geräte» */
+.dev-all {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+  overflow: hidden;
+  background: var(--sunken);
+}
+.dev-all-item {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  flex: none;
+}
+.dev-all-item figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 26px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.dev-all-item figcaption .btn {
+  margin-left: auto;
+}
+.dev-all-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 1px var(--line),
+    var(--shadow-2);
+  opacity: 0.35;
+  transition: opacity 0.3s;
+}
+.dev-all-screen.ready {
+  opacity: 1;
+}
+.dev-all-screen iframe {
+  display: block;
+  border: 0;
+  transform-origin: 0 0;
+}

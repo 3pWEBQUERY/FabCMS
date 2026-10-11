@@ -21,6 +21,7 @@ import { ModeSwitch } from '../shell/ModeSwitch';
 import { BlockPicker } from './BlockPicker';
 import { Inspector } from './Inspector';
 import { GlobalPanel, HistoryPanel, PagePanel, SeoPanel, StructurePanel } from './Panels';
+import { DeviceOverview } from './DeviceOverview';
 import { changedBlockIds, postToCanvas, setIn, updateBlock } from './util';
 import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
@@ -184,12 +185,27 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     setCustomWidth(null);
     setDevice(d);
   };
+  // «Alle Geräte»: computer, tablet and phone side by side, as visitors see the saved draft.
+  const [overview, setOverview] = useState(false);
+  const [saves, setSaves] = useState(0);
+  // Every finished save while it is open reloads the three previews.
+  const lastSave = useRef(doc.saveState);
+  useEffect(() => {
+    if (doc.saveState === 'saved' && lastSave.current !== 'saved' && overview) setSaves((n) => n + 1);
+    lastSave.current = doc.saveState;
+  }, [doc.saveState, overview]);
   const resizeTo = (w: number, max: number) => {
     const next = Math.round(Math.min(max, Math.max(MIN_CANVAS, w)));
     setCustomWidth(next);
     setDevice(deviceFor(next));
   };
   const [designState, setDesignState] = useState<DesignState>('normal');
+  useEffect(() => {
+    if (!overview) return;
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOverview(false);
+    addEventListener('keydown', esc);
+    return () => removeEventListener('keydown', esc);
+  }, [overview]);
   const [tokenColors, setTokenColors] = useState<Record<string, string>>({});
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
   // Free layout: the selected element inside the selected block, and where to insert a new one.
@@ -1178,12 +1194,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         <div className="hide-m">
           <Segmented
             label={t('Vorschau-Grösse')}
-            value={device}
-            onChange={chooseDevice}
+            value={overview ? 'all' : device}
+            onChange={(v) => {
+              if (v === 'all') return setOverview(true);
+              setOverview(false);
+              chooseDevice(v);
+            }}
             options={[
-              { value: 'desktop', label: '', icon: 'desktop', title: t('Computer') },
-              { value: 'tablet', label: '', icon: 'tablet', title: t('Tablet') },
-              { value: 'mobile', label: '', icon: 'phone', title: t('Handy') },
+              { value: 'desktop' as const, label: '', icon: 'desktop', title: t('Computer') },
+              { value: 'tablet' as const, label: '', icon: 'tablet', title: t('Tablet') },
+              { value: 'mobile' as const, label: '', icon: 'phone', title: t('Handy') },
+              { value: 'all' as const, label: '', icon: 'columns', title: t('Alle Geräte nebeneinander') },
             ]}
           />
         </div>
@@ -1251,7 +1272,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
         </div>
       )}
       <div className="editor-stage">
-        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? '0 0 0 14px' : '1rem 0' }}>
+        {overview && (
+          <DeviceOverview
+            src={`/_nova/preview/${id}${lang ? `?lang=${lang}` : ''}`}
+            version={saves}
+            onPick={(d) => {
+              setOverview(false);
+              chooseDevice(d);
+            }}
+          />
+        )}
+        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? '0 0 0 14px' : '1rem 0', ...(overview ? { display: 'none' } : {}) }}>
           <motion.div
             ref={frameBox}
             className="canvas-frame"

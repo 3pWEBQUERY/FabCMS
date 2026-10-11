@@ -895,4 +895,7 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   },
   Wo: { fr: 'Où', it: 'Dove', en: 'Where' },
   'Dicke in Pixeln': { fr: 'Épaisseur en pixels', it: 'Spessore in pixel', en: 'Thickness in pixels' },
+  'Alle Geräte nebeneinander': { fr: 'Tous les appareils côte à côte', it: 'Tutti i dispositivi affiancati', en: 'All devices side by side' },
+  'Hier bearbeiten': { fr: 'Modifier ici', it: 'Modifica qui', en: 'Edit here' },
+  'Vorschau: {device}': { fr: 'Aperçu : {device}', it: 'Anteprima: {device}', en: 'Preview: {device}' },
 };
