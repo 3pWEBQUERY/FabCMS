@@ -1603,6 +1603,23 @@ button.list-item {
   background: var(--line);
   margin: 0.3rem 0;
 }
+.menu-heading {
+  padding: 0.45rem 0.6rem 0.2rem;
+  font-size: var(--t-xs);
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.menu-keys {
+  font-family: inherit;
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+.menu-check {
+  display: inline-grid;
+  place-items: center;
+  width: 1rem;
+  color: var(--sel);
+}
 .tooltip {
   z-index: 90;
   background: var(--ink);
@@ -2515,15 +2532,89 @@ button.list-item {
 .editor-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   padding: 0 0.6rem;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
+/* Three zones: the page and editing on the left, the preview size in the middle, panels and publishing on the right. */
+.bar-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.bar-left {
+  flex: 1 1 auto;
+}
+.bar-center {
+  flex: none;
+}
+/* The right keeps its room (publishing must stay reachable); the page title on the left gives way first. */
+.bar-right {
+  flex: 1 0 auto;
+  justify-content: flex-end;
+}
+.bar-sep {
+  flex: none;
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.1rem;
+  background: var(--line);
+}
+/* Buttons that belong together sit on one tray. */
+.bar-group {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 1px;
+  padding: 2px;
+  border-radius: var(--r-m);
+  background: var(--sunken);
+}
+.bar-group .btn {
+  height: 1.9rem;
+  min-height: 0;
+}
+.bar-group .btn.icon-only {
+  width: 1.9rem;
+}
+.bar-check {
+  gap: 0.35rem;
+  padding-inline: 0.5rem 0.4rem;
+  font-size: var(--t-s);
+  font-weight: 600;
+}
+.bar-count,
+.menu-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #f2b84b;
+  color: #1b1a17;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+@media (max-width: 1200px) {
+  .bar-check-label {
+    display: none;
+  }
+}
+/* Medium widths: the save state keeps only its dot (the word is in its tooltip). */
+@media (max-width: 1150px) {
+  .editor-bar .save-state .hide-m {
+    display: none;
+  }
+}
 .editor-title {
   display: grid;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: 3rem;
   line-height: 1.2;
 }
 .editor-title strong {
@@ -2758,8 +2849,11 @@ button.list-item {
   .editor-bar {
     gap: 0.25rem;
   }
+  .bar-left {
+    flex: none;
+  }
   .editor-tools {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;

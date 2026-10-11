@@ -197,10 +197,21 @@ export interface MenuEntry {
   onSelect: () => void;
   danger?: boolean;
   hidden?: boolean;
+  /** A count to look at, e.g. open problems. */
+  badge?: number;
+  /** On or off (a view setting) – or the panel that is open. */
+  checked?: boolean;
+  /** Keyboard shortcut shown on the right. */
+  keys?: string;
 }
 
-export function Menu({ trigger, items, align = 'end' }: { trigger: ReactNode; items: (MenuEntry | 'sep')[]; align?: 'start' | 'end' }) {
-  const visible = items.filter((i) => i === 'sep' || !i.hidden);
+/** A small title over a group of entries. */
+export interface MenuHeading {
+  heading: string;
+}
+
+export function Menu({ trigger, items, align = 'end' }: { trigger: ReactNode; items: (MenuEntry | MenuHeading | 'sep')[]; align?: 'start' | 'end' }) {
+  const visible = items.filter((i) => i === 'sep' || 'heading' in i || !i.hidden);
   return (
     <RMenu.Root>
       <RMenu.Trigger asChild>{trigger}</RMenu.Trigger>
@@ -209,10 +220,23 @@ export function Menu({ trigger, items, align = 'end' }: { trigger: ReactNode; it
           {visible.map((i, idx) =>
             i === 'sep' ? (
               <RMenu.Separator key={idx} className="menu-sep" />
+            ) : 'heading' in i ? (
+              <RMenu.Label key={idx} className="menu-heading">
+                {i.heading}
+              </RMenu.Label>
             ) : (
-              <RMenu.Item key={idx} className={`menu-item ${i.danger ? 'danger' : ''}`} onSelect={i.onSelect}>
+              <RMenu.Item
+                key={idx}
+                className={`menu-item ${i.danger ? 'danger' : ''}`}
+                onSelect={i.onSelect}
+                aria-checked={i.checked}
+                role={i.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+              >
                 {i.icon && <Icon name={i.icon} size="s" />}
-                {i.label}
+                <span className="grow">{i.label}</span>
+                {i.badge ? <span className="menu-badge">{i.badge}</span> : null}
+                {i.keys && <kbd className="menu-keys">{i.keys}</kbd>}
+                {i.checked !== undefined && <span className="menu-check">{i.checked && <Icon name="check" size="s" />}</span>}
               </RMenu.Item>
             ),
           )}

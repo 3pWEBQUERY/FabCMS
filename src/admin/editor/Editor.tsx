@@ -14,11 +14,10 @@ import { CommentsPanel, useComments } from './Comments';
 import { Presence } from '../ui/Presence';
 import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
-import { Segmented, Tip } from '../ui/kit';
+import { Menu, Segmented, Tip } from '../ui/kit';
 import { ComponentDialog } from './elements/Components';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
-import { ModeSwitch } from '../shell/ModeSwitch';
 import { BlockPicker } from './BlockPicker';
 import { loadSectionTemplate, saveSectionTemplate, SaveTemplateDialog } from './SavedSections';
 import { Inspector } from './Inspector';
@@ -1352,6 +1351,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
       }}
     />
   );
+  // «Prüfen» gathers the panels that look the page over; its count adds up what needs fixing.
+  const checkPanels: Panel[] = ['audit', 'contrast', 'seo', 'colors'];
+  const problems = auditErrors + contrast.length;
   const into = selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null;
   const pickComponent = (c: { id: string; title: string }) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }));
 
@@ -1359,34 +1361,46 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     <PageAnchorsContext.Provider value={anchors}>
       <div className="editor">
         <header className="editor-bar">
-          <Tip label={t('Zurück')}>
-            <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label={t('Zurück')}>
-              <Icon name="arrowLeft" />
-            </button>
-          </Tip>
-          <div className="editor-title grow">
-            <strong className="ellipsis">{doc.data?.title || '…'}</strong>
-            <span className="ellipsis mono">{doc.path ?? ''}</span>
-          </div>
-          <Presence peers={doc.peers} link={doc.link} local={doc.local} />
-          <SaveStatus
-            state={doc.saveState}
-            error={doc.error}
-            onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
-          />
-          <div className="row hide-m" style={{ gap: 2 }}>
-            <Tip label={t('Rückgängig')} keys={`${modKey} Z`}>
-              <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('Rückgängig')}>
-                <Icon name="undo" />
+          {/* Left: which page, whether it is saved – and the tools for editing it. */}
+          <div className="bar-zone bar-left">
+            <Tip label={t('Zurück')}>
+              <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label={t('Zurück')}>
+                <Icon name="arrowLeft" />
               </button>
             </Tip>
-            <Tip label={t('Wiederholen')} keys={`${modKey} ⇧ Z`}>
-              <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('Wiederholen')}>
-                <Icon name="redo" />
-              </button>
-            </Tip>
+            <div className="editor-title">
+              <strong className="ellipsis">{doc.data?.title || '…'}</strong>
+              <span className="ellipsis mono">{doc.path ?? ''}</span>
+            </div>
+            <Presence peers={doc.peers} link={doc.link} local={doc.local} />
+            <SaveStatus
+              state={doc.saveState}
+              error={doc.error}
+              onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
+            />
+            <span className="bar-sep hide-m" aria-hidden="true" />
+            <div className="bar-group hide-m">
+              {!narrow && (
+                <Tip label={builder ? t('Baukasten ausblenden') : t('Baukasten einblenden')}>
+                  <button className="btn ghost icon-only" aria-pressed={builder} onClick={() => setBuilder(!builder)} aria-label={t('Baukasten')}>
+                    <Icon name="builder" />
+                  </button>
+                </Tip>
+              )}
+              <Tip label={t('Rückgängig')} keys={`${modKey} Z`}>
+                <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('Rückgängig')}>
+                  <Icon name="undo" />
+                </button>
+              </Tip>
+              <Tip label={t('Wiederholen')} keys={`${modKey} ⇧ Z`}>
+                <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('Wiederholen')}>
+                  <Icon name="redo" />
+                </button>
+              </Tip>
+            </div>
           </div>
-          <div className="hide-m">
+          {/* Middle: the size of the preview. */}
+          <div className="bar-zone bar-center hide-m">
             <Segmented
               label={t('Vorschau-Grösse')}
               value={overview ? 'all' : device}
@@ -1403,57 +1417,71 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               ]}
             />
           </div>
-          <div className="row editor-tools" style={{ gap: 2 }}>
-            <Tip label={t('Kommentare')}>
-              <button
-                className="btn ghost icon-only badge-host"
-                aria-pressed={panel === 'comments'}
-                onClick={() => setPanel(panel === 'comments' ? null : 'comments')}
-                aria-label={comments.open ? t('Kommentare, {n} offen', { n: comments.open }) : t('Kommentare')}
-              >
-                <Icon name="chat" />
-                {comments.open > 0 && <span className="dot-count">{comments.open}</span>}
-              </button>
-            </Tip>
-            {!narrow && (
-              <Tip label={builder ? t('Baukasten ausblenden') : t('Baukasten einblenden')}>
-                <button className="btn ghost icon-only" aria-pressed={builder} onClick={() => setBuilder(!builder)} aria-label={t('Baukasten')}>
-                  <Icon name="builder" />
-                </button>
-              </Tip>
-            )}
-            {(
-              [
-                ['page', 'page', t('Seite')],
-                ['structure', 'layers', t('Aufbau')],
-                ['seo', 'seo', t('Suchmaschinen')],
-                ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
-                ['audit', 'shield', auditErrors ? t('Prüfung, {n} Fehler', { n: auditErrors }) : t('Prüfung')],
-                ['colors', 'paint', t('Farben dieser Seite')],
-                ['history', 'history', t('Verlauf')],
-              ] as [Panel, string, string][]
-            )
-              .filter(([p]) => !(lang && p === 'history'))
-              .map(([p, icon, label]) => (
-                <Tip key={p} label={label}>
-                  <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
-                    <Icon name={icon} />
-                    {p === 'contrast' && contrast.length > 0 && <span className="dot-count">{contrast.length}</span>}
-                    {p === 'audit' && auditErrors > 0 && <span className="dot-count">{auditErrors}</span>}
+          {/* Right: the panels about the page, everything else in «Mehr», then language and publishing. */}
+          <div className="bar-zone bar-right">
+            <div className="bar-group editor-tools">
+              {(
+                [
+                  ['page', 'page', t('Seite')],
+                  ['structure', 'layers', t('Aufbau')],
+                  ['comments', 'chat', comments.open ? t('Kommentare, {n} offen', { n: comments.open }) : t('Kommentare')],
+                  ['history', 'history', t('Verlauf')],
+                ] as [Panel, string, string][]
+              )
+                .filter(([p]) => !(lang && p === 'history'))
+                .map(([p, icon, label]) => (
+                  <Tip key={p} label={label}>
+                    <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
+                      <Icon name={icon} />
+                      {p === 'comments' && comments.open > 0 && <span className="dot-count">{comments.open}</span>}
+                    </button>
+                  </Tip>
+                ))}
+              <Menu
+                trigger={
+                  <button
+                    className="btn ghost bar-check"
+                    aria-pressed={checkPanels.includes(panel)}
+                    aria-label={problems ? t('Prüfen, {n} Hinweise', { n: problems }) : t('Prüfen')}
+                  >
+                    <Icon name="shield" />
+                    <span className="bar-check-label">{t('Prüfen')}</span>
+                    {problems > 0 && <span className="bar-count">{problems}</span>}
+                    <Icon name="chevronDown" size="s" />
                   </button>
-                </Tip>
-              ))}
+                }
+                items={[
+                  { heading: t('Seite prüfen') },
+                  { label: t('Prüfung'), icon: 'shield', badge: auditErrors, checked: panel === 'audit', onSelect: () => setPanel(panel === 'audit' ? null : 'audit') },
+                  { label: t('Kontrast'), icon: 'eye', badge: contrast.length, checked: panel === 'contrast', onSelect: () => setPanel(panel === 'contrast' ? null : 'contrast') },
+                  { label: t('Suchmaschinen'), icon: 'seo', checked: panel === 'seo', onSelect: () => setPanel(panel === 'seo' ? null : 'seo') },
+                  { label: t('Farben dieser Seite'), icon: 'paint', checked: panel === 'colors', onSelect: () => setPanel(panel === 'colors' ? null : 'colors') },
+                ]}
+              />
+            </div>
+            <Menu
+              trigger={
+                <button className="btn ghost icon-only" aria-label={t('Mehr')} title={t('Mehr')}>
+                  <Icon name="more" />
+                </button>
+              }
+              items={[
+                { heading: t('Ansicht') },
+                { label: t('Raster'), icon: 'grid', checked: grid, onSelect: () => setGrid(!grid) },
+                { label: t('Tastenkürzel'), icon: 'keyboard', keys: '?', onSelect: () => setHelp(true) },
+                ...(session.user.allowed_modes.length > 1
+                  ? [
+                      'sep' as const,
+                      { heading: t('Arbeitsmodus') },
+                      { label: 'Studio', icon: 'pen', checked: session.mode === 'studio', onSelect: () => void session.setMode('studio') },
+                      { label: 'Werkbank', icon: 'code', checked: session.mode === 'werkbank', onSelect: () => void session.setMode('werkbank') },
+                    ]
+                  : []),
+              ]}
+            />
+            <LangSwitch doc={doc} />
+            <PublishControls doc={doc} onPublished={() => void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })} />
           </div>
-          <Tip label={grid ? t('Raster ausblenden') : t('Raster einblenden')}>
-            <button className="btn ghost icon-only hide-m" aria-pressed={grid} onClick={() => setGrid(!grid)} aria-label={t('Raster')}>
-              <Icon name="columns" />
-            </button>
-          </Tip>
-          <Tip label={t('Tastenkürzel')} keys="?">
-            <button className="btn ghost icon-only hide-m" onClick={() => setHelp(true)} aria-label={t('Tastenkürzel')}>
-              <Icon name="keyboard" />
-            </button>
-          </Tip>
           <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
           <SaveTemplateDialog
             open={Boolean(saveAsTemplate)}
@@ -1481,11 +1509,6 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               setComponentFor(null);
             }}
           />
-          <span className="hide-m">
-            <ModeSwitch />
-          </span>
-          <LangSwitch doc={doc} />
-          <PublishControls doc={doc} onPublished={() => void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })} />
         </header>
 
         {lang && (

@@ -25,7 +25,7 @@ const SAVE_CLASS: Record<SaveState, string> = { saved: 'ok', dirty: 'edited', sa
 /** Status dot instead of a spinner: «bearbeitet» → «gesichert». */
 export function SaveStatus({ state, error, onRetry }: { state: SaveState; error?: string | null; onRetry?: () => void }) {
   return (
-    <span className="save-state" role="status" aria-live="polite" title={error ?? undefined}>
+    <span className="save-state" role="status" aria-live="polite" title={error ?? SAVE_LABEL[state]()}>
       <motion.span className={`dot ${SAVE_CLASS[state]}`} animate={{ scale: state === 'saved' ? [1.6, 1] : 1 }} transition={{ duration: 0.15 }} />
       <span className="hide-m">{SAVE_LABEL[state]()}</span>
       {(state === 'error' || state === 'conflict') && onRetry && (

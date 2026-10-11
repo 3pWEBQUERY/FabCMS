@@ -1490,4 +1490,7 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Haus-Symbol': { fr: 'Icône maison', it: 'Icona casa', en: 'House icon' },
   'Symbol und Wort': { fr: 'Icône et mot', it: 'Icona e parola', en: 'Icon and word' },
   'Aktuelle Seite am Schluss zeigen': { fr: 'Afficher la page actuelle à la fin', it: 'Mostra la pagina attuale alla fine', en: 'Show the current page at the end' },
+  'Prüfen, {n} Hinweise': { fr: 'Vérifier, {n} remarques', it: 'Verifica, {n} avvisi', en: 'Check, {n} issues' },
+  'Seite prüfen': { fr: 'Vérifier la page', it: 'Verifica la pagina', en: 'Check the page' },
+  Mehr: { fr: 'Plus', it: 'Altro', en: 'More' },
 };
