@@ -462,6 +462,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
           { value: 'header', label: 'Kopfzeile – ersetzt die des Themes auf allen Seiten' },
           { value: 'footer', label: 'Fusszeile – ersetzt die des Themes auf allen Seiten' },
           { value: 'archive', label: 'Archiv-Vorlage – so sieht die Übersicht eines Inhaltstyps aus' },
+          { value: 'saved', label: 'Bereichsvorlage – wird als eigene Kopie eingefügt, nicht verknüpft' },
         ],
         default: 'section',
         help: 'Komponenten setzt du im freien Layout ein; Texte und Bilder lassen sich pro Stelle anpassen.',

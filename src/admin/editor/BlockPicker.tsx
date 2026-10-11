@@ -8,7 +8,18 @@ import { LAYOUT_PRESETS } from '../../shared/elements';
 import { LayoutThumb } from './elements/LayoutThumb';
 
 /** Block library, grouped and searchable. Werkbank adds code blocks. */
-export function BlockPicker({ onPick, sections }: { onPick: (type: string, props?: Record<string, unknown>) => void; sections: { id: string; title: string }[] }) {
+export function BlockPicker({
+  onPick,
+  sections,
+  saved = [],
+  onPickSaved,
+}: {
+  onPick: (type: string, props?: Record<string, unknown>) => void;
+  sections: { id: string; title: string }[];
+  /** «Meine Vorlagen»: sections saved to be inserted as copies. */
+  saved?: { id: string; title: string }[];
+  onPickSaved?: (id: string) => void;
+}) {
   const { pro, settings } = useSession();
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
@@ -20,7 +31,16 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
     return hits;
   }, [q, pro, modules]);
 
+  const mine = saved.filter((x) => !q || x.title.toLowerCase().includes(q.toLowerCase()) || t('Meine Vorlagen').toLowerCase().includes(q.toLowerCase()));
   const items = [
+    ...mine.map((x) => ({
+      key: `v-${x.id}`,
+      label: x.title,
+      description: t('Eigene Vorlage – als Kopie eingefügt'),
+      icon: 'folder',
+      category: 'saved',
+      run: () => onPickSaved?.(x.id),
+    })),
     ...list.map((b) => ({
       key: b.type,
       label: tl(b.label),
@@ -89,7 +109,7 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
           </>
         )}
         {items.map((it, i) => {
-          const cat = it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
+          const cat = it.category === 'saved' ? t('Meine Vorlagen') : it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
           const head = !q && cat !== last ? (last = cat) : null;
           return (
             <div key={it.key}>

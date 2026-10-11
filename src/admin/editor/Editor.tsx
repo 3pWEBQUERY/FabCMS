@@ -20,6 +20,7 @@ import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
 import { ModeSwitch } from '../shell/ModeSwitch';
 import { BlockPicker } from './BlockPicker';
+import { loadSectionTemplate, saveSectionTemplate, SaveTemplateDialog } from './SavedSections';
 import { Inspector } from './Inspector';
 import { GlobalPanel, HistoryPanel, PagePanel, SeoPanel, StructurePanel } from './Panels';
 import { DeviceOverview } from './DeviceOverview';
@@ -232,8 +233,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   );
   // Sections are whole blocks; components are elements of the free layout.
   const components = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'component' && s.id !== id);
-  const sections = (sectionsData?.entries ?? []).filter((s) => !['component', 'popup', 'header', 'footer', 'archive'].includes(s.fields?.kind ?? '') && s.id !== id);
+  const sections = (sectionsData?.entries ?? []).filter((s) => !['component', 'popup', 'header', 'footer', 'archive', 'saved'].includes(s.fields?.kind ?? '') && s.id !== id);
+  // Saved sections: inserted as copies of their own.
+  const savedSections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'saved' && s.id !== id);
   const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
+  const [saveAsTemplate, setSaveAsTemplate] = useState<string | null>(null);
   // In a component's original: the variant being designed.
   const [variant, setVariant] = useState<string | null>(null);
   // Text too faint for its background, as the canvas measured it.
@@ -634,6 +638,26 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     }
   };
 
+  /** A saved section, as a copy of its own, at this place. */
+  const insertSaved = async (savedId: string, index: number) => {
+    setPicker(null);
+    try {
+      const copies = await loadSectionTemplate(savedId);
+      if (!copies.length) return;
+      doc.setData((d) => {
+        const list = [...(d.blocks ?? [])];
+        list.splice(index, 0, ...copies);
+        return { ...d, blocks: list };
+      });
+      blocksRef.current = [...blocksRef.current.slice(0, index), ...copies, ...blocksRef.current.slice(index)];
+      await renderAll(copies.map((c) => c.id));
+      setSelected(copies[0].id);
+      afterStructureChange();
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
+
   const removeBlock = async (blockId: string) => {
     const b = blocksRef.current.find((x) => x.id === blockId);
     if (!b) return;
@@ -942,6 +966,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               : { label: t('Als Komponente speichern'), icon: 'component', run: () => setComponentFor({ block: selectedBlock.id, el: el.el.id }), disabled: locked },
           ]
         : []),
+      ...(el ? [] : [{ label: t('Als Vorlage speichern'), icon: 'folder', run: () => setSaveAsTemplate(selectedBlock.id) }]),
       'sep',
       { label: el ? t('Nach vorne') : t('Nach oben'), icon: 'arrowUp', keys: KEYS.up, run: () => runAction('move-up'), disabled: locked },
       { label: el ? t('Nach hinten') : t('Nach unten'), icon: 'arrowDown', keys: KEYS.down, run: () => runAction('move-down'), disabled: locked },
@@ -1296,6 +1321,23 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           </button>
         </Tip>
         <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
+        <SaveTemplateDialog
+          open={Boolean(saveAsTemplate)}
+          suggestion={saveAsTemplate ? tl(BLOCK_MAP[blocksRef.current.find((b) => b.id === saveAsTemplate)?.type ?? '']?.label) : ''}
+          onClose={() => setSaveAsTemplate(null)}
+          onSave={async (name) => {
+            const b = blocksRef.current.find((x) => x.id === saveAsTemplate);
+            if (!b) return setSaveAsTemplate(null);
+            try {
+              await saveSectionTemplate(b, name);
+              reloadSections();
+              toast(t('«{name}» gespeichert. Du findest die Vorlage unter «Block einfügen» → «Meine Vorlagen».', { name }));
+            } catch (e) {
+              toast((e as Error).message, { kind: 'bad' });
+            }
+            setSaveAsTemplate(null);
+          }}
+        />
         <ComponentDialog
           open={Boolean(componentFor)}
           suggestion={componentFor ? componentName(componentFor) : ''}
@@ -1492,6 +1534,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                             <Icon name="chat" size="s" />
                           </button>
                         </Tip>
+                        <Tip label={t('Als Vorlage speichern')}>
+                          <button className="btn icon-only" onClick={() => setSaveAsTemplate(selectedBlock.id)} aria-label={t('Als Vorlage speichern')}>
+                            <Icon name="folder" size="s" />
+                          </button>
+                        </Tip>
                         <Tip label={t('Duplizieren')}>
                           <button className="btn icon-only" onClick={() => void duplicateBlock(selectedBlock.id)} aria-label={t('Duplizieren')}>
                             <Icon name="copy" size="s" />
@@ -1532,7 +1579,14 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </RPopover.Anchor>
                 <RPopover.Portal>
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    {picker && <BlockPicker sections={sections} onPick={(type, props) => void insertBlock(type, picker.index, props)} />}
+                    {picker && (
+                      <BlockPicker
+                        sections={sections}
+                        saved={savedSections}
+                        onPick={(type, props) => void insertBlock(type, picker.index, props)}
+                        onPickSaved={(sid) => void insertSaved(sid, picker.index)}
+                      />
+                    )}
                   </RPopover.Content>
                 </RPopover.Portal>
               </RPopover.Root>

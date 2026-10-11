@@ -1002,4 +1002,24 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Salvato. {names} sono ancora bozze – questi link non portano da nessuna parte finché qualcuno non li pubblica.',
     en: 'Saved. {names} are still drafts – these links lead nowhere until someone publishes them.',
   },
+  'Meine Vorlagen': { fr: 'Mes modèles', it: 'I miei modelli', en: 'My templates' },
+  'Eigene Vorlage – als Kopie eingefügt': { fr: 'Modèle personnel – inséré comme copie', it: 'Modello proprio – inserito come copia', en: 'Own template – inserted as a copy' },
+  'Als Vorlage speichern': { fr: 'Enregistrer comme modèle', it: 'Salva come modello', en: 'Save as template' },
+  '«{name}» gespeichert. Du findest die Vorlage unter «Block einfügen» → «Meine Vorlagen».': {
+    fr: '«{name}» enregistré. Tu trouves le modèle sous «Insérer un bloc» → «Mes modèles».',
+    it: '«{name}» salvato. Trovi il modello in «Inserisci blocco» → «I miei modelli».',
+    en: '«{name}» saved. You’ll find the template under «Insert block» → «My templates».',
+  },
+  'Unter «Block einfügen» → «Meine Vorlagen» steht der Bereich dann auf jeder Seite bereit – jedes Mal als eigene Kopie, die du frei änderst.': {
+    fr: 'Sous «Insérer un bloc» → «Mes modèles», la section est alors disponible sur chaque page – à chaque fois comme copie que tu modifies librement.',
+    it: 'In «Inserisci blocco» → «I miei modelli» la sezione è poi pronta su ogni pagina – ogni volta come copia propria da modificare liberamente.',
+    en: 'Under «Insert block» → «My templates» the section is then ready on every page – each time as a copy of its own to change freely.',
+  },
+  'Name der Vorlage': { fr: 'Nom du modèle', it: 'Nome del modello', en: 'Template name' },
+  'Nur intern sichtbar, z. B. «Hero mit Video» oder «Drei Vorteile».': {
+    fr: 'Visible uniquement en interne, p. ex. «Hero avec vidéo» ou «Trois avantages».',
+    it: 'Visibile solo internamente, p. es. «Hero con video» o «Tre vantaggi».',
+    en: 'Only visible internally, e.g. «Hero with video» or «Three benefits».',
+  },
+  'Vorlage speichern': { fr: 'Enregistrer le modèle', it: 'Salva il modello', en: 'Save template' },
 };
