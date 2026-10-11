@@ -1059,4 +1059,18 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'A list with an icon before each item – for benefits, services or contact details, linked if you like.',
   },
   'Symbolgrösse in Pixeln': { fr: 'Taille de l’icône en pixels', it: 'Dimensione dell’icona in pixel', en: 'Icon size in pixels' },
+  Baukasten: { fr: 'Boîte à outils', it: 'Cassetta degli attrezzi', en: 'Builder' },
+  'Baukasten einblenden': { fr: 'Afficher la boîte à outils', it: 'Mostra la cassetta degli attrezzi', en: 'Show builder' },
+  'Baukasten ausblenden': { fr: 'Masquer la boîte à outils', it: 'Nascondi la cassetta degli attrezzi', en: 'Hide builder' },
+  Ebenen: { fr: 'Calques', it: 'Livelli', en: 'Layers' },
+  'Auf die Seite ziehen – in ein freies Layout oder zwischen zwei Blöcke. Ein Klick setzt es hinter die Auswahl.': {
+    fr: 'Glisse-le sur la page – dans une mise en page libre ou entre deux blocs. Un clic l’ajoute après la sélection.',
+    it: 'Trascinalo sulla pagina – in un layout libero o tra due blocchi. Un clic lo aggiunge dopo la selezione.',
+    en: 'Drag it onto the page – into a free layout or between two blocks. A click adds it after the selection.',
+  },
+  'Zwischen zwei Blöcke ziehen. Ein Klick setzt ihn hinter den gewählten Block.': {
+    fr: 'Glisse-le entre deux blocs. Un clic l’ajoute après le bloc choisi.',
+    it: 'Trascinalo tra due blocchi. Un clic lo aggiunge dopo il blocco scelto.',
+    en: 'Drag it between two blocks. A click adds it after the chosen block.',
+  },
 };

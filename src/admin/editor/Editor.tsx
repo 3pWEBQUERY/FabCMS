@@ -43,6 +43,8 @@ import {
   cloneEl,
   createEl,
   EL_DEFS,
+  EL_KINDS,
+  LAYOUT_PRESETS,
   elementImages,
   findEl,
   insertEl,
@@ -61,6 +63,7 @@ import {
 } from '../../shared/elements';
 import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
+import { BuilderPanel, type BuilderTab } from './BuilderPanel';
 import { ContextMenu, KEYS, ShortcutsDialog, type CtxItem } from './ContextMenu';
 import { shortcutAction, type EditorAction } from '../../shared/shortcuts';
 import type { Design } from '../../shared/design';
@@ -184,6 +187,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
       return false;
     }
   });
+  // «Baukasten»: the page builder's side bar with elements, sections and layers; remembered in this browser.
+  const [builder, setBuilder] = useState(() => {
+    try {
+      return localStorage.getItem('nova-builder') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const [builderTab, setBuilderTab] = useState<BuilderTab>('elements');
   const frameBox = useRef<HTMLDivElement>(null);
   const widthDrag = useRef<{ x: number; w: number; max: number } | null>(null);
   const chooseDevice = (d: Device) => {
@@ -394,6 +406,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             const info = findEl(elsOf(b), m.el);
             if (info) changeElement(b.id, { ...info.el, design: apply(info.el.design) });
           } else changeBlock({ ...b, style: { ...b.style, design: apply(b.style?.design) } });
+          break;
+        }
+        case 'drop-new': {
+          // Something new from the builder's side bar, let go at a place on the canvas.
+          let data: Record<string, unknown>;
+          try {
+            data = JSON.parse(String(m.data));
+          } catch {
+            break;
+          }
+          void dropNew(m.kind === 'el' ? 'el' : 'block', data, m.at ?? {});
           break;
         }
         case 'el-cols': {
@@ -612,6 +635,19 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     }
   }, [grid, ready, canvasKey]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('nova-builder', builder ? '1' : '0');
+    } catch {
+      /* not remembered */
+    }
+  }, [builder]);
+  // Building with the side bar, whatever is chosen on the page shows its settings right away.
+  const building = builder && !narrow;
+  useEffect(() => {
+    if (building && (selected || selectedEl)) setPanel((p) => p ?? 'inspector');
+  }, [building, selected, selectedEl]);
+
   // While the hover look is being designed, the canvas shows it on the selected block.
   useEffect(() => {
     if (ready) postToCanvas(frame.current, { t: 'hover-state', id: designState === 'hover' && panel === 'inspector' ? selected : null });
@@ -636,6 +672,40 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
     }
+  };
+
+  /**
+   * The builder's side bar: an element, component, section or template let go
+   * on the canvas – into the free layout under the pointer, or between blocks.
+   */
+  const dropNew = async (kind: 'el' | 'block', data: Record<string, unknown>, at: { block?: string; parent?: string | null; index?: number }) => {
+    const index = Math.max(0, Math.min(blocksRef.current.length, Number(at.index) || 0));
+    if (kind === 'el') {
+      const el =
+        typeof data.component === 'string'
+          ? createEl('component', { ref: data.component, overrides: {} }, { name: String(data.title ?? '') })
+          : (EL_KINDS as readonly string[]).includes(String(data.kind))
+            ? createEl(data.kind as ElKind)
+            : null;
+      if (!el) return;
+      const target = at.block ? blocksRef.current.find((b) => b.id === at.block && b.type === 'layout') : undefined;
+      if (target) {
+        if (studio && (target.lock ?? 'none') !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
+        setSelected(target.id);
+        changeEls(target.id, (els) => onCanvasPlace(insertEl(els, at.parent ?? null, Number(at.index) || 0, el), el.id), el.id);
+      } else await insertBlock('layout', index, { els: [el] });
+      if (el.kind !== 'component' && EL_DEFS[el.kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
+      return;
+    }
+    if (typeof data.saved === 'string') return insertSaved(data.saved, index);
+    if (typeof data.preset === 'string') {
+      const preset = LAYOUT_PRESETS.find((x) => x.id === data.preset);
+      if (preset) await insertBlock('layout', index, { els: preset.els() });
+      return;
+    }
+    if (typeof data.section === 'string') return insertBlock('section', index, { section: data.section });
+    const type = String(data.type ?? '');
+    if (BLOCK_MAP[type]) await insertBlock(type, index, type === 'layout' ? { els: LAYOUT_PRESETS.find((x) => x.id === 'empty')!.els() } : undefined);
   };
 
   /** A saved section, as a copy of its own, at this place. */
@@ -1230,6 +1300,36 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
 
   const lock = selectedBlock && studio ? (selectedBlock.lock ?? 'none') : 'none';
   const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) : -1;
+  // «Aufbau» in the side panel and «Ebenen» in the builder's side bar.
+  const structurePanel = doc.data && (
+    <StructurePanel
+      blocks={doc.data.blocks ?? []}
+      selected={selected}
+      onSelect={(bid) => selectBlock(bid)}
+      onReorder={reorderAll}
+      layers={{
+        selectedEl,
+        onSelectEl: (bid, elId) => {
+          setSelected(bid);
+          setSelectedEl(elId);
+          postToCanvas(frame.current, { t: 'select-el', block: bid, el: elId, scroll: true });
+        },
+        onHoverEl: (elId) => postToCanvas(frame.current, { t: 'hover-el', el: elId }),
+        onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => onCanvasPlace(moveEl(els, elId, parent, index), elId), elId),
+        peek,
+        onPeek: (elId) =>
+          setPeek((s) => {
+            const n = new Set(s);
+            if (n.has(elId)) n.delete(elId);
+            else n.add(elId);
+            return n;
+          }),
+        onPin: (bid, elId) => changeEls(bid, (els) => updateEl(els, elId, (x) => ({ ...x, pinned: x.pinned ? undefined : true })), elId),
+      }}
+    />
+  );
+  const into = selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null;
+  const pickComponent = (c: { id: string; title: string }) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }));
 
   return (
     <div className="editor">
@@ -1290,6 +1390,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               {comments.open > 0 && <span className="dot-count">{comments.open}</span>}
             </button>
           </Tip>
+          {!narrow && (
+            <Tip label={builder ? t('Baukasten ausblenden') : t('Baukasten einblenden')}>
+              <button className="btn ghost icon-only" aria-pressed={builder} onClick={() => setBuilder(!builder)} aria-label={t('Baukasten')}>
+                <Icon name="builder" />
+              </button>
+            </Tip>
+          )}
           {(
             [
               ['page', 'page', t('Seite')],
@@ -1359,7 +1466,21 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
         </div>
       )}
-      <div className="editor-stage">
+      <div className={building ? 'editor-stage with-builder' : 'editor-stage'}>
+        {building && doc.data && (
+          <BuilderPanel
+            tab={builderTab}
+            onTab={setBuilderTab}
+            elements={{ onPick: insertElement, into, inTemplate: Boolean(templateFor), components, onPickComponent: pickComponent }}
+            blocks={{
+              sections,
+              saved: savedSections,
+              onPick: (type, props) => void insertBlock(type, index + 1 || blocksRef.current.length, props),
+              onPickSaved: (sid) => void insertSaved(sid, index + 1 || blocksRef.current.length),
+            }}
+            layers={structurePanel}
+          />
+        )}
         {overview && (
           <DeviceOverview
             src={`/_nova/preview/${id}${lang ? `?lang=${lang}` : ''}`}
@@ -1561,13 +1682,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 </RPopover.Anchor>
                 <RPopover.Portal>
                   <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    <ElementPicker
-                      onPick={insertElement}
-                      inTemplate={Boolean(templateFor)}
-                      components={components}
-                      onPickComponent={(c) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }))}
-                      into={selectedElInfo && isContainer(selectedElInfo.el.kind) && selectedElInfo.el.kind !== 'list' ? elLabel(selectedElInfo.el) : null}
-                    />
+                    <ElementPicker onPick={insertElement} inTemplate={Boolean(templateFor)} components={components} onPickComponent={pickComponent} into={into} />
                   </RPopover.Content>
                 </RPopover.Portal>
               </RPopover.Root>
@@ -1720,31 +1835,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
                 {panel === 'structure' && (
                   <div className="stack">
-                    <StructurePanel
-                      blocks={doc.data.blocks ?? []}
-                      selected={selected}
-                      onSelect={(bid) => selectBlock(bid)}
-                      onReorder={reorderAll}
-                      layers={{
-                        selectedEl,
-                        onSelectEl: (bid, elId) => {
-                          setSelected(bid);
-                          setSelectedEl(elId);
-                          postToCanvas(frame.current, { t: 'select-el', block: bid, el: elId, scroll: true });
-                        },
-                        onHoverEl: (elId) => postToCanvas(frame.current, { t: 'hover-el', el: elId }),
-                        onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => onCanvasPlace(moveEl(els, elId, parent, index), elId), elId),
-                        peek,
-                        onPeek: (elId) =>
-                          setPeek((s) => {
-                            const n = new Set(s);
-                            if (n.has(elId)) n.delete(elId);
-                            else n.add(elId);
-                            return n;
-                          }),
-                        onPin: (bid, elId) => changeEls(bid, (els) => updateEl(els, elId, (x) => ({ ...x, pinned: x.pinned ? undefined : true })), elId),
-                      }}
-                    />
+                    {structurePanel}
                     <button
                       className="btn"
                       style={{ justifySelf: 'start' }}

@@ -34,6 +34,7 @@ import { DICT } from '../src/site/dict';
 import * as Y from 'yjs';
 import { applyData, toData, changedBlocks } from '../src/shared/collab-doc';
 import { ADMIN_DICT } from '../src/admin/i18n/all';
+import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2449,5 +2450,25 @@ describe('Farben dieser Seite', () => {
     // Untouched blocks stay the same objects; the locked one keeps its colour.
     expect(next[2]).toBe(blocks[2]);
     expect(colorKey(' #ABC ')).toBe('#aabbcc');
+  });
+});
+
+describe('Baukasten', () => {
+  it('lets only the side bar drag, carrying what to insert as its own type', () => {
+    expect(dragSource(false, NEW_EL, { kind: 'button' })).toEqual({});
+    expect(dragSource(undefined, NEW_BLOCK, { type: 'quote' })).toEqual({});
+    const src = dragSource(true, NEW_EL, { kind: 'button' }) as { draggable: boolean; onDragStart: (e: unknown) => void };
+    expect(src.draggable).toBe(true);
+    const data: Record<string, string> = {};
+    const transfer = { setData: (type: string, value: string) => (data[type] = value), effectAllowed: 'all' };
+    src.onDragStart({ dataTransfer: transfer });
+    expect(JSON.parse(data[NEW_EL])).toEqual({ kind: 'button' });
+    expect(data[NEW_BLOCK]).toBeUndefined();
+    // Copied onto the page: the side bar keeps it.
+    expect(transfer.effectAllowed).toBe('copy');
+    // The canvas looks for the same types (bridge.ts can't import from the admin).
+    const bridge = readFileSync('src/site/runtime/bridge.ts', 'utf8');
+    expect(bridge).toContain(`'${NEW_EL}'`);
+    expect(bridge).toContain(`'${NEW_BLOCK}'`);
   });
 });

@@ -7,6 +7,7 @@ import { EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, type El
 import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Menu, Tip } from '../../ui/kit';
+import { dragSource, NEW_EL } from '../dragNew';
 
 export const elLabel = (el: El) => el.name || tl(EL_DEFS[el.kind].label);
 
@@ -175,6 +176,7 @@ export function ElementPicker({
   inTemplate,
   components,
   onPickComponent,
+  drag,
 }: {
   onPick: (kind: ElKind) => void;
   into: string | null;
@@ -182,6 +184,8 @@ export function ElementPicker({
   inTemplate: boolean;
   components: { id: string; title: string }[];
   onPickComponent: (c: { id: string; title: string }) => void;
+  /** In the builder's side bar: always open, so no focus grab – and every element can be dragged onto the page. */
+  drag?: boolean;
 }) {
   const [q, setQ] = useState('');
   const { settings } = useSession();
@@ -211,7 +215,7 @@ export function ElementPicker({
         }}
         placeholder={t('Suchen – Enter fügt das erste ein')}
         aria-label={t('Elemente suchen')}
-        autoFocus
+        autoFocus={!drag}
       />
       {!kinds.length && !comps.length && <p className="xsmall faint el-picker-note">{t('Nichts gefunden.')}</p>}
       {EL_GROUPS.filter((g) => kinds.some((k) => EL_DEFS[k].group === g)).map((g) => (
@@ -221,7 +225,7 @@ export function ElementPicker({
             {kinds
               .filter((k) => EL_DEFS[k].group === g)
               .map((k) => (
-                <button key={k} type="button" onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
+                <button key={k} type="button" {...dragSource(drag, NEW_EL, { kind: k })} onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
                   <Icon name={EL_DEFS[k].icon} />
                   <span>{tl(EL_DEFS[k].label)}</span>
                 </button>
@@ -235,7 +239,7 @@ export function ElementPicker({
           {comps.length ? (
             <div className="el-picker-comps">
               {comps.map((c) => (
-                <button key={c.id} type="button" onClick={() => onPickComponent(c)}>
+                <button key={c.id} type="button" {...dragSource(drag, NEW_EL, { component: c.id, title: c.title })} onClick={() => onPickComponent(c)}>
                   <Icon name="component" size="s" />
                   <span>{c.title}</span>
                 </button>

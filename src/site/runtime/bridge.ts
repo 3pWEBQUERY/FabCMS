@@ -889,13 +889,16 @@ d.addEventListener(
 let elDrag: { el: HTMLElement; block: HTMLElement; target: { parent: string | null; index: number } | null } | null = null;
 
 function dropTarget(x: number, y: number): { parent: string | null; index: number; line: DOMRect; container: HTMLElement } | null {
-  if (!elDrag) return null;
-  const { el, block } = elDrag;
-  const under = d.elementsFromPoint(x, y).find((n) => block.contains(n) && !el.contains(n)) as HTMLElement | undefined;
+  return elDrag ? slotIn(elDrag.block, x, y, elDrag.el) : null;
+}
+
+/** The place in a free layout under the pointer: container, index and the line to show – `el` is the one being moved, if any. */
+function slotIn(block: HTMLElement, x: number, y: number, el: HTMLElement | null): { parent: string | null; index: number; line: DOMRect; container: HTMLElement } | null {
+  const under = d.elementsFromPoint(x, y).find((n) => block.contains(n) && !el?.contains(n)) as HTMLElement | undefined;
   if (!under) return null;
   // The innermost container under the pointer, or the layout itself.
   let box = under.closest<HTMLElement>('[data-nova-box]');
-  while (box && (!block.contains(box) || el.contains(box))) box = box.parentElement?.closest<HTMLElement>('[data-nova-box]') ?? null;
+  while (box && (!block.contains(box) || el?.contains(box))) box = box.parentElement?.closest<HTMLElement>('[data-nova-box]') ?? null;
   const container = box ?? block.querySelector<HTMLElement>('.lay');
   if (!container) return null;
   // Hidden tabs and closed answers take no place – they are skipped, not counted out.
@@ -967,6 +970,82 @@ function endElDrag() {
 }
 egrip.addEventListener('pointerup', endElDrag);
 egrip.addEventListener('pointercancel', endElDrag);
+
+/* ---------- new elements and sections, dragged in from the editor's side bar ---------- */
+
+const NEW_EL = 'application/x-nova-el';
+const NEW_BLOCK = 'application/x-nova-block';
+/** What is being dragged in (the data itself can only be read on drop). */
+const newKind = (e: DragEvent): 'el' | 'block' | null => {
+  const types = [...(e.dataTransfer?.types ?? [])];
+  return types.includes(NEW_EL) ? 'el' : types.includes(NEW_BLOCK) ? 'block' : null;
+};
+
+/** Where a new section goes: the boundary between two blocks nearest to the pointer. */
+function blockSlot(y: number): { index: number; line: DOMRect } {
+  const list = blocks();
+  const host = blocksHost().getBoundingClientRect();
+  if (!list.length) return { index: 0, line: new DOMRect(host.left, host.top + 24, host.width, 4) };
+  let best = { index: list.length, y: list[list.length - 1].getBoundingClientRect().bottom };
+  let dist = Infinity;
+  list.forEach((b, i) => {
+    const r = b.getBoundingClientRect();
+    for (const [edge, index] of [
+      [r.top, i],
+      [r.bottom, i + 1],
+    ] as [number, number][]) {
+      if (Math.abs(y - edge) < dist) {
+        dist = Math.abs(y - edge);
+        best = { index, y: edge };
+      }
+    }
+  });
+  return { index: best.index, line: new DOMRect(host.left, best.y - 2, host.width, 4) };
+}
+
+/** An element goes into the free layout under the pointer; elsewhere – and sections always – between two blocks. */
+function newDropAt(e: DragEvent, kind: 'el' | 'block') {
+  if (kind === 'el') {
+    const t = e.target instanceof Element ? e.target : null;
+    const block = t?.closest<HTMLElement>('[data-nova-block]');
+    if (block && block.dataset.novaType === 'layout' && lockOf(block) === 'none') {
+      const slot = slotIn(block, e.clientX, e.clientY, null);
+      if (slot) return { at: { block: block.dataset.novaBlock, parent: slot.parent, index: slot.index }, line: slot.line, box: slot.container.getBoundingClientRect() };
+    }
+  }
+  const slot = blockSlot(e.clientY);
+  return { at: { index: slot.index }, line: slot.line, box: null };
+}
+
+const hideDrop = () => {
+  edrop.classList.remove('on');
+  edropBox.classList.remove('on');
+};
+d.addEventListener('dragover', (e) => {
+  const kind = newKind(e);
+  if (!kind) return;
+  e.preventDefault();
+  e.dataTransfer!.dropEffect = 'copy';
+  const place = newDropAt(e, kind);
+  Object.assign(edrop.style, { top: `${place.line.top + scrollY}px`, left: `${place.line.left}px`, width: `${place.line.width}px`, height: `${place.line.height}px` });
+  edrop.classList.add('on');
+  if (place.box) Object.assign(edropBox.style, { top: `${place.box.top + scrollY}px`, left: `${place.box.left}px`, width: `${place.box.width}px`, height: `${place.box.height}px` });
+  edropBox.classList.toggle('on', Boolean(place.box));
+  // Near the edges the page scrolls along.
+  if (e.clientY < 60) scrollBy(0, -12);
+  else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+});
+d.addEventListener('dragleave', (e) => {
+  if (newKind(e) && !e.relatedTarget) hideDrop();
+});
+d.addEventListener('drop', (e) => {
+  const kind = newKind(e);
+  if (!kind) return;
+  e.preventDefault();
+  hideDrop();
+  const place = newDropAt(e, kind);
+  post({ t: 'drop-new', kind, data: e.dataTransfer!.getData(kind === 'el' ? NEW_EL : NEW_BLOCK), at: place.at });
+});
 
 /* ---------- free canvas: move, resize and nudge elements – in percent of the canvas ---------- */
 

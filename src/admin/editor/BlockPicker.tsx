@@ -6,6 +6,7 @@ import { t, tl } from '../lib/i18n';
 import { Icon } from '../ui/icons';
 import { LAYOUT_PRESETS } from '../../shared/elements';
 import { LayoutThumb } from './elements/LayoutThumb';
+import { dragSource, NEW_BLOCK } from './dragNew';
 
 /** Block library, grouped and searchable. Werkbank adds code blocks. */
 export function BlockPicker({
@@ -13,12 +14,15 @@ export function BlockPicker({
   sections,
   saved = [],
   onPickSaved,
+  drag,
 }: {
   onPick: (type: string, props?: Record<string, unknown>) => void;
   sections: { id: string; title: string }[];
   /** «Meine Vorlagen»: sections saved to be inserted as copies. */
   saved?: { id: string; title: string }[];
   onPickSaved?: (id: string) => void;
+  /** In the builder's side bar: always open, so no focus grab – and everything can be dragged onto the page. */
+  drag?: boolean;
 }) {
   const { pro, settings } = useSession();
   const [q, setQ] = useState('');
@@ -39,6 +43,7 @@ export function BlockPicker({
       description: tl(b.description),
       icon: b.icon,
       category: b.category,
+      data: { type: b.type } as Record<string, unknown>,
       // The free layout starts with an empty container to build in.
       run: () => onPick(b.type, b.type === 'layout' ? { els: LAYOUT_PRESETS.find((p) => p.id === 'empty')!.els() } : undefined),
     })),
@@ -49,6 +54,7 @@ export function BlockPicker({
           description: t('Wiederverwendbare Sektion'),
           icon: 'link',
           category: 'sections',
+          data: { section: s.id },
           run: () => onPick('section', { section: s.id }),
         }))
       : []),
@@ -64,7 +70,7 @@ export function BlockPicker({
       <div className="picker-head">
         <input
           className="input"
-          autoFocus={!touchScreen()}
+          autoFocus={!drag && !touchScreen()}
           placeholder={t('Block suchen – z. B. «Bild», «Preise», «Karte»')}
           value={q}
           onChange={(e) => {
@@ -92,7 +98,14 @@ export function BlockPicker({
             <div className="cmdk-group">{t('Meine Vorlagen')}</div>
             <div className="tpl-grid">
               {mine.map((x) => (
-                <button key={x.id} type="button" className="tpl-tile" onClick={() => onPickSaved?.(x.id)} title={t('Eigene Vorlage – als Kopie eingefügt')}>
+                <button
+                  key={x.id}
+                  type="button"
+                  className="tpl-tile"
+                  {...dragSource(drag, NEW_BLOCK, { saved: x.id })}
+                  onClick={() => onPickSaved?.(x.id)}
+                  title={t('Eigene Vorlage – als Kopie eingefügt')}
+                >
                   <TemplateThumb id={x.id} />
                   <span>{x.title}</span>
                 </button>
@@ -105,7 +118,14 @@ export function BlockPicker({
             <div className="cmdk-group">{t('Freie Layouts')}</div>
             <div className="lt-grid">
               {presets.map((p) => (
-                <button key={p.id} type="button" className="lt-tile" onClick={() => onPick('layout', { els: p.els() })} title={tl(p.description)}>
+                <button
+                  key={p.id}
+                  type="button"
+                  className="lt-tile"
+                  {...dragSource(drag, NEW_BLOCK, { preset: p.id })}
+                  onClick={() => onPick('layout', { els: p.els() })}
+                  title={tl(p.description)}
+                >
                   <LayoutThumb id={p.id} />
                   <span>{tl(p.label)}</span>
                 </button>
@@ -119,7 +139,15 @@ export function BlockPicker({
           return (
             <div key={it.key}>
               {head && <div className="cmdk-group">{head}</div>}
-              <button type="button" className="picker-item" role="option" aria-selected={i === sel} onMouseMove={() => setSel(i)} onClick={it.run}>
+              <button
+                type="button"
+                className="picker-item"
+                role="option"
+                aria-selected={i === sel}
+                {...dragSource(drag, NEW_BLOCK, it.data)}
+                onMouseMove={() => setSel(i)}
+                onClick={it.run}
+              >
                 <span className="pi-icon">
                   <Icon name={it.icon} />
                 </span>

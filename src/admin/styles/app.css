@@ -8090,3 +8090,64 @@ textarea.dg-input {
 .pc-edit {
   padding: 0 0.6rem 0.6rem;
 }
+
+/* «Baukasten»: the page builder's side bar left of the canvas */
+.editor-stage.with-builder {
+  grid-template-columns: 17.5rem minmax(0, 1fr) auto;
+}
+.builder {
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+.builder-tabs {
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+.builder-tabs .seg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.builder-body {
+  overflow: auto;
+  min-height: 0;
+}
+.builder .el-picker {
+  width: auto;
+}
+.builder .el-picker > .dp-menu-head {
+  display: none;
+}
+.builder .el-picker-search {
+  margin-top: 0.5rem;
+}
+.builder .picker {
+  width: auto;
+  max-height: none;
+  height: 100%;
+}
+.builder .picker-item .pi-icon + strong + span {
+  display: none;
+}
+.builder .lt-grid,
+.builder .tpl-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.builder [draggable='true'] {
+  cursor: grab;
+}
+.builder [draggable='true']:active {
+  cursor: grabbing;
+}
+.builder-layers {
+  padding: 0.6rem;
+}
+.builder-tip {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--line);
+}
