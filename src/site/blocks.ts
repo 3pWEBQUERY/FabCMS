@@ -11,7 +11,7 @@ import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { publishedEntries, categoriesOf, getForm, legalPages, ratingSummaries, sectionBlocks } from './data';
+import { bestsellers, publishedEntries, categoriesOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -858,6 +858,10 @@ interface ElRender {
   over?: string;
   /** Components inside components – stops loops. */
   depth?: number;
+  /** Inside a link (a linked container): no forms or buttons in there. */
+  inLink?: boolean;
+  /** Customers' stars of the products in a loop, fetched once for all of them. */
+  ratings?: Map<string, { average: number; count: number }>;
 }
 
 /** Elements one after the other; `start` is the index of the first in its container. */
@@ -987,8 +991,8 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     case 'box': {
       const tag = (BOX_TAGS as readonly string[]).includes(String(p.tag)) ? String(p.tag) : 'div';
       const kids = el.children ?? [];
-      const inner = kids.length ? await renderEls(kids, ctx, { ...rc, path: `${path}.children` }) : rc.edit ? html`<div class="el-empty">Leerer Container</div>` : html``;
       const href = hrefOf();
+      const inner = kids.length ? await renderEls(kids, ctx, { ...rc, path: `${path}.children`, inLink: rc.inLink || Boolean(href) }) : rc.edit ? html`<div class="el-empty">Leerer Container</div>` : html``;
       return href
         ? html`<a class="${cls()}" href="${href}"${attrs}>${inner}</a>`
         : html`${raw(`<${tag} class="${cls()}"`)}${attrs}>${inner}${raw(`</${tag}>`)}`;
@@ -1128,6 +1132,11 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     }
     case 'terms':
       return renderTerms(el, ctx, attrs, cls());
+    case 'price':
+    case 'addtocart':
+    case 'stock':
+    case 'rating':
+      return renderShopEl(el, ctx, rc, attrs, cls());
     case 'entrybody': {
       if (!ctx.entryView || rc.list || rc.copy)
         return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;
@@ -1289,6 +1298,87 @@ async function renderTerms(el: El, ctx: RenderContext, attrs: Html, cls: string)
   )}</nav>`;
 }
 
+/* ---------- shop elements ---------- */
+
+type ShopProduct = { id: string; slug: string; data: EntryData };
+
+/** The product a shop element shows: chosen by hand, else the loop's entry, else the product of the page. */
+async function productFor(el: El, ctx: RenderContext, rc: ElRender): Promise<ShopProduct | null> {
+  const ref = typeof el.props.product === 'string' ? el.props.product : '';
+  if (ref) return productById(ref);
+  const bound = rc.entry ?? currentEntry(ctx);
+  return bound?.c.id === 'products' ? bound.e : null;
+}
+
+const variantsOf = (d: EntryData) => (Array.isArray(d.variants) ? (d.variants as { name?: string; price?: number | null; stock?: number | null }[]) : []);
+
+/** Units left: a number, or null for «no limit» (also when a single variant has none). */
+function stockOf(d: EntryData): number | null {
+  const variants = variantsOf(d);
+  if (!variants.length) return typeof d.stock === 'number' ? d.stock : null;
+  if (variants.some((v) => typeof v.stock !== 'number')) return null;
+  return variants.reduce((sum, v) => sum + (v.stock as number), 0);
+}
+
+async function renderShopEl(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const product = await productFor(el, ctx, rc);
+  if (!product)
+    return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle ein Produkt – oder setz das Element in eine Inhaltsschleife mit Produkten oder in die Produktvorlage.</div>` : html``;
+  const d = product.data;
+  const variants = variantsOf(d);
+  const left = stockOf(d);
+  const soldOut = variants.length ? variants.every((v) => v.stock === 0) : d.stock === 0;
+  switch (el.kind) {
+    case 'price': {
+      const base = typeof d.price === 'number' ? d.price : 0;
+      const prices = variants.map((v) => (typeof v.price === 'number' ? v.price : base));
+      const from = prices.length && new Set(prices).size > 1 ? Math.min(...prices) : null;
+      const compare = typeof d.comparePrice === 'number' && d.comparePrice > base ? d.comparePrice : null;
+      const off = compare && p.sale !== false ? Math.round((1 - base / compare) * 100) : 0;
+      return html`<p class="${cls} price-row"${attrs}><span data-price-of="${product.id}">${from !== null ? t(ctx, 'ab {price}', { price: formatPrice(from) }) : formatPrice(base)}</span>${
+        compare && p.compare !== false ? html`<s>${formatPrice(compare)}</s>` : ''
+      }${off > 0 ? html`<span class="badge sale">−${off} %</span>` : ''}</p>`;
+    }
+    case 'stock': {
+      if (soldOut) return html`<p class="${cls} stock out"${attrs}>${t(ctx, 'Ausverkauft')}</p>`;
+      if (left !== null && left <= 5) return html`<p class="${cls} stock low"${attrs}>${t(ctx, 'Nur noch {n} Stück an Lager', { n: left })}</p>`;
+      return p.plenty !== false ? html`<p class="${cls} stock in"${attrs}>${t(ctx, 'An Lager')}</p>` : rc.edit ? html`<p class="${cls} el-empty"${attrs}>Genug an Lager – erscheint erst, wenn es knapp wird.</p>` : html``;
+    }
+    case 'rating': {
+      if (!ctx.settings.shop.reviews) return rc.edit ? html`<p class="${cls} el-empty"${attrs}>Schalte die Kundenbewertungen unter Einstellungen → Shop ein.</p>` : html``;
+      const r = rc.ratings ? rc.ratings.get(product.id) : (await ratingSummaries([product.id])).get(product.id);
+      if (!r) return rc.edit ? html`<p class="${cls} el-empty"${attrs}>Noch keine Bewertungen</p>` : html``;
+      const label = r.count === 1 ? t(ctx, '{n} von 5 Sternen, 1 Bewertung', { n: r.average.toLocaleString(L(ctx)) }) : t(ctx, '{n} von 5 Sternen, {count} Bewertungen', { n: r.average.toLocaleString(L(ctx)), count: r.count });
+      return html`<p class="${cls} card-stars" role="img" aria-label="${label}"${attrs}>${starsMeter(r.average)}${p.count !== false ? html` <span aria-hidden="true">${r.count}</span>` : ''}</p>`;
+    }
+    case 'addtocart': {
+      // The default text in the visitor's language; an own one as written.
+      const label = typeof p.label === 'string' && p.label && p.label !== 'In den Warenkorb' ? p.label : t(ctx, 'In den Warenkorb');
+      if (soldOut) return html`<p class="${cls}"${attrs}><span class="badge">${t(ctx, 'Ausverkauft')}</span></p>`;
+      // A form inside a link would be invalid: there it leads to the product instead.
+      if (rc.inLink) return html`<span class="${cls} btn"${attrs}>${label}</span>`;
+      if (!ctx.settings.modules.includes('shop')) return rc.edit ? html`<p class="${cls} el-empty"${attrs}>Schalte den Shop unter Einstellungen → Module ein.</p>` : html``;
+      ctx.needs.add('cart');
+      // Several on a page (a loop): ids from the element and the product.
+      const uid = `${el.id}-${product.id.slice(0, 8)}`;
+      const max = !variants.length && left !== null ? Math.min(99, left) : 99;
+      return html`<form method="post" action="/warenkorb/add" class="${cls} nform" data-add-to-cart${attrs}><input type="hidden" name="product" value="${product.id}">${
+        variants.length
+          ? html`<div class="fld"><label for="v-${uid}">${t(ctx, 'Variante')}</label><select id="v-${uid}" name="variant" required>${variants.map((v, i) =>
+              v.stock === 0
+                ? html`<option value="${i}" disabled>${t(ctx, '{name} – ausverkauft', { name: v.name ?? '' })}</option>`
+                : html`<option value="${i}" data-price="${formatPrice(typeof v.price === 'number' ? v.price : (d.price as number))}">${v.name ?? ''}</option>`,
+            )}</select></div>`
+          : ''
+      }<div class="qty">${
+        p.qty === true ? html`<div class="fld"><label for="q-${uid}">${t(ctx, 'Menge')}</label><input id="q-${uid}" name="qty" type="number" min="1" max="${max}" value="1" inputmode="numeric"></div>` : ''
+      }<button class="btn"${rc.list ? raw(` aria-label="${esc(`${label}: ${d.title}`)}"`) : ''}>${label}</button></div></form>`;
+    }
+  }
+  return html``;
+}
+
 /** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
 async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
   const q = loopQuery(el.props as P);
@@ -1315,7 +1405,19 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
       : tf && (q.sort === 'newest' || q.sort === 'oldest')
         ? [tf, q.time === 'upcoming' ? 'asc' : 'desc']
         : (sort ?? ['published_at', 'desc']);
-  const { items, total } = await publishedEntries(c, {
+  // Products: on sale and in stock filter the query; best sellers and «goes with» bring their own order.
+  const shop = c.id === 'products' ? q.shop : 'all';
+  if (shop === 'related' && ctx.current?.collection !== 'products')
+    return rc.edit ? html`<div class="${cls} el-empty"${attrs}>«Passt zum Produkt dieser Seite» zeigt erst auf einer Produktseite oder in der Produktvorlage etwas.</div>` : html``;
+  const special =
+    shop === 'bestseller'
+      ? await bestsellers(c, q.limit)
+      : shop === 'related'
+        ? await relatedProducts(c, ctx.current!.id, ctx.current!.data, q.limit)
+        : null;
+  const { items, total } = special ? { items: special, total: special.length } : await publishedEntries(c, {
+    onSale: shop === 'sale',
+    inStock: shop === 'instock',
     limit: q.limit,
     offset: q.offset + (page - 1) * q.limit,
     sortField,
@@ -1333,10 +1435,17 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
     return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Nichts passt zu diesen Regeln in «${c.name}».</div>` : html``;
   }
   const out: Html[] = [];
+  // Stars of every product in the loop with one query.
+  let ratings: Map<string, { average: number; count: number }> | undefined;
+  if (c.id === 'products' && ctx.settings.shop.reviews) {
+    let wants = false;
+    walkEls([template], (x) => void (x.kind === 'rating' && !x.props.product && (wants = true)));
+    if (wants) ratings = await ratingSummaries(items.map((e) => e.id));
+  }
   for (let i = 0; i < items.length; i++) {
     const e = items[i];
     const open = entryAccess(e.data) === 'public' || mayRead(entryAccess(e.data), ctx.member?.level ?? null);
-    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true });
+    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true, ratings });
     out.push(rc.edit && i > 0 ? html`<div class="el-ghost" data-nova-ghost>${item}</div>` : item);
   }
   // Pages of their own per loop: other loops and filters on the page keep their place.

@@ -29,6 +29,10 @@ export const EL_KINDS = [
   'menu',
   'hours',
   'terms',
+  'price',
+  'addtocart',
+  'stock',
+  'rating',
   'counter',
   'accordion',
   'tabs',
@@ -48,9 +52,9 @@ export const CONTAINERS: readonly ElKind[] = ['box', 'list', 'accordion', 'tabs'
 export const ITEM_CONTAINERS: readonly ElKind[] = ['accordion', 'tabs', 'slider', 'marquee'];
 export const isContainer = (kind: ElKind) => CONTAINERS.includes(kind);
 /** Where the picker shows a kind. */
-export const EL_GROUPS = ['basic', 'media', 'interactive', 'cms', 'site'] as const;
+export const EL_GROUPS = ['basic', 'media', 'interactive', 'cms', 'site', 'shop'] as const;
 export type ElGroup = (typeof EL_GROUPS)[number];
-export const EL_GROUP_LABELS: Record<ElGroup, string> = { basic: 'Grundlagen', media: 'Medien', interactive: 'Interaktiv', cms: 'Aus dem CMS', site: 'Website' };
+export const EL_GROUP_LABELS: Record<ElGroup, string> = { basic: 'Grundlagen', media: 'Medien', interactive: 'Interaktiv', cms: 'Aus dem CMS', site: 'Website', shop: 'Shop' };
 
 export interface El {
   id: string;
@@ -156,6 +160,15 @@ export const SHAPES = {
 export type ShapeKind = keyof typeof SHAPES;
 export const SHAPE_KINDS = Object.keys(SHAPES) as ShapeKind[];
 export const MARQUEE_SPEEDS = ['slow', 'medium', 'fast'] as const;
+
+/** Shop elements: a product chosen by hand, else the one of the loop or product page around them. */
+const PRODUCT_FIELD: FieldDef = {
+  key: 'product',
+  type: 'relation',
+  collection: 'products',
+  label: 'Produkt',
+  help: 'Leer = das Produkt der Inhaltsschleife oder der Produktseite.',
+};
 
 export const EL_DEFS: Record<ElKind, ElDef> = {
   box: {
@@ -348,6 +361,46 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     icon: 'tag',
     fields: [{ key: 'collection', type: 'select', label: 'Inhaltstyp', options: [], help: 'In einer Archiv-Vorlage: leer = der Inhaltstyp der Übersicht.' }],
     defaults: { collection: '' },
+  },
+  price: {
+    kind: 'price',
+    group: 'shop',
+    label: 'Preis',
+    description: 'Der Preis eines Produkts – mit Statt-Preis und Rabatt, bei Varianten «ab».',
+    icon: 'price',
+    fields: [
+      PRODUCT_FIELD,
+      { key: 'compare', type: 'boolean', label: 'Statt-Preis durchgestrichen dazu', width: 'half' },
+      { key: 'sale', type: 'boolean', label: 'Rabatt in Prozent zeigen', width: 'half' },
+    ],
+    defaults: { product: '', compare: true, sale: true },
+  },
+  addtocart: {
+    kind: 'addtocart',
+    group: 'shop',
+    label: 'In den Warenkorb',
+    description: 'Ein Knopf, der das Produkt in den Warenkorb legt – mit Variantenwahl, wo es Varianten gibt. Ausverkauft steht dort «Ausverkauft».',
+    icon: 'cart',
+    fields: [PRODUCT_FIELD, { key: 'label', type: 'text', label: 'Beschriftung', placeholder: 'In den Warenkorb' }, { key: 'qty', type: 'boolean', label: 'Menge wählen lassen' }],
+    defaults: { product: '', label: 'In den Warenkorb', qty: false },
+  },
+  stock: {
+    kind: 'stock',
+    group: 'shop',
+    label: 'Lagerstatus',
+    description: '«An Lager», «Nur noch 3 Stück» oder «Ausverkauft» – immer nach dem aktuellen Bestand.',
+    icon: 'box',
+    fields: [PRODUCT_FIELD, { key: 'plenty', type: 'boolean', label: 'Auch «An Lager» zeigen', help: 'Sonst nur, wenn es knapp oder weg ist.' }],
+    defaults: { product: '', plenty: true },
+  },
+  rating: {
+    kind: 'rating',
+    group: 'shop',
+    label: 'Sterne',
+    description: 'Die Sterne aus den freigegebenen Kundenbewertungen, mit Anzahl.',
+    icon: 'star',
+    fields: [PRODUCT_FIELD, { key: 'count', type: 'boolean', label: 'Anzahl Bewertungen dazu' }],
+    defaults: { product: '', count: true },
   },
   spacer: {
     kind: 'spacer',
@@ -589,10 +642,25 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
         help: 'Auf Eintragsseiten und in Seitenvorlagen – für «Mehr zum Thema».',
       },
       { key: 'excludeCurrent', type: 'boolean', label: 'Den Eintrag dieser Seite auslassen' },
+      {
+        key: 'shop',
+        type: 'select',
+        label: 'Welche Produkte',
+        options: [
+          { value: 'all', label: 'Alle' },
+          { value: 'sale', label: 'Im Angebot (mit Statt-Preis)' },
+          { value: 'bestseller', label: 'Bestseller der letzten 90 Tage' },
+          { value: 'related', label: 'Passt zum Produkt dieser Seite' },
+          { value: 'instock', label: 'Nur was an Lager ist' },
+        ],
+        default: 'all',
+        showIf: { field: 'collection', equals: ['products'] },
+      },
       { key: 'paginate', type: 'boolean', label: 'Blättern', help: 'Links «Zurück» und «Weiter» unter der Liste, wenn es mehr gibt.' },
       { key: 'empty', type: 'text', label: 'Wenn nichts passt', placeholder: 'z. B. Zurzeit keine Termine.', help: 'Leer = die Schleife verschwindet dann ganz.' },
     ],
     defaults: {
+      archive: false,
       collection: 'posts',
       limit: 3,
       offset: 0,
@@ -605,6 +673,7 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       excludeCurrent: false,
       time: 'all',
       paginate: false,
+      shop: 'all',
       empty: '',
     },
   },
@@ -915,6 +984,7 @@ const MEDIA = /^[\w-]{1,64}$/;
 const plain = (v: unknown, max: number) => sanitizePlain(typeof v === 'string' ? v : '').slice(0, max);
 const href = (v: unknown) => (typeof v === 'string' && v.trim() ? (safeHref(v.slice(0, 500)) ?? undefined) : undefined);
 const one = <T extends string>(v: unknown, list: readonly T[], fallback: T): T => ((list as readonly string[]).includes(String(v)) ? (String(v) as T) : fallback);
+const productRef = (v: unknown) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : '');
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
 function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, unknown> {
@@ -948,6 +1018,14 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { status: p.status !== false };
     case 'terms':
       return { collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : '' };
+    case 'price':
+      return { product: productRef(p.product), compare: p.compare !== false, sale: p.sale !== false };
+    case 'addtocart':
+      return { product: productRef(p.product), label: plain(p.label, 60) || 'In den Warenkorb', qty: p.qty === true };
+    case 'stock':
+      return { product: productRef(p.product), plenty: p.plenty !== false };
+    case 'rating':
+      return { product: productRef(p.product), count: p.count !== false };
     case 'form':
       return { form: typeof p.form === 'string' && /^[\w-]{1,64}$/.test(p.form) ? p.form : '' };
     case 'counter': {
@@ -1134,6 +1212,8 @@ export interface LayoutPreset {
   id: string;
   label: string;
   description: string;
+  /** Only offered when this module is on. */
+  module?: string;
   els: () => El[];
 }
 
@@ -1374,6 +1454,36 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     label: 'Neueste Beiträge',
     description: 'Die drei neuesten Beiträge als Karten – kommen von selbst nach.',
     els: () => [createEl('heading', { text: 'Aus dem Journal', level: '2' }), createEl('list')],
+  },
+  {
+    id: 'shop',
+    label: 'Produkte im Angebot',
+    description: 'Vier Produkte mit Statt-Preis – mit Bild, Sternen, Preis und «In den Warenkorb». Kommen von selbst nach.',
+    module: 'shop',
+    els: () => [
+      createEl('heading', { text: 'Jetzt im Angebot', level: '2' }),
+      createEl(
+        'list',
+        { collection: 'products', limit: 4, shop: 'sale', empty: 'Zurzeit ist nichts im Angebot.' },
+        {
+          design: { desktop: { display: 'grid', columns: 4, gap: '$s-6' }, tablet: { columns: 2 }, mobile: { columns: 1 } },
+          children: [
+            box(
+              [
+                createEl('image', {}, { bind: { image: 'field:images', href: 'url' }, design: { desktop: { aspect: '4/5', radius: '$s-3' } } }),
+                createEl('heading', { text: 'Produkt', level: '3' }, { bind: { text: 'title' }, design: { desktop: { fontSize: '$step-1' } } }),
+                createEl('rating'),
+                createEl('price'),
+                createEl('addtocart'),
+              ],
+              { desktop: { gap: '$s-3' } },
+              {},
+              { name: 'Produkt' },
+            ),
+          ],
+        },
+      ),
+    ],
   },
   {
     id: 'empty',

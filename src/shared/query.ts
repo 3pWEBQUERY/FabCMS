@@ -10,6 +10,7 @@ import type { CollectionDef, EntryData } from './types';
 export const LOOP_SORTS = ['newest', 'oldest', 'title', 'order', 'random', 'field-asc', 'field-desc'] as const;
 export const LOOP_TIMES = ['all', 'upcoming', 'past'] as const;
 export const LOOP_RELATED = ['none', 'category', 'tags'] as const;
+export const LOOP_SHOP = ['all', 'sale', 'bestseller', 'related', 'instock'] as const;
 export const MAX_RULES = 4;
 
 export type LoopSort = (typeof LOOP_SORTS)[number];
@@ -39,6 +40,8 @@ export interface LoopQuery {
   /** Dated content (events, courses …): only what is still to come, or what is over. */
   time: (typeof LOOP_TIMES)[number];
   paginate: boolean;
+  /** Products only: on sale, best sellers, what goes with the product of the page, in stock. */
+  shop: (typeof LOOP_SHOP)[number];
   /** Shown when nothing matches; empty = nothing at all. */
   empty: string;
 }
@@ -72,6 +75,7 @@ export function loopQuery(p: Record<string, unknown>): LoopQuery {
     excludeCurrent: p.excludeCurrent === true,
     time: one(p.time, LOOP_TIMES, 'all'),
     paginate: p.paginate === true,
+    shop: one(p.shop, LOOP_SHOP, 'all'),
     empty: text(p.empty, 200),
   };
 }

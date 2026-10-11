@@ -648,7 +648,9 @@ d.querySelectorAll<HTMLFormElement>('form[data-nova-form]').forEach((form) => {
 
 /* ---------- shop ---------- */
 d.querySelectorAll<HTMLSelectElement>('select[name=variant]').forEach((sel) => {
-  const target = d.querySelector('[data-price]');
+  // A shop element's price of the same product, else the product page's.
+  const id = sel.form?.querySelector<HTMLInputElement>('input[name=product]')?.value;
+  const target = (id && d.querySelector(`[data-price-of="${CSS.escape(id)}"]`)) || d.querySelector('[data-price]');
   sel.addEventListener('change', () => {
     const price = sel.selectedOptions[0]?.dataset.price;
     if (target && price) target.textContent = price;

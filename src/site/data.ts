@@ -31,6 +31,9 @@ export interface ListOptions {
   exclude?: string[];
   /** A dated field from (inclusive) or until (exclusive), as wall time («2026-10-11T09:30»). */
   time?: { field: string; from?: string; until?: string };
+  /** Products: with a higher «Statt-Preis», or something left to buy. */
+  onSale?: boolean;
+  inStock?: boolean;
 }
 
 const SORT_SAFE = /^[a-zA-Z_][a-zA-Z0-9_]{0,40}$/;
@@ -59,6 +62,11 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
     o.exclude?.length ? sql`and e.id <> all(${o.exclude}::uuid[])` : sql``,
     o.time && SORT_SAFE.test(o.time.field) && o.time.from ? sql`and e.published_data ->> ${o.time.field} >= ${o.time.from}` : sql``,
     o.time && SORT_SAFE.test(o.time.field) && o.time.until ? sql`and e.published_data ->> ${o.time.field} < ${o.time.until}` : sql``,
+    o.onSale
+      ? sql`and jsonb_typeof(e.published_data -> 'comparePrice') = 'number' and jsonb_typeof(e.published_data -> 'price') = 'number'
+            and (e.published_data ->> 'comparePrice')::numeric > (e.published_data ->> 'price')::numeric`
+      : sql``,
+    o.inStock ? sql`and not (${soldOutSql})` : sql``,
   ].reduce((a, b) => sql`${a} ${b}`, sql``);
   const rows = await sql`
     select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, u.name as author_name,
@@ -68,6 +76,36 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
     order by ${o.random ? sql`random()` : order}
     limit ${o.limit ?? 100} offset ${o.offset ?? 0}`;
   return { items: await localized(rows as unknown as PublicEntry[], c), total: Number(rows[0]?.total ?? 0) };
+}
+
+/** The same as soldOut, in SQL: stock 0, or every variant at 0. */
+const soldOutSql = sql`case when jsonb_typeof(e.published_data -> 'variants') = 'array' and jsonb_array_length(e.published_data -> 'variants') > 0
+  then not exists (select 1 from jsonb_array_elements(e.published_data -> 'variants') v where coalesce(v ->> 'stock', '') <> '0')
+  else coalesce(e.published_data ->> 'stock', '') = '0' end`;
+
+/** The products sold most in paid orders of the last 90 days – only what can be bought right now. */
+export async function bestsellers(c: CollectionDef, limit: number): Promise<PublicEntry[]> {
+  const rows = await sql`
+    select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, null as author_name
+    from entries e
+    join (
+      select l ->> 'productId' as id, sum(coalesce((l ->> 'qty')::int, 1))::int as n
+      from orders o, jsonb_array_elements(o.items) l
+      where o.status in ('paid', 'fulfilled') and o.created_at > now() - interval '90 days'
+      group by 1
+    ) s on s.id = e.id::text
+    where e.collection = 'products' and e.status = 'published' and not (${soldOutSql})
+    order by s.n desc, e.published_at desc limit ${limit}`;
+  return localized(rows as unknown as PublicEntry[], c);
+}
+
+/** A published product by id (a shop element pointing at one). */
+export async function productById(id: string): Promise<PublicEntry | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const rows = await sql`
+    select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, null as author_name
+    from entries e where e.id = ${id} and e.collection = 'products' and e.status = 'published'`;
+  return rows[0] ? ((await localized(rows as unknown as PublicEntry[], 'products'))[0] ?? null) : null;
 }
 
 /** Sold out: no stock left, or none in any variant. */

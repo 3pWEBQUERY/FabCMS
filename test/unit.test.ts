@@ -1331,6 +1331,7 @@ describe('free layout', () => {
       excludeCurrent: false,
       time: 'all',
       paginate: false,
+      shop: 'all',
       empty: '',
     });
     expect(list.children!.map((c) => c.bind)).toEqual([{ text: 'title' }, { image: 'field:cover' }, undefined]);
@@ -2053,3 +2054,29 @@ function walkKinds(els: El[]): string[] {
   walkEls(els, (e) => void out.push(e.kind));
   return out;
 }
+
+describe('Shop-Elemente', () => {
+  it('keeps shop elements and product queries in their safe form', () => {
+    const id = '0F8FAD5B-D9CB-469F-A165-70867728950E';
+    const [price, cart, stock, rating] = sanitizeEls([
+      { id: 's1', kind: 'price', props: { product: id, compare: false } },
+      { id: 's2', kind: 'addtocart', props: { product: '../../etc', label: '<b>Kaufen</b>', qty: 'yes' } },
+      { id: 's3', kind: 'stock', props: { plenty: false } },
+      { id: 's4', kind: 'rating', props: {} },
+    ]);
+    expect(price.props).toEqual({ product: id.toLowerCase(), compare: false, sale: true });
+    // Text stays text: escaped when it is drawn, like every other label.
+    expect(cart.props).toEqual({ product: '', label: '<b>Kaufen</b>', qty: false });
+    expect(stock.props).toEqual({ product: '', plenty: false });
+    expect(rating.props).toEqual({ product: '', count: true });
+    expect(loopQuery({ shop: 'bestseller' }).shop).toBe('bestseller');
+    expect(loopQuery({ shop: 'cheapest' }).shop).toBe('all');
+    // The ready-made product grid: a loop of products on sale, its card with the shop elements.
+    const preset = LAYOUT_PRESETS.find((p) => p.id === 'shop')!;
+    expect(preset.module).toBe('shop');
+    const els = preset.els();
+    expect(sanitizeEls(els)).toEqual(els);
+    expect(els[1].props).toMatchObject({ collection: 'products', shop: 'sale' });
+    expect(walkKinds(els)).toEqual(expect.arrayContaining(['image', 'rating', 'price', 'addtocart']));
+  });
+});

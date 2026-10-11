@@ -27,6 +27,7 @@ import { createHmac } from 'node:crypto';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
+import { formatPrice } from '../src/shared/text';
 import { keyFields, newType, TYPE_PRESETS } from '../src/shared/type-presets';
 import { archiveStarter, templateStarter } from '../src/shared/elements';
 import { outbox } from '../src/server/mail';
@@ -3773,6 +3774,110 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       if (id.startsWith('section:')) await req('DELETE', `/api/entries/${id.slice(8)}`);
       else await req('DELETE', `/api/collections/${id}?force=1`);
     }
+  });
+
+  it('builds shop cards from elements, with on-sale, in-stock, best-seller and «goes with» loops', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const { settings } = (await req('GET', '/api/settings')).data;
+    await req('PATCH', '/api/settings', { modules: [...new Set([...(settings.modules as string[]), 'shop'])], shop: { reviews: true } });
+    const mk = async (slug: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'products', slug, data: { category: 'SEtest', ...data } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const tasche = await mk('se-tasche', { title: 'SE Tasche', price: 4000, comparePrice: 5000, stock: 3 });
+    const muetze = await mk('se-muetze', {
+      title: 'SE Mütze',
+      price: 2000,
+      variants: [
+        { name: 'S', price: 2000, stock: 0 },
+        { name: 'L', price: 2500, stock: 4 },
+      ],
+    });
+    const schal = await mk('se-schal', { title: 'SE Schal', price: 3000, stock: 0 });
+    await sql`insert into comments (entry_id, name, body, rating, status) values (${tasche.id}, 'A', '', 5, 'approved'), (${tasche.id}, 'B', '', 4, 'approved')`;
+    await sql`insert into orders (number, token, status, email, customer, items, subtotal, total, payment_method)
+      values ('T-SE1', 'T-SE1', 'paid', 'x@example.ch', '{}', ${sql.json([{ productId: muetze.id, qty: 500 }])}, 0, 0, 'invoice')`;
+    const card = (id: string) => ({
+      id: `${id}c`,
+      kind: 'box',
+      props: {},
+      children: [
+        { id: `${id}h`, kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'title' } },
+        { id: `${id}p`, kind: 'price', props: {} },
+        { id: `${id}s`, kind: 'stock', props: {} },
+        { id: `${id}r`, kind: 'rating', props: {} },
+        { id: `${id}a`, kind: 'addtocart', props: {} },
+      ],
+    });
+    const loop = (id: string, props: Record<string, unknown>) => ({
+      id,
+      kind: 'list',
+      props: { collection: 'products', category: 'SEtest', sort: 'title', limit: 6, ...props },
+      children: [card(id)],
+    });
+    const els = [
+      loop('sesale', { shop: 'sale' }),
+      loop('sestock', { shop: 'instock' }),
+      loop('sebest', { shop: 'bestseller', category: '', limit: 1 }),
+      { id: 'seprice', kind: 'price', props: { product: muetze.id } },
+      { id: 'secart', kind: 'addtocart', props: { product: muetze.id, qty: true, label: 'Mitnehmen' } },
+      { id: 'seout', kind: 'stock', props: { product: schal.id } },
+      { id: 'selnk', kind: 'box', props: { href: '/laden/se-tasche' }, children: [{ id: 'selnka', kind: 'addtocart', props: { product: tasche.id } }] },
+      { id: 'sebad', kind: 'price', props: { product: 'javascript:alert(1)' } },
+    ];
+    const page = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'shop-elemente', data: { title: 'Shop', blocks: [{ id: 'seb', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    expect(page.data.blocks[0].props.els[7].props.product).toBe('');
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/shop-elemente', undefined, anon)).data as string;
+    const part = (id: string) => {
+      const from = html.indexOf(`id="e-${id}"`);
+      return html.slice(from, html.indexOf('id="e-', from + 10) > 0 ? html.indexOf('id="e-se', from + 10) : undefined);
+    };
+    const titles = (id: string) => [...part(id).matchAll(/>(SE [^<]+)<\/h3>/g)].map((m) => m[1]);
+    // On sale: only the bag – with the old price, the discount, the last pieces, its stars and a button named after it.
+    expect(titles('sesale')).toEqual(['SE Tasche']);
+    expect(part('sesale')).toContain(`<s>${formatPrice(5000)}</s><span class="badge sale">−20 %</span>`);
+    expect(part('sesale')).toContain('Nur noch 3 Stück an Lager');
+    expect(part('sesale')).toContain('aria-label="4.5 von 5 Sternen, 2 Bewertungen"');
+    expect(part('sesale')).toContain(`<input type="hidden" name="product" value="${tasche.id}">`);
+    expect(part('sesale')).toContain('aria-label="In den Warenkorb: SE Tasche"');
+    // In stock: the sold-out scarf stays out; best seller: the hat.
+    expect(titles('sestock')).toEqual(['SE Mütze', 'SE Tasche']);
+    expect(titles('sebest')).toEqual(['SE Mütze']);
+    // Chosen by hand: «from» for variants, the sold-out variant not to choose, own label and quantity.
+    expect(html).toContain(`data-price-of="${muetze.id}">ab ${formatPrice(2000)}</span>`);
+    expect(part('secart')).toMatch(/<option value="0" disabled>S – ausverkauft<\/option>/);
+    expect(part('secart')).toContain('name="qty"');
+    expect(part('secart')).toContain('>Mitnehmen</button>');
+    expect(html).toContain('class="el el-stock e-seout stock out" id="e-seout">Ausverkauft</p>');
+    // Inside a link no form: the button leads to the product.
+    const linked = html.slice(html.indexOf('id="e-selnk"'), html.indexOf('</a>', html.indexOf('id="e-selnk"')));
+    expect(linked).toMatch(/<span class="el el-addtocart e-selnka btn" id="e-selnka">In den Warenkorb<\/span>/);
+    expect(linked).not.toContain('<form');
+    expect(html).not.toContain('id="e-sebad"');
+
+    // «Goes with»: in the product template, from the product of the page.
+    const tpl = (
+      await req('POST', '/api/entries', {
+        collection: 'sections',
+        data: {
+          title: 'Produktvorlage',
+          kind: 'template',
+          template_for: 'products',
+          blocks: [{ id: 'setp', type: 'layout', props: { els: [loop('serel', { shop: 'related', category: '' })] } }],
+        },
+      })
+    ).data.entry;
+    await req('POST', `/api/entries/${tpl.id}/publish`, {});
+    const product = (await req('GET', '/laden/se-tasche', undefined, anon)).data as string;
+    const rel = product.slice(product.indexOf('id="e-serel"'));
+    expect([...rel.matchAll(/>(SE [^<]+)<\/h3>/g)].map((m) => m[1])).toEqual(['SE Mütze']);
+    await req('PATCH', '/api/settings', { shop: { reviews: false } });
+    await sql`delete from orders where number = 'T-SE1'`;
+    for (const e of [tpl, page, tasche, muetze, schal]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
   it('asks people of a role for a second factor before anything else', async () => {

@@ -42,7 +42,9 @@ export function BlockPicker({ onPick, sections }: { onPick: (type: string, props
       : []),
   ];
 
-  const presets = LAYOUT_PRESETS.filter((p) => !q || `${tl(p.label)} ${tl(p.description)} layout`.toLowerCase().includes(q.toLowerCase()));
+  const presets = LAYOUT_PRESETS.filter(
+    (p) => (!p.module || modules.includes(p.module)) && (!q || `${tl(p.label)} ${tl(p.description)} layout`.toLowerCase().includes(q.toLowerCase())),
+  );
 
   let last = '';
   return (

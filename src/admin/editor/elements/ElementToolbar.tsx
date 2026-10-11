@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BLOCK_MAP } from '../../../shared/blocks';
 import type { AlignHow } from '../../../shared/canvas';
+import { useSession } from '../../lib/session';
 import { EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, type El, type ElKind, type Found } from '../../../shared/elements';
 import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
@@ -183,9 +184,15 @@ export function ElementPicker({
   onPickComponent: (c: { id: string; title: string }) => void;
 }) {
   const [q, setQ] = useState('');
+  const { settings } = useSession();
+  // Shop elements only where there is a shop.
+  const shop = Boolean(settings?.modules.includes('shop'));
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const hit = (...texts: string[]) => words.every((w) => texts.some((x) => x.toLowerCase().includes(w)));
-  const kinds = EL_KINDS.filter((k) => k !== 'component' && (k !== 'entrybody' || inTemplate) && hit(tl(EL_DEFS[k].label), tl(EL_DEFS[k].description), EL_DEFS[k].label));
+  const kinds = EL_KINDS.filter(
+    (k) =>
+      k !== 'component' && (k !== 'entrybody' || inTemplate) && (shop || EL_DEFS[k].group !== 'shop') && hit(tl(EL_DEFS[k].label), tl(EL_DEFS[k].description), EL_DEFS[k].label),
+  );
   const comps = components.filter((c) => hit(c.title));
   const first = () => (kinds[0] ? onPick(kinds[0]) : comps[0] ? onPickComponent(comps[0]) : undefined);
   return (

@@ -988,6 +988,10 @@ a.bk-chip:hover,a.bk-day:hover,a.bk-service:hover{border-color:var(--ink)}
 .qty .fld{width:6rem}.qty .fld:has(.nstep){width:auto}
 .stock{font-size:var(--step-n1);font-weight:600}
 .stock.low{color:#9a3b2b}
+.stock.in{color:#2f7d4f}.stock.out{color:var(--ink-2)}
+.el-price,.el-stock,.el-rating{margin:0}
+.el-price .badge.sale{color:var(--accent);border-color:currentColor;align-self:center}
+.el-addtocart{display:grid;gap:.75rem;align-content:start}
 
 /* cart & checkout */
 table{border-collapse:collapse;font-variant-numeric:tabular-nums}
