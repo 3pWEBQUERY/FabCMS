@@ -39,6 +39,7 @@ import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
+import { fieldKey, freeAddress, keyFields, newType, STUDIO_FIELD_TYPES, TYPE_PRESETS, typeAddress } from '../src/shared/type-presets';
 import {
   applyOverrides,
   canvasPlacement,
@@ -1979,3 +1980,76 @@ describe('Kopfzeile, Fusszeile und Archiv', () => {
     expect(kinds(archiveStarter(team))).not.toContain('terms');
   });
 });
+
+describe('Eigene Inhaltstypen im Studio', () => {
+  it('turns labels and names into keys, ids and addresses', () => {
+    expect(fieldKey('Preis pro Person', [])).toBe('preis_pro_person');
+    expect(fieldKey('Grösse & Gewicht', [])).toBe('groesse_und_gewicht');
+    expect(fieldKey('2. Bild', [])).toBe('bild');
+    expect(fieldKey('Status', [])).toBe('status_feld');
+    expect(fieldKey('???', [])).toBe('feld');
+    expect(fieldKey('Preis', ['preis', 'preis_2'])).toBe('preis_3');
+    // Kept keys stay, new ones avoid them and the type's fixed fields.
+    expect(
+      keyFields(
+        [
+          { key: 'price', type: 'money', label: 'Preis' },
+          { key: '', type: 'text', label: 'Preis' },
+          { key: '', type: 'text', label: 'Titel' },
+        ],
+        ['title'],
+      ).map((f) => f.key),
+    ).toEqual(['price', 'preis', 'titel']);
+    expect(typeAddress('Unsere Weine')).toEqual({ id: 'unsere_weine', list: '/unsere-weine', route: '/unsere-weine/:slug' });
+    expect(typeAddress('Häufige Fragen / FAQ').id).toBe('haeufige_fragen_faq');
+    expect(typeAddress('2024').id).toBe('typ');
+    // Taken by another type: the next free one, id and addresses together.
+    expect(
+      freeAddress('Rezepte', [
+        { id: 'rezepte', route: null, list_route: null },
+        { id: 'x', route: null, list_route: '/rezepte-2' },
+      ]),
+    ).toEqual({
+      id: 'rezepte_3',
+      list: '/rezepte-3',
+      route: '/rezepte-3/:slug',
+    });
+  });
+
+  it('starts every preset with fields the server accepts and the templates understand', () => {
+    for (const p of TYPE_PRESETS) {
+      const body = newType({ name: p.name || 'Eigenes', singular: p.singular, icon: p.icon, fields: p.fields, pages: p.pages, blocks: p.blocks });
+      expect(body.fields!.every((f) => /^[a-z][a-zA-Z0-9_]{0,40}$/.test(f.key) && f.label)).toBe(true);
+      expect(new Set(body.fields!.map((f) => f.key)).size).toBe(body.fields!.length);
+      expect(body.title_field).toBe('title');
+      expect(body.route === null).toBe(!p.pages);
+      for (const f of body.fields!) expect(STUDIO_FIELD_TYPES).toContain(f.type);
+    }
+    // Picture and short text under Nova's keys: the archive starter binds them.
+    const rezepte = newType({ ...TYPE_PRESETS.find((p) => p.id === 'rezepte')!, pages: true }) as CollectionDef;
+    const binds: string[] = [];
+    walkEls(archiveStarter(rezepte), (e) => void Object.values(e.bind ?? {}).forEach((b) => binds.push(b)));
+    expect(binds).toEqual(expect.arrayContaining(['field:cover', 'field:excerpt']));
+    expect(walkKinds(archiveStarter(rezepte))).toContain('terms');
+  });
+
+  it('has French, Italian and English for every preset text', () => {
+    const texts = new Set<string>();
+    for (const p of TYPE_PRESETS) {
+      for (const x of [p.name, p.singular, p.description]) if (x) texts.add(x);
+      for (const f of p.fields) {
+        texts.add(f.label);
+        if (f.help) texts.add(f.help);
+        for (const o of f.options ?? []) if (/[a-z]/i.test(o.label)) texts.add(o.label);
+      }
+    }
+    const missing = [...texts].filter((k) => !ADMIN_DICT[k]?.fr || !ADMIN_DICT[k]?.it || !ADMIN_DICT[k]?.en);
+    expect(missing).toEqual([]);
+  });
+});
+
+function walkKinds(els: El[]): string[] {
+  const out: string[] = [];
+  walkEls(els, (e) => void out.push(e.kind));
+  return out;
+}

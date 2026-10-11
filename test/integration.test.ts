@@ -27,6 +27,8 @@ import { createHmac } from 'node:crypto';
 import { invalidateSettings, bumpGeneration } from '../src/server/settings';
 import { createApp } from '../src/server/app';
 import type { Entry } from '../src/shared/types';
+import { keyFields, newType, TYPE_PRESETS } from '../src/shared/type-presets';
+import { archiveStarter, templateStarter } from '../src/shared/elements';
 import { outbox } from '../src/server/mail';
 import { foodMail } from '../src/server/ordering';
 import { tr } from '../src/site/i18n';
@@ -3716,6 +3718,61 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).toContain('class="ftr-bottom"');
     expect(html).not.toContain('id="e-arh"');
     for (const e of [hdr, ftr, arch, p1, p2, p3]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
+  it('creates every Studio preset as a content type, with its page, overview and templates', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const made: string[] = [];
+    for (const p of TYPE_PRESETS.filter((x) => x.id)) {
+      const body = newType({ name: `${p.name} T`, singular: p.singular, icon: p.icon, fields: p.fields, pages: p.pages, blocks: p.blocks });
+      const r = await req('POST', '/api/collections', body);
+      expect(r.status).toBe(200);
+      made.push(r.data.collection.id);
+    }
+    expect(made).toContain('rezepte_t');
+    const col = (await req('GET', '/api/collections')).data.collections.find((c: { id: string }) => c.id === 'rezepte_t');
+    expect(col).toMatchObject({ route: '/rezepte-t/:slug', list_route: '/rezepte-t', title_field: 'title' });
+    // Its templates, as the Studio makes them – and published.
+    for (const [kind, els] of [
+      ['template', templateStarter(col)],
+      ['archive', archiveStarter(col)],
+    ] as const) {
+      const sec = (
+        await req('POST', '/api/entries', {
+          collection: 'sections',
+          data: { title: kind, kind, template_for: col.id, blocks: [{ id: `tp${kind}`, type: 'layout', props: { els } }] },
+        })
+      ).data.entry;
+      await req('POST', `/api/entries/${sec.id}/publish`, {});
+      made.push(`section:${sec.id}`);
+    }
+    for (const [slug, title, category] of [
+      ['roesti', 'Rösti mit Spiegelei', 'Hauptgang'],
+      ['meringue', 'Meringue mit Rahm', 'Dessert'],
+    ]) {
+      const e = (await req('POST', '/api/entries', { collection: 'rezepte_t', slug, data: { title, category, excerpt: `Kurz: ${title}`, minutes: 30, level: 'einfach' } })).data
+        .entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+    }
+    const page = (await req('GET', '/rezepte-t/roesti', undefined, anon)).data as string;
+    expect(page).toMatch(/<h1[^>]*>Rösti mit Spiegelei<\/h1>/);
+    expect(page).toContain('Kurz: Rösti mit Spiegelei');
+    const overview = (await req('GET', '/rezepte-t?kategorie=Dessert', undefined, anon)).data as string;
+    expect(overview).toMatch(/<h1[^>]*>Rezepte T: Dessert<\/h1>/);
+    expect(overview).toContain('Meringue mit Rahm');
+    expect(overview).not.toContain('Rösti mit Spiegelei');
+    expect(overview).toContain('href="/rezepte-t/meringue"');
+    // Own fields on a built-in type get keys that do not collide with Nova's.
+    const posts = (await req('GET', '/api/collections')).data.collections.find((c: { id: string }) => c.id === 'posts');
+    const own = keyFields(
+      [{ key: '', type: 'text', label: 'Title' }],
+      posts.fields.map((f: { key: string }) => f.key),
+    );
+    expect(own[0].key).not.toBe('title');
+    for (const id of made) {
+      if (id.startsWith('section:')) await req('DELETE', `/api/entries/${id.slice(8)}`);
+      else await req('DELETE', `/api/collections/${id}?force=1`);
+    }
   });
 
   it('asks people of a role for a second factor before anything else', async () => {

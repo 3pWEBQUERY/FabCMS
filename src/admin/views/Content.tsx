@@ -9,6 +9,7 @@ import { createAndOpen, entryUrl, moveToTrash } from '../lib/actions';
 import { BulkBar, SelectBox, useSelection } from './Bulk';
 import { TaxonomyDialog } from './Taxonomy';
 import { DataGrid } from './DataGrid';
+import { NewTypeDialog, TypeFieldsDialog } from './TypeStudio';
 import { useListFilters } from './ListFilters';
 import { filterCount, filterToParams, type ListFilter } from '../../shared/listfilter';
 import { Empty, PageHead, Segmented, Skeleton, StatusBadge, Switch, Menu, Dialog, Select } from '../ui/kit';
@@ -39,6 +40,7 @@ export interface Row {
 
 export function ContentHub() {
   const { can, settings } = useSession();
+  const [newType, setNewType] = useState(false);
   const { data } = useApi<{ collections: Col[] }>('/api/collections');
   const { data: counts } = useApi<{ counts: Record<string, number> }>('/api/dashboard');
   const mods = settings?.modules ?? [];
@@ -89,6 +91,7 @@ export function ContentHub() {
   return (
     <div className="page">
       <PageHead title={t('Inhalte')} sub={t('Alles, was nicht eine einzelne Seite ist: Beiträge, Produkte, Gerichte, Formulare und mehr.')} />
+      <NewTypeDialog open={newType} onClose={() => setNewType(false)} />
       {!data ? (
         <Skeleton lines={5} />
       ) : (
@@ -108,6 +111,17 @@ export function ContentHub() {
                   </Link>
                 </li>
               ))}
+              {can('dev') && (
+                <li>
+                  <button type="button" className="list-item list-add" onClick={() => setNewType(true)}>
+                    <Icon name="plus" className="faint" />
+                    <div className="grow">
+                      <div className="title">{t('Eigener Inhaltstyp')}</div>
+                      <div className="xsmall muted">{t('Team, Leistungen, Rezepte, Stellen … mit eigenen Feldern, Seiten und Übersicht')}</div>
+                    </div>
+                  </button>
+                </li>
+              )}
             </ul>
           </section>
           <section className="card">
@@ -191,8 +205,9 @@ export function CollectionList({ collection }: { collection: string }) {
   const { can, pro } = useSession();
   const toast = useToast();
   const { query } = usePath();
-  const { data: cols } = useApi<{ collections: Col[] }>('/api/collections');
+  const { data: cols, reload: reloadCols } = useApi<{ collections: Col[] }>('/api/collections');
   const col = cols?.collections.find((c) => c.id === collection);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState(query.get('status') ?? '');
   // Author, last change and field filters; search and status keep their own fields above.
@@ -324,6 +339,11 @@ export function CollectionList({ collection }: { collection: string }) {
             {pro && (
               <button className="btn" onClick={() => setApiOpen(true)}>
                 <Icon name="code" size="s" /> API
+              </button>
+            )}
+            {can('dev') && !['pages', 'sections'].includes(collection) && (
+              <button className="btn" onClick={() => setFieldsOpen(true)} title={t('Welche Angaben jeder Eintrag hat – Felder hinzufügen, umbenennen, ordnen.')}>
+                <Icon name="list" size="s" /> {t('Felder')}
               </button>
             )}
             {col.fields.some((f) => f.key === 'category' || f.type === 'tags') && (
@@ -482,6 +502,7 @@ export function CollectionList({ collection }: { collection: string }) {
         )}
       </section>
       <TaxonomyDialog collection={collection} name={tl(col.name)} open={taxOpen} onClose={() => setTaxOpen(false)} onChanged={() => void reload()} />
+      {fieldsOpen && <TypeFieldsDialog col={col} open onClose={() => setFieldsOpen(false)} onSaved={() => void reloadCols()} />}
       <BulkBar hasCategory={col.fields.some((f) => f.key === 'category')} selection={selection} categories={categories} onDone={() => void reload()} />
       <Dialog
         open={apiOpen}

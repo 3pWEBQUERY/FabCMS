@@ -7741,3 +7741,80 @@ textarea.dg-input {
   letter-spacing: 0.08em;
   font-size: var(--t-l);
 }
+
+/* own content types in the Studio */
+.list-add {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.type-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+.type-preset {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.type-preset:hover,
+.type-preset:focus-visible {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 1px var(--sel);
+}
+.type-fields {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.type-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 11rem auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.type-field .grip {
+  cursor: grab;
+  color: var(--ink-3, var(--ink-2));
+}
+.type-field-req {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.type-field-options {
+  grid-column: 2 / -1;
+}
+@media (max-width: 40rem) {
+  .type-field {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .type-field > :nth-child(3) {
+    grid-column: 2 / -1;
+  }
+}
