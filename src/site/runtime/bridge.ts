@@ -144,6 +144,11 @@ shadow.innerHTML = `<style>
 .lnk input:focus{box-shadow:0 0 0 2px #6d8fe0}
 .lnk .ok{background:#2b59c3}
 .lnk .ok:hover{background:#3a68d4}
+.entry{position:absolute;display:none;align-items:center;gap:5px;max-width:240px;height:26px;padding:0 10px 0 8px;border:0;border-radius:13px;background:#1b1a17;color:#fff;font:600 12px/1 inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);transform:translateX(-100%)}
+.entry.on{display:inline-flex}
+.entry:hover{background:#2b59c3}
+.entry svg{flex:none;width:13px;height:13px}
+.entry span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 [data-tip]{position:relative}
 [data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;padding:5px 8px;border-radius:6px;background:#1b1a17;color:#fff;font:500 11px/1.2 inherit;box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:none;z-index:2}
 </style>
@@ -154,6 +159,7 @@ shadow.innerHTML = `<style>
 <div class="grid" aria-hidden="true"><div class="grid-in">${'<span></span>'.repeat(12)}</div></div>
 <div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
+<button type="button" class="entry"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16H4v-3z"/></svg><span></span></button>
 <div class="rich" role="toolbar" aria-label="Formatierung">
 <span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
 <span class="lnk"><input type="text" inputmode="url" placeholder="/kontakt oder https://…" aria-label="Link-Adresse"><button data-l="ok" class="ok">OK</button><button data-l="rm" data-tip="Link entfernen" aria-label="Link entfernen">✕</button></span>
@@ -168,6 +174,7 @@ const eresize = shadow.querySelector('.eresize') as HTMLElement;
 const guideV = shadow.querySelector('.gv') as HTMLElement;
 const guideH = shadow.querySelector('.gh') as HTMLElement;
 const epos = shadow.querySelector('.epos') as HTMLElement;
+const entryBtn = shadow.querySelector('.entry') as HTMLButtonElement;
 
 // The page's own blocks: directly in <main> on pages, inside the article (posts, products …) or a template on entries.
 const blocksHost = () => main.querySelector<HTMLElement>('[data-nova-blocks]') ?? main;
@@ -1013,6 +1020,37 @@ function positionChrome(clientX: number, clientY: number) {
     grip.classList.add('on');
   } else grip.classList.remove('on');
 }
+
+/* ---------- entries of a loop: open the one under the pointer ---------- */
+
+// Every card of a loop knows its entry; the copies after the first let the pointer through, so look by position.
+function positionEntry(e: PointerEvent) {
+  if (e.composedPath().includes(entryBtn)) return;
+  const loop = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-nova-kind-el="list"]');
+  const card = loop
+    ? [...loop.querySelectorAll<HTMLElement>('[data-nova-entry]')].find((c) => {
+        const r = c.getBoundingClientRect();
+        return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      })
+    : undefined;
+  if (!card || dragging) return entryBtn.classList.remove('on');
+  const r = card.getBoundingClientRect();
+  const title = card.dataset.novaEntryTitle || 'Eintrag';
+  entryBtn.dataset.id = card.dataset.novaEntry;
+  entryBtn.dataset.coll = card.dataset.novaColl;
+  (entryBtn.querySelector('span') as HTMLElement).textContent = `«${title}» bearbeiten`;
+  entryBtn.setAttribute('aria-label', `Eintrag «${title}» bearbeiten`);
+  entryBtn.style.top = `${r.top + scrollY + 8}px`;
+  entryBtn.style.left = `${r.right - 8}px`;
+  entryBtn.classList.add('on');
+}
+d.addEventListener('pointermove', positionEntry, { passive: true });
+d.addEventListener('pointerleave', () => entryBtn.classList.remove('on'));
+entryBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  entryBtn.classList.remove('on');
+  post({ t: 'open-entry', id: entryBtn.dataset.id, collection: entryBtn.dataset.coll });
+});
 
 d.addEventListener('pointermove', (e) => positionChrome(e.clientX, e.clientY), { passive: true });
 d.addEventListener('pointerleave', () => {

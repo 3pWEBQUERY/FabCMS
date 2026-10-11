@@ -963,4 +963,11 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'z. B. Instagram': { fr: 'p. ex. Instagram', it: 'p. es. Instagram', en: 'e.g. Instagram' },
   'Social-Link': { fr: 'Lien social', it: 'Link social', en: 'Social link' },
   'Speichern – auf allen Seiten': { fr: 'Enregistrer – sur toutes les pages', it: 'Salva – su tutte le pagine', en: 'Save – on every page' },
+  'Neuer Eintrag in «{name}»': { fr: 'Nouvelle entrée dans «{name}»', it: 'Nuova voce in «{name}»', en: 'New entry in «{name}»' },
+  'Alle ansehen': { fr: 'Tout voir', it: 'Vedi tutti', en: 'View all' },
+  'Einen gezeigten Eintrag öffnest du direkt auf der Fläche. Neue erscheinen in der Schleife, sobald sie veröffentlicht sind.': {
+    fr: 'Ouvre une entrée affichée directement sur la page. Les nouvelles apparaissent dans la boucle dès leur publication.',
+    it: 'Apri una voce mostrata direttamente sulla pagina. Le nuove compaiono nel ciclo appena pubblicate.',
+    en: 'Open an entry shown here straight from the canvas. New ones appear in the loop once published.',
+  },
 };

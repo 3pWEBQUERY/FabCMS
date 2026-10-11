@@ -16,7 +16,7 @@ import { ShapeControls } from './ShapeControls';
 import { InteractionControls } from './Interaction';
 import { ConditionControls } from './Conditions';
 import { ImageFocus } from './ImageFocus';
-import { LoopRules, loopFields } from './LoopRules';
+import { LoopEntries, LoopRules, loopFields } from './LoopRules';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -144,6 +144,7 @@ export function ElementInspector({
             onChange={(k, v) => onChange({ ...el, props: { ...el.props, [k]: v } })}
           />
           {el.kind === 'list' && <LoopRules el={el} collection={loopType} onChange={onChange} />}
+          {el.kind === 'list' && loopType && <LoopEntries el={el} collection={loopType} />}
           {el.kind === 'image' && !el.bind?.image && <ImageFocus el={el} onChange={onChange} />}
           {ITEM_CONTAINERS.includes(el.kind) && <ItemsEditor el={el} onChange={onChange} onSelect={onSelect} locked={locked} />}
           {el.kind === 'list' && (

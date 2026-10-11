@@ -2119,7 +2119,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(search.status).toBe(200);
   });
 
-  it('fills a free layout with CMS entries – bound fields, paywall kept, one copy to design in the editor', async () => {
+  it('fills a free layout with CMS entries – bound fields, paywall kept, one copy to design in the editor, each card opens its entry', async () => {
     await req('PUT', '/api/collections/posts', { custom_fields: [{ key: 'quelle', type: 'text', label: 'Quelle' }] });
     const post = (title: string, extra: Record<string, unknown> = {}) =>
       req('POST', '/api/entries', { collection: 'posts', data: { title, category: 'Werkstatt', ...extra } }).then((r) =>
@@ -2159,6 +2159,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(canvas.data.html).toContain('data-nova-el="ti"');
     expect(canvas.data.html.match(/data-nova-el="ti"/g)?.length).toBe(1);
     expect(canvas.data.html).toContain('data-nova-ghost');
+    // Every card names its entry there (the canvas opens it), escaped – the website never does.
+    expect(canvas.data.html.match(/data-nova-entry="[^"]+" data-nova-coll="posts"/g)?.length).toBe(2);
+    expect(canvas.data.html).toContain(`data-nova-entry="${open.id}" data-nova-coll="posts" data-nova-entry-title="Hobel &lt;&amp; Säge&gt;"`);
+    expect(html).not.toContain('data-nova-entry');
     await req('PUT', '/api/collections/posts', { custom_fields: [] });
   });
 

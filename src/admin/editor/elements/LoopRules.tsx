@@ -1,5 +1,9 @@
+import { useState } from 'react';
+import { createAndOpen } from '../../lib/actions';
 import { t, tl } from '../../lib/i18n';
+import { navigate } from '../../lib/router';
 import { Field, Select } from '../../ui/kit';
+import { useToast } from '../../ui/toast';
 import { Icon } from '../../ui/icons';
 import { MAX_RULES, ruleFields, sortFields, timeField, type LoopRule } from '../../../shared/query';
 import type { El } from '../../../shared/elements';
@@ -75,5 +79,42 @@ export function LoopRules({ el, collection, onChange }: { el: El; collection: Co
         )}
       </div>
     </Field>
+  );
+}
+
+/**
+ * The loop's entries from where they show: a new one (with the loop's category
+ * and tag already set) or the whole list. Single entries open from the canvas.
+ */
+export function LoopEntries({ el, collection }: { el: El; collection: CollectionDef }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const type = (k: string) => collection.fields.find((f) => f.key === k)?.type;
+  const preset: Record<string, unknown> = {};
+  if (type('category') && typeof el.props.category === 'string' && el.props.category) preset.category = el.props.category;
+  // Free tags only: a list of fixed choices may not know the loop's word.
+  if (type('tags') === 'tags' && typeof el.props.tag === 'string' && el.props.tag) preset.tags = [el.props.tag];
+  const create = async () => {
+    setBusy(true);
+    try {
+      await createAndOpen(collection.id, preset);
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="stack tight">
+      <span className="section-title">{t('Einträge')}</span>
+      <div className="row wrap">
+        <button type="button" className="btn s" aria-busy={busy || undefined} disabled={busy} onClick={() => void create()}>
+          <Icon name="plus" size="s" /> {t('Neuer Eintrag in «{name}»', { name: tl(collection.name) })}
+        </button>
+        <button type="button" className="btn ghost s" onClick={() => navigate(collection.id === 'pages' ? '/seiten' : `/inhalte/${collection.id}`)}>
+          {t('Alle ansehen')}
+        </button>
+      </div>
+      <p className="xsmall faint">{t('Einen gezeigten Eintrag öffnest du direkt auf der Fläche. Neue erscheinen in der Schleife, sobald sie veröffentlicht sind.')}</p>
+    </div>
   );
 }

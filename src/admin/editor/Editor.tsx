@@ -7,6 +7,7 @@ import { useEntryDoc } from '../lib/useEntryDoc';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
 import { navigate, usePath } from '../lib/router';
+import { entryUrl } from '../lib/actions';
 import { useApi, useHotkey, modKey, useMediaQuery, isMac } from '../lib/hooks';
 import { LangSwitch, TranslationNote, useEditLang } from '../ui/LangSwitch';
 import { CommentsPanel, useComments } from './Comments';
@@ -428,6 +429,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'section':
           navigate(`/inhalte/sections/${m.id}`);
+          break;
+        case 'open-entry':
+          // A card of a loop: its entry, in its own editor.
+          if (typeof m.id === 'string' && typeof m.collection === 'string') navigate(entryUrl(m.collection, m.id));
           break;
         case 'comments-open':
           selectBlock(m.id);

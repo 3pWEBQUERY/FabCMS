@@ -1683,7 +1683,9 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
   for (let i = 0; i < items.length; i++) {
     const e = items[i];
     const open = entryAccess(e.data) === 'public' || mayRead(entryAccess(e.data), ctx.member?.level ?? null);
-    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true, ratings });
+    // In the editor each card says which entry it shows: the canvas opens it from there.
+    const tag = ctx.edit ? ` data-nova-entry="${esc(e.id)}" data-nova-coll="${esc(c.id)}" data-nova-entry-title="${esc(String(e.data.title ?? '').slice(0, 80))}"` : undefined;
+    const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true, ratings, extra: tag });
     out.push(rc.edit && i > 0 ? html`<div class="el-ghost" data-nova-ghost>${item}</div>` : item);
   }
   // Pages of their own per loop: other loops and filters on the page keep their place.
