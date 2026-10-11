@@ -291,6 +291,12 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 /* header */
 .site-header{position:relative;z-index:20;background:var(--bg);border-bottom:1px solid var(--header-rule,transparent)}
 .site-header.sticky{position:sticky;top:0}
+.site-header.over{position:absolute;inset-inline:0;top:0;background:transparent;border-bottom-color:transparent}
+.site-header.over-sticky{position:fixed}
+.site-header.over~main>.crumbs{display:none}
+@supports (animation-timeline:scroll()){.site-header.over-sticky{animation:hdr-solid linear both;animation-timeline:scroll(root);animation-range:0 9rem}}
+@supports not (animation-timeline:scroll()){.site-header.over-sticky{background:rgb(18 16 14/.86)}}
+@keyframes hdr-solid{to{background:rgb(18 16 14/.82);backdrop-filter:blur(12px)}}
 .hdr{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;min-height:4.25rem}
 .brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;font-family:var(--font-display);font-weight:var(--brand-weight,var(--display-weight));font-size:var(--brand-size,var(--step-1));letter-spacing:var(--display-tracking);line-height:1;padding-block:.5rem;margin-block:-.5rem}
 .brand img{height:2.25rem;width:auto}
@@ -330,7 +336,7 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .site-footer.custom{padding:0;border-top:0;font-size:inherit;color:inherit}
 .menu-row{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.35rem 1.25rem}
 .menu-row a{text-decoration:underline;text-decoration-color:transparent}.menu-row a:hover{text-decoration-color:var(--accent)}
-.el-menu.nav{flex-wrap:wrap}
+.el-menu.nav,.el-menu.nav ul{flex-wrap:wrap;row-gap:.5rem;justify-content:inherit}
 .el-hours ul{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
 .el-hours .open-now{margin-bottom:.5rem}
 .el-terms.filters{margin-bottom:0}

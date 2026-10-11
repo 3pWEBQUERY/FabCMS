@@ -2375,6 +2375,112 @@ export const footerStarter = (): El[] => {
   ];
 };
 
+/** A ready-made start for an own header or footer (Einstellungen → Kopf- & Fusszeilen). */
+export interface PartStarter {
+  id: string;
+  kind: 'header' | 'footer';
+  label: string;
+  description: string;
+  els: () => El[];
+  /** Headers: how it sits on the page (shared/global-parts.ts). */
+  mode?: string;
+}
+
+const partSmall: StyleProps = { fontSize: '$step-n1', color: '$ink-2' };
+/** Headers keep logo and menu on one line – the menu folds into its burger before it wraps. */
+const partRow = (wrap = false): StyleProps => ({ ...row('$s-6'), justify: 'between', ...(wrap ? { wrap: true } : {}) });
+
+export const PART_STARTERS: PartStarter[] = [
+  { id: 'header-classic', kind: 'header', label: 'Klassisch', description: 'Logo links, Menü rechts.', els: headerStarter },
+  {
+    id: 'header-cta',
+    kind: 'header',
+    label: 'Mit Knopf',
+    description: 'Logo, Menü und ein auffälliger Knopf rechts.',
+    els: () => [
+      box(
+        [
+          createEl('logo'),
+          box([createEl('menu', { source: 'main' }), createEl('button', { label: 'Kontakt', href: '/kontakt' })], { desktop: { ...row('$s-5'), justify: 'end' } }),
+        ],
+        { desktop: { ...partRow(), minHeight: '4.75rem', pt: '$s-3', pb: '$s-3' } },
+        {},
+        { name: 'Kopfzeile' },
+      ),
+    ],
+  },
+  {
+    id: 'header-center',
+    kind: 'header',
+    label: 'Zentriert',
+    description: 'Logo in der Mitte, das Menü darunter.',
+    els: () => [box([createEl('logo'), createEl('menu', { source: 'main' })], { desktop: { align: 'center', gap: '$s-3', pt: '$s-5', pb: '$s-3' } }, {}, { name: 'Kopfzeile' })],
+  },
+  {
+    id: 'header-topbar',
+    kind: 'header',
+    label: 'Mit Hinweisleiste',
+    description: 'Eine schmale Leiste mit Telefon und Öffnungszeiten über Logo und Menü.',
+    els: () => [
+      box(
+        [createEl('text', { html: '<p>Telefon</p>' }, { bind: { html: 'site:phone' } }), createEl('text', { html: '<p>Jetzt geöffnet</p>' }, { bind: { html: 'site:hours' } })],
+        { desktop: { ...partRow(true), ...partSmall, pt: '$s-2', pb: '$s-2', borderWidth: '1px', borderStyle: 'solid', borderColor: '$line', borderSides: 'bottom' } },
+        {},
+        { name: 'Hinweisleiste' },
+      ),
+      ...headerStarter(),
+    ],
+  },
+  {
+    id: 'header-over',
+    kind: 'header',
+    label: 'Durchsichtig über dem Bild',
+    description: 'Weisse Schrift auf dem grossen Bild ganz oben; beim Scrollen bekommt sie einen Hintergrund.',
+    mode: 'over-sticky',
+    els: () => [box([createEl('logo'), createEl('menu', { source: 'main' })], { desktop: { ...partRow(), minHeight: '5rem', color: '#ffffff' } }, {}, { name: 'Kopfzeile' })],
+  },
+  {
+    id: 'footer-columns',
+    kind: 'footer',
+    label: 'Mit Spalten',
+    description: 'Name, Adresse und Öffnungszeiten, die Spalten der Fusszeile, darunter Copyright und Rechtliches.',
+    els: footerStarter,
+  },
+  {
+    id: 'footer-simple',
+    kind: 'footer',
+    label: 'Schlicht',
+    description: 'Eine Zeile: Copyright, Rechtliches und Social Media.',
+    els: () => [
+      box(
+        [createEl('text', { html: '<p>© Jahr Name</p>' }, { bind: { html: 'site:copyright' } }), createEl('menu', { source: 'legal' }), createEl('menu', { source: 'social' })],
+        { desktop: { ...partRow(true), ...partSmall, pt: '$s-4', pb: '$s-4' }, mobile: stackOnPhone },
+        {},
+        { name: 'Fusszeile' },
+      ),
+    ],
+  },
+  {
+    id: 'footer-center',
+    kind: 'footer',
+    label: 'Zentriert',
+    description: 'Logo, Menü und Social Media untereinander in der Mitte.',
+    els: () => [
+      box(
+        [
+          createEl('logo'),
+          createEl('menu', { source: 'main', burger: false, extras: false }, { design: { desktop: { justify: 'center' } } }),
+          createEl('menu', { source: 'social' }),
+          createEl('text', { html: '<p>© Jahr Name</p>' }, { bind: { html: 'site:copyright' }, design: { desktop: partSmall } }),
+        ],
+        { desktop: { align: 'center', textAlign: 'center', gap: '$s-5', pt: '$s-6', pb: '$s-6' } },
+        {},
+        { name: 'Fusszeile' },
+      ),
+    ],
+  },
+];
+
 /** An overview of a content type: its title with the chosen filter, the category links, then its entries in pages. */
 export function archiveStarter(c: CollectionDef): El[] {
   const pic = c.fields.find((f) => f.type === 'image') ?? c.fields.find((f) => f.type === 'images');

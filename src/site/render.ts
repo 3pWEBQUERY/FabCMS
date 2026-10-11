@@ -3,6 +3,7 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
+import { headerModeClasses } from '../shared/global-parts';
 import { CRUMBS_MARK, fillToc, langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, archiveTemplate, globalSection, legalPages, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
@@ -108,8 +109,10 @@ async function header(ctx: RenderContext): Promise<Html> {
   const s = ctx.settings;
   // While one is designed, it is the page – not also above it.
   if (editedPart(ctx) === 'header') return html``;
-  const own = await globalSection('header', ctx.preview);
-  if (own) return html`<header class="${cx('site-header custom', s.header.sticky && 'sticky')}"${ctx.edit ? raw(' data-nova-global="header"') : ''}>${await ownPart(ctx, own.blocks)}</header>`;
+  const own = await globalSection('header', ctx.preview, ctx.path);
+  // Its own way of sitting on the page: along, on top, or over the first section.
+  if (own)
+    return html`<header class="${['site-header', 'custom', ...headerModeClasses(own.mode, s.header.sticky)].join(' ')}"${ctx.edit ? raw(' data-nova-global="header"') : ''}>${await ownPart(ctx, own.blocks)}</header>`;
   const logo = await ctx.media(s.logo);
   const brand = html`<a class="brand" href="/">${
     logo ? html`<img src="${variantUrl(logo, 480, 'webp')}" alt="${s.name}" width="${logo.width ?? 160}" height="${logo.height ?? 48}">` : s.name
@@ -139,7 +142,7 @@ async function header(ctx: RenderContext): Promise<Html> {
 async function footer(ctx: RenderContext): Promise<Html> {
   const s = ctx.settings;
   if (editedPart(ctx) === 'footer') return html``;
-  const own = await globalSection('footer', ctx.preview);
+  const own = await globalSection('footer', ctx.preview, ctx.path);
   if (own) return html`<footer class="site-footer custom"${ctx.edit ? raw(' data-nova-global="footer"') : ''}>${await ownPart(ctx, own.blocks)}</footer>`;
   const b = s.business;
   const legal = await legalPages();

@@ -763,6 +763,9 @@ export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'f
             ? t('Kopfzeile frei gestalten')
             : t('Fusszeile frei gestalten')}
       </button>
+      <button className="btn ghost s" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/kopf-fuss')}>
+        <Icon name="filter" size="s" /> {t('Mehrere, je nach Seite – alle verwalten')}
+      </button>
       {!live && (
         <p className="xsmall faint">
           {t('Mit Logo, Menü, Öffnungszeiten und allem aus dem freien Layout. Sobald du sie veröffentlichst, ersetzt sie die des Themes auf allen Seiten.')}

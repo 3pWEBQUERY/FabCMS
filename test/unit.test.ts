@@ -43,6 +43,7 @@ import { describeStep } from '../src/shared/steps';
 import { blockToLayout, CONVERTIBLE } from '../src/shared/convert';
 import { blankDesign, cleanDesign, cleanDesigns, designScale, siteDesignCss } from '../src/shared/site-design';
 import { cleanCustomFonts, customFontFaces, guessFace } from '../src/shared/custom-fonts';
+import { headerModeClasses, partApplies, partRuleText, pickPart } from '../src/shared/global-parts';
 import { donutSlices, niceScale, parseNum } from '../src/shared/chart';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
@@ -84,6 +85,7 @@ import {
   archiveStarter,
   footerStarter,
   headerStarter,
+  PART_STARTERS,
   siteDataOf,
   variantsCss,
   walkEls,
@@ -2454,6 +2456,51 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Kopf- und Fusszeilen', () => {
+  it('says which pages a part is for', () => {
+    expect(partApplies({}, '/shop')).toBe(true);
+    expect(partApplies({ show_on: 'only', show_paths: '/shop\n/blog/*' }, '/blog/neu')).toBe(true);
+    expect(partApplies({ show_on: 'only', show_paths: '/shop' }, '/')).toBe(false);
+    expect(partApplies({ show_on: 'except', show_paths: '/shop' }, '/shop/')).toBe(false);
+    expect(partApplies({ show_on: 'except', show_paths: '/shop' }, '/kontakt')).toBe(true);
+    // A rule without addresses says nothing: the whole website.
+    expect(partApplies({ show_on: 'only', show_paths: '  ' }, '/x')).toBe(true);
+    expect(partRuleText({ show_on: 'only', show_paths: '' })).toEqual({ kind: 'all', paths: [] });
+    expect(partRuleText({ show_on: 'bogus', show_paths: 'shop' })).toEqual({ kind: 'all', paths: ['/shop'] });
+  });
+  it('picks the most specific one, among equals the newest', () => {
+    const parts = [
+      { id: 'all-new', show_on: 'all' },
+      { id: 'except-shop', show_on: 'except', show_paths: '/shop' },
+      { id: 'all-old', show_on: 'all' },
+      { id: 'shop', show_on: 'only', show_paths: '/shop/*' },
+    ];
+    expect(pickPart(parts, '/shop/kaffee')?.id).toBe('shop');
+    expect(pickPart(parts, '/')?.id).toBe('except-shop');
+    expect(pickPart(parts.slice(2), '/')?.id).toBe('all-old');
+    expect(pickPart([{ id: 'x', show_on: 'only', show_paths: '/shop' }], '/')).toBeNull();
+    expect(pickPart([parts[0], parts[2]], '/')?.id).toBe('all-new');
+  });
+  it('sets how the header sits', () => {
+    expect(headerModeClasses('inherit', true)).toEqual(['sticky']);
+    expect(headerModeClasses(undefined, false)).toEqual([]);
+    expect(headerModeClasses('static', true)).toEqual([]);
+    expect(headerModeClasses('sticky', false)).toEqual(['sticky']);
+    expect(headerModeClasses('over', true)).toEqual(['over']);
+    expect(headerModeClasses('over-sticky', false)).toEqual(['over', 'over-sticky']);
+  });
+  it('starts every part with clean elements', () => {
+    expect(new Set(PART_STARTERS.map((x) => x.id)).size).toBe(PART_STARTERS.length);
+    for (const s of PART_STARTERS) {
+      const els = s.els();
+      expect(sanitizeEls(els)).toEqual(els);
+      const kinds: string[] = [];
+      walkEls(els, (e) => void kinds.push(e.kind));
+      expect(kinds).toContain(s.kind === 'header' ? 'logo' : 'text');
+    }
   });
 });
 

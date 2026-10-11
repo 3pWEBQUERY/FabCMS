@@ -14,6 +14,7 @@ import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import { networkOf, socialSvg } from '../shared/social';
 import { renderChart } from './chart';
+import { mobileNav } from './themes';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
 import { bestsellers, publishedEntries, categoriesOf, tagsOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
@@ -1547,7 +1548,12 @@ async function renderSiteMenu(el: El, ctx: RenderContext, attrs: Html, cls: stri
       : html``;
   const list = s.nav.length ? navList(ctx, s.nav) : ctx.edit ? html`<span class="el-empty">Das Hauptmenü ist leer.</span>` : html``;
   if (p.burger === false) return html`<nav class="${cls} nav"${attrs} aria-label="${t(ctx, 'Hauptnavigation')}">${list}${extras}</nav>`;
-  return html`<div class="${cls}"${attrs}><nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${list}${extras}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${list}${extras}</nav></details></div>`;
+  // Long menus switch to the button on wider screens already, as in the style's header – with room for a logo and a button beside it.
+  const words = [...s.nav.map((i) => i.label), ...(p.extras !== false ? [stripHtml(accountLink(ctx).value), s.modules.includes('shop') ? t(ctx, 'Warenkorb') : ''] : [])].filter(Boolean);
+  const langs = p.extras !== false && ctx.alternates.length > 1 ? ctx.alternates.length : 0;
+  const rem = Math.ceil((words.join('').length * 10.5 + (words.length + langs) * 32 + langs * 24 + 340) / 16);
+  const early = rem > 52 ? html`<style>${raw(`@media (min-width:52.01rem) and (max-width:${rem}rem){${mobileNav(`.e-${el.id} `)}}`)}</style>` : '';
+  return html`<div class="${cls}"${attrs}>${early}<nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${list}${extras}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${list}${extras}</nav></details></div>`;
 }
 
 /** The «Kategorien-Filter»: «Alle» and every category of a content type, as links to its overview. */

@@ -3757,7 +3757,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).toMatch(/<header class="site-header custom[^"]*">/);
     expect(html).toMatch(/<a class="el el-logo e-hflogo brand" href="\/" id="e-hflogo">[^<]+<\/a>/);
     // The main menu with its phone version, the title of the page in the header.
-    expect(html).toMatch(/id="e-hfmenu"><nav class="nav desktop"/);
+    expect(html).toMatch(/id="e-hfmenu">(<style>[^<]*<\/style>)?<nav class="nav desktop"/);
     expect(html).toContain('<details class="menu-toggle">');
     expect(html).toMatch(/<footer class="site-footer custom">/);
     expect(html).toMatch(/id="e-hfcopy"><p>© 20\d\d /);
@@ -3811,6 +3811,40 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(html).toContain('class="ftr-bottom"');
     expect(html).not.toContain('id="e-arh"');
     for (const e of [hdr, ftr, arch, p1, p2, p3]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
+  it('shows the most fitting of several own headers and footers per address, with how the header sits', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const part = async (id: string, kind: string, extra: Record<string, unknown>) => {
+      const e = (
+        await req('POST', '/api/entries', {
+          collection: 'sections',
+          data: { title: id, kind, ...extra, blocks: [{ id: `gp${id}`, type: 'layout', props: { els: [{ id: `gt${id}`, kind: 'heading', props: { text: id, level: '3' } }] } }] },
+        })
+      ).data;
+      const p = await req('POST', `/api/entries/${e.entry.id}/publish`, {});
+      return { ...e.entry, published: p.status === 200 };
+    };
+    const all = await part('hall', 'header', { show_on: 'all', header_mode: 'static' });
+    const journal = await part('hjournal', 'header', { show_on: 'only', show_paths: '/journal/*', header_mode: 'over-sticky' });
+    const noJournal = await part('fnojournal', 'footer', { show_on: 'except', show_paths: '/journal' });
+    const home = (await req('GET', '/', undefined, anon)).data as string;
+    expect(home).toMatch(/<header class="site-header custom">[\s\S]*id="e-gthall">hall</);
+    expect(home).toMatch(/<footer class="site-footer custom">[\s\S]*id="e-gtfnojournal"/);
+    const list = (await req('GET', '/journal', undefined, anon)).data as string;
+    // «Only on» beats «whole website»; the over-sticky header floats over the page.
+    expect(list).toMatch(/<header class="site-header custom over over-sticky">[\s\S]*id="e-gthjournal">hjournal</);
+    expect(list).not.toContain('id="e-gthall"');
+    // Excluded there: the style's footer.
+    expect(list).not.toContain('site-footer custom');
+    expect(list).toContain('class="ftr-bottom"');
+    // The CSS behind the modes is in the page.
+    expect(list).toContain('.site-header.over-sticky{position:fixed}');
+    // Rules are checked like any field: an unknown mode never goes live.
+    const odd = await part('hodd', 'header', { show_on: 'only', show_paths: '/', header_mode: 'quer' });
+    expect(odd.published).toBe(false);
+    expect((await req('GET', '/', undefined, anon)).data as string).toContain('id="e-gthall"');
+    for (const e of [all, journal, noJournal, odd]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
   it('creates every Studio preset as a content type, with its page, overview and templates', async () => {

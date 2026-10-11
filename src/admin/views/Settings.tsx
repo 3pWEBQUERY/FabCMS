@@ -25,6 +25,7 @@ import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { SavedStylesOverview } from './SavedStylesOverview';
 import { DesignVariables } from './DesignVariables';
 import { DesignStudio } from './DesignStudio';
+import { PartsManager } from './PartsManager';
 import { FooterEditor, HeaderOptions, MenuEditor } from './NavEditors';
 import { t, tl, tm } from '../lib/i18n';
 
@@ -41,6 +42,7 @@ const SECTIONS: Section[] = [
   { id: 'website', label: () => t('Name, Logo & Kontakt'), icon: 'globe', cap: 'settings.manage' },
   { id: 'design', label: () => t('Design'), icon: 'style', cap: 'design.manage' },
   { id: 'designs', label: () => t('Eigene Designs'), icon: 'paint', cap: 'design.manage' },
+  { id: 'kopf-fuss', label: () => t('Kopf- & Fusszeilen'), icon: 'layout', cap: 'design.manage' },
   { id: 'navigation', label: () => t('Menü & Fusszeile'), icon: 'nav', cap: 'settings.manage' },
   { id: 'sprachen', label: () => t('Sprachen'), icon: 'globe', cap: 'settings.manage' },
   { id: 'seo', label: () => t('Suchmaschinen'), icon: 'seo', cap: 'settings.manage' },
@@ -109,6 +111,7 @@ export function Settings({ section }: { section: string }) {
           {current.id === 'website' && <WebsiteSettings />}
           {current.id === 'design' && <DesignSettings />}
           {current.id === 'designs' && <DesignStudio />}
+          {current.id === 'kopf-fuss' && <PartsManager />}
           {current.id === 'navigation' && <NavigationSettings />}
           {current.id === 'sprachen' && <LanguageSettings />}
           {current.id === 'seo' && <SeoSettings />}

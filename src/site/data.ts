@@ -1,4 +1,5 @@
 import { sql } from '../server/db';
+import { pickPart } from '../shared/global-parts';
 import { localized, localizedOne } from '../server/translations';
 import type { Block, CollectionDef, EntryData, FormDef } from '../shared/types';
 import type { Review } from '../shared/reviews';
@@ -237,16 +238,21 @@ export async function entryTemplate(collection: string, preview: boolean): Promi
   return t ? { id: s.id as string, ...t } : null;
 }
 
-/** The site's own header or footer, designed in the free layout: the newest published one of that kind. */
-export async function globalSection(kind: 'header' | 'footer', preview: boolean): Promise<{ id: string; blocks: Block[] } | null> {
+/**
+ * The site's own header or footer for a page, designed in the free layout:
+ * of the published ones of that kind, the one whose rule fits the page best
+ * (shared/global-parts.ts).
+ */
+export async function globalSection(kind: 'header' | 'footer', preview: boolean, path = '/'): Promise<{ id: string; blocks: Block[]; mode: string | null } | null> {
   const col = preview ? sql`data` : sql`published_data`;
-  const [s] = await sql`
-    select id from entries
+  const rows = await sql`
+    select id, ${col} ->> 'show_on' as show_on, ${col} ->> 'show_paths' as show_paths, ${col} ->> 'header_mode' as header_mode from entries
     where collection = 'sections' and status = 'published' and ${col} ->> 'kind' = ${kind} and jsonb_array_length(coalesce(${col} -> 'blocks', '[]'::jsonb)) > 0
-    order by updated_at desc limit 1`;
+    order by updated_at desc limit 50`;
+  const s = pickPart(rows as unknown as { id: string; show_on: string | null; show_paths: string | null; header_mode: string | null }[], path);
   if (!s) return null;
-  const t = await sectionBlocks(s.id as string, preview);
-  return t?.blocks.length ? { id: s.id as string, blocks: t.blocks } : null;
+  const t = await sectionBlocks(s.id, preview);
+  return t?.blocks.length ? { id: s.id, blocks: t.blocks, mode: s.header_mode } : null;
 }
 
 /** The overview of a content type, designed in the free layout («Archiv-Vorlage»). */

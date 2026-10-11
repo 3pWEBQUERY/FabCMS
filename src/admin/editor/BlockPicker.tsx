@@ -171,7 +171,7 @@ export function BlockPicker({
  * A saved section as it looks: its draft rendered at desktop width and scaled
  * down, without the site's header, footer and breadcrumbs.
  */
-function TemplateThumb({ id }: { id: string }) {
+export function TemplateThumb({ id }: { id: string }) {
   const [fit, setFit] = useState<{ scale: number; height: number } | null>(null);
   const bare = (e: SyntheticEvent<HTMLIFrameElement>) => {
     const frame = e.currentTarget;
