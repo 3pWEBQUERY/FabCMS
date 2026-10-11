@@ -6,6 +6,7 @@
  * The tree lives in the block's props (`els`). It is cleaned on every save
  * (sanitizeEls) and every value is escaped again when it is rendered.
  */
+import { CHART_TYPES, chartValue, MAX_CHART_POINTS, MAX_CHART_SERIES } from './chart';
 import type { FieldDef } from './fields';
 import type { CollectionDef } from './types';
 import { cssColor, designCss, designImages, type CompileOptions, type Design, type StyleProps } from './design';
@@ -50,6 +51,7 @@ export const EL_KINDS = [
   'social',
   'totop',
   'table',
+  'chart',
   'accordion',
   'tabs',
   'slider',
@@ -841,6 +843,41 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       rowHeads: true,
       right: true,
       stripes: false,
+    },
+  },
+  chart: {
+    kind: 'chart',
+    group: 'basic',
+    label: 'Diagramm',
+    description: 'Zahlen als Balken, Linie oder Ring – Werte eintippen oder aus Excel einfügen. Mit Beschriftung beim Darüberfahren und den Daten als Tabelle für Screenreader.',
+    icon: 'chart',
+    fields: [
+      {
+        key: 'type',
+        type: 'select',
+        label: 'Art',
+        options: [
+          { value: 'bar', label: 'Säulen' },
+          { value: 'hbar', label: 'Balken' },
+          { value: 'line', label: 'Linie' },
+          { value: 'donut', label: 'Ring' },
+        ],
+        default: 'bar',
+      },
+      { key: 'prefix', type: 'text', label: 'Vor der Zahl', help: 'Zum Beispiel «CHF».', maxLength: 12 },
+      { key: 'unit', type: 'text', label: 'Nach der Zahl', help: 'Zum Beispiel «%» oder «kg».', maxLength: 12 },
+      { key: 'values', type: 'boolean', label: 'Werte an den Säulen und Balken zeigen', help: 'Bei einer einzigen Reihe. Sonst stehen die Werte beim Darüberfahren.' },
+      { key: 'table', type: 'boolean', label: 'Daten zum Aufklappen als Tabelle' },
+      { key: 'height', type: 'number', label: 'Höhe in Pixeln', min: 160, max: 640, default: 300 },
+    ],
+    defaults: {
+      type: 'bar',
+      caption: 'Gäste pro Monat',
+      labels: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun'],
+      series: [{ name: 'Gäste', values: [820, 760, 940, 1180, 1420, 1650] }],
+      values: true,
+      table: false,
+      height: 300,
     },
   },
   social: {
@@ -1723,6 +1760,25 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         stripes: p.stripes === true,
       };
     }
+    case 'chart': {
+      const labels = (Array.isArray(p.labels) ? p.labels : []).slice(0, MAX_CHART_POINTS).map((l) => plain(l, 60));
+      const n = Math.max(1, labels.length);
+      const series = (Array.isArray(p.series) ? p.series : [])
+        .filter(isObj)
+        .slice(0, MAX_CHART_SERIES)
+        .map((x) => ({ name: plain(x.name, 60), values: Array.from({ length: n }, (_, i) => chartValue(Array.isArray(x.values) ? x.values[i] : 0)) }));
+      return {
+        type: one(p.type, CHART_TYPES, 'bar'),
+        caption: plain(p.caption, 160),
+        labels: labels.length ? labels : [''],
+        series: series.length ? series : [{ name: '', values: Array.from({ length: n }, () => 0) }],
+        prefix: plain(p.prefix, 12),
+        unit: plain(p.unit, 12),
+        values: p.values !== false,
+        table: p.table === true,
+        height: typeof p.height === 'number' && Number.isFinite(p.height) ? Math.min(640, Math.max(160, Math.round(p.height))) : 300,
+      };
+    }
     case 'social':
       return {
         look: one(p.look, ['icons', 'both', 'labels'] as const, 'icons'),
@@ -2026,6 +2082,8 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'chart')
+        out.push([el.props.caption, ...((el.props.labels as unknown[]) ?? []), ...((el.props.series as { name?: unknown }[]) ?? []).map((x) => x.name)].filter(Boolean).join(' '));
       if (el.kind === 'table') for (const r of [el.props.cols, ...((el.props.rows as unknown[]) ?? [])] as unknown[][]) out.push((r ?? []).join(' '));
       if (el.kind === 'testimonial') out.push(String(el.props.quote ?? ''), String(el.props.name ?? ''));
       if (el.kind === 'flipbox') for (const k of ['title', 'text', 'backTitle', 'backText', 'label']) out.push(String(el.props[k] ?? ''));

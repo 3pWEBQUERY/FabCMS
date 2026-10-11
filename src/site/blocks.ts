@@ -13,6 +13,7 @@ import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVar
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import { networkOf, socialSvg } from '../shared/social';
+import { renderChart } from './chart';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
 import { bestsellers, publishedEntries, categoriesOf, tagsOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
@@ -1230,6 +1231,8 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       );
       return html`<div class="${cls(`tbl-wrap${p.stripes === true ? ' tbl-stripes' : ''}`)}"${attrs}><table class="tbl">${head}<tbody>${body}</tbody></table></div>`;
     }
+    case 'chart':
+      return renderChart(p, ctx, { cls: cls(), attrs, caption: editField('caption'), edit: rc.edit });
     case 'social': {
       // The profiles from the website's data (Einstellungen → Social-Media): one place, every page.
       const links = (ctx.settings.social ?? []).filter((l) => l.href);

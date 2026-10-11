@@ -444,6 +444,72 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.el-chart{margin:0;display:grid;gap:.75rem;min-width:0;font-variant-numeric:tabular-nums;container:chart/inline-size}
+.chart-cap{font-weight:600}
+.chart-legend{display:flex;flex-wrap:wrap;gap:.35rem 1rem;margin:0;padding:0;list-style:none;font-size:var(--step-n1);color:var(--ink-2)}
+.chart-legend li,.chart-tip span{display:flex;align-items:center;gap:.4rem}
+.chart-legend i,.chart-dlegend i,.chart-tip i{width:.7rem;height:.7rem;border-radius:2px;background:var(--c);flex:none}
+.chart-plot{position:relative;font-size:var(--step-n1);color:var(--ink-2);line-height:1.2}
+.chart-t-bar .chart-plot,.chart-t-line .chart-plot{display:grid;grid-template-columns:auto 1fr;grid-template-rows:var(--chart-h) auto;column-gap:.6rem;padding-top:.75rem}
+.chart-y{position:relative;min-width:1.5rem;text-align:right}
+.chart-y span{position:absolute;right:0;transform:translateY(50%);white-space:nowrap}
+.chart-area{position:relative}
+.chart-grid{position:absolute;left:0;right:0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.chart-vgrid{position:absolute;top:-.3rem;bottom:-.3rem;border-left:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.chart-grid.chart-zero,.chart-vgrid.chart-zero{border-color:color-mix(in srgb,var(--ink) 35%,transparent)}
+.chart-cols{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr))}
+.chart-col{position:relative;display:block;container-type:inline-size}
+.chart-t-bar .chart-col:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.chart-t-line .chart-col:hover::before{content:'';position:absolute;left:50%;top:0;bottom:0;border-left:1px solid color-mix(in srgb,var(--ink) 30%,transparent)}
+.chart-bars{position:absolute;inset:0;display:flex;gap:2px;justify-content:center;padding:0 18%}
+.chart-lane{position:relative;flex:1;max-width:3.5rem}
+.chart-bar{position:absolute;left:0;right:0;min-height:1px;background:var(--c);border-radius:4px 4px 0 0}
+.chart-bar.neg{border-radius:0 0 4px 4px}
+.chart-val{position:absolute;white-space:nowrap;color:var(--ink);font-weight:600}
+.chart-bar .chart-val{bottom:100%;left:50%;transform:translateX(-50%);padding-bottom:.3rem}
+.chart-bar.neg .chart-val{bottom:auto;top:100%;padding:.3rem 0 0}
+@container (max-width:2.75rem){.chart-bar .chart-val{display:none}}
+.chart-x{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));padding-top:.45rem}
+.chart-x span{text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.chart-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart-lines polyline{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart-dot{position:absolute;width:8px;height:8px;margin:0 0 -4px -4px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px var(--bg)}
+.chart-end{position:absolute;transform:translate(-50%,-.75rem);color:var(--ink);font-weight:600;white-space:nowrap}
+.chart-tip{position:absolute;z-index:3;left:50%;top:-.4rem;transform:translate(-50%,-100%);display:none;flex-direction:column;gap:.2rem;padding:.45rem .65rem;border-radius:6px;background:var(--ink);color:var(--bg);white-space:nowrap;pointer-events:none;box-shadow:0 6px 18px rgb(0 0 0/.18)}
+.chart-tip i{box-shadow:0 0 0 1px var(--bg)}
+.chart-col:hover .chart-tip,.chart-htrack:hover .chart-tip{display:flex}
+.chart-col:first-child .chart-tip{left:0;transform:translateY(-100%)}
+.chart-col:last-child .chart-tip{left:auto;right:0;transform:translateY(-100%)}
+.chart-hrows{display:grid;grid-template-columns:minmax(3rem,max-content) minmax(0,1fr);gap:.65rem .75rem;align-items:center}
+.chart-hrow{display:contents}
+.chart-hlabel{color:var(--ink);text-align:right;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chart-htrack{position:relative;display:flex;flex-direction:column;gap:2px;margin-right:4.5rem}
+.chart-htrack:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.chart-htrack .chart-tip{left:0;top:-.3rem;transform:translateY(-100%)}
+.chart-hlane{position:relative;height:18px}
+.chart-hlane:not(:only-of-type){height:12px}
+.chart-hbar{position:absolute;top:0;bottom:0;min-width:1px;background:var(--c);border-radius:0 4px 4px 0}
+.chart-hbar.neg{border-radius:4px 0 0 4px}
+.chart-hbar .chart-val{left:100%;top:50%;transform:translateY(-50%);padding-left:.4rem}
+.chart-hbar.neg .chart-val{left:auto;right:100%;padding:0 .4rem 0 0}
+.chart-hrows.has-neg .chart-htrack{margin-left:3.5rem}
+@container chart (max-width:34rem){.chart-hrows{grid-template-columns:minmax(0,1fr);row-gap:.3rem}.chart-hlabel{text-align:left;max-width:none;margin-top:.4rem}}
+.chart-donut{display:flex;flex-wrap:wrap;align-items:center;gap:1.5rem 2.5rem}
+.chart-ring{position:relative;width:min(100%,var(--chart-h));aspect-ratio:1;flex:none}
+.chart-ring svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+.chart-ring circle{fill:none;stroke-width:14}
+.chart-track{stroke:color-mix(in srgb,var(--line) 60%,transparent)}
+.chart-total{position:absolute;inset:20%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ink);font-size:var(--step-2);font-weight:600;line-height:1.1}
+.chart-total small{margin-top:.3rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--step-n1);font-weight:400;color:var(--ink-2)}
+.chart-dlegend{flex:1;min-width:12rem;max-width:30rem;display:grid;gap:.55rem;margin:0;padding:0;list-style:none;font-size:var(--step-0)}
+.chart-dlegend li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:.65rem;color:var(--ink)}
+.chart-share{min-width:3.5rem;text-align:right;color:var(--ink-2)}
+.chart-data summary{cursor:pointer;width:max-content;font-size:var(--step-n1);color:var(--ink-2)}
+.chart-data .tbl{margin-top:.6rem}
+@keyframes chart-up{from{clip-path:inset(100% 0 0 0)}}
+@keyframes chart-down{from{clip-path:inset(0 0 100% 0)}}
+@keyframes chart-right{from{clip-path:inset(0 100% 0 0)}}
+@media (prefers-reduced-motion:no-preference){@supports (animation-timeline:view()){.chart-bar,.chart-hbar{animation:chart-up linear both;animation-timeline:view();animation-range:entry 0% entry 100%}.chart-bar.neg{animation-name:chart-down}.chart-hbar{animation-name:chart-right}}}
 .tbl-stripes .tbl tbody tr:nth-child(odd){background:color-mix(in srgb,var(--ink) 4%,transparent)}
 .el-social{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
 .el-social a,.el-social li>span{display:inline-flex;align-items:center;gap:.45rem;color:inherit;text-decoration:none}
@@ -1369,6 +1435,12 @@ export function resolveTheme(settings: SiteSettings): { theme: Theme; palette: P
 /** Werkbank token values are free text; keep them from closing the style element. */
 const cssValue = (v: string) => v.replace(/[<>{};]/g, '');
 
+/** The chart palette: eight hues that stay apart, also with colour blindness – the same hues stepped for light and dark backgrounds. */
+const CHART_STEPS = {
+  light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'],
+  dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
+};
+
 export function themeCss(settings: SiteSettings): { css: string; parts: { fixed: string; nova: string; own: string }; fonts: string[]; preload: string[] } {
   const { theme, palette } = resolveTheme(settings);
   const pair = FONT_PAIRS.find((f) => f.id === settings.theme.fontPair) ?? FONT_PAIRS.find((f) => f.id === theme.pair)!;
@@ -1403,6 +1475,8 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
     '--sp-l': `calc(clamp(4.5rem, 11vw, 10rem) * ${rhythm})`,
   };
   if (palette.dark) tokens['--scheme'] = 'dark';
+  // The chart palette (eight hues in fixed order), stepped for a light or a dark background.
+  CHART_STEPS[palette.dark ? 'dark' : 'light'].forEach((c, i) => (tokens[`--chart-${i + 1}`] = c));
   const overrides = Object.entries(settings.theme.tokens ?? {})
     .filter(([k]) => /^--[a-z0-9-]+$/.test(k))
     .map(([k, v]) => `${k}:${cssValue(String(v))}`)
@@ -1412,10 +1486,12 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
   const root = `:root{${SCALE};${Object.entries(tokens)
     .map(([k, v]) => `${k}:${v}`)
     .join(';')}${vars ? `;${vars}` : ''}}`;
+  // Inverted sections have the other background: the other steps of the chart palette.
+  const inverseChart = `.tone-inverse{${CHART_STEPS[palette.dark ? 'light' : 'dark'].map((c, i) => `--chart-${i + 1}:${c}`).join(';')}}`;
   const custom = (settings.theme.css ?? '').replace(/<\/?style/gi, '');
   // fixed: fonts and tokens; nova: base and theme rules (a page can drop what it doesn't use); own: Werkbank tokens and CSS, never touched.
   const parts = {
-    fixed: minify([fontFaces([pair.display, pair.body]), root].join('\n')),
+    fixed: minify([fontFaces([pair.display, pair.body]), root, inverseChart].join('\n')),
     nova: minify([BASE, theme.css].join('\n')),
     own: minify([overrides ? `:root{${overrides}}` : '', ...(settings.extensionCss ?? []).map((x) => x.css.replace(/<\/?style/gi, '')), custom].join('\n')),
   };

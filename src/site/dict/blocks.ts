@@ -143,4 +143,7 @@ export const blocks: Record<string, { fr: string; it: string; en: string }> = {
   'Punkt {n}': { fr: 'Point {n}', it: 'Punto {n}', en: 'Point {n}' },
   'Mehr erfahren': { fr: 'En savoir plus', it: 'Scopri di più', en: 'Learn more' },
   'Nach oben': { fr: 'Vers le haut', it: 'Torna su', en: 'Back to top' },
+  'Reihe {n}': { fr: 'Série {n}', it: 'Serie {n}', en: 'Series {n}' },
+  'Daten als Tabelle': { fr: 'Données sous forme de tableau', it: 'Dati come tabella', en: 'Data as a table' },
+  Andere: { fr: 'Autres', it: 'Altri', en: 'Other' },
 };

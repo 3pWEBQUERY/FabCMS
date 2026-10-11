@@ -40,6 +40,7 @@ import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
 import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
 import { describeStep } from '../src/shared/steps';
+import { donutSlices, niceScale, parseNum } from '../src/shared/chart';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
 import { cleanVariables, variableId, variablesCss } from '../src/shared/variables';
@@ -2448,6 +2449,62 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Element Diagramm', () => {
+  it('reads numbers as people type and paste them', () => {
+    const cases: [string, number | null][] = [
+      ["1'250.50", 1250.5],
+      ['1 480,5', 1480.5],
+      ['2’010', 2010],
+      ['CHF 45.–', 45],
+      ['Fr. 12.50', 12.5],
+      ['12 %', 12],
+      ['5kg', 5],
+      ['-4', -4],
+      ['−3,5', -3.5],
+      ['(12)', -12],
+      ['1,250', 1250],
+      ['12,5', 12.5],
+      ['1.234.567', 1234567],
+      ['2025', 2025],
+      ['Q1', null],
+      ['abc', null],
+      ['', null],
+    ];
+    for (const [text, n] of cases) expect([text, parseNum(text)]).toEqual([text, n]);
+  });
+
+  it('draws on a round scale that holds zero, and keeps the data clean', () => {
+    expect(niceScale([820, 1650])).toEqual({ min: 0, max: 2000, ticks: [0, 500, 1000, 1500, 2000] });
+    expect(niceScale([34, -4]).min).toBeLessThan(0);
+    expect(niceScale([0.3, 0.7]).ticks).toEqual([0, 0.2, 0.4, 0.6, 0.8]);
+    const [el] = sanitizeEls([
+      {
+        id: 'c',
+        kind: 'chart',
+        props: {
+          type: 'pie',
+          labels: ['A', 'B', 'C'],
+          series: [{ name: 'X', values: ['1’200', 'kaputt'] }, ...Array.from({ length: 6 }, () => ({ name: 'Y', values: [1] }))],
+          height: 9999,
+        },
+      },
+    ]);
+    expect(el.props.type).toBe('bar');
+    expect(el.props.height).toBe(640);
+    const series = el.props.series as { values: number[] }[];
+    expect(series).toHaveLength(4);
+    expect(series[0].values).toEqual([1200, 0, 0]);
+    expect(series.every((x) => x.values.length === 3)).toBe(true);
+  });
+
+  it('cuts a ring into eight slices at most', () => {
+    const labels = 'ABCDEFGHIJ'.split('');
+    const slices = donutSlices(labels, [5, 4, 3, 3, 2, 2, 1, 1, 1, -2], 'Andere');
+    expect(slices).toHaveLength(8);
+    expect(slices[7]).toEqual({ label: 'Andere', value: 2, slot: 8 });
   });
 });
 

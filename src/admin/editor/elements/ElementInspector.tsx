@@ -21,6 +21,7 @@ import { SiteData } from './SiteData';
 import { MapPlace } from './MapPlace';
 import { HotspotPlacer } from './HotspotPlacer';
 import { TableEditor } from './TableEditor';
+import { ChartEditor } from './ChartEditor';
 import { PageAnchorsContext } from '../../ui/PageLinkInput';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
@@ -135,6 +136,7 @@ export function ElementInspector({
           {el.kind === 'map' && <MapPlace el={el} onChange={onChange} />}
           {el.kind === 'hotspots' && <HotspotPlacer el={el} onChange={onChange} />}
           {el.kind === 'table' && <TableEditor el={el} onChange={onChange} locked={locked} />}
+          {el.kind === 'chart' && <ChartEditor el={el} onChange={onChange} locked={locked} />}
           <FieldList
             fields={
               el.kind === 'list'

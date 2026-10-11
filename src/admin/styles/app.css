@@ -8369,6 +8369,14 @@ textarea.dg-input {
   padding-inline: 0.45rem;
   font-size: var(--t-s);
 }
+.tbl-ed .input.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tbl-ed-cap {
+  align-self: end;
+  padding: 0 0.2rem 0.2rem;
+}
 .tbl-ed-head {
   position: relative;
 }
