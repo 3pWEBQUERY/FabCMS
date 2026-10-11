@@ -16,7 +16,7 @@ import {
 } from '../../../shared/design';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
-import { Menu, Tip } from '../../ui/kit';
+import { Menu, Select, Tip } from '../../ui/kit';
 import { MediaField } from '../../ui/FieldInput';
 import { ContrastNote } from './contrast';
 import { useToast } from '../../ui/toast';
@@ -50,7 +50,25 @@ const HOVER_KEYS = new Set<keyof StyleProps>([
 ]);
 
 export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
-  layout: ['display', 'direction', 'wrap', 'justify', 'align', 'gap', 'columns', 'colWidths', 'alignSelf', 'grow', 'order', 'span'],
+  layout: [
+    'display',
+    'direction',
+    'wrap',
+    'justify',
+    'align',
+    'gap',
+    'columns',
+    'colWidths',
+    'rows',
+    'autoFlow',
+    'alignSelf',
+    'grow',
+    'order',
+    'span',
+    'colStart',
+    'rowStart',
+    'rowSpan',
+  ],
   spacing: ['mt', 'mr', 'mb', 'ml', 'pt', 'pr', 'pb', 'pl'],
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],
   position: ['position', 'top', 'right', 'bottom', 'left', 'z'],
@@ -417,6 +435,25 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                 </div>
               );
             })}
+          {container && display === 'grid' && (
+            <div className="dp-grid2">
+              {row('rows', t('Zeilen'), (p) => (
+                <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={24} ariaLabel={t('Zeilen')} />
+              ))}
+              {row('autoFlow', t('Füllen'), (p) => (
+                <Select
+                  value={p.value ?? ''}
+                  onChange={(v) => p.set((v || undefined) as 'row' | 'dense' | 'column' | undefined)}
+                  label={t('Füllen')}
+                  options={[
+                    { value: '', label: p.inherited ? t('Wie grösser') : t('Zeile um Zeile') },
+                    { value: 'dense', label: t('Lücken füllen') },
+                    { value: 'column', label: t('Spalte um Spalte') },
+                  ]}
+                />
+              ))}
+            </div>
+          )}
           {container && ['flex', 'grid'].includes(String(display)) && (
             <>
               {row('justify', t('Verteilen'), (p) => (
@@ -472,9 +509,21 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
               <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={-20} max={20} ariaLabel={t('Reihenfolge')} />
             ))}
           </div>
-          {row('span', t('Spalten breit'), (p) => (
-            <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Spalten breit')} />
-          ))}
+          <span className="xsmall faint dp-sub">{t('Platz im Raster')}</span>
+          <div className="dp-grid2">
+            {row('colStart', t('Ab Spalte'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Ab Spalte')} />
+            ))}
+            {row('span', t('Spalten breit'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Spalten breit')} />
+            ))}
+            {row('rowStart', t('Ab Zeile'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={24} ariaLabel={t('Ab Zeile')} />
+            ))}
+            {row('rowSpan', t('Zeilen hoch'), (p) => (
+              <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Zeilen hoch')} />
+            ))}
+          </div>
         </DesignSection>
       )}
 

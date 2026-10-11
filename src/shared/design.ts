@@ -56,6 +56,13 @@ export interface StyleProps {
   grow?: number;
   order?: number;
   span?: number;
+  /** Place in a grid (Webflow's grid editor): from which column and row, and over how many rows. */
+  colStart?: number;
+  rowStart?: number;
+  rowSpan?: number;
+  /** Grids: a fixed number of rows, and whether gaps get filled by later items. */
+  rows?: number;
+  autoFlow?: 'row' | 'dense' | 'column';
   /* spacing */
   mt?: string;
   mr?: string;
@@ -284,7 +291,17 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   if (self) add('align-self', self === 'auto' ? 'auto' : ALIGN[self]);
   add('flex-grow', num(p.grow, 0, 10));
   add('order', num(p.order, -20, 20));
-  if (num(p.span, 1, 12)) add('grid-column', `span ${num(p.span, 1, 12)}`);
+  const span = num(p.span, 1, 12);
+  const colStart = num(p.colStart, 1, 12);
+  if (colStart) add('grid-column', `${colStart} / span ${span ?? 1}`);
+  else if (span) add('grid-column', `span ${span}`);
+  const rowSpan = num(p.rowSpan, 1, 12);
+  const rowStart = num(p.rowStart, 1, 24);
+  if (rowStart) add('grid-row', `${rowStart} / span ${rowSpan ?? 1}`);
+  else if (rowSpan) add('grid-row', `span ${rowSpan}`);
+  if (num(p.rows, 1, 24)) add('grid-template-rows', `repeat(${num(p.rows, 1, 24)},auto)`);
+  const flow = pick(p.autoFlow, ['row', 'dense', 'column'] as const);
+  if (flow) add('grid-auto-flow', flow === 'dense' ? 'row dense' : flow);
 
   // spacing
   for (const [k, prop] of [

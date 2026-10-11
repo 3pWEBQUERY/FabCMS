@@ -2324,6 +2324,19 @@ describe('Interaktionen', () => {
   });
 });
 
+describe('Grid-Platzierung', () => {
+  it('places an element by column and row, and sets rows and filling of a grid', () => {
+    const css = designCss('#x', { desktop: { colStart: 2, span: 2, rowStart: 1, rowSpan: 3 }, mobile: { colStart: 1, span: 1 } });
+    expect(css).toContain('grid-column:2 / span 2');
+    expect(css).toContain('grid-row:1 / span 3');
+    expect(css).toContain('grid-column:1 / span 1');
+    expect(designCss('#g', { desktop: { display: 'grid', columns: 3, rows: 2, autoFlow: 'dense' } })).toContain('grid-template-rows:repeat(2,auto);grid-auto-flow:row dense');
+    // Only a span still works as before; too far is the last column, an unknown filling nothing.
+    expect(designCss('#y', { desktop: { span: 2 } })).toContain('grid-column:span 2');
+    expect(designCss('#z', { desktop: { colStart: 99, autoFlow: 'zigzag' as 'row' } })).toBe('#z{grid-column:12 / span 1}');
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

@@ -1039,4 +1039,12 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
   'Links dunkel': { fr: 'Sombre à gauche', it: 'Scuro a sinistra', en: 'Dark on the left' },
   'Ränder dunkel': { fr: 'Bords sombres', it: 'Bordi scuri', en: 'Dark edges' },
   'Akzent von unten': { fr: 'Accent depuis le bas', it: 'Accento dal basso', en: 'Accent from below' },
+  'Wie grösser': { fr: 'Comme plus grand', it: 'Come più grande', en: 'As larger' },
+  'Zeile um Zeile': { fr: 'Ligne par ligne', it: 'Riga per riga', en: 'Row by row' },
+  'Lücken füllen': { fr: 'Combler les trous', it: 'Riempire i vuoti', en: 'Fill gaps' },
+  'Spalte um Spalte': { fr: 'Colonne par colonne', it: 'Colonna per colonna', en: 'Column by column' },
+  'Platz im Raster': { fr: 'Place dans la grille', it: 'Posizione nella griglia', en: 'Place in the grid' },
+  'Ab Spalte': { fr: 'Dès la colonne', it: 'Dalla colonna', en: 'From column' },
+  'Ab Zeile': { fr: 'Dès la ligne', it: 'Dalla riga', en: 'From row' },
+  'Zeilen hoch': { fr: 'Lignes de haut', it: 'Righe di altezza', en: 'Rows tall' },
 };
