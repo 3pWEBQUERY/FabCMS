@@ -1594,6 +1594,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           designState={designState}
                           onDesignState={setDesignState}
                           onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
+                          source={templateFor ?? ownType}
                         />
                       </ContrastNow.Provider>
                     </TokenColors.Provider>

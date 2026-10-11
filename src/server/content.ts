@@ -5,6 +5,7 @@ import { BLOCK_MAP } from '../shared/blocks';
 import { sanitizeEls, sanitizeVariants, type El } from '../shared/elements';
 import { validateFields, type FieldDef } from '../shared/fields';
 import { sanitizePlain, sanitizeRichText, safeHref } from '../shared/richtext';
+import { cleanConds } from '../shared/conditions';
 import { slugify } from '../shared/text';
 import { entryPath, RESERVED_PREFIXES } from '../shared/paths';
 import type { Block, CollectionDef, Entry, EntryData } from '../shared/types';
@@ -192,6 +193,9 @@ export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Bloc
       if (typeof style.className === 'string') style.className = style.className.replace(/[^\w\- ]/g, '').slice(0, 120);
       if (typeof style.anchor === 'string') style.anchor = slugify(style.anchor);
       if (style.use !== undefined && !(typeof style.use === 'string' && /^[a-z0-9]{6,12}$/.test(style.use))) delete style.use;
+      const show = cleanConds(style.show);
+      if (show.length) style.show = show;
+      else delete style.show;
       return { id: String(b.id).slice(0, 24), type: b.type, props, style, lock: b.lock ?? 'none' };
     });
 }

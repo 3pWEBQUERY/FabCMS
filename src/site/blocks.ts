@@ -1745,6 +1745,10 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
     const def = BLOCK_MAP[b.type];
     const fn = R[b.type];
     if (!def || !fn) continue;
+    // «Nur zeigen, wenn …» for the whole block: left out on the page, marked in the editor.
+    const show = b.style?.show;
+    const holds = show?.length ? condsHold(show, condEnv(c, { path: '', edit: c.edit, entry: c.entry })) : true;
+    if (!holds && !c.edit) continue;
     c.blockIndex = c.depth === 0 ? i : c.blockIndex;
     // Items sit right under the page title unless the block brings its own heading (heading() raises this).
     c.hl = 2;
@@ -1755,7 +1759,8 @@ export async function renderBlocks(blocks: Block[], ctx: RenderContext & { depth
       console.error(`[render] Block ${b.type} (${b.id}) fehlgeschlagen:`, e);
       inner = empty(c, 'Dieser Block konnte nicht angezeigt werden.');
     }
-    out.push(wrapBlock(b, inner, c, images));
+    const wrapped = wrapBlock(b, inner, c, images);
+    out.push(show?.length && c.edit ? raw(wrapped.value.replace('<section ', `<section data-nova-cond="${holds ? 'on' : 'off'}" `)) : wrapped);
   }
   return join(out);
 }

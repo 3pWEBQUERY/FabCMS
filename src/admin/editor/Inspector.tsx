@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSavedStyle } from './design/SavedStyles';
 import { BLOCK_MAP } from '../../shared/blocks';
-import type { Block, BlockLock, BlockStyle, Breakpoint } from '../../shared/types';
+import type { Block, BlockLock, BlockStyle, Breakpoint, CollectionDef } from '../../shared/types';
 import { useSession } from '../lib/session';
 import { t, tl } from '../lib/i18n';
 import { FieldList } from '../ui/FieldInput';
@@ -9,6 +9,7 @@ import { Field, Segmented, Select } from '../ui/kit';
 import { Icon } from '../ui/icons';
 import type { DesignBp, DesignState } from '../../shared/design';
 import { DesignPanel } from './design/DesignPanel';
+import { ConditionControls } from './elements/Conditions';
 import { MotionPanel } from './design/MotionPanel';
 import { hasMotion } from '../../shared/motion';
 
@@ -34,6 +35,7 @@ export function Inspector({
   designState,
   onDesignState,
   onPlay,
+  source = null,
 }: {
   block: Block;
   onChange: (b: Block) => void;
@@ -42,6 +44,8 @@ export function Inspector({
   designState: DesignState;
   onDesignState: (s: DesignState) => void;
   onPlay: () => void;
+  /** Whose fields a condition can test: the template's content type or the entry's own. */
+  source?: CollectionDef | null;
 }) {
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
@@ -169,6 +173,7 @@ export function Inspector({
                   <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder={t('preise')} />
                 </div>
               </Field>
+              <ConditionControls conds={style.show} source={source} onChange={(show) => setStyle({ show })} what="block" />
             </>
           }
         />

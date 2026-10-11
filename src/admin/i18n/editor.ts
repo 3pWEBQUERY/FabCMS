@@ -922,4 +922,9 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Mosaik, wie sie sind': { fr: 'Mosaïque, telles quelles', it: 'Mosaico, così come sono', en: 'Mosaic, as they are' },
   Bildgrösse: { fr: 'Taille des images', it: 'Dimensione immagini', en: 'Picture size' },
   'Beim Klick gross zeigen': { fr: 'Agrandir au clic', it: 'Ingrandisci al clic', en: 'Show large on click' },
+  'Alle Bedingungen müssen stimmen. Im Editor bleibt der Block sichtbar – blass, wenn er gerade nicht erscheinen würde.': {
+    fr: 'Toutes les conditions doivent être remplies. Dans l’éditeur, le bloc reste visible – pâle s’il n’apparaîtrait pas maintenant.',
+    it: 'Tutte le condizioni devono essere soddisfatte. Nell’editor il blocco resta visibile – sbiadito se ora non apparirebbe.',
+    en: 'All conditions must hold. In the editor the block stays visible – pale when it would not show right now.',
+  },
 };

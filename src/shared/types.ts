@@ -5,6 +5,7 @@ import type { SiteTranslation } from './i18n';
 import type { FieldDef, LinkValue } from './fields';
 import type { Design } from './design';
 import type { Motion } from './motion';
+import type { Cond } from './conditions';
 
 export type Mode = 'studio' | 'werkbank';
 export type BuiltinRole = 'owner' | 'admin' | 'editor' | 'author' | 'member';
@@ -30,6 +31,8 @@ export interface BlockStyle {
   use?: string;
   /** Entrance, scroll and hover animations (shared/motion.ts). */
   motion?: Motion;
+  /** «Nur zeigen, wenn …»: the whole block only when all of them hold (shared/conditions.ts). */
+  show?: Cond[];
 }
 
 /**

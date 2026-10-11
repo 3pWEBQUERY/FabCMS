@@ -1119,10 +1119,14 @@ export function createBlock(type: string, props?: Record<string, unknown>): Bloc
 }
 
 export function blocksText(blocks: Block[] | undefined): string {
-  return (blocks ?? [])
-    .map((b) => BLOCK_MAP[b.type]?.text?.(b.props) ?? '')
-    .filter(Boolean)
-    .join(' ');
+  return (
+    (blocks ?? [])
+      // Shown only under conditions: never in the description or the search for everyone.
+      .filter((b) => !b.style?.show?.length)
+      .map((b) => BLOCK_MAP[b.type]?.text?.(b.props) ?? '')
+      .filter(Boolean)
+      .join(' ')
+  );
 }
 
 export function blocksHeadings(blocks: Block[] | undefined): (HeadingRef & { blockId: string })[] {

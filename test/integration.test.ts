@@ -4131,6 +4131,33 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, product]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('shows whole blocks only when their conditions hold, and keeps their text out of description and search', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const page = (
+      await req('POST', '/api/entries', {
+        collection: 'pages',
+        slug: 'block-bedingt',
+        data: {
+          title: 'Blöcke',
+          blocks: [
+            { id: 'bbopen', type: 'text', props: { body: '<p>FÜR ALLE</p>' } },
+            { id: 'bbcamp', type: 'text', props: { body: '<p>HERBSTAKTION GEHEIM</p>' }, style: { show: [{ if: 'param', key: 'aktion', is: 'herbst' }, { if: 'x' }] } },
+          ],
+        },
+      })
+    ).data.entry;
+    expect(page.data.blocks[1].style.show).toEqual([{ if: 'param', key: 'aktion', is: 'herbst' }]);
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/block-bedingt', undefined, anon)).data as string;
+    expect(html).toContain('FÜR ALLE');
+    expect(html).not.toContain('HERBSTAKTION');
+    expect(html).not.toContain('id="b-bbcamp"');
+    expect((await req('GET', '/block-bedingt?aktion=herbst', undefined, anon)).data).toContain('HERBSTAKTION GEHEIM');
+    // The editor shows it, pale while it would not appear.
+    expect((await req('GET', `/_nova/canvas/${page.id}`)).data).toMatch(/<section data-nova-cond="off" class="[^"]*" id="b-bbcamp"/);
+    await req('DELETE', `/api/entries/${page.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

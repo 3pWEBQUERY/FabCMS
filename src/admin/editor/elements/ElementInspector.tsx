@@ -150,7 +150,7 @@ export function ElementInspector({
             <p className="xsmall faint">{t('Gestaltet wird der erste Eintrag – alle anderen sehen gleich aus. Verbinde seine Elemente mit den Feldern des Inhaltstyps.')}</p>
           )}
           {!source && <InteractionControls el={el} els={blockEls} onChange={onChange} onSelect={onSelect} />}
-          <ConditionControls el={el} source={bindSource} onChange={onChange} />
+          <ConditionControls conds={el.show} source={bindSource} onChange={(show) => onChange({ ...el, show })} />
           <Field label={t('Name in den Ebenen')} help={t('Hilft, im Aufbau den Überblick zu behalten.')}>
             <input className="input" value={el.name ?? ''} placeholder={tl(def.label)} maxLength={60} onChange={(e) => onChange({ ...el, name: e.target.value || undefined })} />
           </Field>

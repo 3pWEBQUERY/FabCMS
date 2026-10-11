@@ -5,7 +5,6 @@ import { Icon } from '../../ui/icons';
 import { MAX_CONDS, type Cond, type CondKind } from '../../../shared/conditions';
 import { langInfo, siteLangs } from '../../../shared/i18n';
 import { DAYS } from '../../../shared/hours';
-import type { El } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 
 const fresh = (kind: CondKind): Cond => {
@@ -34,11 +33,22 @@ const fresh = (kind: CondKind): Cond => {
  * editor such an element stays visible, dashed; when it would not show right
  * now it is pale.
  */
-export function ConditionControls({ el, source, onChange }: { el: El; source: CollectionDef | null; onChange: (el: El) => void }) {
+export function ConditionControls({
+  conds,
+  source,
+  onChange,
+  what = 'element',
+}: {
+  conds: Cond[] | undefined;
+  source: CollectionDef | null;
+  onChange: (conds: Cond[] | undefined) => void;
+  /** Wording of the note: an element or a whole block. */
+  what?: 'element' | 'block';
+}) {
   const { settings } = useSession();
-  const conds = el.show ?? [];
-  const set = (next: Cond[]) => onChange({ ...el, show: next.length ? next : undefined });
-  const put = (i: number, c: Cond) => set(conds.map((x, j) => (j === i ? c : x)));
+  const list = conds ?? [];
+  const set = (next: Cond[]) => onChange(next.length ? next : undefined);
+  const put = (i: number, c: Cond) => set(list.map((x, j) => (j === i ? c : x)));
   const modules = settings?.modules ?? [];
   const kinds: { value: CondKind; label: string }[] = [
     ...(modules.includes('members') ? [{ value: 'member' as const, label: t('Mitglied') }] : []),
@@ -169,7 +179,7 @@ export function ConditionControls({ el, source, onChange }: { el: El; source: Co
   return (
     <div className="stack tight cond-box">
       <span className="section-title">{t('Nur zeigen, wenn …')}</span>
-      {conds.map((c, i) => (
+      {list.map((c, i) => (
         <div key={i} className="cond-row">
           <Select
             label={t('Bedingung')}
@@ -177,7 +187,7 @@ export function ConditionControls({ el, source, onChange }: { el: El; source: Co
             onChange={(v) => put(i, fresh(v as CondKind))}
             options={kinds.some((k) => k.value === c.if) ? kinds : [...kinds, { value: c.if, label: c.if }]}
           />
-          <button type="button" className="btn ghost s icon-only" aria-label={t('Bedingung entfernen')} onClick={() => set(conds.filter((_, j) => j !== i))}>
+          <button type="button" className="btn ghost s icon-only" aria-label={t('Bedingung entfernen')} onClick={() => set(list.filter((_, j) => j !== i))}>
             <Icon name="trash" size="s" />
           </button>
           <div className="cond-value">{value(c, i)}</div>
@@ -185,13 +195,17 @@ export function ConditionControls({ el, source, onChange }: { el: El; source: Co
           {c.if === 'time' && <p className="xsmall faint">{t('In der Zeitzone der Website. Ein Feld darf leer bleiben.')}</p>}
         </div>
       ))}
-      {conds.length < MAX_CONDS && (
-        <button type="button" className="btn s" style={{ justifySelf: 'start' }} onClick={() => set([...conds, fresh(kinds[0].value)])}>
-          <Icon name="plus" size="s" /> {conds.length ? t('Weitere Bedingung') : t('Bedingung hinzufügen')}
+      {list.length < MAX_CONDS && (
+        <button type="button" className="btn s" style={{ justifySelf: 'start' }} onClick={() => set([...list, fresh(kinds[0].value)])}>
+          <Icon name="plus" size="s" /> {list.length ? t('Weitere Bedingung') : t('Bedingung hinzufügen')}
         </button>
       )}
-      {conds.length > 0 && (
-        <p className="xsmall faint">{t('Alle Bedingungen müssen stimmen. Im Editor bleibt das Element sichtbar – blass, wenn es gerade nicht erscheinen würde.')}</p>
+      {list.length > 0 && (
+        <p className="xsmall faint">
+          {what === 'block'
+            ? t('Alle Bedingungen müssen stimmen. Im Editor bleibt der Block sichtbar – blass, wenn er gerade nicht erscheinen würde.')
+            : t('Alle Bedingungen müssen stimmen. Im Editor bleibt das Element sichtbar – blass, wenn es gerade nicht erscheinen würde.')}
+        </p>
       )}
     </div>
   );
