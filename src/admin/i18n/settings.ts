@@ -1695,4 +1695,31 @@ export const settings: Record<string, { fr: string; it: string; en: string }> = 
     it: 'Dopo il pagamento di un buono regalo – con codice e link per stamparlo.',
     en: 'After a gift card is paid – with the code and a link to print it.',
   },
+  'Noch keine. Im Editor wählst du einen Block oder ein Element und speicherst sein Design im Design-Panel mit «Als Stil speichern».': {
+    fr: "Aucun pour l'instant. Dans l'éditeur, choisis un bloc ou un élément et enregistre son design dans le panneau Design avec « Enregistrer comme style ».",
+    it: "Ancora nessuno. Nell'editor scegli un blocco o un elemento e salva il suo design nel pannello Design con «Salva come stile».",
+    en: 'None yet. In the editor, choose a block or element and save its design in the design panel with “Save as style”.',
+  },
+  'Stil «{name}» umbenennen': { fr: 'Renommer le style « {name} »', it: 'Rinomina lo stile «{name}»', en: 'Rename the style “{name}”' },
+  'Stil «{name}» löschen': { fr: 'Supprimer le style « {name} »', it: 'Elimina lo stile «{name}»', en: 'Delete the style “{name}”' },
+  'Er ist {n}× in Gebrauch. Dort fällt sein Design weg; was eine Stelle selbst eingestellt hat, bleibt. Wirkt, sobald du speicherst.': {
+    fr: "Il est utilisé {n}×. Son design y disparaît ; ce qu'un endroit a réglé lui-même reste. Prend effet dès que tu enregistres.",
+    it: 'È in uso {n}×. Lì il suo design scompare; ciò che un punto ha impostato da sé resta. Vale non appena salvi.',
+    en: 'It is used {n}×. Its design goes away there; what a place set itself stays. Takes effect when you save.',
+  },
+  'Er wird nirgends verwendet. Wirkt, sobald du speicherst.': {
+    fr: "Il n'est utilisé nulle part. Prend effet dès que tu enregistres.",
+    it: 'Non è usato da nessuna parte. Vale non appena salvi.',
+    en: 'It is not used anywhere. Takes effect when you save.',
+  },
+  'Setzt noch nichts.': { fr: 'Ne règle encore rien.', it: 'Non imposta ancora nulla.', en: 'Sets nothing yet.' },
+  'Verwendung wird gezählt …': { fr: 'Comptage des utilisations …', it: 'Conteggio degli utilizzi …', en: 'Counting where it is used …' },
+  'Nirgends verwendet.': { fr: 'Utilisé nulle part.', it: 'Non usato da nessuna parte.', en: 'Not used anywhere.' },
+  '{n}× verwendet, auf:': { fr: 'Utilisé {n}×, sur :', it: 'Usato {n}×, su:', en: 'Used {n}×, on:' },
+  'Gespeicherte Stile': { fr: 'Styles enregistrés', it: 'Stili salvati', en: 'Saved styles' },
+  'Designs, die du im Editor gespeichert hast und die Blöcke und Elemente auf mehreren Seiten teilen. Gezählt werden Entwürfe und veröffentlichte Fassungen.': {
+    fr: "Des designs enregistrés dans l'éditeur, partagés par des blocs et éléments sur plusieurs pages. Sont comptés les brouillons et les versions publiées.",
+    it: "Design salvati nell'editor e condivisi da blocchi ed elementi su più pagine. Si contano bozze e versioni pubblicate.",
+    en: 'Designs saved in the editor and shared by blocks and elements across pages. Drafts and published versions are counted.',
+  },
 };

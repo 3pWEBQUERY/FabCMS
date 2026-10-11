@@ -3403,6 +3403,10 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     // A reference that can't be a style is not kept.
     expect(page.data.blocks[1].style.use).toBeUndefined();
     expect(page.data.blocks[0].props.els[0].use).toBe('akzent03');
+    // Settings → Design counts where each style is used.
+    const usage = (await req('GET', '/api/styles/usage')).data.usage;
+    expect(usage.karte01x).toMatchObject({ places: 1, entries: [{ id: page.id, collection: 'pages', title: 'Stile' }] });
+    expect(usage.akzent03.places).toBe(1);
     await req('POST', `/api/entries/${page.id}/publish`, {});
     const html = (await req('GET', `/${page.slug}`, undefined, anon)).data as string;
     expect(html).toMatch(/<section class="[^"]*\bst-karte01x\b[^"]*" id="b-stb1"/);

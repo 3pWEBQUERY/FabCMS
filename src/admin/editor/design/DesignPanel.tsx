@@ -32,7 +32,7 @@ const HOVER_KEYS = new Set<keyof StyleProps>([
   'y',
 ]);
 
-const SECTIONS: Record<string, (keyof StyleProps)[]> = {
+export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
   layout: ['display', 'direction', 'wrap', 'justify', 'align', 'gap', 'columns', 'alignSelf', 'grow', 'order', 'span'],
   spacing: ['mt', 'mr', 'mb', 'ml', 'pt', 'pr', 'pb', 'pl'],
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],

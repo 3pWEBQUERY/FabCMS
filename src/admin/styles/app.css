@@ -4437,6 +4437,27 @@ button.list-item {
   color: var(--warn, #9a5b00);
 }
 
+/* saved styles in settings → design */
+.st-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.st-item {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line);
+}
+.st-item:first-child {
+  border-top: 0;
+}
+.st-item p {
+  margin: 0;
+}
+
 /* saved style above the design panel */
 .st-bar {
   padding: 0 1rem 0.9rem;

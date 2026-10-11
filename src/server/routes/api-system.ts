@@ -33,7 +33,7 @@ import { THEMES } from '../../site/themes';
 import { FONT_PAIRS } from '../../site/fonts';
 import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
-import type { EntryData, SiteSettings } from '../../shared/types';
+import type { Block, EntryData, SiteSettings } from '../../shared/types';
 import { HOOK_EVENTS } from '../../shared/hooks';
 import { GA4_ID } from '../../shared/stats-services';
 import { defaultLang, isLang, LANGS } from '../../shared/i18n';
@@ -41,7 +41,7 @@ import { checkHookCode, runHook } from '../hooks';
 import { meiliConfigured, rebuildSearch, searchStatus } from '../search';
 import { lowStockList } from '../stock';
 import { restockWaiting } from '../restock';
-import { cleanStyles } from '../../shared/styles';
+import { cleanStyles, styleUses } from '../../shared/styles';
 
 /** Settings keys and the capability needed to change them. */
 const DESIGN_KEYS = new Set(['theme', 'styles']);
@@ -91,6 +91,25 @@ export function systemApi(app: Hono<AppEnv>) {
         publicUrl: env.publicUrl,
       },
     });
+  });
+
+  /** Where the saved styles are used: places per style, and the entries – drafts and live versions alike. */
+  app.get('/api/styles/usage', async (c) => {
+    requireAnyCap(c, 'design.manage', 'content.edit');
+    const rows = await sql`
+      select id, collection, slug, data ->> 'title' as title, data -> 'blocks' as draft, published_data -> 'blocks' as live from entries
+      where jsonb_typeof(data -> 'blocks') = 'array' and (data::text like '%"use"%' or coalesce(published_data::text, '') like '%"use"%')`;
+    const usage: Record<string, { places: number; entries: { id: string; collection: string; title: string }[] }> = {};
+    for (const r of rows) {
+      const draft = styleUses((r.draft as Block[]) ?? []);
+      const live = styleUses(Array.isArray(r.live) ? (r.live as Block[]) : []);
+      for (const id of new Set([...draft.keys(), ...live.keys()])) {
+        const u = (usage[id] ??= { places: 0, entries: [] });
+        u.places += Math.max(draft.get(id) ?? 0, live.get(id) ?? 0);
+        if (u.entries.length < 20) u.entries.push({ id: r.id as string, collection: r.collection as string, title: String(r.title ?? '') });
+      }
+    }
+    return c.json({ usage });
   });
 
   app.patch('/api/settings', async (c) => {

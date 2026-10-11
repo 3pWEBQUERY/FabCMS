@@ -24,6 +24,7 @@ import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
 import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
+import { SavedStylesOverview } from './SavedStylesOverview';
 import { t, tl, tm } from '../lib/i18n';
 
 interface Section {
@@ -368,6 +369,14 @@ function DesignSettings() {
           </header>
           <LoadingFrame title={t('Design-Vorschau')} src={preview} />
         </div>
+      </div>
+      <div className="card" style={{ marginTop: '1.25rem' }}>
+        <Section
+          title={t('Gespeicherte Stile')}
+          sub={t('Designs, die du im Editor gespeichert hast und die Blöcke und Elemente auf mehreren Seiten teilen. Gezählt werden Entwürfe und veröffentlichte Fassungen.')}
+        >
+          <SavedStylesOverview styles={draft.styles ?? []} onChange={(next) => set('styles', next)} />
+        </Section>
       </div>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
       <Dialog

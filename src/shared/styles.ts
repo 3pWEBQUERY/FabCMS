@@ -49,6 +49,20 @@ export function stylesUsed(b: Block): string[] {
   return [...out];
 }
 
+/** How often each style is used in these blocks – every block and element counts once. */
+export function styleUses(blocks: Block[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const count = (use: unknown) => {
+    const id = styleOf(use);
+    if (id) out.set(id, (out.get(id) ?? 0) + 1);
+  };
+  for (const b of blocks) {
+    count(b.style?.use);
+    if (b.type === 'layout') walkEls((b.props.els as El[] | undefined) ?? [], (el) => count(el.use));
+  }
+  return out;
+}
+
 /** The rules of these styles. Two classes outweigh the theme's single ones; ids (own design) still win. */
 export function savedStylesCss(ids: Iterable<string>, styles: SavedStyle[], opts: CompileOptions & { forceHover?: string } = {}): string {
   const out: string[] = [];
