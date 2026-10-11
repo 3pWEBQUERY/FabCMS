@@ -23,6 +23,8 @@ import {
 import { deleteMedia } from '../media';
 import { externalChange } from '../collab';
 import { badRequest, forbidden, notFound } from '../lib/http';
+import { FONTS } from '../../site/fonts';
+import { cleanDesign } from '../../shared/site-design';
 import { can } from '../../shared/roles';
 import type { CollectionDef, Entry, EntryData } from '../../shared/types';
 import { sanitizePlain } from '../../shared/richtext';
@@ -709,10 +711,29 @@ export function contentApi(app: Hono<AppEnv>) {
     if (q.spacing) settings.theme.spacing = Number(q.spacing) || 1;
     if (q.radius) settings.theme.radius = Number(q.radius) || 0;
     if (q.name) settings.name = q.name.slice(0, 80);
-    const [home] = await sql`select * from entries where collection = 'pages' and slug = ''`;
-    if (!home) return c.html('<p style="font:16px system-ui;padding:2rem">Noch keine Startseite.</p>');
-    const ctx = createContext({ settings, collections: await activeCollections(), path: '/', base: await base(), preview: true, ageOk: true });
+    // The curated style asked for: an own design steps aside.
+    if (q.theme) settings.activeDesign = null;
+    // An own design as it is being edited, not saved yet (base64url JSON).
+    if (q.design) {
+      let raw: unknown = null;
+      try {
+        raw = JSON.parse(Buffer.from(q.design, 'base64url').toString('utf8'));
+      } catch {
+        throw badRequest('Das Design liess sich nicht lesen.');
+      }
+      const d = cleanDesign(raw, Object.keys(FONTS));
+      if (!d) throw badRequest('Das Design liess sich nicht lesen.');
+      settings.designs = [...(settings.designs ?? []).filter((x) => x.id !== d.id), d];
+      settings.activeDesign = d.id;
+    }
+    // Any published page, not only the home page.
+    const slug = typeof q.page === 'string' ? q.page.replace(/^\/+|\/+$/g, '') : '';
+    const [page] = await sql`select * from entries where collection = 'pages' and slug = ${slug}`;
+    if (!page) return c.html(`<p style="font:16px system-ui;padding:2rem">${slug ? 'Diese Seite gibt es nicht.' : 'Noch keine Startseite.'}</p>`);
+    const ctx = createContext({ settings, collections: await activeCollections(), path: `/${slug}`, base: await base(), preview: true, ageOk: true });
     c.header('Cache-Control', 'no-store');
-    return c.html(await renderPage(ctx, await getCollection('pages'), { ...(home as unknown as Entry), author_name: null }));
+    // As visitors see it: the published version where there is one.
+    const shown = { ...(page as unknown as Entry), data: ((page as { published_data?: unknown }).published_data ?? page.data) as Entry['data'], author_name: null };
+    return c.html(await renderPage(ctx, await getCollection('pages'), shown));
   });
 }

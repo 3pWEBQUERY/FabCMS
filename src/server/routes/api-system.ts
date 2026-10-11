@@ -30,7 +30,8 @@ import { blocksImages, blocksLinks } from '../../shared/blocks';
 import { entryPath, matchRoute } from '../../shared/paths';
 import { SECTOR_MAP } from '../../shared/collections';
 import { THEMES } from '../../site/themes';
-import { FONT_PAIRS } from '../../site/fonts';
+import { FONT_PAIRS, FONTS } from '../../site/fonts';
+import { cleanDesigns } from '../../shared/site-design';
 import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { Block, EntryData, SiteSettings } from '../../shared/types';
@@ -45,7 +46,7 @@ import { cleanStyles, styleUses } from '../../shared/styles';
 import { cleanVariables } from '../../shared/variables';
 
 /** Settings keys and the capability needed to change them. */
-const DESIGN_KEYS = new Set(['theme', 'styles', 'variables']);
+const DESIGN_KEYS = new Set(['theme', 'styles', 'variables', 'designs', 'activeDesign']);
 const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security', 'extensionCss']);
 
 async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | null> {
@@ -114,6 +115,7 @@ export function systemApi(app: Hono<AppEnv>) {
       settings: safe,
       themes: THEMES.map(({ css: _css, ...t }) => t),
       fontPairs: FONT_PAIRS,
+      fonts: Object.entries(FONTS).map(([id, f]) => ({ id, family: f.family })),
       system: {
         storage: s3Configured() ? 'bucket' : 'local',
         mail: mailConfigured(),
@@ -167,6 +169,16 @@ export function systemApi(app: Hono<AppEnv>) {
     if (patch.mail) patch.mail = cleanMailSettings(patch.mail);
     if (patch.styles !== undefined) patch.styles = cleanStyles(patch.styles);
     if (patch.variables !== undefined) patch.variables = cleanVariables(patch.variables);
+    if (patch.designs !== undefined) patch.designs = cleanDesigns(patch.designs, Object.keys(FONTS));
+    if (patch.activeDesign !== undefined) {
+      // Only a design that exists can go live; null goes back to the curated style.
+      const designs = patch.designs ?? (await getSettings()).designs ?? [];
+      if (patch.activeDesign !== null && !designs.some((d) => d.id === patch.activeDesign)) throw badRequest('Dieses Design gibt es nicht.');
+    } else if (patch.designs !== undefined) {
+      // A deleted design can't stay active.
+      const cur = (await getSettings()).activeDesign;
+      if (cur && !patch.designs.some((d) => d.id === cur)) patch.activeDesign = null;
+    }
     // Who must use a second factor is set under Team (PUT /api/security/2fa), not here.
     if (patch.security) patch.security = { ...patch.security, require2fa: (await getSettings()).security.require2fa };
     if (patch.webhooks) {

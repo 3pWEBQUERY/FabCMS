@@ -1,6 +1,7 @@
 import { FONT_PAIRS, FONTS, fontFaces, fontPreload } from './fonts';
 import type { SiteSettings } from '../shared/types';
 import { variablesCss } from '../shared/variables';
+import { activeDesign, designKey, siteDesignCss } from '../shared/site-design';
 
 /**
  * Four style directions, each with its own typographic voice, rule system
@@ -1452,9 +1453,32 @@ export const THEMES: Theme[] = [
   },
 ];
 
+/** A start without a character of its own: for designs built from scratch (Einstellungen → Eigene Designs). */
+THEMES.push({
+  id: 'neutral',
+  name: 'Neutral',
+  description: 'Ruhig und ohne eigene Handschrift – die Grundlage, um ein Design ganz selbst aufzubauen.',
+  pair: 'kante',
+  header: 'bar',
+  ornament: '·',
+  numbered: false,
+  css: ':root{--display-weight:600;--display-tracking:-.02em;--display-leading:1.1;--hero-measure:16ch;--btn-radius:10px;--btn-bg:var(--accent);--btn-ink:var(--accent-ink);--header-rule:var(--line);--label-tracking:.08em;--brand-weight:700;--brand-size:var(--step-1);--nav-size:var(--step-n1);--nav-weight:600;--chip-radius:999px}',
+  palettes: [
+    p({ id: 'default', label: 'Hell', bg: '#ffffff', surface: '#f3f3f1', ink: '#16161a', ink2: '#5b5b63', line: '#e2e2de', accent: '#2f5bd8', accentInk: '#ffffff', invBg: '#16161a', invInk: '#f6f6f4', invInk2: '#b4b4bb', invLine: '#34343b' }),
+    p({ id: 'dunkel', label: 'Dunkel', dark: true, bg: '#121214', surface: '#1c1c20', ink: '#f2f2f0', ink2: '#a9a9b2', line: '#2e2e34', accent: '#7aa2ff', accentInk: '#0d0d10', invBg: '#f2f2f0', invInk: '#16161a', invInk2: '#5b5b63', invLine: '#d6d6d2' }),
+  ],
+});
+
 export const THEME_MAP: Record<string, Theme> = Object.fromEntries(THEMES.map((t) => [t.id, t]));
 
 export function resolveTheme(settings: SiteSettings): { theme: Theme; palette: Palette } {
+  // An own design: its base theme's rules, its own colours (and its own italic titles).
+  const own = activeDesign(settings);
+  if (own) {
+    const base = THEME_MAP[own.base] ?? THEME_MAP.neutral;
+    const { dark, ...colors } = own.colors;
+    return { theme: { ...base, italicDisplay: own.type.headingItalic }, palette: { id: designKey(own), label: own.name, ...colors, ...(dark ? { dark: true } : {}) } };
+  }
   const theme = THEME_MAP[settings.theme.id] ?? THEMES[0];
   const palette = theme.palettes.find((x) => x.id === settings.theme.palette) ?? theme.palettes[0];
   return { theme, palette };
@@ -1471,8 +1495,11 @@ const CHART_STEPS = {
 
 export function themeCss(settings: SiteSettings): { css: string; parts: { fixed: string; nova: string; own: string }; fonts: string[]; preload: string[] } {
   const { theme, palette } = resolveTheme(settings);
-  const pair = FONT_PAIRS.find((f) => f.id === settings.theme.fontPair) ?? FONT_PAIRS.find((f) => f.id === theme.pair)!;
-  const rhythm = Math.min(1.4, Math.max(0.7, settings.theme.spacing || 1));
+  const own = activeDesign(settings);
+  const pair = own
+    ? { id: 'own', label: '', display: FONTS[own.fonts.display] ? own.fonts.display : 'instrument-sans', body: FONTS[own.fonts.body] ? own.fonts.body : 'instrument-sans' }
+    : (FONT_PAIRS.find((f) => f.id === settings.theme.fontPair) ?? FONT_PAIRS.find((f) => f.id === theme.pair)!);
+  const rhythm = own ? own.layout.rhythm : Math.min(1.4, Math.max(0.7, settings.theme.spacing || 1));
   const tokens: Record<string, string> = {
     '--bg': palette.bg,
     '--surface': palette.surface,
@@ -1488,9 +1515,9 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
     '--font-display': FONTS[pair.display].stack,
     '--font-body': FONTS[pair.body].stack,
     '--gutter': 'clamp(1rem, 4vw, 3rem)',
-    '--max': '78rem',
+    '--max': own ? `${own.layout.max}rem` : '78rem',
     '--measure': '38rem',
-    '--img-radius': `${Math.max(0, Math.min(24, settings.theme.radius ?? 0))}px`,
+    '--img-radius': `${own ? own.layout.radius : Math.max(0, Math.min(24, settings.theme.radius ?? 0))}px`,
     '--s-1': '.25rem',
     '--s-2': '.5rem',
     '--s-3': '.75rem',
@@ -1520,7 +1547,8 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
   // fixed: fonts and tokens; nova: base and theme rules (a page can drop what it doesn't use); own: Werkbank tokens and CSS, never touched.
   const parts = {
     fixed: minify([fontFaces([pair.display, pair.body]), root, inverseChart].join('\n')),
-    nova: minify([BASE, theme.css].join('\n')),
+    // An own design's tokens and rules come after its base theme's.
+    nova: minify([BASE, theme.css, own ? siteDesignCss(own) : ''].join('\n')),
     own: minify([overrides ? `:root{${overrides}}` : '', ...(settings.extensionCss ?? []).map((x) => x.css.replace(/<\/?style/gi, '')), custom].join('\n')),
   };
   // What the first screen needs: display and body font, and the italic display cut where titles use it.

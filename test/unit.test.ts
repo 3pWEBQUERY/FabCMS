@@ -8,7 +8,7 @@ import { analyzeSeo } from '../src/shared/seo-analyze';
 import { BLOCKS, createBlock, sentences } from '../src/shared/blocks';
 import { blockLookCss, cleanStyles, stylesUsed } from '../src/shared/styles';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField } from '../src/shared/query';
-import type { Block, CollectionDef } from '../src/shared/types';
+import type { Block, CollectionDef, SiteSettings } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath, pageForLink } from '../src/shared/paths';
 import { bgMediaIds, cleanBgMedia, slidesCss } from '../src/shared/bg-media';
@@ -41,6 +41,7 @@ import { searchLayers } from '../src/admin/editor/layerSearch';
 import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
 import { describeStep } from '../src/shared/steps';
 import { blockToLayout, CONVERTIBLE } from '../src/shared/convert';
+import { blankDesign, cleanDesign, cleanDesigns, designScale, siteDesignCss } from '../src/shared/site-design';
 import { donutSlices, niceScale, parseNum } from '../src/shared/chart';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
@@ -115,7 +116,7 @@ import { htmlClasses, pruneCss, requiredClasses, scriptWords } from '../src/site
 import { ageAccepted, ageClaim, judgeAge, yearsSince } from '../src/server/age-verify';
 import { pickTemplate, templateSeed } from '../src/server/seed';
 import { SECTORS } from '../src/shared/collections';
-import { THEMES } from '../src/site/themes';
+import { THEMES, resolveTheme, themeCss } from '../src/site/themes';
 import { composite, contrastRatio, fixColor, formatRatio, needFor, parseHex } from '../src/shared/contrast';
 import { abGroups, abVerdict, AB_MIN_SHOWN, pathList, pathMatches, popupConf, popupShowsOn } from '../src/shared/popups';
 import { starText, summarize } from '../src/shared/reviews';
@@ -2452,6 +2453,70 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Eigene Designs', () => {
+  const FONTS = ['instrument-sans', 'fraunces'];
+  it('keeps only what makes sense', () => {
+    const d = cleanDesign(
+      {
+        id: 'mein-1',
+        name: '<b>Frühling</b>',
+        base: 'barock',
+        colors: { bg: '#FFF8F0', accent: 'red', ink: '#111111' },
+        fonts: { display: 'fraunces', body: 'comic-sans' },
+        type: { base: 40, ratio: 1.333, headingWeight: 650, headingCase: 'shout' },
+        buttons: { shape: 'pill', style: 'outline', size: 'xl' },
+        layout: { max: 200, rhythm: 0.1, radius: 12.6 },
+      },
+      FONTS,
+    )!;
+    expect(d.name).toBe('bFrühling/b');
+    expect(d.base).toBe('neutral');
+    expect(d.colors).toMatchObject({ bg: '#fff8f0', accent: '#2f5bd8', ink: '#111111', dark: false });
+    expect(d.fonts).toEqual({ display: 'fraunces', body: 'instrument-sans' });
+    expect(d.type).toMatchObject({ base: 22, ratio: 1.335, headingWeight: 700, headingCase: 'none' });
+    expect(d.buttons).toMatchObject({ shape: 'pill', style: 'outline', size: 'm' });
+    expect(d.layout).toEqual({ max: 110, rhythm: 0.6, radius: 13 });
+    expect(cleanDesign({ id: 'Böse Id!' }, FONTS)).toBeNull();
+    // Twice the same id: the first one counts.
+    expect(cleanDesigns([{ id: 'a', name: 'A' }, { id: 'a', name: 'B' }, 'x'], FONTS).map((x) => x.name)).toEqual(['A']);
+  });
+
+  it('builds the type scale and the rules of a design', () => {
+    const scale = designScale(18, 1.25);
+    expect(scale).toMatch(/--step-0:clamp\(1\.057rem, .*, 1\.125rem\)/);
+    expect(scale.split(';')).toHaveLength(11);
+    const d = blankDesign('x', 'X');
+    d.buttons = { ...d.buttons, style: 'outline', shape: 'pill', case: 'uppercase' };
+    d.type.headingItalic = true;
+    d.links.underline = 'hover';
+    const css = siteDesignCss(d);
+    expect(css).toContain('--btn-radius:999px');
+    expect(css).toContain('--btn-bg:transparent');
+    expect(css).toContain('--btn-case:uppercase');
+    expect(css).toContain('font-style:italic');
+    expect(css).toContain('text-decoration-color:transparent');
+  });
+
+  it('replaces the chosen style on the website only while it is active', () => {
+    const own = { ...blankDesign('mein', 'Mein Design'), fonts: { display: 'fraunces', body: 'instrument-sans' } };
+    own.colors = { ...own.colors, bg: '#101820', dark: true };
+    own.layout.max = 64;
+    const base = { theme: { id: 'bistro', palette: 'default', fontPair: 'bistro', spacing: 1, radius: 4, tokens: {}, css: '' }, designs: [own] } as unknown as SiteSettings;
+    expect(resolveTheme(base).theme.id).toBe('bistro');
+    const live = { ...base, activeDesign: 'mein' } as SiteSettings;
+    const { theme, palette } = resolveTheme(live);
+    expect(theme.id).toBe('neutral');
+    expect(palette).toMatchObject({ bg: '#101820', dark: true });
+    const { css, fonts } = themeCss(live);
+    expect(fonts).toEqual(['fraunces', 'instrument-sans']);
+    expect(css).toContain('--max:64rem');
+    expect(css).toContain('--bg:#101820');
+    // A deleted design can't stay in charge.
+    expect(resolveTheme({ ...live, designs: [] } as SiteSettings).theme.id).toBe('bistro');
+    expect(THEMES.some((x) => x.id === 'neutral')).toBe(true);
   });
 });
 

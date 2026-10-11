@@ -1,3 +1,4 @@
+import type { SiteDesign } from './site-design';
 import type { SavedStyle } from './styles';
 import type { DesignVariable } from './variables';
 import type { MailText } from './mails';
@@ -187,6 +188,9 @@ export interface SiteSettings {
     tokens: Record<string, string>;
     css: string;
   };
+  /** Own designs built from scratch (shared/site-design.ts); the active one replaces the style above. */
+  designs?: SiteDesign[];
+  activeDesign?: string | null;
   header: { cta: LinkValue | null; sticky: boolean };
   footer: { text: string; columns: { title: string; links: LinkValue[] }[] };
   nav: NavItem[];

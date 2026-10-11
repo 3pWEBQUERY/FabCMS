@@ -24,6 +24,7 @@ import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { SavedStylesOverview } from './SavedStylesOverview';
 import { DesignVariables } from './DesignVariables';
+import { DesignStudio } from './DesignStudio';
 import { FooterEditor, HeaderOptions, MenuEditor } from './NavEditors';
 import { t, tl, tm } from '../lib/i18n';
 
@@ -39,6 +40,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { id: 'website', label: () => t('Name, Logo & Kontakt'), icon: 'globe', cap: 'settings.manage' },
   { id: 'design', label: () => t('Design'), icon: 'style', cap: 'design.manage' },
+  { id: 'designs', label: () => t('Eigene Designs'), icon: 'paint', cap: 'design.manage' },
   { id: 'navigation', label: () => t('Menü & Fusszeile'), icon: 'nav', cap: 'settings.manage' },
   { id: 'sprachen', label: () => t('Sprachen'), icon: 'globe', cap: 'settings.manage' },
   { id: 'seo', label: () => t('Suchmaschinen'), icon: 'seo', cap: 'settings.manage' },
@@ -106,6 +108,7 @@ export function Settings({ section }: { section: string }) {
         <div style={{ minWidth: 0 }}>
           {current.id === 'website' && <WebsiteSettings />}
           {current.id === 'design' && <DesignSettings />}
+          {current.id === 'designs' && <DesignStudio />}
           {current.id === 'navigation' && <NavigationSettings />}
           {current.id === 'sprachen' && <LanguageSettings />}
           {current.id === 'seo' && <SeoSettings />}
@@ -309,6 +312,19 @@ function DesignSettings() {
   return (
     <>
       <PageHead title={t('Design')} sub={t('Kuratierte Stile, Farben und Schriften. Änderungen siehst du sofort in der Vorschau.')} />
+      {draft.activeDesign && (draft.designs ?? []).some((d) => d.id === draft.activeDesign) && (
+        <div className="hint" style={{ marginBottom: '1rem' }}>
+          <Icon name="paint" />
+          <span className="grow">
+            {t('Auf der Website ist dein eigenes Design «{name}» live. Was du hier wählst, gilt, sobald du zum Stil zurückwechselst.', {
+              name: (draft.designs ?? []).find((d) => d.id === draft.activeDesign)?.name ?? '',
+            })}
+          </span>
+          <button className="btn s" onClick={() => navigate('/einstellungen/designs')}>
+            {t('Eigene Designs')}
+          </button>
+        </div>
+      )}
       <div className="preview-split">
         <div className="card">
           <Section title={t('Stil')}>

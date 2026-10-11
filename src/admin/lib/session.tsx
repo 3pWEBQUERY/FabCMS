@@ -26,6 +26,7 @@ export interface SettingsBundle {
   settings: SiteSettings;
   themes: ThemeInfo[];
   fontPairs: { id: string; label: string; display: string; body: string }[];
+  fonts: { id: string; family: string }[];
   system: { storage: 'bucket' | 'local'; mail: boolean; stripe: boolean; stripeWebhook: boolean; turnstile: boolean; ai: boolean; clamav: boolean; eid: boolean; preview: string | null; publicUrl: string };
 }
 

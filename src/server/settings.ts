@@ -65,6 +65,8 @@ export function defaultSettings(): SiteSettings {
     ai: { enabled: false },
     styles: [],
     variables: [],
+    designs: [],
+    activeDesign: null,
     shop: {
       currency: 'CHF',
       vatIncluded: true,
