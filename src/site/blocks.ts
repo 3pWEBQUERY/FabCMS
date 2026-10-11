@@ -6,6 +6,7 @@ import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
 import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../shared/query';
+import { condsHold, type CondEnv } from '../shared/conditions';
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
@@ -961,6 +962,23 @@ function bound(el: El, prop: string, rc: ElRender, ctx: RenderContext): { set: b
   return { set: true, value: v ?? '', field };
 }
 
+/** What conditions are checked against: the visitor, the clock, the address – and the entry of the loop or page. */
+function condEnv(ctx: RenderContext, rc: ElRender): CondEnv {
+  const tz = ctx.settings.timezone;
+  const entry = rc.entry ?? currentEntry(ctx);
+  return {
+    member: ctx.member?.level ?? null,
+    now: localNow(ctx.now, tz),
+    day: zonedNow(tz, ctx.now).day,
+    open: openStatus(ctx.settings.hours, tz, ctx.now, ctx.lang)?.open ?? null,
+    lang: ctx.lang,
+    cart: ctx.cartCount,
+    query: ctx.query,
+    // Members-only entries: only what their paywall shows counts.
+    field: entry ? (key) => (entry.open || ['title', 'excerpt', 'cover', 'image', 'intro'].includes(key) ? entry.e.data[key] : undefined) : undefined,
+  };
+}
+
 /** The entry an entry page shows, for bindings outside a loop. */
 function currentEntry(ctx: RenderContext): ElRender['entry'] {
   if (ctx.entry) return ctx.entry;
@@ -972,9 +990,12 @@ function currentEntry(ctx: RenderContext): ElRender['entry'] {
 
 async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html> {
   if (!/^[\w-]{1,24}$/.test(el.id)) return html``;
+  // «Nur zeigen, wenn …»: on the page what does not hold is left out; the editor shows it, marked.
+  const holds = el.show?.length ? condsHold(el.show, condEnv(ctx, rc)) : true;
+  if (!holds && !rc.edit) return html``;
   const p = (el.props ?? {}) as P;
   const path = rc.path;
-  const attrs = elAttrs(el, ctx, rc);
+  const attrs = el.show?.length && rc.edit && !rc.copy ? raw(`${elAttrs(el, ctx, rc).value} data-nova-cond="${holds ? 'on' : 'off'}"`) : elAttrs(el, ctx, rc);
   const handles = rc.edit && !rc.copy;
   const cls = (extra = '') => `el el-${el.kind} e-${el.id}${styleOf(el.use) ? ` st-${el.use}` : ''}${extra ? ` ${extra}` : ''}`;
   const val = (prop: string) => bound(el, prop, rc, ctx);

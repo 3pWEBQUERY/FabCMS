@@ -3880,6 +3880,72 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [tpl, page, tasche, muetze, schal]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('shows elements only when their conditions hold – for the visitor, the address, the clock and the entry', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const { settings } = (await req('GET', '/api/settings')).data;
+    await req('PATCH', '/api/settings', { modules: [...new Set([...(settings.modules as string[]), 'members'])] });
+    const h = (id: string, show: unknown[]) => ({ id, kind: 'heading', props: { text: `T-${id}`, level: '2' }, show });
+    const els = [
+      h('cpin', [{ if: 'member', is: 'in' }]),
+      h('cpout', [{ if: 'member', is: 'out' }]),
+      h('cpparam', [{ if: 'param', key: 'aktion', is: 'herbst' }]),
+      h('cppast', [{ if: 'time', until: '2001-01-01T00:00' }]),
+      h('cpnow', [
+        { if: 'time', from: '2001-01-01T00:00' },
+        { if: 'days', days: [1, 2, 3, 4, 5, 6, 7] },
+      ]),
+      h('cpcart', [{ if: 'cart', is: 'full' }]),
+      {
+        id: 'cploop',
+        kind: 'list',
+        props: { collection: 'posts', category: 'CondKat', sort: 'title', limit: 5 },
+        children: [
+          {
+            id: 'cpcard',
+            kind: 'box',
+            props: {},
+            children: [
+              { id: 'cpt', kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'title' } },
+              { id: 'cptag', kind: 'text', props: { html: '<p>VEGAN-HINWEIS</p>' }, show: [{ if: 'field', key: 'tags', is: 'vegan' }] },
+            ],
+          },
+        ],
+      },
+    ];
+    const posts = [];
+    for (const [slug, title, tags] of [
+      ['cond-a', 'Cond A', ['Vegan']],
+      ['cond-b', 'Cond B', []],
+    ] as const) {
+      const e = (await req('POST', '/api/entries', { collection: 'posts', slug, data: { title, category: 'CondKat', tags, body: '<p>x</p>' } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      posts.push(e);
+    }
+    const page = (await req('POST', '/api/entries', { collection: 'pages', slug: 'bedingt', data: { title: 'Bedingt', blocks: [{ id: 'cpb', type: 'layout', props: { els } }] } }))
+      .data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/bedingt', undefined, anon)).data as string;
+    expect(html).not.toContain('T-cpin');
+    expect(html).toContain('T-cpout');
+    expect(html).not.toContain('T-cpparam');
+    expect(html).not.toContain('T-cppast');
+    expect(html).toContain('T-cpnow');
+    expect(html).not.toContain('T-cpcart');
+    // In the loop: per entry, by its own field.
+    const loop = html.slice(html.indexOf('id="e-cploop"'));
+    expect(loop.indexOf('VEGAN-HINWEIS')).toBeGreaterThan(loop.indexOf('Cond A'));
+    expect(loop.indexOf('VEGAN-HINWEIS')).toBeLessThan(loop.indexOf('Cond B'));
+    expect(loop.match(/VEGAN-HINWEIS/g)).toHaveLength(1);
+    // The address with its parameter is its own page in the cache.
+    expect((await req('GET', '/bedingt?aktion=Herbst', undefined, anon)).data).toContain('T-cpparam');
+    // The editor shows everything, marked – pale what would not show now.
+    const canvas = (await req('GET', `/_nova/canvas/${page.id}`)).data as string;
+    expect(canvas).toMatch(/id="e-cppast"[^>]*data-nova-cond="off"/);
+    expect(canvas).toMatch(/id="e-cpnow"[^>]*data-nova-cond="on"/);
+    expect(canvas).toContain('T-cpin');
+    for (const e of [page, ...posts]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

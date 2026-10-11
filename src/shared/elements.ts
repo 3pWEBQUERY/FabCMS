@@ -13,6 +13,7 @@ import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
 import { loopQuery } from './query';
+import { cleanConds, type Cond } from './conditions';
 
 export const EL_KINDS = [
   'box',
@@ -76,6 +77,8 @@ export interface El {
   hidden?: boolean;
   /** Locked in the layers: the canvas passes it over, so it can't be moved or deleted by accident. */
   pinned?: boolean;
+  /** «Nur zeigen, wenn …»: all of them must hold (shared/conditions.ts). */
+  show?: Cond[];
 }
 
 export const EL_ACTS = ['toggle', 'show', 'hide'] as const;
@@ -1100,6 +1103,8 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
       el.act = { do: raw.act.do as ElAct, target: raw.act.target };
     if (raw.hidden === true) el.hidden = true;
     if (raw.pinned === true) el.pinned = true;
+    const show = cleanConds(raw.show);
+    if (show.length) el.show = show;
     if (isObj(raw.bind)) {
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;
@@ -1163,12 +1168,18 @@ export function elementImages(els: El[]): string[] {
 
 export function elementsText(els: El[]): string {
   const out: string[] = [];
-  walkEls(els, (el) => {
-    // Texts bound to entries are placeholders – what visitors read comes from the entries.
-    if (el.kind === 'heading' && !el.bind?.text) out.push(String(el.props.text ?? ''));
-    if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
-    if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
-  });
+  const visit = (list: El[]) => {
+    for (const el of list) {
+      // Shown only under conditions (members, a campaign …): never in the description or the search for everyone.
+      if (el.show?.length) continue;
+      // Texts bound to entries are placeholders – what visitors read comes from the entries.
+      if (el.kind === 'heading' && !el.bind?.text) out.push(String(el.props.text ?? ''));
+      if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
+      if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
+      if (el.children) visit(el.children);
+    }
+  };
+  visit(els);
   return out.filter(Boolean).join(' ');
 }
 

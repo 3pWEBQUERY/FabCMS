@@ -34,6 +34,8 @@ style.textContent = `
 [data-nova-field]:hover{outline-color:color-mix(in srgb,currentColor 35%,transparent)}
 [data-nova-field]:focus{outline:1.5px solid #2b59c3;outline-offset:3px}
 [data-nova-field]:empty::before{content:attr(data-placeholder);opacity:.4;pointer-events:none;white-space:nowrap}
+[data-nova-cond]{outline:1px dashed rgba(124,92,255,.7);outline-offset:2px}
+[data-nova-cond=off]{opacity:.42}
 [data-nova-global]{cursor:pointer}
 [data-nova-global]:hover{outline:1px dashed rgba(43,89,195,.45);outline-offset:-1px}
 .nova-still,.nova-still *{transition:none!important}

@@ -39,6 +39,7 @@ import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
+import { cleanConds, condsHold, type CondEnv } from '../src/shared/conditions';
 import { fieldKey, freeAddress, keyFields, newType, STUDIO_FIELD_TYPES, TYPE_PRESETS, typeAddress } from '../src/shared/type-presets';
 import {
   applyOverrides,
@@ -2078,5 +2079,78 @@ describe('Shop-Elemente', () => {
     expect(sanitizeEls(els)).toEqual(els);
     expect(els[1].props).toMatchObject({ collection: 'products', shop: 'sale' });
     expect(walkKinds(els)).toEqual(expect.arrayContaining(['image', 'rating', 'price', 'addtocart']));
+  });
+});
+
+describe('Nur zeigen, wenn …', () => {
+  const env = (o: Partial<CondEnv> = {}): CondEnv => ({ member: null, now: '2026-10-11T12:00', day: 7, open: true, lang: 'de', cart: 0, query: new URLSearchParams(), ...o });
+  it('keeps only known conditions with valid values, at most four', () => {
+    expect(
+      cleanConds([
+        { if: 'member', is: 'admin' },
+        { if: 'time', from: '2026-12-24T18:00', until: 'morgen' },
+        { if: 'days', days: [7, 6, 6, 9, 1.5] },
+        { if: 'param', key: 'aktion', is: '<b>herbst</b>' },
+        { if: 'field', key: '../x', is: '' },
+        { if: 'script', is: 'x' },
+        { if: 'cart', is: 'full' },
+        { if: 'lang', is: 'fr' },
+      ]),
+    ).toEqual([
+      { if: 'time', from: '2026-12-24T18:00' },
+      { if: 'days', days: [6, 7] },
+      { if: 'param', key: 'aktion', is: 'bherbst/b' },
+      { if: 'cart', is: 'full' },
+    ]);
+    expect(cleanConds('x')).toEqual([]);
+    expect(cleanConds([{ if: 'time' }])).toEqual([]);
+  });
+
+  it('checks every condition against the visitor, the clock, the address and the entry', () => {
+    expect(condsHold([], env())).toBe(true);
+    expect(condsHold([{ if: 'member', is: 'in' }], env())).toBe(false);
+    expect(condsHold([{ if: 'member', is: 'in' }], env({ member: 'member' }))).toBe(true);
+    expect(condsHold([{ if: 'member', is: 'paid' }], env({ member: 'member' }))).toBe(false);
+    expect(condsHold([{ if: 'member', is: 'out' }], env({ member: 'paid' }))).toBe(false);
+    // From inclusive, until exclusive, as wall time.
+    expect(condsHold([{ if: 'time', from: '2026-10-11T12:00' }], env())).toBe(true);
+    expect(condsHold([{ if: 'time', until: '2026-10-11T12:00' }], env())).toBe(false);
+    expect(condsHold([{ if: 'days', days: [6, 7] }], env())).toBe(true);
+    expect(condsHold([{ if: 'days', days: [1] }], env())).toBe(false);
+    // Without opening hours nothing is open, and nothing closed.
+    expect(condsHold([{ if: 'open', is: 'closed' }], env({ open: null }))).toBe(false);
+    expect(condsHold([{ if: 'cart', is: 'empty' }], env())).toBe(true);
+    expect(condsHold([{ if: 'cart', is: 'full' }], env({ cart: 2 }))).toBe(true);
+    expect(condsHold([{ if: 'param', key: 'aktion', is: '' }], env({ query: new URLSearchParams('aktion=Herbst') }))).toBe(true);
+    expect(condsHold([{ if: 'param', key: 'aktion', is: 'herbst' }], env({ query: new URLSearchParams('aktion=Herbst') }))).toBe(true);
+    expect(condsHold([{ if: 'param', key: 'aktion', is: 'winter' }], env({ query: new URLSearchParams('aktion=Herbst') }))).toBe(false);
+    const data: Record<string, unknown> = { cover: '', tags: ['Vegan', 'Bio'], featured: true };
+    const field = (k: string) => data[k];
+    expect(condsHold([{ if: 'field', key: 'cover', is: '' }], env({ field }))).toBe(false);
+    expect(condsHold([{ if: 'field', key: 'tags', is: 'vegan' }], env({ field }))).toBe(true);
+    expect(condsHold([{ if: 'field', key: 'featured', is: '' }], env({ field }))).toBe(true);
+    // Outside of an entry a field condition never holds.
+    expect(condsHold([{ if: 'field', key: 'featured', is: '' }], env())).toBe(false);
+    // All must hold.
+    expect(
+      condsHold(
+        [
+          { if: 'cart', is: 'empty' },
+          { if: 'lang', is: 'fr' },
+        ],
+        env(),
+      ),
+    ).toBe(false);
+    // Stored on the element only in this form.
+    const [el] = sanitizeEls([{ id: 'c1', kind: 'heading', props: { text: 'x' }, show: [{ if: 'lang', is: 'fr' }, { if: 'nope' }] }]);
+    expect(el.show).toEqual([{ if: 'lang', is: 'fr' }]);
+    expect(sanitizeEls([{ id: 'c2', kind: 'heading', props: {}, show: [] }])[0].show).toBeUndefined();
+    // Conditional texts – with everything inside them – stay out of the description and the search.
+    expect(
+      elementsText([
+        { id: 'a', kind: 'heading', props: { text: 'Für alle' } },
+        { id: 'b', kind: 'box', props: {}, show: [{ if: 'member', is: 'in' }], children: [{ id: 'c', kind: 'text', props: { html: '<p>Nur Mitglieder</p>' } }] },
+      ]),
+    ).toBe('Für alle');
   });
 });

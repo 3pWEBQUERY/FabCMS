@@ -7818,3 +7818,33 @@ textarea.dg-input {
     grid-column: 2 / -1;
   }
 }
+
+/* «Nur zeigen, wenn …» */
+.cond-box {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.cond-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.cond-row > .cond-value,
+.cond-row > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.cond-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.layer-cond {
+  display: inline-flex;
+  color: #7c5cff;
+  margin-left: auto;
+}

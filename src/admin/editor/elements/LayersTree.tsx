@@ -121,6 +121,11 @@ export function LayersTree({
               <Icon name={EL_DEFS[el.kind].icon} size="s" />
               <span className="layer-name">{elLabel(el)}</span>
               {text && <span className="layer-text">{text}</span>}
+              {el.show?.length ? (
+                <span className="layer-cond" title={t('Nur unter Bedingungen sichtbar')} aria-label={t('Nur unter Bedingungen sichtbar')}>
+                  <Icon name="filter" size="s" />
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
