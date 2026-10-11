@@ -7,9 +7,22 @@ import { Field, Menu, Segmented, Select, Skeleton, Toggle, confirm } from '../ui
 import { LoadingFrame } from '../ui/loading';
 import { useToast } from '../ui/toast';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
+import { FontLibrary } from './FontLibrary';
 import { shortId } from '../../shared/text';
 import { contrastRatio, fixColor, parseHex } from '../../shared/contrast';
 import { BLANK_COLORS, blankDesign, MAX_DESIGNS, type DesignBase, type DesignColors, type SiteDesign } from '../../shared/site-design';
+
+/** A choice with its name above it – the name is also what screen readers say. */
+function LabeledSelect(props: Parameters<typeof Select>[0]) {
+  return (
+    <div className="font-field">
+      <span className="xsmall muted" aria-hidden="true">
+        {props.label}
+      </span>
+      <Select {...props} />
+    </div>
+  );
+}
 
 /** A colour as hex: the browser's picker and the code side by side. */
 function HexColor({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -125,6 +138,11 @@ export function DesignStudio() {
   if (!draft || !bundle) return <Skeleton />;
 
   const setDesigns = (next: SiteDesign[]) => set('designs', next);
+  // Nova's fonts and the website's own, for the font choices of a design.
+  const fontOptions = [
+    ...bundle.fonts.map((f) => ({ value: f.id, label: f.family })),
+    ...(draft.customFonts ?? []).map((f) => ({ value: f.id, label: t('{name} (eigene Schrift)', { name: f.family }) })),
+  ];
   const change = (patch: Partial<SiteDesign>) => open && setDesigns(designs.map((d) => (d.id === open.id ? { ...d, ...patch, updatedAt: new Date().toISOString() } : d)));
   const nameFor = (base: string) => {
     let n = 1;
@@ -270,6 +288,14 @@ export function DesignStudio() {
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <h2 className="ds-title">{t('Eigene Schriften')}</h2>
+        <p className="small muted" style={{ marginBottom: '0.75rem' }}>
+          {t('Schriftdateien hochladen und in jedem eigenen Design für Titel oder Fliesstext wählen. Nach dem Speichern erscheinen sie auch in der Vorschau.')}
+        </p>
+        <FontLibrary value={draft.customFonts ?? []} onChange={(next) => set('customFonts', next)} />
+      </div>
+
       {open && c && (
         <div className="preview-split ds-editor">
           <div className="card stack">
@@ -280,7 +306,7 @@ export function DesignStudio() {
             </div>
 
             <Group title={t('Grundlage')} sub={t('Woher die Feinheiten kommen – Ornamente, Linien, Kopfzeile. «Neutral» bringt keine eigene Handschrift mit.')}>
-              <Select
+              <LabeledSelect
                 label={t('Grundlage')}
                 value={open.base}
                 onChange={(v) => change({ base: v as DesignBase })}
@@ -326,18 +352,8 @@ export function DesignStudio() {
 
             <Group title={t('Schriften')}>
               <div className="ds-two">
-                <Select
-                  label={t('Titel')}
-                  value={open.fonts.display}
-                  onChange={(v) => change({ fonts: { ...open.fonts, display: v } })}
-                  options={bundle.fonts.map((f) => ({ value: f.id, label: f.family }))}
-                />
-                <Select
-                  label={t('Fliesstext')}
-                  value={open.fonts.body}
-                  onChange={(v) => change({ fonts: { ...open.fonts, body: v } })}
-                  options={bundle.fonts.map((f) => ({ value: f.id, label: f.family }))}
-                />
+                <LabeledSelect label={t('Titel')} value={open.fonts.display} onChange={(v) => change({ fonts: { ...open.fonts, display: v } })} options={fontOptions} />
+                <LabeledSelect label={t('Fliesstext')} value={open.fonts.body} onChange={(v) => change({ fonts: { ...open.fonts, body: v } })} options={fontOptions} />
               </div>
             </Group>
 
@@ -345,7 +361,7 @@ export function DesignStudio() {
               <Field label={t('Grundgrösse: {n} px', { n: open.type.base })}>
                 <input type="range" min={14} max={22} step={0.5} value={open.type.base} onChange={(e) => change({ type: { ...open.type, base: Number(e.target.value) } })} />
               </Field>
-              <Select
+              <LabeledSelect
                 label={t('Stufen')}
                 value={String(RATIOS.reduce((best, r) => (Math.abs(Number(r.value) - open.type.ratio) < Math.abs(Number(best.value) - open.type.ratio) ? r : best)).value)}
                 onChange={(v) => change({ type: { ...open.type, ratio: Number(v) } })}
@@ -365,7 +381,7 @@ export function DesignStudio() {
 
             <Group title={t('Titel')}>
               <div className="ds-two">
-                <Select
+                <LabeledSelect
                   label={t('Stärke')}
                   value={String(open.type.headingWeight)}
                   onChange={(v) => change({ type: { ...open.type, headingWeight: Number(v) } })}

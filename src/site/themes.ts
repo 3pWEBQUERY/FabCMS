@@ -2,6 +2,7 @@ import { FONT_PAIRS, FONTS, fontFaces, fontPreload } from './fonts';
 import type { SiteSettings } from '../shared/types';
 import { variablesCss } from '../shared/variables';
 import { activeDesign, designKey, siteDesignCss } from '../shared/site-design';
+import { customFontFaces, customFontStack } from '../shared/custom-fonts';
 
 /**
  * Four style directions, each with its own typographic voice, rule system
@@ -1496,8 +1497,15 @@ const CHART_STEPS = {
 export function themeCss(settings: SiteSettings): { css: string; parts: { fixed: string; nova: string; own: string }; fonts: string[]; preload: string[] } {
   const { theme, palette } = resolveTheme(settings);
   const own = activeDesign(settings);
+  // Own fonts can be chosen in an own design next to Nova's.
+  const customs = settings.customFonts ?? [];
+  const known = (k: string) => Boolean(FONTS[k]) || customs.some((f) => f.id === k);
+  const stack = (k: string) => {
+    const c = customs.find((f) => f.id === k);
+    return c ? customFontStack(c) : FONTS[k].stack;
+  };
   const pair = own
-    ? { id: 'own', label: '', display: FONTS[own.fonts.display] ? own.fonts.display : 'instrument-sans', body: FONTS[own.fonts.body] ? own.fonts.body : 'instrument-sans' }
+    ? { id: 'own', label: '', display: known(own.fonts.display) ? own.fonts.display : 'instrument-sans', body: known(own.fonts.body) ? own.fonts.body : 'instrument-sans' }
     : (FONT_PAIRS.find((f) => f.id === settings.theme.fontPair) ?? FONT_PAIRS.find((f) => f.id === theme.pair)!);
   const rhythm = own ? own.layout.rhythm : Math.min(1.4, Math.max(0.7, settings.theme.spacing || 1));
   const tokens: Record<string, string> = {
@@ -1512,8 +1520,8 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
     '--inv-ink': palette.invInk,
     '--inv-ink2': palette.invInk2,
     '--inv-line': palette.invLine,
-    '--font-display': FONTS[pair.display].stack,
-    '--font-body': FONTS[pair.body].stack,
+    '--font-display': stack(pair.display),
+    '--font-body': stack(pair.body),
     '--gutter': 'clamp(1rem, 4vw, 3rem)',
     '--max': own ? `${own.layout.max}rem` : '78rem',
     '--measure': '38rem',
@@ -1546,7 +1554,9 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
   const custom = (settings.theme.css ?? '').replace(/<\/?style/gi, '');
   // fixed: fonts and tokens; nova: base and theme rules (a page can drop what it doesn't use); own: Werkbank tokens and CSS, never touched.
   const parts = {
-    fixed: minify([fontFaces([pair.display, pair.body]), root, inverseChart].join('\n')),
+    fixed: minify(
+      [fontFaces([pair.display, pair.body].filter((k) => FONTS[k])), customFontFaces(customs, [pair.display, pair.body]), root, inverseChart].join('\n'),
+    ),
     // An own design's tokens and rules come after its base theme's.
     nova: minify([BASE, theme.css, own ? siteDesignCss(own) : ''].join('\n')),
     own: minify([overrides ? `:root{${overrides}}` : '', ...(settings.extensionCss ?? []).map((x) => x.css.replace(/<\/?style/gi, '')), custom].join('\n')),

@@ -42,6 +42,7 @@ import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
 import { describeStep } from '../src/shared/steps';
 import { blockToLayout, CONVERTIBLE } from '../src/shared/convert';
 import { blankDesign, cleanDesign, cleanDesigns, designScale, siteDesignCss } from '../src/shared/site-design';
+import { cleanCustomFonts, customFontFaces, guessFace } from '../src/shared/custom-fonts';
 import { donutSlices, niceScale, parseNum } from '../src/shared/chart';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
@@ -2453,6 +2454,43 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Eigene Schriften', () => {
+  it('reads family, weight and style from file names', () => {
+    expect(guessFace('Inter-SemiBoldItalic.woff2')).toEqual({ family: 'Inter', weight: '600', style: 'italic' });
+    expect(guessFace('Fraunces[SOFT,WONK,opsz,wght].ttf')).toEqual({ family: 'Fraunces', weight: '100 900', style: 'normal' });
+    expect(guessFace('GT-Walsheim-Pro-Light.otf')).toEqual({ family: 'GT Walsheim Pro', weight: '300', style: 'normal' });
+    expect(guessFace('HausschriftExtraBold.woff')).toMatchObject({ family: 'Hausschrift', weight: '800' });
+    expect(guessFace('brand.woff2')).toMatchObject({ family: 'brand', weight: '400' });
+    // Stored file names lose their brackets.
+    expect(guessFace('Schibsted-Grotesk_wght_.woff2')).toEqual({ family: 'Schibsted Grotesk', weight: '100 900', style: 'normal' });
+  });
+
+  it('keeps only safe fonts and writes their @font-face rules', () => {
+    const id = '0b6f3f53-0c51-4e6a-9d41-1f2b3c4d5e6f';
+    const fonts = cleanCustomFonts([
+      {
+        id: 'cf-haus',
+        family: "Haus'; } body { color: red",
+        fallback: 'serif',
+        faces: [
+          { media: id, file: '../x/Haus Bold.woff2', weight: '700', style: 'italic' },
+          { media: 'nope', file: 'a.woff2' },
+          { media: id, file: 'a.exe' },
+        ],
+      },
+      { id: 'cf-haus', family: 'Doppelt' },
+      { id: 'Bad Id', family: 'X' },
+    ]);
+    expect(fonts).toHaveLength(1);
+    expect(fonts[0].family).toBe('Haus body color red');
+    expect(fonts[0].faces).toEqual([{ media: id, file: '..xHaus Bold.woff2', format: 'woff2', weight: '700', style: 'italic' }]);
+    expect(customFontFaces(fonts, ['cf-haus'])).toBe(
+      `@font-face{font-family:'Haus body color red';src:url('/media/${id}/file/..xHaus%20Bold.woff2') format('woff2');font-weight:700;font-style:italic;font-display:swap}`,
+    );
+    expect(customFontFaces(fonts, ['cf-andere'])).toBe('');
   });
 });
 

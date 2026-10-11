@@ -591,11 +591,12 @@ export const server: Record<string, { fr: string; it: string; en: string }> = {
     it: 'L’immagine ha troppi pixel (oltre 80 megapixel).',
     en: 'The image has too many pixels (over 80 megapixels).',
   },
-  'Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio und Office-Dokumente.': {
-    fr: 'Ce type de fichier n’est pas pris en charge. Sont autorisés: images (JPG, PNG, WebP, AVIF, GIF), PDF, vidéos (MP4, WebM), audio et documents Office.',
-    it: 'Questo tipo di file non è supportato. Sono consentiti: immagini (JPG, PNG, WebP, AVIF, GIF), PDF, video (MP4, WebM), audio e documenti Office.',
-    en: 'This file type isn’t supported. Allowed are images (JPG, PNG, WebP, AVIF, GIF), PDF, videos (MP4, WebM), audio and Office documents.',
-  },
+  'Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio, Office-Dokumente und Schriften (WOFF2, WOFF, TTF, OTF).':
+    {
+      fr: 'Ce type de fichier n’est pas pris en charge. Sont autorisés: images (JPG, PNG, WebP, AVIF, GIF), PDF, vidéos (MP4, WebM), audio, documents Office et polices (WOFF2, WOFF, TTF, OTF).',
+      it: 'Questo tipo di file non è supportato. Sono consentiti: immagini (JPG, PNG, WebP, AVIF, GIF), PDF, video (MP4, WebM), audio, documenti Office e caratteri (WOFF2, WOFF, TTF, OTF).',
+      en: 'This file type isn’t supported. Allowed are images (JPG, PNG, WebP, AVIF, GIF), PDF, videos (MP4, WebM), audio, Office documents and fonts (WOFF2, WOFF, TTF, OTF).',
+    },
   'Keine Datei empfangen.': { fr: 'Aucun fichier reçu.', it: 'Nessun file ricevuto.', en: 'No file received.' },
   'Der Zuschnitt liegt ausserhalb des Bildes.': {
     fr: 'Le recadrage se trouve en dehors de l’image.',

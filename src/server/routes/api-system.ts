@@ -32,6 +32,7 @@ import { SECTOR_MAP } from '../../shared/collections';
 import { THEMES } from '../../site/themes';
 import { FONT_PAIRS, FONTS } from '../../site/fonts';
 import { cleanDesigns } from '../../shared/site-design';
+import { cleanCustomFonts } from '../../shared/custom-fonts';
 import { can } from '../../shared/roles';
 import { shortId } from '../../shared/text';
 import type { Block, EntryData, SiteSettings } from '../../shared/types';
@@ -46,7 +47,7 @@ import { cleanStyles, styleUses } from '../../shared/styles';
 import { cleanVariables } from '../../shared/variables';
 
 /** Settings keys and the capability needed to change them. */
-const DESIGN_KEYS = new Set(['theme', 'styles', 'variables', 'designs', 'activeDesign']);
+const DESIGN_KEYS = new Set(['theme', 'styles', 'variables', 'designs', 'activeDesign', 'customFonts']);
 const DEV_KEYS = new Set(['webhooks', 'hooks', 'roleModes', 'security', 'extensionCss']);
 
 async function geocode(s: SiteSettings): Promise<{ lat: number; lng: number } | null> {
@@ -169,7 +170,10 @@ export function systemApi(app: Hono<AppEnv>) {
     if (patch.mail) patch.mail = cleanMailSettings(patch.mail);
     if (patch.styles !== undefined) patch.styles = cleanStyles(patch.styles);
     if (patch.variables !== undefined) patch.variables = cleanVariables(patch.variables);
-    if (patch.designs !== undefined) patch.designs = cleanDesigns(patch.designs, Object.keys(FONTS));
+    if (patch.customFonts !== undefined) patch.customFonts = cleanCustomFonts(patch.customFonts);
+    // Designs may use the fonts that come with Nova and the website's own.
+    if (patch.designs !== undefined)
+      patch.designs = cleanDesigns(patch.designs, [...Object.keys(FONTS), ...(patch.customFonts ?? (await getSettings()).customFonts ?? []).map((f) => f.id)]);
     if (patch.activeDesign !== undefined) {
       // Only a design that exists can go live; null goes back to the curated style.
       const designs = patch.designs ?? (await getSettings()).designs ?? [];

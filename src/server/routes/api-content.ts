@@ -724,7 +724,7 @@ export function contentApi(app: Hono<AppEnv>) {
       } catch {
         throw badRequest('Das Design liess sich nicht lesen.');
       }
-      const d = cleanDesign(raw, Object.keys(FONTS));
+      const d = cleanDesign(raw, [...Object.keys(FONTS), ...(settings.customFonts ?? []).map((f) => f.id)]);
       if (!d) throw badRequest('Das Design liess sich nicht lesen.');
       settings.designs = [...(settings.designs ?? []).filter((x) => x.id !== d.id), d];
       settings.activeDesign = d.id;

@@ -8660,3 +8660,76 @@ textarea.dg-input {
   max-width: 390px;
   border-inline: 1px solid var(--line);
 }
+
+/* ---------- Eigene Schriften ---------- */
+.font-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.font-card {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+}
+.font-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 13rem auto;
+  align-items: end;
+  gap: 0.5rem;
+}
+.font-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .font-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .font-head > .font-field:nth-child(2) {
+    grid-row: 2;
+  }
+}
+.font-sample {
+  font-size: 1.6rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.font-faces {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.font-faces li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 11rem 7rem auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+.font-faces .input {
+  height: 2rem;
+  padding-block: 0;
+  font-size: var(--t-s);
+}
+.font-face-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.05rem;
+}
+@media (max-width: 640px) {
+  .font-faces li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .font-face-name {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,4 +1,5 @@
 import type { SiteDesign } from './site-design';
+import type { CustomFont } from './custom-fonts';
 import type { SavedStyle } from './styles';
 import type { DesignVariable } from './variables';
 import type { MailText } from './mails';
@@ -191,6 +192,8 @@ export interface SiteSettings {
   /** Own designs built from scratch (shared/site-design.ts); the active one replaces the style above. */
   designs?: SiteDesign[];
   activeDesign?: string | null;
+  /** Uploaded fonts (shared/custom-fonts.ts), chosen in own designs. */
+  customFonts?: CustomFont[];
   header: { cta: LinkValue | null; sticky: boolean };
   footer: { text: string; columns: { title: string; links: LinkValue[] }[] };
   nav: NavItem[];

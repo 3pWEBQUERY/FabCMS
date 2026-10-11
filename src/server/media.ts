@@ -25,6 +25,11 @@ const FILE_TYPES: Record<string, string> = {
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.epub': 'application/epub+zip',
+  // Own fonts for the website's designs (Einstellungen → Eigene Designs).
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
 };
 
 export const MAX_UPLOAD = 100 * 1024 * 1024;
@@ -47,6 +52,15 @@ function magicMatches(buf: Buffer, ext: string): boolean {
       return head.readUInt32BE(0) === 0x1a45dfa3;
     case '.mp3':
       return head.subarray(0, 3).toString() === 'ID3' || (head[0] === 0xff && (head[1] & 0xe0) === 0xe0);
+    // Font files say what they are in their first four bytes.
+    case '.woff2':
+      return head.subarray(0, 4).toString('latin1') === 'wOF2';
+    case '.woff':
+      return head.subarray(0, 4).toString('latin1') === 'wOFF';
+    case '.ttf':
+      return head.readUInt32BE(0) === 0x00010000 || head.subarray(0, 4).toString('latin1') === 'true';
+    case '.otf':
+      return head.subarray(0, 4).toString('latin1') === 'OTTO' || head.readUInt32BE(0) === 0x00010000;
     case '.txt':
     case '.csv':
       return !buf.subarray(0, 4096).includes(0);
@@ -91,7 +105,9 @@ async function inspectUpload(input: Pick<UploadInput, 'buffer' | 'filename' | 'f
   } else if (FILE_TYPES[ext] && magicMatches(buffer, ext)) {
     mime = FILE_TYPES[ext];
   } else {
-    throw badRequest('Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio und Office-Dokumente.');
+    throw badRequest(
+      'Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPG, PNG, WebP, AVIF, GIF), PDF, Videos (MP4, WebM), Audio, Office-Dokumente und Schriften (WOFF2, WOFF, TTF, OTF).',
+    );
   }
 
   let scan: ScanResult;

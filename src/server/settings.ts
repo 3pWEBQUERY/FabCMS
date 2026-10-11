@@ -66,6 +66,7 @@ export function defaultSettings(): SiteSettings {
     styles: [],
     variables: [],
     designs: [],
+    customFonts: [],
     activeDesign: null,
     shop: {
       currency: 'CHF',

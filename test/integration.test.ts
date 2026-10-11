@@ -246,6 +246,42 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${parent.id}`);
   });
 
+  it('takes own fonts, refuses files that only pretend to be fonts, and puts them on the website in an own design', async () => {
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const upload = (name: string, bytes: Uint8Array) => {
+      const form = new FormData();
+      form.append('file', new File([bytes as BlobPart], name, { type: 'font/woff2' }));
+      return app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+    };
+    const fake = await upload('Trick.woff2', new TextEncoder().encode('<script>alert(1)</script>'));
+    expect(fake.status).toBe(400);
+    const real = await upload('Hausschrift-Bold.woff2', new Uint8Array(readFileSync('node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2')));
+    expect(real.status).toBe(200);
+    const media = (await real.json()).media[0];
+    expect(media.mime).toBe('font/woff2');
+    const font = {
+      id: 'cf-hausschrift',
+      family: 'Hausschrift',
+      fallback: 'serif',
+      faces: [{ media: media.id, file: media.filename, format: 'woff2', weight: '700', style: 'normal' }],
+    };
+    const design = { id: 'haus', name: 'Haus', fonts: { display: 'cf-hausschrift', body: 'instrument-sans' } };
+    const saved = await req('PATCH', '/api/settings', { customFonts: [font, { id: 'cf-böse', family: 'x', faces: [] }], designs: [design], activeDesign: 'haus' });
+    expect(saved.status).toBe(200);
+    expect(saved.data.settings.customFonts.map((f: { id: string }) => f.id)).toEqual(['cf-hausschrift']);
+    expect(saved.data.settings.designs[0].fonts.display).toBe('cf-hausschrift');
+    const page = (await req('GET', '/', undefined, { cookies: new Map() })).data as string;
+    expect(page).toContain(`@font-face{font-family:'Hausschrift';src:url('/media/${media.id}/file/${media.filename}') format('woff2');font-weight:700`);
+    expect(page).toContain("--font-display:'Hausschrift',ui-serif,Georgia,serif");
+    const file = await app.request(`/media/${media.id}/file/${media.filename}`);
+    expect(file.headers.get('content-type')).toContain('font/woff2');
+    // Without the font, the design falls back to one that exists.
+    const without = await req('PATCH', '/api/settings', { customFonts: [], designs: [design] });
+    expect(without.data.settings.designs[0].fonts.display).toBe('instrument-sans');
+    await req('PATCH', '/api/settings', { designs: [], activeDesign: null });
+    await req('DELETE', `/api/media/${media.id}`);
+  });
+
   it('sanitizes rich text and strips code for non-developers', async () => {
     const { data } = await req('POST', '/api/entries', {
       collection: 'pages',
