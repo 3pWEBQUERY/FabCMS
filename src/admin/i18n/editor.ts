@@ -913,4 +913,13 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Schlagwörter als Auswahl': { fr: 'Mots-clés comme liste', it: 'Parole chiave come elenco', en: 'Tags as a dropdown' },
   'Reihenfolge wählbar': { fr: 'Ordre au choix', it: 'Ordine selezionabile', en: 'Order can be chosen' },
   'Dieses Archiv': { fr: 'Cette archive', it: 'Questo archivio', en: 'This archive' },
+  'Mehrere Bilder als Raster, Mosaik oder Streifen – ein Klick öffnet sie gross. Auch die Bilder eines Eintrags, z. B. die Fotos eines Produkts.': {
+    fr: 'Plusieurs images en grille, mosaïque ou bande – un clic les agrandit. Aussi les images d’une entrée, p. ex. les photos d’un produit.',
+    it: 'Più immagini in griglia, mosaico o striscia – un clic le ingrandisce. Anche le immagini di una voce, p. es. le foto di un prodotto.',
+    en: 'Several pictures as a grid, mosaic or strip – one click shows them large. Also an entry’s pictures, e.g. a product’s photos.',
+  },
+  'Raster, gleich gross': { fr: 'Grille, même taille', it: 'Griglia, stessa dimensione', en: 'Grid, same size' },
+  'Mosaik, wie sie sind': { fr: 'Mosaïque, telles quelles', it: 'Mosaico, così come sono', en: 'Mosaic, as they are' },
+  Bildgrösse: { fr: 'Taille des images', it: 'Dimensione immagini', en: 'Picture size' },
+  'Beim Klick gross zeigen': { fr: 'Agrandir au clic', it: 'Ingrandisci al clic', en: 'Show large on click' },
 };

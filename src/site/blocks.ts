@@ -1160,6 +1160,8 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     case 'stock':
     case 'rating':
       return renderShopEl(el, ctx, rc, attrs, cls());
+    case 'gallery':
+      return renderGallery(el, ctx, rc, attrs, cls());
     case 'filter':
       return renderFilter(el, ctx, rc, attrs, cls());
     case 'countdown':
@@ -1335,6 +1337,32 @@ async function renderTerms(el: El, ctx: RenderContext, attrs: Html, cls: string)
   return html`<nav class="${cls} filters"${attrs} aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${String(active === '' && !here?.tag)}">${t(ctx, 'Alle')}</a>${cats.map(
     (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${String(active === cat.toLowerCase())}">${cat}</a>`,
   )}</nav>`;
+}
+
+/** Galerie: chosen pictures, or those of the entry (a product's photos); one click shows them large. */
+async function renderGallery(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  let ids: unknown[] = Array.isArray(p.images) ? p.images : [];
+  const src = el.bind?.images;
+  if (src?.startsWith('field:')) {
+    const entry = rc.entry ?? currentEntry(ctx);
+    const v = entry ? entry.e.data[src.slice(6)] : undefined;
+    ids = Array.isArray(v) ? v : v ? [v] : [];
+  }
+  const list = ids.filter((x): x is string => typeof x === 'string').slice(0, 60);
+  await ctx.preloadMedia(list);
+  const imgs = (await Promise.all(list.map((id) => ctx.media(id)))).filter((m) => m !== null);
+  if (!imgs.length) return rc.edit ? html`<div class="${cls} el-ph"${attrs}><span>${src ? 'Bilder aus dem Eintrag – hier noch keine' : 'Bilder wählen'}</span></div>` : html``;
+  const layout = p.layout === 'mosaic' || p.layout === 'strip' ? p.layout : 'grid';
+  const min = { s: '9rem', m: '15rem', l: '22rem' }[String(p.size)] ?? '15rem';
+  const sizes = layout === 'strip' ? '(min-width: 40rem) 26rem, 78vw' : '(min-width: 56rem) 25vw, 50vw';
+  const big = p.lightbox !== false;
+  if (big) ctx.needs.add('lightbox');
+  return html`<div class="${cls} gal gal-${layout}"${attrs} style="--gal-min:${min}"${big ? raw(' data-lightbox') : ''}>${imgs.map((m) =>
+    big
+      ? html`<a href="${variantUrl(m, 1920, 'webp')}" data-caption="${m.caption || m.alt}">${picture(m, { sizes, maxWidth: layout === 'mosaic' ? 960 : 1280 })}</a>`
+      : html`<figure>${picture(m, { sizes, maxWidth: layout === 'mosaic' ? 960 : 1280 })}</figure>`,
+  )}</div>`;
 }
 
 /**

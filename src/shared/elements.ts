@@ -20,6 +20,7 @@ export const EL_KINDS = [
   'heading',
   'text',
   'image',
+  'gallery',
   'button',
   'icon',
   'video',
@@ -114,6 +115,7 @@ export const BINDABLE: Partial<Record<ElKind, string[]>> = {
   button: ['label', 'href'],
   box: ['href'],
   countdown: ['to'],
+  gallery: ['images'],
 };
 const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:name|tagline|page|phone|phone-link|email|email-link|address|hours|year|copyright|home|logo))$/;
 
@@ -121,7 +123,7 @@ const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:n
  * Dynamic data from the website itself, for any element anywhere – in a
  * header or footer as on a page. Grouped by what a property takes.
  */
-export const SITE_BINDS: Record<'text' | 'href' | 'image' | 'date', [string, string][]> = {
+export const SITE_BINDS: Record<'text' | 'href' | 'image' | 'date' | 'images', [string, string][]> = {
   text: [
     ['site:page', 'Titel dieser Seite oder Übersicht'],
     ['site:name', 'Name der Website'],
@@ -140,10 +142,12 @@ export const SITE_BINDS: Record<'text' | 'href' | 'image' | 'date', [string, str
   ],
   image: [['site:logo', 'Logo']],
   date: [],
+  images: [],
 };
 
 /** What a property takes: a picture, a link, a moment (countdowns), or text. */
-export const bindKind = (prop: string): 'text' | 'href' | 'image' | 'date' => (prop === 'image' ? 'image' : prop === 'href' ? 'href' : prop === 'to' ? 'date' : 'text');
+export const bindKind = (prop: string): 'text' | 'href' | 'image' | 'date' | 'images' =>
+  prop === 'image' ? 'image' : prop === 'href' ? 'href' : prop === 'to' ? 'date' : prop === 'images' ? 'images' : 'text';
 
 export interface ElDef {
   kind: ElKind;
@@ -458,6 +462,41 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     icon: 'divider',
     fields: [],
     defaults: {},
+  },
+  gallery: {
+    kind: 'gallery',
+    group: 'media',
+    label: 'Galerie',
+    description: 'Mehrere Bilder als Raster, Mosaik oder Streifen – ein Klick öffnet sie gross. Auch die Bilder eines Eintrags, z. B. die Fotos eines Produkts.',
+    icon: 'gallery',
+    fields: [
+      { key: 'images', type: 'images', label: 'Bilder' },
+      {
+        key: 'layout',
+        type: 'select',
+        label: 'Anordnung',
+        options: [
+          { value: 'grid', label: 'Raster, gleich gross' },
+          { value: 'mosaic', label: 'Mosaik, wie sie sind' },
+          { value: 'strip', label: 'Streifen zum Wischen' },
+        ],
+        default: 'grid',
+      },
+      {
+        key: 'size',
+        type: 'select',
+        label: 'Bildgrösse',
+        options: [
+          { value: 's', label: 'Klein' },
+          { value: 'm', label: 'Mittel' },
+          { value: 'l', label: 'Gross' },
+        ],
+        default: 'm',
+        showIf: { field: 'layout', equals: ['grid', 'mosaic'] },
+      },
+      { key: 'lightbox', type: 'boolean', label: 'Beim Klick gross zeigen' },
+    ],
+    defaults: { images: [], layout: 'grid', size: 'm', lightbox: true },
   },
   filter: {
     kind: 'filter',
@@ -1155,6 +1194,13 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { status: p.status !== false };
     case 'terms':
       return { collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : '' };
+    case 'gallery':
+      return {
+        images: Array.isArray(p.images) ? p.images.filter((x): x is string => typeof x === 'string' && MEDIA.test(x)).slice(0, 60) : [],
+        layout: one(p.layout, ['grid', 'mosaic', 'strip'] as const, 'grid'),
+        size: one(p.size, ['s', 'm', 'l'] as const, 'm'),
+        lightbox: p.lightbox !== false,
+      };
     case 'filter':
       return {
         target: typeof p.target === 'string' && ID.test(p.target) ? p.target : '',
@@ -1356,6 +1402,7 @@ export function elementsMedia(els: El[]): string[] {
   const out: string[] = [];
   walkEls(els, (el) => {
     if (el.kind === 'image' && typeof el.props.image === 'string') out.push(el.props.image);
+    if (el.kind === 'gallery' && Array.isArray(el.props.images)) out.push(...el.props.images.filter((x): x is string => typeof x === 'string'));
     if (el.kind === 'video' && typeof el.props.poster === 'string') out.push(el.props.poster);
   });
   return out;

@@ -199,12 +199,14 @@ const propLabel = (el: El, prop: string): string => {
   if (prop === 'href') return t('Link');
   if (prop === 'image') return t('Bild');
   if (prop === 'to') return t('Bis');
+  if (prop === 'images') return t('Bilder');
   if (prop === 'html') return t('Text');
   return el.kind === 'button' ? t('Beschriftung') : t('Text');
 };
 
 /** Fields of the content type that fit a prop: texts for texts, pictures for pictures, addresses for links. */
 function bindOptions(c: CollectionDef, kind: ElKind, prop: string): { value: string; label: string }[] {
+  if (prop === 'images') return c.fields.filter((f) => f.type === 'images' || f.type === 'image').map((f) => ({ value: `field:${f.key}`, label: tl(f.label) }));
   if (prop === 'to')
     return [
       { value: 'date', label: t('Datum') },

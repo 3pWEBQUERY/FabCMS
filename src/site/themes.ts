@@ -405,9 +405,10 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .fig img{border-radius:var(--img-radius,0);width:100%}
 
 /* gallery */
-.gal-grid{display:grid;gap:var(--gal-gap,.75rem);grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))}
+.gal-grid{display:grid;gap:var(--gal-gap,.75rem);grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--gal-min,15rem)),1fr))}
 .gal-grid img{aspect-ratio:1;object-fit:cover;width:100%}
-.gal-mosaic{columns:3 14rem;column-gap:var(--gal-gap,.75rem)}
+.gal-mosaic{columns:3 var(--gal-min,14rem);column-gap:var(--gal-gap,.75rem)}
+.gal figure{margin:0}.gal-mosaic figure{margin-bottom:var(--gal-gap,.75rem);break-inside:avoid}
 .gal-mosaic a{display:block;margin-bottom:var(--gal-gap,.75rem);break-inside:avoid}
 .gal-strip{display:grid;grid-auto-flow:column;grid-auto-columns:min(78%,26rem);gap:var(--gal-gap,.75rem);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:.75rem;scrollbar-width:thin}
 .gal-strip a{scroll-snap-align:start}.gal-strip img{aspect-ratio:4/5;object-fit:cover;width:100%}

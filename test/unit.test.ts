@@ -51,6 +51,7 @@ import {
   EL_DEFS,
   elementsCss,
   elementsHeadings,
+  elementsMedia,
   elementsText,
   findEl,
   insertEl,
@@ -2171,6 +2172,10 @@ describe('Countdown, Inhaltsverzeichnis, Teilen, Lesefortschritt', () => {
     expect(share.props.networks).toEqual(['copy', 'mail']);
     expect(sanitizeEls([{ id: 'n5', kind: 'share', props: { networks: ['tiktok'] } }])[0].props.networks).toEqual(['copy', 'mail']);
     expect(bar.props).toEqual({ place: 'top', size: 12 });
+    const [gal] = sanitizeEls([{ id: 'g1', kind: 'gallery', props: { images: ['abc', '../x', 3], layout: 'wall', size: 'xl' }, bind: { images: 'field:images' } }]);
+    expect(gal.props).toEqual({ images: ['abc'], layout: 'grid', size: 'm', lightbox: true });
+    expect(gal.bind).toEqual({ images: 'field:images' });
+    expect(elementsMedia([gal])).toEqual(['abc']);
     expect(bindKind('to')).toBe('date');
   });
 });

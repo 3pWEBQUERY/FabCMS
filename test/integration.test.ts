@@ -4084,6 +4084,53 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, shop, ...made, ...prods]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('shows a gallery of chosen pictures, or of the entry, opening them large', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const upload = async (name: string, color: string) => {
+      const png = await sharp({ create: { width: 640, height: 480, channels: 3, background: color } })
+        .png()
+        .toBuffer();
+      const form = new FormData();
+      form.append('file', new File([new Uint8Array(png)], name, { type: 'image/png' }));
+      const r = await app.request('/api/media', { method: 'POST', body: form, headers: { 'X-Nova': '1', cookie } });
+      return (await r.json()).media[0];
+    };
+    const a = await upload('rot.png', '#c33');
+    const b = await upload('blau.png', '#33c');
+    const product = (await req('POST', '/api/entries', { collection: 'products', slug: 'gal-tasse', data: { title: 'Galerie-Tasse', price: 1500, images: [b.id, a.id] } })).data
+      .entry;
+    await req('POST', `/api/entries/${product.id}/publish`, {});
+    const els = [
+      { id: 'gfix', kind: 'gallery', props: { images: [a.id, b.id, 'kein/pfad'], layout: 'mosaic', size: 's' } },
+      { id: 'gnolb', kind: 'gallery', props: { images: [a.id], lightbox: false } },
+      {
+        id: 'gloop',
+        kind: 'list',
+        props: { collection: 'products', limit: 1, sort: 'title', rules: [{ field: 'title', is: 'Galerie-Tasse' }] },
+        children: [{ id: 'gcard', kind: 'gallery', props: { layout: 'strip' }, bind: { images: 'field:images' } }],
+      },
+    ];
+    const page = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'galerie-test', data: { title: 'Galerie', blocks: [{ id: 'gb', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    // Invalid ids are dropped on saving.
+    expect(page.data.blocks[0].props.els[0].props.images).toEqual([a.id, b.id]);
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/galerie-test', undefined, anon)).data as string;
+    expect(html).toMatch(/<div class="el el-gallery e-gfix gal gal-mosaic" id="e-gfix" style="--gal-min:9rem" data-lightbox><a href="[^"]+1920\.webp"/);
+    expect(html).toMatch(/class="el el-gallery e-gnolb gal gal-grid" id="e-gnolb" style="--gal-min:15rem"><figure>/);
+    // In the loop: the product's own photos, in their order.
+    const loop = html.slice(html.indexOf('id="e-gloop"'));
+    const order = [...loop.slice(0, loop.indexOf('</div></div>')).matchAll(/\/media\/([0-9a-f-]{36})\//g)].map((m) => m[1]);
+    expect([...new Set(order)]).toEqual([b.id, a.id]);
+    expect(loop).toContain('gal gal-strip');
+    // The page's pictures count as used.
+    const usage = (await req('GET', `/api/media/${a.id}/usage`)).data.usage as { id: string }[];
+    expect(usage.map((u) => u.id)).toContain(page.id);
+    for (const e of [page, product]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);
