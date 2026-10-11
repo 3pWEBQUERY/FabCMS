@@ -982,4 +982,17 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Page «{name}» created as a draft. Publish it so the link works on the website.',
   },
   'Neue Seite «{name}» anlegen': { fr: 'Créer la page «{name}»', it: 'Crea la pagina «{name}»', en: 'Create page «{name}»' },
+  '«{name}» liess sich nicht veröffentlichen: {error}': {
+    fr: 'Impossible de publier «{name}» : {error}',
+    it: 'Impossibile pubblicare «{name}»: {error}',
+    en: 'Could not publish «{name}»: {error}',
+  },
+  'Verlinkte Entwürfe': { fr: 'Brouillons liés', it: 'Bozze collegate', en: 'Linked drafts' },
+  'Verlinkt sind {names} – noch nicht veröffentlicht. Ohne sie führen diese Links auf der Website ins Leere.': {
+    fr: 'Les liens mènent à {names} – pas encore publiés. Sans eux, ces liens ne mènent nulle part sur le site.',
+    it: 'I link portano a {names} – non ancora pubblicati. Senza di loro, questi link sul sito non portano da nessuna parte.',
+    en: 'This links to {names} – not published yet. Without them, these links lead nowhere on the website.',
+  },
+  'Nur diesen Inhalt': { fr: 'Seulement ce contenu', it: 'Solo questo contenuto', en: 'Only this content' },
+  'Alle zusammen veröffentlichen': { fr: 'Tout publier ensemble', it: 'Pubblica tutto insieme', en: 'Publish all together' },
 };

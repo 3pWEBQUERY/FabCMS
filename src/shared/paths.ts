@@ -34,3 +34,25 @@ export function pageForLink(typed: string): { title: string; slug: string } | nu
   const words = path === null ? s.replace(/\s+/g, ' ') : (slug.split('/').pop() ?? slug).replace(/-/g, ' ');
   return { title: (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 120), slug };
 }
+
+/**
+ * Addresses on this website a content links to: link fields, buttons, menus
+ * and links inside its texts – without parameters, anchors and a closing slash.
+ */
+export function linkedPaths(data: unknown): string[] {
+  const out = new Set<string>();
+  const add = (raw: string) => {
+    const path = raw.split(/[?#]/)[0].replace(/(.)\/+$/, '$1');
+    if (/^\/(?!\/)[^\s"'<>]*$/.test(path)) out.add(path);
+  };
+  const walk = (v: unknown, depth: number): void => {
+    if (depth > 40) return;
+    if (typeof v === 'string') {
+      if (v.startsWith('/')) add(v);
+      else if (v.includes('href=')) for (const m of v.matchAll(/href="(\/[^"]*)"/g)) add(m[1].replace(/&amp;/g, '&'));
+    } else if (Array.isArray(v)) for (const x of v) walk(x, depth + 1);
+    else if (v && typeof v === 'object') for (const x of Object.values(v)) walk(x, depth + 1);
+  };
+  walk(data, 0);
+  return [...out];
+}

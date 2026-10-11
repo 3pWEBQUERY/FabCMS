@@ -30,7 +30,7 @@ import { getSettings, bumpGeneration } from '../settings';
 import { createContext, renderPage, templateContext } from '../../site/render';
 import { HEADED_BLOCKS, renderBlocks } from '../../site/blocks';
 import { env } from '../env';
-import { entryPath } from '../../shared/paths';
+import { entryPath, linkedPaths, matchRoute } from '../../shared/paths';
 import type { Lang } from '../../shared/i18n';
 import { filterFields, paramsToFilter, type ListFilter } from '../../shared/listfilter';
 import {
@@ -558,6 +558,30 @@ export function contentApi(app: Hono<AppEnv>) {
   });
 
   /* ---------- revisions ---------- */
+
+  // Before publishing: what this content links to that is not on the website yet (pages and other entries with an address).
+  app.get('/api/entries/:id/draft-links', async (c) => {
+    const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
+    const e = await getEntry(c.req.param('id'));
+    assertCanEdit(user, e);
+    const paths = linkedPaths(e.data).slice(0, 300);
+    if (!paths.length) return c.json({ entries: [] });
+    const wanted: { collection: string; slug: string }[] = [];
+    for (const col of await activeCollections()) {
+      for (const p of paths) {
+        const slug = col.id === 'pages' ? p.slice(1) : col.route ? matchRoute(col.route, p) : null;
+        if (slug !== null) wanted.push({ collection: col.id, slug });
+      }
+    }
+    if (!wanted.length) return c.json({ entries: [] });
+    const rows = await sql<{ id: string; collection: string; slug: string; title: string; status: string }[]>`
+      select e.id, e.collection, e.slug, coalesce(e.data->>'title', '') as title, e.status
+      from entries e
+      join jsonb_to_recordset(${json(wanted)}) as w(collection text, slug text) on w.collection = e.collection and w.slug = e.slug
+      where e.status in ('draft', 'review') and e.id <> ${e.id}
+      order by title limit 20`;
+    return c.json({ entries: rows });
+  });
 
   app.get('/api/entries/:id/revisions', async (c) => {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');

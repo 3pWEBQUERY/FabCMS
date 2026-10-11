@@ -4203,6 +4203,31 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     resetRateLimits();
   });
 
+  it('names the drafts a content links to before it goes live', async () => {
+    const draft = async (collection: string, title: string) => (await req('POST', '/api/entries', { collection, data: { title } })).data.entry as { id: string; slug: string };
+    const team = await draft('pages', 'Team Entwurf');
+    const prices = await draft('pages', 'Preise Entwurf');
+    const live = await draft('pages', 'Schon online');
+    await req('POST', `/api/entries/${live.id}/publish`, {});
+    const post = await draft('posts', 'Beitrag Entwurf');
+    const els = [
+      { id: 'b1', kind: 'button', props: { label: 'Team', href: `/${team.slug}?von=start#oben` } },
+      {
+        id: 't1',
+        kind: 'text',
+        props: { html: `<p>Siehe <a href="/${prices.slug}/">Preise</a>, <a href="/${live.slug}">online</a> und <a href="https://example.ch/${team.slug}">extern</a>.</p>` },
+      },
+      { id: 'b2', kind: 'button', props: { label: 'Blog', href: `/journal/${post.slug}` } },
+    ];
+    const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Mit Links', blocks: [{ id: 'dl', type: 'layout', props: { els } }] } })).data.entry;
+    const names = async () => ((await req('GET', `/api/entries/${page.id}/draft-links`)).data.entries as { title: string }[]).map((x) => x.title).sort();
+    // Button with parameters and anchor, a link in a text with a closing slash, a post by its address – not what is online or elsewhere.
+    expect(await names()).toEqual(['Beitrag Entwurf', 'Preise Entwurf', 'Team Entwurf']);
+    await req('POST', `/api/entries/${team.id}/publish`, {});
+    expect(await names()).toEqual(['Beitrag Entwurf', 'Preise Entwurf']);
+    for (const x of [team, prices, live, post, page]) await req('DELETE', `/api/entries/${x.id}`);
+  });
+
   it('defines own roles with exactly the ticked rights, and nobody hands out more than they hold', async () => {
     expect((await req('POST', '/api/roles', { name: 'Zu viel', caps: ['data.sql'] })).status).toBe(403);
     expect((await req('POST', '/api/roles', { name: 'Unsinn', caps: ['fly'] })).status).toBe(400);
