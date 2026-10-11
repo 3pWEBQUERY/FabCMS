@@ -168,6 +168,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [device, setDevice] = useState<Device>('desktop');
   // Any width by dragging the canvas edge; the screen size being designed follows the width.
   const [customWidth, setCustomWidth] = useState<number | null>(null);
+  // Elements hidden in the editor only (the eye in the layers) – never saved.
+  const [peek, setPeek] = useState<Set<string>>(new Set());
   // The site's content width and columns over the canvas; remembered in this browser.
   const [grid, setGrid] = useState(() => {
     try {
@@ -522,6 +524,10 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const motionChanged = JSON.stringify(before?.style?.motion) !== JSON.stringify(b.style?.motion);
     scheduleBlockRender(b.id, motionChanged && b.style?.motion?.enter ? () => postToCanvas(frame.current, { t: 'motion-play', id: b.id }) : undefined);
   };
+
+  useEffect(() => {
+    if (ready) postToCanvas(frame.current, { t: 'peek', ids: [...peek] });
+  }, [peek, ready, canvasKey]);
 
   useEffect(() => {
     if (ready) postToCanvas(frame.current, { t: 'grid', on: grid });
@@ -989,6 +995,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     const info = b && findEl(elsOf(b), elId);
     if (!info) return;
     if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
+    if (info.el.pinned) return toast(t('«{name}» ist gesperrt – im Aufbau entsperren, um es zu entfernen.', { name: elLabel(info.el) }));
     changeEls(blockId, (els) => removeEl(els, elId), info.parent?.id ?? null);
     toast(t('«{name}» entfernt.', { name: elLabel(info.el) }), { action: { label: t('Rückgängig'), run: () => doc.undo() } });
   };
@@ -1571,6 +1578,15 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                         },
                         onHoverEl: (elId) => postToCanvas(frame.current, { t: 'hover-el', el: elId }),
                         onMoveEl: (bid, elId, parent, index) => changeEls(bid, (els) => onCanvasPlace(moveEl(els, elId, parent, index), elId), elId),
+                        peek,
+                        onPeek: (elId) =>
+                          setPeek((s) => {
+                            const n = new Set(s);
+                            if (n.has(elId)) n.delete(elId);
+                            else n.add(elId);
+                            return n;
+                          }),
+                        onPin: (bid, elId) => changeEls(bid, (els) => updateEl(els, elId, (x) => ({ ...x, pinned: x.pinned ? undefined : true })), elId),
                       }}
                     />
                     <button

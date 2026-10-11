@@ -65,6 +65,8 @@ export interface El {
   act?: { do: ElAct; target: string };
   /** Not shown until a button shows it. */
   hidden?: boolean;
+  /** Locked in the layers: the canvas passes it over, so it can't be moved or deleted by accident. */
+  pinned?: boolean;
 }
 
 export const EL_ACTS = ['toggle', 'show', 'hide'] as const;
@@ -861,6 +863,7 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
     )
       el.act = { do: raw.act.do as ElAct, target: raw.act.target };
     if (raw.hidden === true) el.hidden = true;
+    if (raw.pinned === true) el.pinned = true;
     if (isObj(raw.bind)) {
       const bind = Object.fromEntries(Object.entries(raw.bind).filter(([k, v]) => BINDABLE[kind]?.includes(k) && typeof v === 'string' && BIND.test(v)));
       if (Object.keys(bind).length) el.bind = bind as Record<string, string>;

@@ -877,7 +877,7 @@ function elAttrs(el: El, ctx: RenderContext, rc: ElRender, box = el.kind === 'bo
   // Hidden until a button shows it – in the editor it stays in view, marked, so it can be designed.
   const hidden = el.hidden ? (rc.edit ? ' data-nova-hidden' : ' hidden') : '';
   return raw(
-    `${!rc.copy && (rc.edit || !rc.list) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
+    `${!rc.copy && (rc.edit || !rc.list) ? ` id="e-${el.id}"` : ''}${handles ? ` data-nova-el="${el.id}" data-nova-kind-el="${el.kind}"${el.pinned ? ' data-nova-pinned' : ''}` : ''}${handles && box ? ` data-nova-box="${el.id}"` : ''}${
       motion ? ` ${motion}${el.motion?.enter ? ' data-self' : ''}` : ''
     }${hidden}${rc.extra ?? ''}`,
   );

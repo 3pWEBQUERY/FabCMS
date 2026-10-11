@@ -350,6 +350,11 @@ export interface LayerActions {
   onSelectEl: (blockId: string, elId: string) => void;
   onHoverEl: (elId: string | null) => void;
   onMoveEl: (blockId: string, elId: string, parent: string | null, index: number) => void;
+  /** Hidden in the editor only, for this visit. */
+  peek: Set<string>;
+  onPeek: (elId: string) => void;
+  /** Locked against moving and deleting on the canvas (saved with the element). */
+  onPin: (blockId: string, elId: string) => void;
 }
 
 export function StructurePanel({
@@ -427,6 +432,9 @@ export function StructurePanel({
                   onHover={layers.onHoverEl}
                   onMove={(id, parent, index) => layers.onMoveEl(b.id, id, parent, index)}
                   locked={Boolean(locked)}
+                  peek={layers.peek}
+                  onPeek={layers.onPeek}
+                  onPin={(id) => layers.onPin(b.id, id)}
                 />
               )}
             </div>

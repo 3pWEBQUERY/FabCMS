@@ -671,4 +671,22 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Wie in der Mediathek': { fr: 'Comme dans la médiathèque', it: 'Come nella mediateca', en: 'As in the media library' },
   'Abstände zur Auswahl messen': { fr: 'Mesurer les distances à la sélection', it: 'Misura le distanze dalla selezione', en: 'Measure distances to the selection' },
   'Darauf zeigen': { fr: 'Pointer dessus', it: 'Puntare', en: 'Point at it' },
+  '«{name}» ist gesperrt – im Aufbau entsperren, um es zu entfernen.': {
+    fr: '« {name} » est verrouillé – déverrouille-le dans la structure pour le supprimer.',
+    it: '«{name}» è bloccato – sbloccalo nella struttura per rimuoverlo.',
+    en: '“{name}” is locked – unlock it in the structure to remove it.',
+  },
+  'Im Editor wieder zeigen': { fr: "Réafficher dans l'éditeur", it: "Mostra di nuovo nell'editor", en: 'Show again in the editor' },
+  'Im Editor ausblenden': { fr: "Masquer dans l'éditeur", it: "Nascondi nell'editor", en: 'Hide in the editor' },
+  'Im Editor ausblenden – die Website bleibt, wie sie ist': {
+    fr: "Masquer dans l'éditeur – le site reste tel quel",
+    it: "Nascondi nell'editor – il sito resta com'è",
+    en: 'Hide in the editor – the website stays as it is',
+  },
+  Entsperren: { fr: 'Déverrouiller', it: 'Sblocca', en: 'Unlock' },
+  'Sperren – auf der Fläche nicht mehr wählbar, verschiebbar oder löschbar': {
+    fr: 'Verrouiller – plus sélectionnable, déplaçable ni supprimable sur la page',
+    it: 'Blocca – non più selezionabile, spostabile o eliminabile sulla pagina',
+    en: 'Lock – no longer selectable, movable or deletable on the canvas',
+  },
 };

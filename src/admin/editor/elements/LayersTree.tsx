@@ -27,6 +27,9 @@ export function LayersTree({
   onHover,
   onMove,
   locked,
+  peek,
+  onPeek,
+  onPin,
 }: {
   els: El[];
   selected: string | null;
@@ -34,6 +37,9 @@ export function LayersTree({
   onHover: (id: string | null) => void;
   onMove: (id: string, parent: string | null, index: number) => void;
   locked: boolean;
+  peek: Set<string>;
+  onPeek: (id: string) => void;
+  onPin: (id: string) => void;
 }) {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<string | null>(null);
@@ -88,7 +94,7 @@ export function LayersTree({
             role="treeitem"
             aria-selected={selected === el.id}
             aria-expanded={kids ? !closed.has(el.id) : undefined}
-            className={`layer ${mark} ${drag === el.id ? 'dragging' : ''}`}
+            className={`layer ${mark} ${drag === el.id ? 'dragging' : ''} ${peek.has(el.id) ? 'peeked' : ''}`}
             style={{ paddingLeft: `${0.35 + depth * 0.95}rem` }}
             onPointerEnter={() => onHover(el.id)}
           >
@@ -116,7 +122,29 @@ export function LayersTree({
               <span className="layer-name">{elLabel(el)}</span>
               {text && <span className="layer-text">{text}</span>}
             </button>
+            <button
+              type="button"
+              className={`layer-flag ${peek.has(el.id) ? 'on' : ''}`}
+              aria-pressed={peek.has(el.id)}
+              aria-label={peek.has(el.id) ? t('Im Editor wieder zeigen') : t('Im Editor ausblenden')}
+              title={peek.has(el.id) ? t('Im Editor wieder zeigen') : t('Im Editor ausblenden – die Website bleibt, wie sie ist')}
+              onClick={() => onPeek(el.id)}
+            >
+              <Icon name={peek.has(el.id) ? 'eyeOff' : 'eye'} size="s" />
+            </button>
             {!locked && (
+              <button
+                type="button"
+                className={`layer-flag ${el.pinned ? 'on' : ''}`}
+                aria-pressed={Boolean(el.pinned)}
+                aria-label={el.pinned ? t('Entsperren') : t('Sperren')}
+                title={el.pinned ? t('Entsperren') : t('Sperren – auf der Fläche nicht mehr wählbar, verschiebbar oder löschbar')}
+                onClick={() => onPin(el.id)}
+              >
+                <Icon name={el.pinned ? 'lock' : 'unlock'} size="s" />
+              </button>
+            )}
+            {!locked && !el.pinned && (
               <span
                 className="layer-grip"
                 aria-hidden="true"

@@ -6172,6 +6172,33 @@ body.scrubbing.v * {
   color: var(--ink-3);
   font-size: var(--t-xs);
 }
+/* eye and lock in the layers: on hover, always when set */
+.layer-flag {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  opacity: 0;
+}
+.layer:hover .layer-flag,
+.layer-flag:focus-visible,
+.layer-flag.on {
+  opacity: 1;
+}
+.layer-flag:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+.layer.peeked .layer-main {
+  opacity: 0.5;
+}
 .layer-grip {
   flex: none;
   display: grid;
@@ -6188,7 +6215,8 @@ body.scrubbing.v * {
   opacity: 1;
 }
 @media (hover: none) {
-  .layer-grip {
+  .layer-grip,
+  .layer-flag {
     opacity: 1;
   }
 }

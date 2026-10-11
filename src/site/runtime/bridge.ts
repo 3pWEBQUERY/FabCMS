@@ -49,6 +49,8 @@ style.textContent = `
 .nova-shift{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 a[href]{cursor:default}
 [data-nova-el]{transition:outline-color .12s}
+[data-nova-peek]{display:none!important}
+[data-nova-pinned]{cursor:default}
 [data-nova-hidden]{outline:2px dashed rgba(232,64,138,.55)!important;outline-offset:2px}
 [data-nova-hidden]:not(img):not(hr)::before{content:"Versteckt, bis ein Knopf es zeigt";display:block;margin-bottom:.35rem;font:600 11px/1.3 system-ui,sans-serif;color:#c22f73}
 [data-nova-el-hover]{outline:1px dashed rgba(43,89,195,.7)!important;outline-offset:-1px}
@@ -299,6 +301,9 @@ function restoreWidgets(block: HTMLElement, st: WidgetState) {
 
 let selectedEl: string | null = null;
 const elEl = (id: string) => main.querySelector<HTMLElement>(`[data-nova-el="${CSS.escape(id)}"]`);
+// Pinned elements (locked in the layers) are passed over on the canvas: picked in the layers, never moved by accident.
+const PICKABLE = '[data-nova-el]:not([data-nova-pinned])';
+const pinned = (el: Element | null | undefined) => Boolean(el?.hasAttribute('data-nova-pinned'));
 
 /** More elements of the same canvas, added with Shift-click: moved, nudged and aligned together. */
 const multi = new Set<string>();
@@ -337,6 +342,17 @@ function selectEl(id: string | null, notify: boolean) {
     post({ t: 'select-el', block: block.dataset.novaBlock, el: id, rect: rectOf(el), blockRect: rectOf(block) });
   } else post({ t: 'select-el', block: selected, el: null });
 }
+
+/* ---------- elements hidden in the editor only (the eye in the layers) ---------- */
+
+let peek = new Set<string>();
+function applyPeek() {
+  main.querySelectorAll('[data-nova-peek]').forEach((x) => x.removeAttribute('data-nova-peek'));
+  for (const id of peek) elEl(id)?.setAttribute('data-nova-peek', '');
+  sendRect();
+}
+// Blocks rendered again come without the mark: it goes back on.
+new MutationObserver(() => peek.size && [...peek].some((id) => elEl(id) && !elEl(id)!.hasAttribute('data-nova-peek')) && applyPeek()).observe(main, { childList: true, subtree: true });
 
 /* ---------- measuring: hold Alt and point at something to see how far it is from the selection ---------- */
 
@@ -430,7 +446,7 @@ function dropPlace(e: DragEvent): { block: HTMLElement; el: HTMLElement | null; 
   const t = e.target instanceof Element ? e.target : null;
   const block = t?.closest<HTMLElement>('[data-nova-block]');
   if (!block || lockOf(block) !== 'none') return null;
-  const el = t!.closest<HTMLElement>('[data-nova-el]');
+  const el = t!.closest<HTMLElement>(PICKABLE);
   if (!el || !block.contains(el)) return { block, el: null, mode: block.dataset.novaType === 'layout' ? 'into' : 'block', box: block.getBoundingClientRect() };
   const kind = el.dataset.novaKindEl;
   const mode: DropMode = kind === 'image' ? 'replace' : kind === 'box' || kind === 'canvas' ? 'into' : 'after';
@@ -487,7 +503,7 @@ const paddingOf = (el: HTMLElement): Record<Side, number> => {
 function padTarget(): HTMLElement | null {
   const el = selectedEl ? elEl(selectedEl) : selected ? blockEl(selected) : null;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
-  if (!el || !block || lockOf(block) !== 'none' || elDrag || free) return null;
+  if (!el || !block || lockOf(block) !== 'none' || pinned(el) || elDrag || free) return null;
   const r = el.getBoundingClientRect();
   return r.width >= 48 && r.height >= 32 ? el : null;
 }
@@ -570,8 +586,8 @@ function placeEgrip() {
   const el = selectedEl ? elEl(selectedEl) : null;
   const block = el?.closest<HTMLElement>('[data-nova-block]');
   // Locked blocks keep their layout in the Studio.
-  eresize.classList.toggle('on', Boolean(el && block && lockOf(block) === 'none' && onCanvas(el)));
-  if (!el || !block || lockOf(block) !== 'none') return egrip.classList.remove('on');
+  eresize.classList.toggle('on', Boolean(el && block && lockOf(block) === 'none' && onCanvas(el) && !pinned(el)));
+  if (!el || !block || lockOf(block) !== 'none' || pinned(el)) return egrip.classList.remove('on');
   const r = el.getBoundingClientRect();
   eresize.style.top = `${r.bottom + scrollY - 6}px`;
   eresize.style.left = `${r.right - 6}px`;
@@ -586,7 +602,7 @@ d.addEventListener(
   'pointermove',
   (e) => {
     if (elDrag) return;
-    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-nova-el]') ?? null;
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>(PICKABLE) ?? null;
     if (el === hoverEl) return;
     hoverEl?.removeAttribute('data-nova-el-hover');
     hoverEl = el;
@@ -822,7 +838,7 @@ d.addEventListener(
     const t = e.target as HTMLElement;
     // Any element of the selection drags all of it along.
     const el = group().find((x) => x.contains(t));
-    if (!el || e.button !== 0 || e.shiftKey || !onCanvas(el) || t.closest('[data-nova-field]')) return;
+    if (!el || e.button !== 0 || e.shiftKey || !onCanvas(el) || pinned(el) || t.closest('[data-nova-field]')) return;
     const block = el.closest<HTMLElement>('[data-nova-block]');
     if (block && lockOf(block) === 'none') startFree(e, el, 'move');
   },
@@ -832,7 +848,7 @@ d.addEventListener(
 /** Arrow keys move the selection on a canvas by half a percent, with Shift by five. */
 function nudge(e: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'metaKey' | 'ctrlKey'>): boolean {
   const els = group();
-  if (!els.length || !onCanvas(els[0]) || e.altKey || e.metaKey || e.ctrlKey) return false;
+  if (!els.length || !onCanvas(els[0]) || els.some(pinned) || e.altKey || e.metaKey || e.ctrlKey) return false;
   const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
   if (!dir) return false;
   const cr = els[0].parentElement!.getBoundingClientRect();
@@ -878,7 +894,7 @@ d.addEventListener(
       return post({ t: 'global', which: global.dataset.novaGlobal });
     }
     const block = t.closest<HTMLElement>('[data-nova-block]');
-    const el = t.closest<HTMLElement>('[data-nova-el]');
+    const el = t.closest<HTMLElement>(PICKABLE);
     const first = selectedEl ? elEl(selectedEl) : null;
     // The click that ends a drag or a resize changes nothing.
     if (afterDrag) {
@@ -911,7 +927,7 @@ d.addEventListener('contextmenu', (e) => {
   const block = t.closest<HTMLElement>('[data-nova-block]');
   if (!block) return;
   e.preventDefault();
-  const el = t.closest<HTMLElement>('[data-nova-el]');
+  const el = t.closest<HTMLElement>(PICKABLE);
   if (el && block.contains(el)) {
     select(block.dataset.novaBlock!, false);
     selectEl(el.dataset.novaEl!, true);
@@ -1649,6 +1665,10 @@ addEventListener('message', (e) => {
       d.querySelector(`[data-nova-global="${m.which === 'footer' ? 'footer' : 'header'}"]`)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
       break;
     }
+    case 'peek':
+      peek = new Set((m.ids as string[]) ?? []);
+      applyPeek();
+      break;
     case 'grid':
       shadow.querySelector('.grid')?.classList.toggle('on', Boolean(m.on));
       break;

@@ -3485,6 +3485,8 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
       { id: 'iatitle', kind: 'heading', props: { text: 'Titel' }, act: { do: 'toggle', target: 'iapanel' } },
       { id: 'iabad', kind: 'button', props: { label: 'Kaputt' }, act: { do: 'explode', target: 'iapanel' } },
       { id: 'iaself', kind: 'button', props: { label: 'Selbst' }, act: { do: 'hide', target: 'iaself' } },
+      // Locked in the layers: marked for the editor only.
+      { id: 'iapin', kind: 'text', props: { html: '<p>Fest</p>' }, pinned: true },
     ];
     const page = (await req('POST', '/api/entries', { collection: 'pages', data: { title: 'Mehr', blocks: [{ id: 'ialay', type: 'layout', props: { els } }] } })).data.entry;
     const saved = page.data.blocks[0].props.els;
@@ -3502,6 +3504,9 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     // In the editor it stays visible to be designed, marked instead of hidden.
     const canvas = await req('POST', '/api/render', { entryId: page.id, data: page.data, blockId: 'ialay' });
     expect(canvas.data.html).toMatch(/data-nova-el="iapanel"[^>]*data-nova-hidden/);
+    expect(canvas.data.html).toContain('data-nova-el="iapin" data-nova-kind-el="text" data-nova-pinned');
+    expect(html).not.toContain('data-nova-pinned');
+    expect(saved[5].pinned).toBe(true);
     expect(canvas.data.html).not.toMatch(/data-nova-el="iapanel"[^>]* hidden[ >]/);
     await req('DELETE', `/api/entries/${page.id}`);
   });
