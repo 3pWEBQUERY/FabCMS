@@ -143,6 +143,8 @@ export interface DesignPanelProps {
   scheme?: ReactNode;
   /** Blocks: a video or slideshow behind the content (not per screen size). */
   bgMedia?: ReactNode;
+  /** Blocks: shape dividers along the top and bottom edge. */
+  dividers?: ReactNode;
   rhythm?: ReactNode;
   visibility?: ReactNode;
   pro: boolean;
@@ -152,7 +154,7 @@ export interface DesignPanelProps {
   savedStyle?: ReactNode;
 }
 
-export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, bgMedia, rhythm, visibility, pro, kind, savedStyle }: DesignPanelProps) {
+export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, bgMedia, dividers, rhythm, visibility, pro, kind, savedStyle }: DesignPanelProps) {
   const toast = useToast();
   const preview = useColorPreview();
   const layer: DesignBp | 'hover' = state === 'hover' ? 'hover' : bp;
@@ -677,6 +679,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
         )}
         {color('overlay', t('Überlagerung'))}
         {block && !hover && bgMedia}
+        {block && !hover && dividers}
       </DesignSection>
 
       <DesignSection id="border" title={t('Rahmen & Ecken')} icon="radius" count={count('border')}>

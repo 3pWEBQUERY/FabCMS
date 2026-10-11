@@ -4088,7 +4088,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, shop, ...made, ...prods]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
-  it('puts a slideshow or a video behind a section, under its overlay', async () => {
+  it('puts a slideshow or a video behind a section, under its overlay, and shape dividers along its edges', async () => {
     const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
     const upload = async (name: string, color: string) => {
       const png = await sharp({ create: { width: 640, height: 400, channels: 3, background: color } })
@@ -4131,6 +4131,19 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     const video = html.slice(html.indexOf('id="b-bgv"') - 80, html.indexOf('id="b-bgv"') + 400);
     expect(video).not.toContain('has-bgm');
     expect(video).not.toContain('<video');
+    // Shape dividers: saved cleaned, drawn after the moving background and before the content.
+    const withDividers = structuredClone(page.data);
+    withDividers.blocks[0].style.dividers = { bottom: { shape: 'wave', height: 90, color: '$surface' }, top: { shape: 'blob' } };
+    const saved = (await req('PUT', `/api/entries/${page.id}`, { data: withDividers })).data.entry;
+    expect(saved.data.blocks[0].style.dividers).toEqual({ bottom: { shape: 'wave', height: 90, color: '$surface' } });
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const again = (await req('GET', '/bewegter-hintergrund', undefined, { cookies: new Map() })).data as string;
+    const start = again.indexOf('id="b-bgs"');
+    const sec = again.slice(again.lastIndexOf('<section', start), again.indexOf('Über der Diashow', start));
+    expect(sec).toContain('has-div');
+    expect(sec).toContain('<div class="bdiv bdiv-bottom" aria-hidden="true" style="--dh:90px;--dc:var(--surface)">');
+    expect(sec.indexOf('class="bgm')).toBeLessThan(sec.indexOf('class="bdiv'));
+    expect(sec).not.toContain('bdiv-top');
     await req('DELETE', `/api/entries/${page.id}`);
   });
 

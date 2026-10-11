@@ -12,6 +12,7 @@ import type { Block, CollectionDef } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath, pageForLink } from '../src/shared/paths';
 import { bgMediaIds, cleanBgMedia, slidesCss } from '../src/shared/bg-media';
+import { cleanDividers, dividerHtml, DIVIDER_SHAPES } from '../src/shared/dividers';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
 import { csvEscape } from '../src/server/lib/http';
 import { html, raw } from '../src/site/html';
@@ -2043,6 +2044,31 @@ describe('Bewegter Hintergrund', () => {
     // One picture: standing still, or a single slow zoom.
     expect(slidesCss('#b-x', 'bx', 1, 6, 'fade')).toBe('');
     expect(slidesCss('#b-x', 'bx', 1, 6, 'kenburns')).toContain('12s ease-out both');
+  });
+});
+
+describe('Formtrenner', () => {
+  it('keeps known shapes with a sensible height and a real colour', () => {
+    expect(cleanDividers({ bottom: { shape: 'wave', height: 2000, color: 'url(x)', flip: 'ja', front: true } })).toEqual({ bottom: { shape: 'wave', height: 320, front: true } });
+    expect(cleanDividers({ top: { shape: 'tilt', height: 'hoch', color: '$surface', invert: true } })).toEqual({
+      top: { shape: 'tilt', height: 80, color: '$surface', invert: true },
+    });
+    expect(cleanDividers({ top: { shape: 'stern' }, bottom: null })).toBeUndefined();
+    expect(cleanDividers('wave')).toBeUndefined();
+  });
+
+  it('draws each shape as an SVG in the neighbour’s colour, mirrored or turned on request', () => {
+    for (const shape of DIVIDER_SHAPES)
+      expect(dividerHtml('bottom', { shape, height: 60 })).toMatch(
+        /^<div class="bdiv bdiv-bottom" aria-hidden="true" style="--dh:60px"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" focusable="false"><path d="M[\d.,LCVHMZ ]+"/,
+      );
+    const html = dividerHtml('top', { shape: 'waves', height: 120, color: '$accent/50', flip: true, invert: true, front: true });
+    expect(html).toContain('class="bdiv bdiv-top front"');
+    expect(html).toContain('--dc:color-mix(in srgb,var(--accent) 50%,transparent)');
+    expect(html).toContain('--dt:scale(-1,-1)');
+    expect(html.match(/<path /g)?.length).toBe(3);
+    // «Hintergrund» means the page's, not the section's own colour (which also sets --bg).
+    expect(dividerHtml('bottom', { shape: 'wave', height: 60, color: '$bg' })).toContain('--dc:var(--page-bg)');
   });
 });
 

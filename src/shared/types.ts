@@ -7,6 +7,7 @@ import type { Design } from './design';
 import type { Motion } from './motion';
 import type { Cond } from './conditions';
 import type { BgMedia } from './bg-media';
+import type { Dividers } from './dividers';
 
 export type Mode = 'studio' | 'werkbank';
 export type BuiltinRole = 'owner' | 'admin' | 'editor' | 'author' | 'member';
@@ -36,6 +37,8 @@ export interface BlockStyle {
   show?: Cond[];
   /** A video or slideshow behind the content (shared/bg-media.ts). */
   media?: BgMedia;
+  /** Wave, slant or curve along the top and bottom edge (shared/dividers.ts). */
+  dividers?: Dividers;
 }
 
 /**

@@ -5,9 +5,8 @@
  * for less motion see the first picture or the video's poster, standing still.
  */
 
-export type BgMedia =
-  /** `phones`: also play on narrow screens – otherwise they get the poster (saves their data). */
-  { kind: 'video'; video: string; poster?: string; phones?: boolean } | { kind: 'slides'; images: string[]; effect: 'fade' | 'kenburns'; seconds: number };
+/** A video (`phones`: also played on narrow screens, which otherwise get the poster – saves their data) or a slideshow. */
+export type BgMedia = { kind: 'video'; video: string; poster?: string; phones?: boolean } | { kind: 'slides'; images: string[]; effect: 'fade' | 'kenburns'; seconds: number };
 
 export const MAX_SLIDES = 8;
 export const SLIDE_SECONDS = { min: 3, max: 20, default: 6 } as const;

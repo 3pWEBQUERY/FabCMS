@@ -7,6 +7,7 @@ import { validateFields, type FieldDef } from '../shared/fields';
 import { sanitizePlain, sanitizeRichText, safeHref } from '../shared/richtext';
 import { cleanConds } from '../shared/conditions';
 import { cleanBgMedia } from '../shared/bg-media';
+import { cleanDividers } from '../shared/dividers';
 import { slugify } from '../shared/text';
 import { entryPath, RESERVED_PREFIXES } from '../shared/paths';
 import type { Block, CollectionDef, Entry, EntryData } from '../shared/types';
@@ -200,6 +201,9 @@ export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Bloc
       const media = cleanBgMedia(style.media);
       if (media) style.media = media;
       else delete style.media;
+      const dividers = cleanDividers(style.dividers);
+      if (dividers) style.dividers = dividers;
+      else delete style.dividers;
       return { id: String(b.id).slice(0, 24), type: b.type, props, style, lock: b.lock ?? 'none' };
     });
 }

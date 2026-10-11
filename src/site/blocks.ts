@@ -6,6 +6,7 @@ import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
 import { slidesCss } from '../shared/bg-media';
+import { dividerHtml } from '../shared/dividers';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
@@ -1821,6 +1822,7 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
     s.className,
     styleOf(s.use) && `st-${s.use}`,
     bgm.value && 'has-bgm',
+    (s.dividers?.top || s.dividers?.bottom) && 'has-div',
   );
   const id = blockDomId(b);
   const css = s.css ? html`<style>${raw(scopeCss(s.css, id))}</style>` : '';
@@ -1830,8 +1832,10 @@ export function wrapBlock(b: Block, inner: Html, ctx: RenderContext, images: Map
   const motion = motionAttrs(s.motion);
   if (motion) ctx.needs.add('motion');
   const design = look || ctx.edit ? html`<style data-nova-design="${b.id}">${raw(look.replace(/</g, ''))}</style>` : '';
+  // Shape dividers above a moving background, below the content (unless in front).
+  const dividers = (['top', 'bottom'] as const).map((w) => (s.dividers?.[w] ? dividerHtml(w, s.dividers[w]) : '')).join('');
   const editAttrs = ctx.edit ? raw(` data-nova-block="${esc(b.id)}" data-nova-type="${esc(b.type)}" data-nova-lock="${esc(b.lock ?? 'none')}"`) : '';
-  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}${raw(motion ? ` ${motion}` : '')}>${css}${design}${bgm}${inner}</section>`;
+  return html`<section class="${cls}" id="${id}" data-tone="${tone}"${editAttrs}${raw(motion ? ` ${motion}` : '')}>${css}${design}${bgm}${raw(dividers)}${inner}</section>`;
 }
 
 /** Werkbank CSS per block: `&` refers to the block; plain rules are prefixed with it. */

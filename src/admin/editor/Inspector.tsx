@@ -10,6 +10,7 @@ import { Icon } from '../ui/icons';
 import type { DesignBp, DesignState } from '../../shared/design';
 import { DesignPanel } from './design/DesignPanel';
 import { BgMediaControls } from './design/BgMediaControls';
+import { DividerControls } from './design/DividerControls';
 import { ConditionControls } from './elements/Conditions';
 import { MotionPanel } from './design/MotionPanel';
 import { hasMotion } from '../../shared/motion';
@@ -106,6 +107,7 @@ export function Inspector({
           onState={onDesignState}
           pro={pro}
           bgMedia={<BgMediaControls value={style.media} onChange={(media) => setStyle({ media })} />}
+          dividers={<DividerControls value={style.dividers} onChange={(dividers) => setStyle({ dividers })} />}
           scheme={
             <Field label={t('Farbschema')}>
               <div className="chips">

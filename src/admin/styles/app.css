@@ -518,6 +518,42 @@ p {
   border-top: 1px solid var(--line);
   border-radius: 0 0 var(--r-s) var(--r-s);
 }
+/* Shape dividers: a small preview of each form to pick from. */
+.div-shapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.div-shape {
+  width: 3.4rem;
+  height: 2rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+.div-shape:hover {
+  background: var(--hover);
+}
+.div-shape[aria-pressed='true'] {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 1px var(--sel);
+}
+.div-prev {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.div-prev svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: var(--ink);
+}
+.div-prev.top svg {
+  transform: rotate(180deg);
+}
 .sel-check {
   display: flex;
   color: var(--sel);
