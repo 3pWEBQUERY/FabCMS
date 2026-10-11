@@ -40,6 +40,7 @@ import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
 import { parsePastedTable } from '../src/admin/editor/elements/pasteTable';
 import { describeStep } from '../src/shared/steps';
+import { blockToLayout, CONVERTIBLE } from '../src/shared/convert';
 import { donutSlices, niceScale, parseNum } from '../src/shared/chart';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
@@ -2451,6 +2452,45 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('In Bausteine zerlegen', () => {
+  it('turns ready-made blocks into Section › Container › parts, keeping texts, pictures, links and look', () => {
+    for (const type of CONVERTIBLE) {
+      const def = BLOCKS.find((b) => b.type === type)!;
+      const out = blockToLayout(createBlock(type), true)!;
+      expect(out.type).toBe('layout');
+      // What comes out is what the editor saves: nothing is lost on the way.
+      const clean = sanitizeEls(out.props.els as unknown[]);
+      expect(JSON.parse(JSON.stringify(clean))).toEqual(JSON.parse(JSON.stringify(out.props.els)));
+      // The same words as before, for search and the SEO coach.
+      for (const word of (def.text?.(def.defaults) ?? '')
+        .split(/\s+/)
+        .filter((w) => w.length > 4)
+        .slice(0, 5))
+        expect([type, elementsText(clean)]).toEqual([type, expect.stringContaining(word.replace(/[^\p{L}\p{N}-]/gu, ''))]);
+    }
+    const hero = blockToLayout(
+      {
+        id: 'h',
+        type: 'hero',
+        props: { variant: 'split', title: 'Grüezi <b>', text: 'Zeile 1\nZeile 2', primary: { label: 'Los', href: '/kontakt' }, secondary: null, image: 'img-1' },
+        style: { tone: 'muted', spacing: 'l' },
+      },
+      true,
+    )!;
+    expect(hero.style).toEqual({ tone: 'muted', spacing: 'l' });
+    const container = (hero.props.els as El[])[0];
+    expect(boxRole(container)).toBe('container');
+    const found: string[] = [];
+    walkEls(hero.props.els as El[], (el) => found.push(el.kind === 'heading' ? `h${el.props.level}:${el.props.text}` : el.kind === 'text' ? `t:${el.props.html}` : el.kind));
+    expect(found).toEqual(['box', 'box', 'box', 'h1:Grüezi <b>', 't:<p>Zeile 1<br>Zeile 2</p>', 'box', 'button', 'image']);
+    // A picture over the whole width becomes a Section of its own, without the layout's spacing.
+    const cover = blockToLayout({ id: 'c', type: 'hero', props: { variant: 'cover', title: 'X', image: 'img-2' } })!;
+    expect(boxRole((cover.props.els as El[])[0])).toBe('section');
+    expect(cover.style).toEqual({ spacing: 'none' });
+    expect(blockToLayout({ id: 'x', type: 'html', props: {} })).toBeNull();
   });
 });
 

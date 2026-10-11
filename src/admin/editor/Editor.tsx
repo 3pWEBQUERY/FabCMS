@@ -15,6 +15,7 @@ import { Presence } from '../ui/Presence';
 import { AiTranslate } from '../ui/Ai';
 import { Icon } from '../ui/icons';
 import { Menu, Segmented, Tip } from '../ui/kit';
+import { blockToLayout, CONVERTIBLE } from '../../shared/convert';
 import { ComponentDialog } from './elements/Components';
 import { PublishControls, SaveStatus } from '../ui/Publish';
 import { useToast } from '../ui/toast';
@@ -759,6 +760,38 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     afterStructureChange();
   };
 
+  /**
+   * «In Bausteine zerlegen»: a ready-made block becomes a free layout of the
+   * same parts (Container, Blocks, headings, texts …), each designed on its own.
+   */
+  const takeApart = async (blockId: string) => {
+    const index = blocksRef.current.findIndex((x) => x.id === blockId);
+    const b = blocksRef.current[index];
+    if (!b) return;
+    if (studio && b.lock && b.lock !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
+    // The theme may centre the block's titles: the parts keep that.
+    const page = frame.current?.contentDocument;
+    const title = page?.querySelector(`[data-nova-block="${CSS.escape(blockId)}"]`)?.querySelector('h1, h2');
+    const center = title && page?.defaultView ? page.defaultView.getComputedStyle(title).textAlign === 'center' : undefined;
+    const next = blockToLayout(b, index === 0, { center });
+    if (!next) return;
+    doc.setData((d) => ({ ...d, blocks: (d.blocks ?? []).map((x) => (x.id === blockId ? next : x)) }));
+    blocksRef.current = blocksRef.current.map((x) => (x.id === blockId ? next : x));
+    try {
+      const r = await api.post<{ html: string }>('/api/render', { entryId: id, lang: lang ?? undefined, data: { ...doc.data, blocks: blocksRef.current }, blockId: next.id });
+      postToCanvas(frame.current, { t: 'replace', id: blockId, html: r.html });
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+    setSelected(next.id);
+    setSelectedEl(null);
+    setBuilderTab('layers');
+    afterStructureChange();
+    toast(t('«{name}» ist jetzt ein freies Layout – jeder Teil lässt sich einzeln gestalten.', { name: tl(BLOCK_MAP[b.type]?.label) }), {
+      action: { label: t('Rückgängig'), run: () => doc.undo() },
+    });
+  };
+
   const duplicateBlock = async (blockId: string) => {
     const index = blocksRef.current.findIndex((x) => x.id === blockId);
     const b = blocksRef.current[index];
@@ -1077,6 +1110,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           ]
         : []),
       ...(el ? [] : [{ label: t('Als Vorlage speichern'), icon: 'folder', run: () => setSaveAsTemplate(selectedBlock.id) }]),
+      ...(!el && CONVERTIBLE.includes(selectedBlock.type)
+        ? [{ label: t('In Bausteine zerlegen'), icon: 'layout', run: () => void takeApart(selectedBlock.id), disabled: locked }]
+        : []),
       'sep',
       { label: el ? t('Nach vorne') : t('Nach oben'), icon: 'arrowUp', keys: KEYS.up, run: () => runAction('move-up'), disabled: locked },
       { label: el ? t('Nach hinten') : t('Nach unten'), icon: 'arrowDown', keys: KEYS.down, run: () => runAction('move-down'), disabled: locked },
@@ -1731,6 +1767,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                               <Icon name="chat" size="s" />
                             </button>
                           </Tip>
+                          {CONVERTIBLE.includes(selectedBlock.type) && (
+                            <Tip label={t('In Bausteine zerlegen')}>
+                              <button className="btn icon-only" onClick={() => void takeApart(selectedBlock.id)} aria-label={t('In Bausteine zerlegen')}>
+                                <Icon name="layout" size="s" />
+                              </button>
+                            </Tip>
+                          )}
                           <Tip label={t('Als Vorlage speichern')}>
                             <button className="btn icon-only" onClick={() => setSaveAsTemplate(selectedBlock.id)} aria-label={t('Als Vorlage speichern')}>
                               <Icon name="folder" size="s" />
@@ -1894,6 +1937,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                             onDesignState={setDesignState}
                             onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
                             source={templateFor ?? ownType}
+                            onTakeApart={CONVERTIBLE.includes(selectedBlock.type) ? () => void takeApart(selectedBlock.id) : undefined}
                           />
                         </ContrastNow.Provider>
                       </TokenColors.Provider>

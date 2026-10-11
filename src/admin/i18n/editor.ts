@@ -1551,4 +1551,15 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Eine schmale und eine breite Spalte.': { fr: 'Une colonne étroite et une large.', it: 'Una colonna stretta e una larga.', en: 'A narrow and a wide column.' },
   'Eine breite und eine schmale Spalte.': { fr: 'Une colonne large et une étroite.', it: 'Una colonna larga e una stretta.', en: 'A wide and a narrow column.' },
+  '«{name}» ist jetzt ein freies Layout – jeder Teil lässt sich einzeln gestalten.': {
+    fr: '« {name} » est maintenant une mise en page libre – chaque partie se conçoit séparément.',
+    it: '«{name}» ora è un layout libero – ogni parte si può progettare singolarmente.',
+    en: '“{name}” is now a free layout – every part can be designed on its own.',
+  },
+  'In Bausteine zerlegen': { fr: 'Décomposer en éléments', it: 'Scomponi in elementi', en: 'Break into parts' },
+  'Mehr Freiheit: Zerleg den Block in Section, Container und einzelne Elemente – dann lässt sich jeder Teil gestalten, verschieben und ergänzen.': {
+    fr: 'Plus de liberté : décomposez le bloc en section, conteneur et éléments séparés – chaque partie peut alors être conçue, déplacée et complétée.',
+    it: 'Più libertà: scomponi il blocco in sezione, contenitore ed elementi singoli – così ogni parte si può progettare, spostare e completare.',
+    en: 'More freedom: break the block into a section, container and single elements – then every part can be designed, moved and added to.',
+  },
 };

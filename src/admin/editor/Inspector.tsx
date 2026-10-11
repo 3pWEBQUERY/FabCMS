@@ -40,6 +40,7 @@ export function Inspector({
   onDesignState,
   onPlay,
   source = null,
+  onTakeApart,
 }: {
   block: Block;
   onChange: (b: Block) => void;
@@ -50,6 +51,8 @@ export function Inspector({
   onPlay: () => void;
   /** Whose fields a condition can test: the template's content type or the entry's own. */
   source?: CollectionDef | null;
+  /** Ready-made blocks: become a free layout of single parts. */
+  onTakeApart?: () => void;
 }) {
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
@@ -77,6 +80,16 @@ export function Inspector({
   return (
     <div className="stack">
       <p className="small muted">{tl(def.description)}</p>
+      {onTakeApart && lock === 'none' && (
+        <div className="take-apart">
+          <span className="xsmall">
+            {t('Mehr Freiheit: Zerleg den Block in Section, Container und einzelne Elemente – dann lässt sich jeder Teil gestalten, verschieben und ergänzen.')}
+          </span>
+          <button type="button" className="btn s" onClick={onTakeApart}>
+            <Icon name="layout" size="s" /> {t('In Bausteine zerlegen')}
+          </button>
+        </div>
+      )}
       <Segmented
         label={t('Bereich')}
         value={tab}

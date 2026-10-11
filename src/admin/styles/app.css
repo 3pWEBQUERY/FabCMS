@@ -1603,6 +1603,15 @@ button.list-item {
   background: var(--line);
   margin: 0.3rem 0;
 }
+.take-apart {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--r-m);
+  background: var(--sel-soft);
+  color: var(--ink-2);
+}
 .menu-heading {
   padding: 0.45rem 0.6rem 0.2rem;
   font-size: var(--t-xs);
