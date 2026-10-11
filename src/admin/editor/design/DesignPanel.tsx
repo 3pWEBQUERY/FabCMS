@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { ElKind } from '../../../shared/elements';
 import {
   BLENDS,
+  colRatios,
   DESIGN_BPS,
   effective,
   isEmptyDesign,
@@ -49,7 +50,7 @@ const HOVER_KEYS = new Set<keyof StyleProps>([
 ]);
 
 export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
-  layout: ['display', 'direction', 'wrap', 'justify', 'align', 'gap', 'columns', 'alignSelf', 'grow', 'order', 'span'],
+  layout: ['display', 'direction', 'wrap', 'justify', 'align', 'gap', 'columns', 'colWidths', 'alignSelf', 'grow', 'order', 'span'],
   spacing: ['mt', 'mr', 'mb', 'ml', 'pt', 'pr', 'pb', 'pl'],
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],
   position: ['position', 'top', 'right', 'bottom', 'left', 'z'],
@@ -153,6 +154,16 @@ export interface DesignPanelProps {
   /** The saved style in use and whether the panel changes it (design/SavedStyles.tsx). */
   savedStyle?: ReactNode;
 }
+
+/** Column splits offered per column count; the first is always «all equal». */
+const equalCols = (n: number) => Array(n).fill('1').join(' ');
+const COL_PRESETS: Record<number, string[]> = {
+  2: ['1 1', '1 2', '2 1', '1 3', '3 1', '2 3', '3 2'],
+  3: ['1 1 1', '1 2 1', '2 1 1', '1 1 2', '1 3 1'],
+  4: ['1 1 1 1', '2 1 1 1', '1 1 1 2', '1 2 2 1'],
+  5: ['1 1 1 1 1'],
+  6: ['1 1 1 1 1 1'],
+};
 
 export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, bgMedia, dividers, rhythm, visibility, pro, kind, savedStyle }: DesignPanelProps) {
   const toast = useToast();
@@ -354,8 +365,58 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
           {container &&
             display === 'grid' &&
             row('columns', t('Spalten'), (p) => (
-              <NumberInput value={p.value} placeholder={p.inherited} onChange={p.set} min={1} max={12} ariaLabel={t('Spalten')} icon="columns" />
+              <NumberInput
+                value={p.value}
+                placeholder={p.inherited ?? colRatios(prop('colWidths').value ?? prop('colWidths').inherited)?.length}
+                // A new count starts with equal columns again on this screen size.
+                onChange={(n) => setMany({ columns: n, colWidths: undefined })}
+                min={1}
+                max={12}
+                ariaLabel={t('Spalten')}
+                icon="columns"
+              />
             ))}
+          {container &&
+            display === 'grid' &&
+            row('colWidths', t('Aufteilung'), (p) => {
+              const count = colRatios(p.value ?? p.inherited)?.length ?? prop('columns').value ?? prop('columns').inherited ?? 1;
+              const presets = COL_PRESETS[count] ?? [];
+              return count < 2 ? (
+                <span className="xsmall faint">{t('Erst ab zwei Spalten.')}</span>
+              ) : (
+                <div className="stack" style={{ gap: 6 }}>
+                  <input
+                    className="input mono"
+                    value={p.value ?? ''}
+                    placeholder={p.inherited ?? equalCols(count)}
+                    aria-label={t('Aufteilung als Verhältnis')}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d. ]/g, '').replace(/\s+/g, ' ');
+                      const ok = colRatios(v);
+                      setMany(ok ? { colWidths: v.trim(), columns: ok.length } : { colWidths: v.trim() ? v : undefined });
+                    }}
+                  />
+                  <div className="dp-chips">
+                    {presets.map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className="col-preset"
+                        aria-pressed={(p.value ?? p.inherited ?? equalCols(count)) === v}
+                        title={v.split(' ').join(' : ')}
+                        aria-label={t('Aufteilung {ratio}', { ratio: v.split(' ').join(' : ') })}
+                        onClick={() => setMany({ columns: count, colWidths: v === equalCols(count) ? undefined : v })}
+                      >
+                        {v.split(' ').map((w, i) => (
+                          <span key={i} style={{ flexGrow: Number(w) }} />
+                        ))}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="xsmall faint">{t('Verhältnis der Spalten, z. B. «1 2» für ein Drittel und zwei Drittel. Auf der Fläche lassen sich die Grenzen auch ziehen.')}</p>
+                </div>
+              );
+            })}
           {container && ['flex', 'grid'].includes(String(display)) && (
             <>
               {row('justify', t('Verteilen'), (p) => (

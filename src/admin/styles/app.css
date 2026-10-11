@@ -518,6 +518,33 @@ p {
   border-top: 1px solid var(--line);
   border-radius: 0 0 var(--r-s) var(--r-s);
 }
+/* Column splits: each preset drawn as bars in its proportions. */
+.col-preset {
+  display: flex;
+  gap: 2px;
+  width: 3.2rem;
+  height: 1.6rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--panel);
+  cursor: pointer;
+}
+.col-preset span {
+  flex-basis: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.col-preset:hover {
+  background: var(--hover);
+}
+.col-preset[aria-pressed='true'] {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 1px var(--sel);
+}
+.col-preset[aria-pressed='true'] span {
+  background: var(--sel);
+}
 /* Shape dividers: a small preview of each form to pick from. */
 .div-shapes {
   display: flex;

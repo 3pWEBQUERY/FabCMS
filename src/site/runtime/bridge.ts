@@ -122,6 +122,10 @@ shadow.innerHTML = `<style>
 .grid-in span{background:rgba(232,64,138,.07)}
 @media (max-width:64rem){.grid-in{grid-template-columns:repeat(8,1fr)}.grid-in span:nth-child(n+9){display:none}}
 @media (max-width:40rem){.grid-in{grid-template-columns:repeat(4,1fr);column-gap:1rem}.grid-in span:nth-child(n+5){display:none}}
+/* grids: drag the line between two columns */
+.cz{position:absolute;display:none;width:14px;height:44px;margin-left:-7px;border:2px solid #fff;border-radius:7px;background:#7c4de0;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:col-resize;touch-action:none;z-index:2}
+.cz.on{display:block}
+.cz:hover,.cz.drag{background:#5f34c2}
 /* sections: drag the bottom edge for the height, the content column's edges for its width */
 .sz{position:absolute;display:none;align-items:center;justify-content:center;background:#2b59c3;border:2px solid #fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.3);touch-action:none;z-index:2}
 .sz.on{display:flex}
@@ -178,6 +182,7 @@ shadow.innerHTML = `<style>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="measure" aria-hidden="true"></div>
 <div class="grid" aria-hidden="true"><div class="grid-in">${'<span></span>'.repeat(12)}</div></div>
+<div class="cz" title="Spaltenbreite ziehen" aria-hidden="true"></div><div class="cz" title="Spaltenbreite ziehen" aria-hidden="true"></div><div class="cz" title="Spaltenbreite ziehen" aria-hidden="true"></div><div class="cz" title="Spaltenbreite ziehen" aria-hidden="true"></div><div class="cz" title="Spaltenbreite ziehen" aria-hidden="true"></div>
 <div class="sz sz-h" data-sz="h" title="Höhe ziehen – Doppelklick: automatisch" aria-hidden="true"><i></i></div><div class="sz sz-l" data-sz="l" title="Breite ziehen – Doppelklick: wie das Theme" aria-hidden="true"><i></i></div><div class="sz sz-r" data-sz="r" title="Breite ziehen – Doppelklick: wie das Theme" aria-hidden="true"><i></i></div>
 <div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
@@ -566,6 +571,7 @@ function padTarget(): HTMLElement | null {
 /** The four padding areas over the target, at least a few pixels to grab even when there is none. */
 function placePads() {
   placeSizers();
+  placeColHandles();
   const el = padDrag?.el ?? padTarget();
   if (!el) return pads.forEach((p) => p.classList.remove('on'));
   const r = el.getBoundingClientRect();
@@ -636,6 +642,105 @@ for (const p of pads) {
   p.addEventListener('pointerup', end);
   p.addEventListener('pointercancel', end);
 }
+
+/* ---------- grid columns: drag the line between two of them ---------- */
+
+const colHandles = [...shadow.querySelectorAll<HTMLElement>('.cz')];
+let colDrag: { el: HTMLElement; i: number; x: number; start: number[]; now: number[]; gap: number; moved: boolean } | null = null;
+
+const tracksOf = (el: HTMLElement) => {
+  const cs = getComputedStyle(el);
+  return { tracks: cs.gridTemplateColumns.split(' ').map(parseFloat), gap: parseFloat(cs.columnGap) || 0 };
+};
+
+/** The selected container when it is a grid of two to six columns – and may be changed. */
+function colTarget(): HTMLElement | null {
+  if (!selectedEl || free || elDrag || padDrag || sizeDrag) return null;
+  const el = elEl(selectedEl);
+  const block = el?.closest<HTMLElement>('[data-nova-block]');
+  if (!el || !block || lockOf(block) !== 'none' || pinned(el) || !el.hasAttribute('data-nova-box') || getComputedStyle(el).display !== 'grid') return null;
+  const { tracks } = tracksOf(el);
+  return tracks.length >= 2 && tracks.length <= 6 && tracks.every((n) => n > 0) ? el : null;
+}
+
+function placeColHandles() {
+  const el = colDrag?.el ?? colTarget();
+  if (!el) return colHandles.forEach((h) => h.classList.remove('on'));
+  const r = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  const { tracks, gap } = colDrag ? { tracks: colDrag.now, gap: colDrag.gap } : tracksOf(el);
+  let x = r.left + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0);
+  colHandles.forEach((h, i) => {
+    if (i >= tracks.length - 1) return h.classList.remove('on');
+    x += tracks[i] + (i > 0 ? gap : 0);
+    Object.assign(h.style, { left: `${x + gap / 2}px`, top: `${r.top + scrollY + Math.min(r.height / 2, 120) - 22}px` });
+    h.classList.add('on');
+  });
+}
+
+/** Widths as ratios: whole numbers when they are close to simple shares (1 : 2, 1 : 3 …), else two decimals. */
+function colRatio(px: number[]): string {
+  const total = px.reduce((a, b) => a + b, 0);
+  const shares = px.map((w) => w / total);
+  for (const d of [2, 3, 4, 5, 6, 8, 10, 12]) {
+    const parts = shares.map((x) => x * d);
+    if (parts.every((p) => Math.round(p) >= 1 && Math.abs(p - Math.round(p)) < 0.06 * (d / 2))) {
+      const ints = parts.map(Math.round);
+      if (ints.reduce((a, b) => a + b, 0) === d) return ints.join(' ');
+    }
+  }
+  const unit = total / px.length;
+  return px.map((w) => String(Math.round((w / unit) * 100) / 100)).join(' ');
+}
+
+colHandles.forEach((h, i) => {
+  h.addEventListener('pointerdown', (e) => {
+    const el = colTarget();
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    h.setPointerCapture(e.pointerId);
+    const { tracks, gap } = tracksOf(el);
+    colDrag = { el, i, x: e.clientX, start: tracks, now: [...tracks], gap, moved: false };
+    h.classList.add('drag');
+  });
+  h.addEventListener('pointermove', (e) => {
+    if (!colDrag) return;
+    const { el, start } = colDrag;
+    const dx = e.clientX - colDrag.x;
+    if (!colDrag.moved && Math.abs(dx) < 2) return;
+    colDrag.moved = true;
+    // Only the two columns beside the line change; neither gets narrower than 48 px.
+    const pair = start[i] + start[i + 1];
+    const left = Math.min(Math.max(48, start[i] + dx), pair - 48);
+    colDrag.now = start.map((w, k) => (k === i ? left : k === i + 1 ? pair - left : w));
+    el.style.gridTemplateColumns = colDrag.now.map((w) => `minmax(0,${w}fr)`).join(' ');
+    el.setAttribute('data-nova-cols', '');
+    const total = colDrag.now.reduce((a, b) => a + b, 0);
+    epos.textContent = colDrag.now.map((w) => `${Math.round((w / total) * 100)} %`).join(' · ');
+    epos.style.top = `${e.clientY + scrollY + 14}px`;
+    epos.style.left = `${e.clientX + 14}px`;
+    epos.classList.add('on');
+    placeColHandles();
+    sendRect();
+  });
+  const end = () => {
+    if (!colDrag) return;
+    const { el, now, moved } = colDrag;
+    colDrag = null;
+    h.classList.remove('drag');
+    epos.classList.remove('on');
+    if (moved) {
+      const block = el.closest<HTMLElement>('[data-nova-block]');
+      post({ t: 'el-cols', block: block?.dataset.novaBlock, el: el.dataset.novaEl, value: colRatio(now) });
+      afterDrag = true;
+      setTimeout(() => (afterDrag = false), 0);
+    }
+    placeColHandles();
+  };
+  h.addEventListener('pointerup', end);
+  h.addEventListener('pointercancel', end);
+});
 
 /* ---------- section size: height and content width, dragged on the canvas ---------- */
 
@@ -1897,6 +2002,11 @@ addEventListener('message', (e) => {
       if (tag && tag.textContent !== m.css) tag.textContent = m.css;
       // Padding dragged on the canvas now comes from the design too.
       const host = blockEl(m.id);
+      // And column widths of grids inside.
+      host?.querySelectorAll<HTMLElement>('[data-nova-cols]').forEach((x) => {
+        x.style.removeProperty('grid-template-columns');
+        x.removeAttribute('data-nova-cols');
+      });
       // So do height and width.
       if (host?.hasAttribute('data-nova-size')) {
         host.style.removeProperty('min-height');

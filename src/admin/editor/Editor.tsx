@@ -30,7 +30,7 @@ import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
 import type { SeoCheck } from '../../shared/seo-analyze';
 import type { Block, CollectionDef } from '../../shared/types';
-import { blockDomId, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
+import { blockDomId, colRatios, COLOR_TOKENS, designImages, setDesign, type DesignState } from '../../shared/design';
 import { blockLookCss, savedStyleImages, stylesUsed, type SavedStyle } from '../../shared/styles';
 import type { SiteSettings } from '../../shared/types';
 import { SavedStyles } from './design/SavedStyles';
@@ -390,6 +390,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             const info = findEl(elsOf(b), m.el);
             if (info) changeElement(b.id, { ...info.el, design: apply(info.el.design) });
           } else changeBlock({ ...b, style: { ...b.style, design: apply(b.style?.design) } });
+          break;
+        }
+        case 'el-cols': {
+          // Column widths of a grid dragged on the canvas: for the screen size being designed.
+          const b = blocksRef.current.find((x) => x.id === m.block);
+          if (!b || (!session.pro && b.lock && b.lock !== 'none') || typeof m.el !== 'string') break;
+          const widths = colRatios(m.value);
+          const info = widths && findEl(elsOf(b), m.el);
+          if (!info) break;
+          const design = setDesign(setDesign(info.el.design, device, 'colWidths', String(m.value)), device, 'columns', widths.length);
+          changeElement(b.id, { ...info.el, design });
           break;
         }
         case 'block-size': {

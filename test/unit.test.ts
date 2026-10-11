@@ -38,7 +38,7 @@ import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
-import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
+import { blockCss, blockDomId, colRatios, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
 import { colorKey, pageColors, replaceColor } from '../src/shared/page-colors';
@@ -2044,6 +2044,27 @@ describe('Bewegter Hintergrund', () => {
     // One picture: standing still, or a single slow zoom.
     expect(slidesCss('#b-x', 'bx', 1, 6, 'fade')).toBe('');
     expect(slidesCss('#b-x', 'bx', 1, 6, 'kenburns')).toContain('12s ease-out both');
+  });
+});
+
+describe('Spaltenaufteilung', () => {
+  it('takes two to six sensible ratios, nothing else', () => {
+    expect(colRatios('1 2')).toEqual([1, 2]);
+    expect(colRatios(' 0.65 1.35 ')).toEqual([0.65, 1.35]);
+    expect(colRatios('1')).toBeNull();
+    expect(colRatios('1 1 1 1 1 1 1')).toBeNull();
+    expect(colRatios('1 0')).toBeNull();
+    expect(colRatios('1 2;color:red')).toBeNull();
+    expect(colRatios('1fr 2fr')).toBeNull();
+  });
+
+  it('draws unequal columns, and a count on a smaller screen still wins there', () => {
+    const css = designCss('#e', { desktop: { display: 'grid', columns: 2, colWidths: '1 2' }, mobile: { columns: 1 } });
+    expect(css).toContain('#e{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr)');
+    expect(css).not.toContain('repeat(2,');
+    expect(css).toMatch(/@media[^{]*\{#e\{grid-template-columns:repeat\(1,minmax\(0,1fr\)\)/);
+    // Broken ratios fall back to the column count.
+    expect(designCss('#e', { desktop: { display: 'grid', columns: 3, colWidths: 'viel' } })).toContain('repeat(3,minmax(0,1fr))');
   });
 });
 

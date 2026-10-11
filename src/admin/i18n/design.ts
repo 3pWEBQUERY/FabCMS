@@ -1024,4 +1024,13 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Dagli il colore della sezione accanto, così le due si fondono. Sul telefono è un po’ più basso.',
     en: 'Give it the colour of the neighbouring section and the two flow into each other. On phones it gets a little flatter.',
   },
+  Aufteilung: { fr: 'Répartition', it: 'Suddivisione', en: 'Split' },
+  'Erst ab zwei Spalten.': { fr: 'À partir de deux colonnes.', it: 'Da due colonne in su.', en: 'From two columns on.' },
+  'Aufteilung {ratio}': { fr: 'Répartition {ratio}', it: 'Suddivisione {ratio}', en: 'Split {ratio}' },
+  'Aufteilung als Verhältnis': { fr: 'Répartition en proportions', it: 'Suddivisione in proporzioni', en: 'Split as ratio' },
+  'Verhältnis der Spalten, z. B. «1 2» für ein Drittel und zwei Drittel. Auf der Fläche lassen sich die Grenzen auch ziehen.': {
+    fr: 'Proportions des colonnes, p. ex. «1 2» pour un tiers et deux tiers. Sur la page, on peut aussi tirer les limites.',
+    it: 'Proporzioni delle colonne, p. es. «1 2» per un terzo e due terzi. Sulla pagina si possono anche trascinare i confini.',
+    en: 'Ratio of the columns, e.g. «1 2» for one third and two thirds. On the canvas the borders can be dragged too.',
+  },
 };

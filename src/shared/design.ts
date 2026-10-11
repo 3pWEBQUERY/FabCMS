@@ -47,6 +47,8 @@ export interface StyleProps {
   align?: 'start' | 'center' | 'end' | 'stretch' | 'baseline';
   gap?: string;
   columns?: number;
+  /** Grids: how wide each column is, as ratios («1 2» = a third and two thirds); wins over `columns` on its layer. */
+  colWidths?: string;
   /** Blocks: content sits at the top, in the middle or at the bottom of a tall section. */
   vAlign?: 'start' | 'center' | 'end';
   /* place in the parent */
@@ -183,6 +185,13 @@ export function cssLength(v: unknown): string | null {
 }
 
 /** A colour: #hex, rgb()/hsl()/oklch(), transparent, currentColor, $token or $token/40. */
+/** Column widths as ratios: two to six numbers between 0.1 and 24 («1 2», «1 2 1»); anything else – none. */
+export function colRatios(v: unknown): number[] | null {
+  if (typeof v !== 'string' || !/^\d{1,2}(?:\.\d{1,2})?(?: \d{1,2}(?:\.\d{1,2})?){1,5}$/.test(v.trim())) return null;
+  const n = v.trim().split(' ').map(Number);
+  return n.every((x) => x >= 0.1 && x <= 24) ? n : null;
+}
+
 export function cssColor(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const s = v.trim();
@@ -253,7 +262,9 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   const display = pick(p.display, ['block', 'flex', 'grid', 'none'] as const);
   add('display', display);
   // Also on its own: tablet and phone change the column count of a grid set on desktop.
-  if (num(p.columns, 1, 12)) add('grid-template-columns', `repeat(${num(p.columns, 1, 12)},minmax(0,1fr))`);
+  const widths = colRatios(p.colWidths);
+  if (widths) add('grid-template-columns', widths.map((w) => `minmax(0,${w}fr)`).join(' '));
+  else if (num(p.columns, 1, 12)) add('grid-template-columns', `repeat(${num(p.columns, 1, 12)},minmax(0,1fr))`);
   add('flex-direction', pick(p.direction, ['row', 'column', 'row-reverse', 'column-reverse'] as const));
   if (typeof p.wrap === 'boolean') add('flex-wrap', p.wrap ? 'wrap' : 'nowrap');
   const justify = pick(p.justify, Object.keys(JUSTIFY) as (keyof typeof JUSTIFY)[]);
