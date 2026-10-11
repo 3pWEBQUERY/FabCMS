@@ -19,6 +19,8 @@ import { countEls, footerStarter, headerStarter, type El } from '../../shared/el
 import { entryUrl } from '../lib/actions';
 import { AB_MIN_SHOWN } from '../../shared/popups';
 import { LayersTree } from './elements/LayersTree';
+import { elLabel } from './elements/ElementToolbar';
+import { searchLayers, type LayerHit } from './layerSearch';
 import { useComponentTexts } from './elements/Components';
 import { GlobalContrast } from './design/contrast';
 import { useSettingsDraft } from '../views/settingsDraft';
@@ -380,72 +382,127 @@ export function StructurePanel({
   useEffect(() => {
     if (selected) setOpen((s) => (s.has(selected) ? s : new Set(s).add(selected)));
   }, [selected]);
-  return (
-    <Reorder.Group axis="y" values={blocks} onReorder={onReorder} style={{ padding: 0, margin: 0, display: 'grid', gap: 4 }}>
-      {blocks.map((b, i) => {
-        const def = BLOCK_MAP[b.type];
-        const text = def?.text?.(b.props) ?? '';
-        const locked = !pro && b.lock && b.lock !== 'none';
-        const els = b.type === 'layout' ? ((b.props.els as El[] | undefined) ?? []) : null;
-        const isOpen = Boolean(els?.length) && open.has(b.id);
-        return (
-          <Reorder.Item key={b.id} value={b} drag={locked ? false : 'y'} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-3)', zIndex: 4 }}>
-            <div className="layer-block">
+  const [q, setQ] = useState('');
+  const hits = useMemo(() => searchLayers(blocks, q, { block: (b) => (BLOCK_MAP[b.type] ? tl(BLOCK_MAP[b.type].label) : b.type), el: elLabel }), [blocks, q]);
+  const pick = (h: LayerHit) => (h.el ? layers.onSelectEl(h.block, h.el) : onSelect(h.block));
+  const search = (
+    <input
+      className="input layer-search"
+      type="search"
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && hits[0]) {
+          e.preventDefault();
+          pick(hits[0]);
+        }
+        if (e.key === 'Escape' && q) {
+          e.stopPropagation();
+          setQ('');
+        }
+      }}
+      placeholder={t('Ebenen durchsuchen – Name, Text, Sprungmarke')}
+      aria-label={t('Ebenen durchsuchen')}
+    />
+  );
+  if (q.trim())
+    return (
+      <div className="stack tight">
+        {search}
+        <p className="xsmall faint" role="status">
+          {hits.length ? t('{n} Treffer – Enter wählt den ersten', { n: hits.length }) : t('Nichts gefunden.')}
+        </p>
+        <ul className="layer-hits">
+          {hits.map((h) => (
+            <li key={h.el ?? h.block}>
               <button
                 type="button"
                 className="rev"
-                aria-pressed={selected === b.id && !layers.selectedEl}
-                onClick={() => onSelect(b.id)}
-                style={{ gridTemplateColumns: 'auto 1fr auto' }}
+                aria-pressed={h.el ? layers.selectedEl === h.el : selected === h.block && !layers.selectedEl}
+                onClick={() => pick(h)}
+                onMouseEnter={() => h.el && layers.onHoverEl(h.el)}
+                onMouseLeave={() => h.el && layers.onHoverEl(null)}
               >
-                <Icon name={def?.icon ?? 'page'} className="faint" />
-                <span style={{ minWidth: 0 }}>
-                  <span className="small" style={{ fontWeight: 600, display: 'block' }}>
-                    {i + 1}. {def ? tl(def.label) : b.type}
-                  </span>
-                  <span className="xsmall muted ellipsis" style={{ display: 'block' }}>
-                    {excerpt(text, 60) || '–'}
-                  </span>
+                {h.path.length > 0 && <span className="xsmall faint ellipsis layer-hit-path">{h.path.join(' › ')}</span>}
+                <span className="small" style={{ fontWeight: 600 }}>
+                  {h.label}
                 </span>
-                {locked ? <Icon name="lock" size="s" className="faint" /> : <Icon name="grip" size="s" className="faint" />}
+                {h.text && <span className="xsmall muted ellipsis">{excerpt(h.text, 70)}</span>}
               </button>
-              {Boolean(els?.length) && (
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  return (
+    <div className="stack tight">
+      {search}
+      <Reorder.Group axis="y" values={blocks} onReorder={onReorder} style={{ padding: 0, margin: 0, display: 'grid', gap: 4 }}>
+        {blocks.map((b, i) => {
+          const def = BLOCK_MAP[b.type];
+          const text = def?.text?.(b.props) ?? '';
+          const locked = !pro && b.lock && b.lock !== 'none';
+          const els = b.type === 'layout' ? ((b.props.els as El[] | undefined) ?? []) : null;
+          const isOpen = Boolean(els?.length) && open.has(b.id);
+          return (
+            <Reorder.Item key={b.id} value={b} drag={locked ? false : 'y'} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-3)', zIndex: 4 }}>
+              <div className="layer-block">
                 <button
                   type="button"
-                  className="layer-toggle"
-                  aria-expanded={isOpen}
-                  aria-label={isOpen ? t('Elemente ausblenden') : t('Elemente zeigen')}
-                  onClick={() =>
-                    setOpen((s) => {
-                      const n = new Set(s);
-                      if (n.has(b.id)) n.delete(b.id);
-                      else n.add(b.id);
-                      return n;
-                    })
-                  }
+                  className="rev"
+                  aria-pressed={selected === b.id && !layers.selectedEl}
+                  onClick={() => onSelect(b.id)}
+                  style={{ gridTemplateColumns: 'auto 1fr auto' }}
                 >
-                  <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size="s" />
-                  {t('{n} Elemente', { n: countEls(els!) })}
+                  <Icon name={def?.icon ?? 'page'} className="faint" />
+                  <span style={{ minWidth: 0 }}>
+                    <span className="small" style={{ fontWeight: 600, display: 'block' }}>
+                      {i + 1}. {def ? tl(def.label) : b.type}
+                    </span>
+                    <span className="xsmall muted ellipsis" style={{ display: 'block' }}>
+                      {excerpt(text, 60) || '–'}
+                    </span>
+                  </span>
+                  {locked ? <Icon name="lock" size="s" className="faint" /> : <Icon name="grip" size="s" className="faint" />}
                 </button>
-              )}
-              {isOpen && (
-                <LayersTree
-                  els={els!}
-                  selected={selected === b.id ? layers.selectedEl : null}
-                  onSelect={(id) => layers.onSelectEl(b.id, id)}
-                  onHover={layers.onHoverEl}
-                  onMove={(id, parent, index) => layers.onMoveEl(b.id, id, parent, index)}
-                  locked={Boolean(locked)}
-                  peek={layers.peek}
-                  onPeek={layers.onPeek}
-                  onPin={(id) => layers.onPin(b.id, id)}
-                />
-              )}
-            </div>
-          </Reorder.Item>
-        );
-      })}
-    </Reorder.Group>
+                {Boolean(els?.length) && (
+                  <button
+                    type="button"
+                    className="layer-toggle"
+                    aria-expanded={isOpen}
+                    aria-label={isOpen ? t('Elemente ausblenden') : t('Elemente zeigen')}
+                    onClick={() =>
+                      setOpen((s) => {
+                        const n = new Set(s);
+                        if (n.has(b.id)) n.delete(b.id);
+                        else n.add(b.id);
+                        return n;
+                      })
+                    }
+                  >
+                    <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size="s" />
+                    {t('{n} Elemente', { n: countEls(els!) })}
+                  </button>
+                )}
+                {isOpen && (
+                  <LayersTree
+                    els={els!}
+                    selected={selected === b.id ? layers.selectedEl : null}
+                    onSelect={(id) => layers.onSelectEl(b.id, id)}
+                    onHover={layers.onHoverEl}
+                    onMove={(id, parent, index) => layers.onMoveEl(b.id, id, parent, index)}
+                    locked={Boolean(locked)}
+                    peek={layers.peek}
+                    onPeek={layers.onPeek}
+                    onPin={(id) => layers.onPin(b.id, id)}
+                  />
+                )}
+              </div>
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
+    </div>
   );
 }
 

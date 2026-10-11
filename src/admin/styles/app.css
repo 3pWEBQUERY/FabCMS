@@ -8230,3 +8230,24 @@ textarea.dg-input {
   outline: 2px solid var(--sel);
   outline-offset: 3px;
 }
+
+/* «Ebenen durchsuchen»: hits with the way to them */
+.layer-hits {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layer-hits .rev {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  width: 100%;
+  min-width: 0;
+  text-align: start;
+}
+.layer-hits .ellipsis {
+  display: block;
+  min-width: 0;
+}

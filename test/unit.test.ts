@@ -37,6 +37,7 @@ import { ADMIN_DICT } from '../src/admin/i18n/all';
 import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
 import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { pageAnchors } from '../src/shared/anchors';
+import { searchLayers } from '../src/admin/editor/layerSearch';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2208,6 +2209,39 @@ describe('Hinweispunkte', () => {
     // The picture counts as used; the points' texts and links are seen by search and checks.
     expect(elementsMedia([el])).toEqual(['img-1']);
     expect(elementsText([el])).toContain('Röstung');
+  });
+});
+
+describe('Ebenen durchsuchen', () => {
+  it('finds blocks and elements by name, text, anchor and the way there', () => {
+    const blocks = [
+      { id: 'b1', type: 'text', props: { heading: 'Öffnungszeiten', body: '<p>Montag zu</p>' } },
+      {
+        id: 'b2',
+        type: 'layout',
+        props: {
+          els: [
+            {
+              id: 'box',
+              kind: 'box',
+              props: {},
+              name: 'Kontaktbox',
+              children: [{ id: 'btn', kind: 'button', props: { label: 'Offerte anfragen' }, anchor: 'offerte' }],
+            },
+          ],
+        },
+      },
+    ] as Block[];
+    const names = { block: (b: Block) => (b.type === 'layout' ? 'Freies Layout' : 'Text'), el: (el: El) => el.name ?? (el.kind === 'button' ? 'Knopf' : el.kind) };
+    const find = (q: string) => searchLayers(blocks, q, names).map((h) => h.el ?? h.block);
+    // Accents don't matter.
+    expect(find('offnungszeiten')).toEqual(['b1']);
+    // A free layout is found by its elements, not by their words.
+    expect(find('offerte')).toEqual(['btn']);
+    expect(find('kontaktbox knopf')).toEqual(['btn']);
+    expect(find('kontaktbox')).toEqual(['box', 'btn']);
+    expect(find('   ')).toEqual([]);
+    expect(searchLayers(blocks, 'offerte', names)[0].path).toEqual(['2. Freies Layout', 'Kontaktbox']);
   });
 });
 

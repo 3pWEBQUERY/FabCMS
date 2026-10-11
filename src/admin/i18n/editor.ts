@@ -1167,4 +1167,15 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   Plus: { fr: 'Plus', it: 'Più', en: 'Plus' },
   Nummern: { fr: 'Numéros', it: 'Numeri', en: 'Numbers' },
   'Punkte pulsieren sanft': { fr: 'Les points pulsent doucement', it: 'I punti pulsano dolcemente', en: 'Points pulse gently' },
+  'Ebenen durchsuchen – Name, Text, Sprungmarke': {
+    fr: 'Chercher dans les calques – nom, texte, ancre',
+    it: 'Cerca nei livelli – nome, testo, ancora',
+    en: 'Search layers – name, text, anchor',
+  },
+  'Ebenen durchsuchen': { fr: 'Chercher dans les calques', it: 'Cerca nei livelli', en: 'Search layers' },
+  '{n} Treffer – Enter wählt den ersten': {
+    fr: '{n} résultats – Entrée choisit le premier',
+    it: '{n} risultati – Invio sceglie il primo',
+    en: '{n} matches – Enter picks the first',
+  },
 };
