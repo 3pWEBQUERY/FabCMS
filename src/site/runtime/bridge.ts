@@ -100,6 +100,15 @@ shadow.innerHTML = `<style>
 .guide{position:absolute;display:none;background:#e8408a;pointer-events:none}
 .guide.on{display:block}
 .gv{width:1px}.gh{height:1px}
+/* measuring with Alt: distances from the selection to what is under the pointer */
+.measure{position:absolute;top:0;left:0;display:none;pointer-events:none}
+.measure.on{display:block}
+.m-box{position:absolute;outline:1px solid #e8408a;outline-offset:-1px}
+.m-line{position:absolute;background:#e8408a}
+.m-line.h{height:1px}.m-line.v{width:1px}
+.m-line.h::before,.m-line.h::after{content:"";position:absolute;top:-3px;width:1px;height:7px;background:#e8408a}.m-line.h::before{left:0}.m-line.h::after{right:0}
+.m-line.v::before,.m-line.v::after{content:"";position:absolute;left:-3px;height:1px;width:7px;background:#e8408a}.m-line.v::before{top:0}.m-line.v::after{bottom:0}
+.m-label{position:absolute;padding:2px 5px;border-radius:4px;background:#e8408a;color:#fff;font:600 11px/1.2 system-ui,sans-serif;white-space:nowrap;transform:translate(-50%,-50%)}
 /* layout grid: the site's content width and columns, over the page */
 .grid{position:fixed;inset:0;display:none;pointer-events:none}
 .grid.on{display:block}
@@ -137,6 +146,7 @@ shadow.innerHTML = `<style>
 <div class="ins" part="ins"><button type="button" aria-label="Block einfügen">+</button></div>
 <div class="grip" data-tip="Ziehen zum Verschieben" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
+<div class="measure" aria-hidden="true"></div>
 <div class="grid" aria-hidden="true"><div class="grid-in">${'<span></span>'.repeat(12)}</div></div>
 <div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
@@ -327,6 +337,89 @@ function selectEl(id: string | null, notify: boolean) {
     post({ t: 'select-el', block: block.dataset.novaBlock, el: id, rect: rectOf(el), blockRect: rectOf(block) });
   } else post({ t: 'select-el', block: selected, el: null });
 }
+
+/* ---------- measuring: hold Alt and point at something to see how far it is from the selection ---------- */
+
+const measure = shadow.querySelector('.measure') as HTMLElement;
+let pointedAt: Element | null = null;
+function clearMeasure() {
+  measure.replaceChildren();
+  measure.classList.remove('on');
+}
+function showMeasure() {
+  const src = selectedEl ? elEl(selectedEl) : selected ? blockEl(selected) : null;
+  const other = pointedAt?.closest<HTMLElement>('[data-nova-el],[data-nova-block]') ?? null;
+  if (!src || !other || other === src || elDrag || free || padDrag) return clearMeasure();
+  const a = src.getBoundingClientRect();
+  const b = other.getBoundingClientRect();
+  const parts: HTMLElement[] = [];
+  const add = (cls: string, x: number, y: number, w: number, h: number, text?: string) => {
+    const n = d.createElement('div');
+    n.className = cls;
+    Object.assign(n.style, { left: `${x}px`, top: `${y + scrollY}px`, ...(w ? { width: `${w}px` } : {}), ...(h ? { height: `${h}px` } : {}) });
+    if (text) n.textContent = text;
+    parts.push(n);
+  };
+  // A distance as a line with its value in the middle; nothing for no distance.
+  const hLine = (x1: number, x2: number, y: number) => {
+    const len = Math.round(x2 - x1);
+    if (len <= 0) return;
+    add('m-line h', x1, y, x2 - x1, 0);
+    add('m-label', (x1 + x2) / 2, y, 0, 0, String(len));
+  };
+  const vLine = (y1: number, y2: number, x: number) => {
+    const len = Math.round(y2 - y1);
+    if (len <= 0) return;
+    add('m-line v', x, y1, 0, y2 - y1);
+    add('m-label', x, (y1 + y2) / 2, 0, 0, String(len));
+  };
+  add('m-box', b.left, b.top, b.width, b.height);
+  const inside = (i: DOMRect, o: DOMRect) => o.left <= i.left && o.right >= i.right && o.top <= i.top && o.bottom >= i.bottom;
+  if (inside(a, b) || inside(b, a)) {
+    // One holds the other: from each edge of the inner one to the outer one.
+    const [i, o] = inside(a, b) ? [a, b] : [b, a];
+    const cx = i.left + i.width / 2;
+    const cy = i.top + i.height / 2;
+    vLine(o.top, i.top, cx);
+    vLine(i.bottom, o.bottom, cx);
+    hLine(o.left, i.left, cy);
+    hLine(i.right, o.right, cy);
+  } else {
+    // Side by side: the gaps between them, on the middle of what they share (or of the selection).
+    const yOverlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    const xOverlap = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const y = yOverlap > 0 ? Math.max(a.top, b.top) + yOverlap / 2 : a.top + a.height / 2;
+    const x = xOverlap > 0 ? Math.max(a.left, b.left) + xOverlap / 2 : a.left + a.width / 2;
+    if (a.right <= b.left) hLine(a.right, b.left, y);
+    else if (b.right <= a.left) hLine(b.right, a.left, y);
+    if (a.bottom <= b.top) vLine(a.bottom, b.top, x);
+    else if (b.bottom <= a.top) vLine(b.bottom, a.top, x);
+    if (xOverlap > 0 && yOverlap > 0) {
+      // Overlapping: how far their top and left edges are apart.
+      vLine(Math.min(a.top, b.top), Math.max(a.top, b.top), Math.min(a.left, b.left) + 4);
+      hLine(Math.min(a.left, b.left), Math.max(a.left, b.left), Math.min(a.top, b.top) + 4);
+    }
+  }
+  measure.replaceChildren(...parts);
+  measure.classList.add('on');
+}
+d.addEventListener(
+  'pointermove',
+  (e) => {
+    pointedAt = e.target instanceof Element ? e.target : null;
+    if (e.altKey && !e.buttons) showMeasure();
+    else if (measure.classList.contains('on')) clearMeasure();
+  },
+  { passive: true },
+);
+addEventListener('keydown', (e) => {
+  if (e.key === 'Alt' && !e.repeat) showMeasure();
+});
+addEventListener('keyup', (e) => {
+  if (e.key === 'Alt') clearMeasure();
+});
+addEventListener('blur', clearMeasure);
+addEventListener('scroll', () => measure.classList.contains('on') && showMeasure(), { passive: true });
 
 /* ---------- image files dropped from the computer ---------- */
 

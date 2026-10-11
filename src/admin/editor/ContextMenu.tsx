@@ -118,6 +118,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
         [t('Wert ziehen: alle Seiten'), `⇧ + ${t('Ziehen')}`],
         [t('Auf der freien Fläche verschieben'), '← ↑ → ↓ / ⇧'],
         [t('Ohne Einrasten ziehen'), `${isMac ? '⌥' : 'Alt'} + ${t('Ziehen')}`],
+        [t('Abstände zur Auswahl messen'), `${isMac ? '⌥' : 'Alt'} + ${t('Zeigen')}`],
       ],
     ],
   ];

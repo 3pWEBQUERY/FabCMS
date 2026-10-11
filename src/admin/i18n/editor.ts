@@ -669,4 +669,6 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'Set the focal point – move it with the arrow keys',
   },
   'Wie in der Mediathek': { fr: 'Comme dans la médiathèque', it: 'Come nella mediateca', en: 'As in the media library' },
+  'Abstände zur Auswahl messen': { fr: 'Mesurer les distances à la sélection', it: 'Misura le distanze dalla selezione', en: 'Measure distances to the selection' },
+  Zeigen: { fr: 'Pointer', it: 'Puntare', en: 'Point' },
 };
