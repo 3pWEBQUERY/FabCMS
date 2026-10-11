@@ -2401,7 +2401,7 @@ export function archiveStarter(c: CollectionDef): El[] {
   ];
 }
 
-export const LAYOUT_PRESETS: LayoutPreset[] = [
+const RAW_PRESETS: LayoutPreset[] = [
   {
     id: 'split',
     label: 'Text und Bild',
@@ -2549,7 +2549,8 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
           createEl('button', { label: 'Jetzt entdecken' }),
         ],
         {
-          desktop: { minHeight: '70svh', justify: 'end', gap: '$s-5', pt: '$s-7', pr: '$s-7', pb: '$s-7', pl: '$s-7', radius: '24px', bg: '$inv-bg', overlay: 'rgba(0,0,0,0.35)' },
+          // Dark behind the white text in every theme, until a picture goes in.
+          desktop: { minHeight: '70svh', justify: 'end', gap: '$s-5', pt: '$s-7', pr: '$s-7', pb: '$s-7', pl: '$s-7', radius: '24px', bg: '#201c19', overlay: 'rgba(0,0,0,0.35)' },
           mobile: { minHeight: '60svh', pt: '$s-6', pr: '$s-5', pb: '$s-6', pl: '$s-5' },
         },
       ),
@@ -2598,3 +2599,25 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
     els: () => [box([createEl('heading', { text: 'Überschrift', level: '2' }), createEl('text')])],
   },
 ];
+
+/**
+ * The presets in the page's structure, like Bricks: a Container of the
+ * website's width, and in it Blocks (containers in free canvases, lists and
+ * entry containers keep their own way).
+ */
+function asStructure(els: El[], parent: ElKind | null = null): El[] {
+  const free = parent === 'canvas' || parent === 'list' || (parent !== null && ITEM_CONTAINERS.includes(parent));
+  return els.map((el) => ({
+    ...el,
+    ...(el.kind === 'box' && !free && !boxRole(el) ? { props: { ...el.props, role: 'block' } } : {}),
+    ...(el.children ? { children: asStructure(el.children, el.kind) } : {}),
+  }));
+}
+
+export const LAYOUT_PRESETS: LayoutPreset[] = RAW_PRESETS.map((p) => ({ ...p, els: () => [structureBox('container', asStructure(p.els()), { desktop: { gap: '$s-6' } })] }));
+
+/** A free layout from a preset: edge to edge, the Container keeps the website's width. */
+export const presetLayout = (id: string) => {
+  const preset = LAYOUT_PRESETS.find((x) => x.id === id);
+  return preset ? { els: preset.els(), width: 'full' } : null;
+};

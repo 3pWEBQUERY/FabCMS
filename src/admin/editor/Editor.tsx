@@ -48,7 +48,7 @@ import {
   createEl,
   EL_DEFS,
   EL_KINDS,
-  LAYOUT_PRESETS,
+  presetLayout,
   elementImages,
   findEl,
   insertEl,
@@ -718,13 +718,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     }
     if (typeof data.saved === 'string') return insertSaved(data.saved, index);
     if (typeof data.preset === 'string') {
-      const preset = LAYOUT_PRESETS.find((x) => x.id === data.preset);
-      if (preset) await insertBlock('layout', index, { els: preset.els() });
+      const preset = presetLayout(data.preset);
+      if (preset) await insertBlock('layout', index, preset);
       return;
     }
     if (typeof data.section === 'string') return insertBlock('section', index, { section: data.section });
     const type = String(data.type ?? '');
-    if (BLOCK_MAP[type]) await insertBlock(type, index, type === 'layout' ? { els: LAYOUT_PRESETS.find((x) => x.id === 'empty')!.els() } : undefined);
+    if (BLOCK_MAP[type]) await insertBlock(type, index, type === 'layout' ? (presetLayout('empty') ?? undefined) : undefined);
   };
 
   /** A saved section, as a copy of its own, at this place. */

@@ -4,7 +4,7 @@ import { useSession } from '../lib/session';
 import { touchScreen } from '../lib/hooks';
 import { t, tl } from '../lib/i18n';
 import { Icon } from '../ui/icons';
-import { LAYOUT_PRESETS } from '../../shared/elements';
+import { LAYOUT_PRESETS, presetLayout } from '../../shared/elements';
 import { LayoutThumb } from './elements/LayoutThumb';
 import { dragSource, NEW_BLOCK } from './dragNew';
 
@@ -45,7 +45,7 @@ export function BlockPicker({
       category: b.category,
       data: { type: b.type } as Record<string, unknown>,
       // The free layout starts with an empty container to build in.
-      run: () => onPick(b.type, b.type === 'layout' ? { els: LAYOUT_PRESETS.find((p) => p.id === 'empty')!.els() } : undefined),
+      run: () => onPick(b.type, b.type === 'layout' ? (presetLayout('empty') ?? undefined) : undefined),
     })),
     ...(q === '' || 'sektion wiederverwendbar'.includes(q.toLowerCase()) || t('Wiederverwendbare Sektion').toLowerCase().includes(q.toLowerCase())
       ? sections.map((s) => ({
@@ -123,7 +123,7 @@ export function BlockPicker({
                   type="button"
                   className="lt-tile"
                   {...dragSource(drag, NEW_BLOCK, { preset: p.id })}
-                  onClick={() => onPick('layout', { els: p.els() })}
+                  onClick={() => onPick('layout', presetLayout(p.id) ?? undefined)}
                   title={tl(p.description)}
                 >
                   <LayoutThumb id={p.id} />

@@ -2864,7 +2864,9 @@ describe('Shop-Elemente', () => {
     expect(preset.module).toBe('shop');
     const els = preset.els();
     expect(sanitizeEls(els)).toEqual(els);
-    expect(els[1].props).toMatchObject({ collection: 'products', shop: 'sale' });
+    // In a Container of the website's width, like every preset.
+    expect(boxRole(els[0])).toBe('container');
+    expect(els[0].children![1].props).toMatchObject({ collection: 'products', shop: 'sale' });
     expect(walkKinds(els)).toEqual(expect.arrayContaining(['image', 'rating', 'price', 'addtocart']));
   });
 });
