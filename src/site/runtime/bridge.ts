@@ -60,6 +60,7 @@ a[href]{cursor:default}
 [data-nova-el-selected]{outline:2px solid #2b59c3!important;outline-offset:-1px}
 [data-nova-el-multi]{outline:2px dashed #2b59c3!important;outline-offset:-1px}
 [data-nova-el-drag]{opacity:.35}
+[data-nova-sizing]{outline:1px dashed rgba(43,89,195,.8)!important;outline-offset:0}
 [data-nova-ghost]{pointer-events:none}
 .el-marquee:hover .mq-track,.el-marquee:has([data-nova-el-selected]) .mq-track,.el-marquee[data-nova-el-selected] .mq-track{animation-play-state:paused}
 [data-nova-component]{position:relative}
@@ -121,6 +122,16 @@ shadow.innerHTML = `<style>
 .grid-in span{background:rgba(232,64,138,.07)}
 @media (max-width:64rem){.grid-in{grid-template-columns:repeat(8,1fr)}.grid-in span:nth-child(n+9){display:none}}
 @media (max-width:40rem){.grid-in{grid-template-columns:repeat(4,1fr);column-gap:1rem}.grid-in span:nth-child(n+5){display:none}}
+/* sections: drag the bottom edge for the height, the content column's edges for its width */
+.sz{position:absolute;display:none;align-items:center;justify-content:center;background:#2b59c3;border:2px solid #fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.3);touch-action:none;z-index:2}
+.sz.on{display:flex}
+.sz:hover,.sz.drag{background:#1f47a3}
+.sz-h{width:48px;height:16px;cursor:ns-resize}
+.sz-l,.sz-r{width:16px;height:48px;cursor:ew-resize}
+.sz i{display:block;background:rgba(255,255,255,.9);border-radius:1px}
+.sz-h i{width:18px;height:2px;box-shadow:0 4px 0 rgba(255,255,255,.9)}
+.sz-h i{margin-top:-4px}
+.sz-l i,.sz-r i{width:2px;height:18px;box-shadow:4px 0 0 rgba(255,255,255,.9);margin-left:-4px}
 .pz{position:absolute;display:none;touch-action:none}
 .pz.on{display:block}
 .pz-t,.pz-b{cursor:ns-resize}.pz-l,.pz-r{cursor:ew-resize}
@@ -167,6 +178,7 @@ shadow.innerHTML = `<style>
 <div class="egrip" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="7.5" cy="5" r="1.3"/><circle cx="12.5" cy="5" r="1.3"/><circle cx="7.5" cy="10" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/><circle cx="7.5" cy="15" r="1.3"/><circle cx="12.5" cy="15" r="1.3"/></svg></div>
 <div class="measure" aria-hidden="true"></div>
 <div class="grid" aria-hidden="true"><div class="grid-in">${'<span></span>'.repeat(12)}</div></div>
+<div class="sz sz-h" data-sz="h" title="Höhe ziehen – Doppelklick: automatisch" aria-hidden="true"><i></i></div><div class="sz sz-l" data-sz="l" title="Breite ziehen – Doppelklick: wie das Theme" aria-hidden="true"><i></i></div><div class="sz sz-r" data-sz="r" title="Breite ziehen – Doppelklick: wie das Theme" aria-hidden="true"><i></i></div>
 <div class="pz pz-t" data-side="t" aria-hidden="true"></div><div class="pz pz-r" data-side="r" aria-hidden="true"></div><div class="pz pz-b" data-side="b" aria-hidden="true"></div><div class="pz pz-l" data-side="l" aria-hidden="true"></div>
 <div class="edrop"></div><div class="edrop-box"></div><div class="eresize" aria-hidden="true"></div><div class="guide gv"></div><div class="guide gh"></div><div class="epos"></div>
 <button type="button" class="entry"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16H4v-3z"/></svg><span></span></button>
@@ -553,6 +565,7 @@ function padTarget(): HTMLElement | null {
 
 /** The four padding areas over the target, at least a few pixels to grab even when there is none. */
 function placePads() {
+  placeSizers();
   const el = padDrag?.el ?? padTarget();
   if (!el) return pads.forEach((p) => p.classList.remove('on'));
   const r = el.getBoundingClientRect();
@@ -622,6 +635,119 @@ for (const p of pads) {
   };
   p.addEventListener('pointerup', end);
   p.addEventListener('pointercancel', end);
+}
+
+/* ---------- section size: height and content width, dragged on the canvas ---------- */
+
+const sizers = [...shadow.querySelectorAll<HTMLElement>('.sz')];
+type SizeKind = 'h' | 'l' | 'r';
+let sizeDrag: { block: HTMLElement; col: HTMLElement | null; kind: SizeKind; x: number; y: number; start: number; value: string | null; moved: boolean } | null = null;
+
+/** The selected section (not one of its elements) and its content column, if it has one of its own. */
+function sizeTarget(): { block: HTMLElement; col: HTMLElement | null } | null {
+  if (selectedEl || !selected || free || elDrag || padDrag) return null;
+  const block = blockEl(selected);
+  if (!block || lockOf(block) !== 'none') return null;
+  const col = [...block.querySelectorAll<HTMLElement>('.wrap')].find((w) => w.closest('[data-nova-block]') === block) ?? null;
+  return { block, col };
+}
+
+function placeSizers() {
+  const t = sizeDrag ?? sizeTarget();
+  if (!t) return sizers.forEach((x) => x.classList.remove('on'));
+  const r = t.block.getBoundingClientRect();
+  const c = t.col?.getBoundingClientRect();
+  // The column's edges only when it is narrower than the section – otherwise there is nothing to grab apart from the section's own.
+  const narrow = c && c.width < r.width - 8;
+  for (const x of sizers) {
+    const kind = x.dataset.sz as SizeKind;
+    if (kind === 'h') {
+      Object.assign(x.style, { left: `${r.left + r.width / 2 - 24}px`, top: `${r.bottom + scrollY - 8}px` });
+      x.classList.add('on');
+    } else if (c && narrow) {
+      const mid = Math.min(Math.max(c.top + c.height / 2, r.top + 40), r.bottom - 40);
+      Object.assign(x.style, { left: `${(kind === 'l' ? c.left : c.right) - 8}px`, top: `${mid + scrollY - 24}px` });
+      x.classList.add('on');
+    } else x.classList.remove('on');
+  }
+}
+
+/** Heights a section snaps to: half, three quarters and the whole screen. */
+const SCREEN_STEPS: [number, string, string][] = [
+  [0.5, '50svh', 'Halber Bildschirm'],
+  [0.75, '75svh', 'Dreiviertel Bildschirm'],
+  [1, '100svh', 'Ganzer Bildschirm'],
+];
+
+for (const x of sizers) {
+  x.addEventListener('pointerdown', (e) => {
+    const t = sizeTarget();
+    if (!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    x.setPointerCapture(e.pointerId);
+    const kind = x.dataset.sz as SizeKind;
+    const start = kind === 'h' ? t.block.getBoundingClientRect().height : (t.col?.getBoundingClientRect().width ?? 0);
+    sizeDrag = { ...t, kind, x: e.clientX, y: e.clientY, start, value: null, moved: false };
+    x.classList.add('drag');
+    t.col?.setAttribute('data-nova-sizing', '');
+  });
+  x.addEventListener('pointermove', (e) => {
+    if (!sizeDrag) return;
+    const { block, col, kind, start } = sizeDrag;
+    const delta = kind === 'h' ? e.clientY - sizeDrag.y : (kind === 'r' ? e.clientX - sizeDrag.x : sizeDrag.x - e.clientX) * 2;
+    if (!sizeDrag.moved && Math.abs(delta) < 2) return;
+    sizeDrag.moved = true;
+    // Steps of 10 px, snapping to the screen heights or the full width; Shift: to the pixel, no snapping.
+    const fine = e.shiftKey;
+    const step = (n: number) => (fine ? Math.round(n) : Math.round(n / 10) * 10);
+    let label: string;
+    if (kind === 'h') {
+      const raw = Math.max(0, start + delta);
+      const snap = fine ? undefined : SCREEN_STEPS.find(([f]) => Math.abs(raw - f * innerHeight) < 14);
+      sizeDrag.value = snap ? snap[1] : `${step(raw)}px`;
+      label = snap ? snap[2] : `${step(raw)} px hoch`;
+      block.style.minHeight = snap ? `${snap[0] * innerHeight}px` : sizeDrag.value;
+    } else {
+      const full = block.getBoundingClientRect().width;
+      const raw = Math.min(Math.max(240, start + delta), full);
+      const whole = !fine && raw > full - 24;
+      sizeDrag.value = whole ? '100%' : `${step(raw)}px`;
+      label = whole ? 'Volle Breite' : `${step(raw)} px breit`;
+      block.style.setProperty('--max', whole ? '100%' : sizeDrag.value);
+    }
+    block.setAttribute('data-nova-size', '');
+    epos.textContent = label;
+    epos.style.top = `${e.clientY + scrollY + 14}px`;
+    epos.style.left = `${e.clientX + 14}px`;
+    epos.classList.add('on');
+    col?.setAttribute('data-nova-sizing', '');
+    placeSizers();
+    sendRect();
+  });
+  const end = () => {
+    if (!sizeDrag) return;
+    const { block, col, kind, value, moved } = sizeDrag;
+    sizeDrag = null;
+    x.classList.remove('drag');
+    epos.classList.remove('on');
+    col?.removeAttribute('data-nova-sizing');
+    if (moved && value) {
+      post({ t: 'block-size', block: block.dataset.novaBlock, key: kind === 'h' ? 'minHeight' : 'contentWidth', value });
+      afterDrag = true;
+      setTimeout(() => (afterDrag = false), 0);
+    }
+    placeSizers();
+  };
+  x.addEventListener('pointerup', end);
+  x.addEventListener('pointercancel', end);
+  // Double-click: back to the natural height, or the theme's width.
+  x.addEventListener('dblclick', (e) => {
+    const t = sizeTarget();
+    if (!t) return;
+    e.stopPropagation();
+    post({ t: 'block-size', block: t.block.dataset.novaBlock, key: x.dataset.sz === 'h' ? 'minHeight' : 'contentWidth', value: null });
+  });
 }
 
 function placeEgrip() {
@@ -1771,6 +1897,12 @@ addEventListener('message', (e) => {
       if (tag && tag.textContent !== m.css) tag.textContent = m.css;
       // Padding dragged on the canvas now comes from the design too.
       const host = blockEl(m.id);
+      // So do height and width.
+      if (host?.hasAttribute('data-nova-size')) {
+        host.style.removeProperty('min-height');
+        host.style.removeProperty('--max');
+        host.removeAttribute('data-nova-size');
+      }
       if (host) for (const x of [host, ...host.querySelectorAll<HTMLElement>('[data-nova-pad]')]) {
         if (!x.hasAttribute('data-nova-pad')) continue;
         for (const side of SIDES) x.style.removeProperty(PAD_CSS[side]);

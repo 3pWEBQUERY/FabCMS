@@ -392,6 +392,16 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           } else changeBlock({ ...b, style: { ...b.style, design: apply(b.style?.design) } });
           break;
         }
+        case 'block-size': {
+          // Height or content width dragged on the canvas: for the screen size being designed; null = back to automatic.
+          const b = blocksRef.current.find((x) => x.id === m.block);
+          if (!b || (!session.pro && b.lock && b.lock !== 'none')) break;
+          const key = m.key === 'minHeight' ? 'minHeight' : m.key === 'contentWidth' ? 'contentWidth' : null;
+          const ok = m.value === null || (typeof m.value === 'string' && (key === 'minHeight' ? /^(\d{1,4}px|(50|75|100)svh)$/ : /^(\d{3,4}px|100%)$/).test(m.value));
+          if (!key || !ok) break;
+          changeBlock({ ...b, style: { ...b.style, design: setDesign(b.style?.design, device, key, m.value ?? undefined) } });
+          break;
+        }
         case 'el-pos-many': {
           // Several elements moved or aligned together: one change, one step to undo.
           const b = blocksRef.current.find((x) => x.id === m.block);

@@ -455,6 +455,11 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
                   ]}
                 />
               ))}
+              <p className="xsmall faint">
+                {t(
+                  'Auf der Fläche: Der Griff unten zieht die Höhe, die Griffe links und rechts die Inhaltsbreite – für die gewählte Bildschirmgrösse. Doppelklick setzt zurück, Shift zieht ohne Einrasten.',
+                )}
+              </p>
             </>
           ) : (
             <>

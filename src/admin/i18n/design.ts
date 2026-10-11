@@ -975,4 +975,10 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: '«Magnetico» attira dolcemente pulsanti e icone verso il mouse – provalo nell’editor.',
     en: '“Magnetic” gently pulls buttons and icons towards the mouse – try it in the editor.',
   },
+  'Auf der Fläche: Der Griff unten zieht die Höhe, die Griffe links und rechts die Inhaltsbreite – für die gewählte Bildschirmgrösse. Doppelklick setzt zurück, Shift zieht ohne Einrasten.':
+    {
+      fr: 'Sur la page : la poignée du bas règle la hauteur, celles de gauche et de droite la largeur du contenu – pour la taille d’écran choisie. Double-clic pour réinitialiser, Maj pour tirer sans magnétisme.',
+      it: 'Sulla pagina: la maniglia in basso regola l’altezza, quelle a sinistra e a destra la larghezza del contenuto – per la dimensione di schermo scelta. Doppio clic per ripristinare, Maiusc per trascinare senza aggancio.',
+      en: 'On the canvas: the handle at the bottom drags the height, the ones left and right the content width – for the chosen screen size. Double-click resets, Shift drags without snapping.',
+    },
 };
