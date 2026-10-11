@@ -14,6 +14,7 @@ import { ComponentInspector, VariantBar, type VariantControls } from './Componen
 import { ItemsEditor } from './ItemsEditor';
 import { ShapeControls } from './ShapeControls';
 import { InteractionControls } from './Interaction';
+import { ImageFocus } from './ImageFocus';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -105,6 +106,7 @@ export function ElementInspector({
             skip={Object.keys(el.bind ?? {})}
             onChange={(k, v) => onChange({ ...el, props: { ...el.props, [k]: v } })}
           />
+          {el.kind === 'image' && !el.bind?.image && <ImageFocus el={el} onChange={onChange} />}
           {ITEM_CONTAINERS.includes(el.kind) && <ItemsEditor el={el} onChange={onChange} onSelect={onSelect} locked={locked} />}
           {el.kind === 'list' && (
             <p className="xsmall faint">{t('Gestaltet wird der erste Eintrag – alle anderen sehen gleich aus. Verbinde seine Elemente mit den Feldern des Inhaltstyps.')}</p>

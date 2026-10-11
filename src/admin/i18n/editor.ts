@@ -656,4 +656,17 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Nichts gefunden.': { fr: 'Rien trouvé.', it: 'Nessun risultato.', en: 'Nothing found.' },
   'Raster einblenden': { fr: 'Afficher la grille', it: 'Mostra la griglia', en: 'Show grid' },
   'Raster ausblenden': { fr: 'Masquer la grille', it: 'Nascondi la griglia', en: 'Hide grid' },
+  Fokuspunkt: { fr: 'Point focal', it: 'Punto focale', en: 'Focal point' },
+  'Gilt nur an dieser Stelle.': { fr: "Ne vaut qu'à cet endroit.", it: 'Vale solo in questo punto.', en: 'Applies to this place only.' },
+  'Aus der Mediathek. Tipp ins Bild, um ihn nur hier zu ändern.': {
+    fr: "De la médiathèque. Touche l'image pour le changer seulement ici.",
+    it: "Dalla mediateca. Tocca l'immagine per cambiarlo solo qui.",
+    en: 'From the media library. Tap the image to change it here only.',
+  },
+  'Fokuspunkt setzen – mit den Pfeiltasten verschieben': {
+    fr: 'Placer le point focal – déplacer avec les flèches',
+    it: 'Imposta il punto focale – spostalo con le frecce',
+    en: 'Set the focal point – move it with the arrow keys',
+  },
+  'Wie in der Mediathek': { fr: 'Comme dans la médiathèque', it: 'Come nella mediateca', en: 'As in the media library' },
 };

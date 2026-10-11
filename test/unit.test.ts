@@ -1815,3 +1815,19 @@ describe('element interactions', () => {
     expect(away.act?.target).toBe('elsewhere');
   });
 });
+
+describe('image focus per place', () => {
+  it('keeps a valid focus and puts it over the picture of the media library', () => {
+    const [ok, bad, none] = sanitizeEls([
+      { id: 'f1', kind: 'image', props: { image: null, focus: { x: 20.4, y: 80 } } },
+      { id: 'f2', kind: 'image', props: { image: null, focus: { x: 120, y: '1;}' } } },
+      { id: 'f3', kind: 'image', props: { image: null } },
+    ]);
+    expect(ok.props.focus).toEqual({ x: 20, y: 80 });
+    expect(bad.props.focus).toBeUndefined();
+    expect(none.props.focus).toBeUndefined();
+    const css = elementsCss([ok, none]);
+    expect(css).toContain(':is(#e-f1,.e-f1) img{object-position:20% 80%!important}');
+    expect(css).not.toContain('e-f3) img');
+  });
+});

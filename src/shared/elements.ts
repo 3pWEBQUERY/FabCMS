@@ -769,7 +769,7 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
     case 'text':
       return { html: sanitizeRichText(p.html) };
     case 'image':
-      return { image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null, alt: plain(p.alt, 300), href: href(p.href) };
+      return { image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null, alt: plain(p.alt, 300), href: href(p.href), ...focusOf(p.focus) };
     case 'button':
       return { label: plain(p.label, 80), href: href(p.href), variant: one(p.variant, BUTTON_VARIANTS, 'primary') };
     case 'icon':
@@ -884,11 +884,23 @@ export function elementsCss(els: El[], opts: CompileOptions & { forceHover?: str
     const own = ownVars(el);
     out.push(designCss(sel, el.design, opts));
     if (vars || own) out.push(`${sel}{${[vars, own].filter(Boolean).join(';')}}`);
+    // A focus for this place only: over the picture's own from the media library (set on the img itself).
+    const focus = el.kind === 'image' ? focusOf(el.props.focus).focus : undefined;
+    if (focus) out.push(`${sel} img{object-position:${focus.x}% ${focus.y}%!important}`);
   });
   return out.join('');
 }
 
 /** Settings of a kind that the CSS reads as variables (no inline styles on the page). */
+/** The point of a picture that stays in view when it is cropped, for one place – in percent; unset, the media library's applies. */
+export function focusOf(v: unknown): { focus?: { x: number; y: number } } {
+  if (!v || typeof v !== 'object') return {};
+  const { x, y } = v as Record<string, unknown>;
+  const ok = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100;
+  if (!ok(x) || !ok(y)) return {};
+  return { focus: { x: Math.round(x), y: Math.round(y) } };
+}
+
 function ownVars(el: El): string {
   const n = (v: unknown, min: number, max: number, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback);
   if (el.kind === 'icon' && typeof el.props.size === 'number') return `--isz:${n(el.props.size, 12, 240, 40)}px`;
