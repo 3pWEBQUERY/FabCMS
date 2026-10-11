@@ -21,7 +21,7 @@ import { MediaField } from '../../ui/FieldInput';
 import { ContrastNote } from './contrast';
 import { useToast } from '../../ui/toast';
 import { ColorInput, DesignSection, IconChoice, LengthInput, NumberInput, PropRow, useColorPreview } from './controls';
-import { BoxModel, GradientEditor, gradientPreviewCss, PositionGrid, ShadowEditor, spaceTokens } from './parts';
+import { BoxModel, GradientEditor, gradientPreviewCss, overlayPresets, PositionGrid, ShadowEditor, spaceTokens } from './parts';
 
 export type DesignTarget = 'block' | 'element';
 
@@ -55,7 +55,7 @@ export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],
   position: ['position', 'top', 'right', 'bottom', 'left', 'z'],
   type: ['font', 'fontSize', 'weight', 'lineHeight', 'tracking', 'textAlign', 'textTransform', 'italic', 'underline', 'color', 'textGradient', 'accent'],
-  background: ['bg', 'gradient', 'bgImage', 'bgSize', 'bgPosition', 'bgRepeat', 'bgFixed', 'overlay'],
+  background: ['bg', 'gradient', 'bgImage', 'bgSize', 'bgPosition', 'bgRepeat', 'bgFixed', 'overlay', 'overlayGradient'],
   border: ['borderWidth', 'borderStyle', 'borderColor', 'radius', 'radiusTL', 'radiusTR', 'radiusBR', 'radiusBL'],
   effects: ['shadow', 'opacity', 'blur', 'grayscale', 'saturate', 'brightness', 'blend', 'shape', 'backdrop', 'rotate', 'scale', 'x', 'y', 'cursor'],
 };
@@ -739,6 +739,20 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
           </>
         )}
         {color('overlay', t('Überlagerung'))}
+        {!hover &&
+          row(
+            'overlayGradient',
+            t('Überlagerung als Verlauf'),
+            (p) => (
+              <>
+                {p.value === undefined && p.inherited && (
+                  <span className="dp-inh-grad" style={{ background: gradientPreviewCss(p.inherited, preview) }} title={t('Übernommen von: {from}', { from: p.from ?? '' })} />
+                )}
+                <GradientEditor value={p.value} onChange={p.set} presets={overlayPresets} />
+              </>
+            ),
+            true,
+          )}
         {block && !hover && bgMedia}
         {block && !hover && dividers}
       </DesignSection>

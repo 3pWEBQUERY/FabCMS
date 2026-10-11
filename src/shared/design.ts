@@ -107,6 +107,8 @@ export interface StyleProps {
   bgRepeat?: boolean;
   bgFixed?: boolean;
   overlay?: string;
+  /** A gradient over everything else in the background – e.g. dark towards the bottom, for text on a picture or video. */
+  overlayGradient?: Gradient;
   /* border */
   borderWidth?: string;
   borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
@@ -354,6 +356,12 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
     addVar('--bg', bg);
   }
   const layers: string[] = [];
+  const overGrad = gradientCss(p.overlayGradient);
+  if (overGrad) {
+    layers.push(overGrad);
+    // Also over a moving background, like the overlay colour.
+    addVar('--ovg', overGrad);
+  }
   const overlay = cssColor(p.overlay);
   if (overlay) {
     layers.push(`linear-gradient(${overlay},${overlay})`);

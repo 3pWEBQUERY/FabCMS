@@ -1033,4 +1033,10 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Proporzioni delle colonne, p. es. «1 2» per un terzo e due terzi. Sulla pagina si possono anche trascinare i confini.',
     en: 'Ratio of the columns, e.g. «1 2» for one third and two thirds. On the canvas the borders can be dragged too.',
   },
+  'Überlagerung als Verlauf': { fr: 'Superposition en dégradé', it: 'Sovrapposizione sfumata', en: 'Overlay as gradient' },
+  'Unten dunkel': { fr: 'Sombre en bas', it: 'Scuro in basso', en: 'Dark at the bottom' },
+  'Oben dunkel': { fr: 'Sombre en haut', it: 'Scuro in alto', en: 'Dark at the top' },
+  'Links dunkel': { fr: 'Sombre à gauche', it: 'Scuro a sinistra', en: 'Dark on the left' },
+  'Ränder dunkel': { fr: 'Bords sombres', it: 'Bordi scuri', en: 'Dark edges' },
+  'Akzent von unten': { fr: 'Accent depuis le bas', it: 'Accento dal basso', en: 'Accent from below' },
 };

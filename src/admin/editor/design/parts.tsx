@@ -224,7 +224,77 @@ export function gradientPreviewCss(g: Gradient, preview: (c: string) => string |
   return g.type === 'radial' ? `radial-gradient(circle at center, ${stops})` : `linear-gradient(${g.angle ?? 180}deg, ${stops})`;
 }
 
-export function GradientEditor({ value, onChange }: { value: Gradient | undefined; onChange: (g: Gradient | undefined) => void }) {
+/** Gradients laid over a picture or video so text on it stays readable. */
+export const overlayPresets = (): { label: string; g: Gradient }[] => {
+  const dark = (a: number) => `rgb(0 0 0 / ${a})`;
+  return [
+    {
+      label: t('Unten dunkel'),
+      g: {
+        type: 'linear',
+        angle: 180,
+        stops: [
+          { color: dark(0), at: 35 },
+          { color: dark(0.75), at: 100 },
+        ],
+      },
+    },
+    {
+      label: t('Oben dunkel'),
+      g: {
+        type: 'linear',
+        angle: 0,
+        stops: [
+          { color: dark(0), at: 45 },
+          { color: dark(0.7), at: 100 },
+        ],
+      },
+    },
+    {
+      label: t('Links dunkel'),
+      g: {
+        type: 'linear',
+        angle: 90,
+        stops: [
+          { color: dark(0.75), at: 0 },
+          { color: dark(0), at: 65 },
+        ],
+      },
+    },
+    {
+      label: t('Ränder dunkel'),
+      g: {
+        type: 'radial',
+        stops: [
+          { color: dark(0), at: 45 },
+          { color: dark(0.6), at: 100 },
+        ],
+      },
+    },
+    {
+      label: t('Akzent von unten'),
+      g: {
+        type: 'linear',
+        angle: 180,
+        stops: [
+          { color: '$accent/0', at: 30 },
+          { color: '$accent/80', at: 100 },
+        ],
+      },
+    },
+  ];
+};
+
+export function GradientEditor({
+  value,
+  onChange,
+  presets = gradientPresets,
+}: {
+  value: Gradient | undefined;
+  onChange: (g: Gradient | undefined) => void;
+  /** What is offered to start from (the background's own gradients by default). */
+  presets?: () => { label: string; g: Gradient }[];
+}) {
   const preview = useColorPreview();
   const [sel, setSel] = useState(0);
   const bar = useRef<HTMLDivElement>(null);
@@ -232,7 +302,7 @@ export function GradientEditor({ value, onChange }: { value: Gradient | undefine
   if (!value)
     return (
       <div className="dp-grad-presets">
-        {gradientPresets().map((p) => (
+        {presets().map((p) => (
           <Tip key={p.label} label={p.label}>
             <button type="button" aria-label={p.label} style={{ background: gradientPreviewCss(p.g, preview) }} onClick={() => onChange(p.g)} />
           </Tip>

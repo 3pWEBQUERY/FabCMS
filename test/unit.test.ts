@@ -2047,6 +2047,47 @@ describe('Bewegter Hintergrund', () => {
   });
 });
 
+describe('Überlagerung als Verlauf', () => {
+  it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
+    const css = designCss(
+      '#b',
+      {
+        desktop: {
+          bgImage: 'img1',
+          overlay: 'rgb(0 0 0 / 0.2)',
+          overlayGradient: {
+            type: 'linear',
+            angle: 180,
+            stops: [
+              { color: 'rgb(0 0 0 / 0)', at: 40 },
+              { color: 'rgb(0 0 0 / 0.8)', at: 100 },
+            ],
+          },
+        },
+      },
+      { image: () => '/media/img1/w1920.webp' },
+    );
+    const grad = 'linear-gradient(180deg,rgb(0 0 0 / 0) 40%,rgb(0 0 0 / 0.8) 100%)';
+    // Top layer first: the gradient, then the colour, then the picture.
+    expect(css).toContain(`background-image:${grad},linear-gradient(rgb(0 0 0 / 0.2),rgb(0 0 0 / 0.2)),url("/media/img1/w1920.webp")`);
+    expect(css).toContain(`--ovg:${grad}`);
+    // Fewer than two usable stops: nothing.
+    expect(
+      designCss('#b', {
+        desktop: {
+          overlayGradient: {
+            type: 'linear',
+            stops: [
+              { color: 'red;x', at: 0 },
+              { color: '#000', at: 100 },
+            ],
+          },
+        },
+      }),
+    ).not.toContain('--ovg');
+  });
+});
+
 describe('Spaltenaufteilung', () => {
   it('takes two to six sensible ratios, nothing else', () => {
     expect(colRatios('1 2')).toEqual([1, 2]);

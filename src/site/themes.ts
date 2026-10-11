@@ -148,7 +148,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);le
 .has-bgm{isolation:isolate}
 .bgm{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;border-radius:inherit}
 .bgm>video,.bgm>.bgm-poster,.bgm-slide,.bgm-slide img,.bgm-tint{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.bgm-tint{background:var(--ov,transparent)}
+.bgm-tint{background-color:var(--ov,transparent);background-image:var(--ovg,none)}
 :root{--page-bg:var(--bg)}
 .has-div{isolation:isolate}
 .bdiv{position:absolute;left:0;right:0;height:var(--dh,80px);z-index:-1;pointer-events:none;overflow:hidden;line-height:0}
