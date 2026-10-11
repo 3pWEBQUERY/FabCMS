@@ -995,4 +995,11 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Nur diesen Inhalt': { fr: 'Seulement ce contenu', it: 'Solo questo contenuto', en: 'Only this content' },
   'Alle zusammen veröffentlichen': { fr: 'Tout publier ensemble', it: 'Pubblica tutto insieme', en: 'Publish all together' },
+  'Nur die ausgewählten': { fr: 'Seulement la sélection', it: 'Solo quelli selezionati', en: 'Only the selected ones' },
+  'Nur speichern': { fr: 'Enregistrer seulement', it: 'Salva soltanto', en: 'Save only' },
+  'Gespeichert. {names} sind noch Entwürfe – diese Links führen ins Leere, bis jemand sie veröffentlicht.': {
+    fr: 'Enregistré. {names} sont encore des brouillons – ces liens ne mènent nulle part tant que personne ne les publie.',
+    it: 'Salvato. {names} sono ancora bozze – questi link non portano da nessuna parte finché qualcuno non li pubblica.',
+    en: 'Saved. {names} are still drafts – these links lead nowhere until someone publishes them.',
+  },
 };

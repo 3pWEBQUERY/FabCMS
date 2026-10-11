@@ -6,6 +6,7 @@ import { useSession } from '../lib/session';
 import { Icon } from '../ui/icons';
 import { Dialog, Field, confirm } from '../ui/kit';
 import { useToast } from '../ui/toast';
+import { askLinkedDrafts, findLinkedDrafts } from '../lib/draftLinks';
 
 /** Rows chosen in a list; forgets ids that are no longer shown. */
 export function useSelection(ids: string[]) {
@@ -78,7 +79,10 @@ export function BulkBar({
   const run = async (action: Action, extra: { field?: string; value?: unknown } = {}) => {
     setBusy(true);
     try {
-      const r = await api.post<{ done: string[]; failed: { title: string; error: string }[] }>('/api/entries/bulk', { ids, action, ...extra });
+      // Publishing: drafts the chosen entries link to can go live in the same step.
+      const along = action === 'publish' ? await askLinkedDrafts(await findLinkedDrafts({ ids }), t('Nur die ausgewählten')) : [];
+      if (along === null) return;
+      const r = await api.post<{ done: string[]; failed: { title: string; error: string }[] }>('/api/entries/bulk', { ids: [...ids, ...along.map((x) => x.id)], action, ...extra });
       const n = r.done.length;
       const msg =
         action === 'publish'

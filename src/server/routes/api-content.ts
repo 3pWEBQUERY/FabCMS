@@ -54,6 +54,25 @@ async function langPath(col: { route: string | null; id: string }, slug: string,
   return p === '/' ? `/${lang}` : `/${lang}${p}`;
 }
 
+/** Drafts (pages and other entries with an address) that the given content links to – not those in `exclude`. */
+async function draftLinks(data: unknown, exclude: string[]): Promise<{ id: string; collection: string; slug: string; title: string; status: string }[]> {
+  const paths = linkedPaths(data).slice(0, 300);
+  const wanted: { collection: string; slug: string }[] = [];
+  for (const col of paths.length ? await activeCollections() : []) {
+    for (const p of paths) {
+      const slug = col.id === 'pages' ? p.slice(1) : col.route ? matchRoute(col.route, p) : null;
+      if (slug !== null) wanted.push({ collection: col.id, slug });
+    }
+  }
+  if (!wanted.length) return [];
+  return sql<{ id: string; collection: string; slug: string; title: string; status: string }[]>`
+    select e.id, e.collection, e.slug, coalesce(e.data->>'title', '') as title, e.status
+    from entries e
+    join jsonb_to_recordset(${json(wanted)}) as w(collection text, slug text) on w.collection = e.collection and w.slug = e.slug
+    where e.status in ('draft', 'review') and not (e.id::text = any(${exclude}))
+    order by title limit 20`;
+}
+
 export function saveCtx(user: AuthUser): SaveContext {
   return {
     userId: user.id,
@@ -564,23 +583,19 @@ export function contentApi(app: Hono<AppEnv>) {
     const user = requireAnyCap(c, 'content.edit', 'content.edit.own');
     const e = await getEntry(c.req.param('id'));
     assertCanEdit(user, e);
-    const paths = linkedPaths(e.data).slice(0, 300);
-    if (!paths.length) return c.json({ entries: [] });
-    const wanted: { collection: string; slug: string }[] = [];
-    for (const col of await activeCollections()) {
-      for (const p of paths) {
-        const slug = col.id === 'pages' ? p.slice(1) : col.route ? matchRoute(col.route, p) : null;
-        if (slug !== null) wanted.push({ collection: col.id, slug });
-      }
+    return c.json({ entries: await draftLinks(e.data, [e.id]) });
+  });
+
+  // The same for several entries chosen in a list (they go live together anyway), or for settings about to be saved (menu, footer).
+  app.post('/api/draft-links', async (c) => {
+    const user = requireAnyCap(c, 'content.edit', 'content.edit.own', 'settings.manage', 'design.manage');
+    const body = z.object({ ids: z.array(z.string().uuid()).max(500).optional(), data: z.unknown().optional() }).parse(await c.req.json());
+    const sources: unknown[] = body.data === undefined ? [] : [body.data];
+    for (const id of new Set(body.ids ?? [])) {
+      const e = await getEntry(id).catch(() => null);
+      if (e && (can(user.role, 'content.edit') || e.author_id === user.id)) sources.push(e.data);
     }
-    if (!wanted.length) return c.json({ entries: [] });
-    const rows = await sql<{ id: string; collection: string; slug: string; title: string; status: string }[]>`
-      select e.id, e.collection, e.slug, coalesce(e.data->>'title', '') as title, e.status
-      from entries e
-      join jsonb_to_recordset(${json(wanted)}) as w(collection text, slug text) on w.collection = e.collection and w.slug = e.slug
-      where e.status in ('draft', 'review') and e.id <> ${e.id}
-      order by title limit 20`;
-    return c.json({ entries: rows });
+    return c.json({ entries: await draftLinks(sources, body.ids ?? []) });
   });
 
   app.get('/api/entries/:id/revisions', async (c) => {

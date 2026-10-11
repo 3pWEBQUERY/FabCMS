@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
-import { DateTimeInput, Dialog, Menu, choose, confirm } from './kit';
+import { DateTimeInput, Dialog, Menu, confirm } from './kit';
+import { askLinkedDrafts, findLinkedDrafts, publishDrafts } from '../lib/draftLinks';
 import { ShareLinks } from './ShareLinks';
 import { isoDay } from '../../shared/dates';
 import { Icon } from './icons';
@@ -62,15 +63,9 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
     try {
       if (!(await doc.saveNow())) throw new Error(doc.error ?? t('Speichern hat nicht geklappt.'));
       // Links to pages that are still drafts would lead nowhere: offer to publish them along.
-      const along = canPublish && !e.lang ? await linkedDrafts(e.id) : [];
+      const along = canPublish && !e.lang ? await askLinkedDrafts(await findLinkedDrafts({ entry: e.id }), t('Nur diesen Inhalt')) : [];
       if (along === null) return;
-      for (const x of along) {
-        try {
-          await api.post(`/api/entries/${x.id}/publish`, { at: at ? new Date(at).toISOString() : null });
-        } catch (err) {
-          toast(t('«{name}» liess sich nicht veröffentlichen: {error}', { name: x.title, error: (err as Error).message }), { kind: 'bad' });
-        }
-      }
+      await publishDrafts(along, toast, at ? new Date(at).toISOString() : null);
       const r = await api.post<{ entry: Entry; firstPublish?: boolean; review?: boolean; url?: string }>(`/api/entries/${e.id}/publish${q}`, {
         at: at ? new Date(at).toISOString() : null,
       });
@@ -92,27 +87,6 @@ export function PublishControls({ doc, onPublished }: { doc: EntryDoc; onPublish
       setBusy(false);
       setScheduleOpen(false);
     }
-  };
-
-  /** Drafts this content links to, if they should go live with it – [] for none or «only this one», null for «not now». */
-  const linkedDrafts = async (id: string): Promise<{ id: string; title: string }[] | null> => {
-    const found = await api
-      .get<{ entries: { id: string; title: string }[] }>(`/api/entries/${id}/draft-links`)
-      .then((r) => r.entries)
-      .catch(() => []);
-    if (!found.length) return [];
-    const answer = await choose({
-      title: t('Verlinkte Entwürfe'),
-      message: t('Verlinkt sind {names} – noch nicht veröffentlicht. Ohne sie führen diese Links auf der Website ins Leere.', {
-        names: found.map((x) => `«${x.title || t('Ohne Titel')}»`).join(', '),
-      }),
-      options: [
-        { label: t('Abbrechen'), value: 'cancel', kind: 'ghost' },
-        { label: t('Nur diesen Inhalt'), value: 'one' },
-        { label: t('Alle zusammen veröffentlichen'), value: 'all', kind: 'primary' },
-      ],
-    });
-    return answer === 'all' ? found : answer === 'one' ? [] : null;
   };
 
   const fmt = (iso: string) => new Date(iso).toLocaleString(adminLocale(), { dateStyle: 'medium', timeStyle: 'short' });

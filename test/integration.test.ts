@@ -4203,7 +4203,7 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     resetRateLimits();
   });
 
-  it('names the drafts a content links to before it goes live', async () => {
+  it('names the drafts a content, a selection or the menu links to before it goes live', async () => {
     const draft = async (collection: string, title: string) => (await req('POST', '/api/entries', { collection, data: { title } })).data.entry as { id: string; slug: string };
     const team = await draft('pages', 'Team Entwurf');
     const prices = await draft('pages', 'Preise Entwurf');
@@ -4225,6 +4225,25 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(await names()).toEqual(['Beitrag Entwurf', 'Preise Entwurf', 'Team Entwurf']);
     await req('POST', `/api/entries/${team.id}/publish`, {});
     expect(await names()).toEqual(['Beitrag Entwurf', 'Preise Entwurf']);
+    // Several chosen in a list: what they link to, without themselves – they go live anyway.
+    const chosen = async (body: unknown) => ((await req('POST', '/api/draft-links', body)).data.entries as { title: string }[]).map((x) => x.title).sort();
+    expect(await chosen({ ids: [page.id, prices.id] })).toEqual(['Beitrag Entwurf']);
+    // Settings about to be saved: a menu item and a footer link.
+    const nav = [{ id: 'n1', label: 'Preise', href: `/${prices.slug}` }];
+    const footer = {
+      text: '',
+      columns: [
+        {
+          title: 'Mehr',
+          links: [
+            { label: 'Blog', href: `/journal/${post.slug}` },
+            { label: 'Team', href: `/${team.slug}` },
+          ],
+        },
+      ],
+    };
+    expect(await chosen({ data: { nav, footer } })).toEqual(['Beitrag Entwurf', 'Preise Entwurf']);
+    expect(await chosen({ data: { nav: [] } })).toEqual([]);
     for (const x of [team, prices, live, post, page]) await req('DELETE', `/api/entries/${x.id}`);
   });
 

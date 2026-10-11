@@ -6,6 +6,10 @@ import { choose } from '../ui/kit';
 import { addNavigationGuard } from '../lib/router';
 import type { SiteSettings } from '../../shared/types';
 import { t } from '../lib/i18n';
+import { askLinkedDrafts, draftNames, findLinkedDrafts, publishDrafts, type LinkedDraft } from '../lib/draftLinks';
+
+/** Settings that hold links to pages: checked for drafts before saving. */
+const LINKING: (keyof SiteSettings)[] = ['nav', 'footer', 'header', 'social'];
 
 /* ---------- draft helper: edit a copy, save only what changed ---------- */
 
@@ -54,7 +58,7 @@ const writeStore = (v: StoredDraft | null) => {
 };
 
 export function useSettingsDraft() {
-  const { settings, setSettings } = useSession();
+  const { settings, setSettings, can } = useSession();
   const toast = useToast();
   const [draft, setDraft] = useState<SiteSettings | null>(settings ? structuredClone(settings) : null);
   const restored = useRef(false);
@@ -91,11 +95,26 @@ export function useSettingsDraft() {
     if (!draft) return true;
     const patch = Object.fromEntries(changedKeys.map((k) => [k, draft[k]]));
     try {
+      // Menu, footer or header button pointing at drafts would lead nowhere: they can go live along.
+      const linked = changedKeys.some((k) => LINKING.includes(k)) ? await findLinkedDrafts({ data: patch }) : [];
+      let along: LinkedDraft[] = [];
+      if (linked.length && can('content.publish')) {
+        const answer = await askLinkedDrafts(linked, t('Nur speichern'));
+        if (answer === null) return false;
+        along = answer;
+      }
+      await publishDrafts(along, toast);
       const r = await api.patch<{ settings: SiteSettings }>('/api/settings', patch);
       setSettings(r.settings);
       setDraft(structuredClone(r.settings));
       writeStore(null);
-      toast(t('Gespeichert. Die Website ist aktualisiert.'));
+      // Without the right to publish: saved, but said plainly which links lead nowhere yet.
+      if (linked.length && !can('content.publish'))
+        toast(t('Gespeichert. {names} sind noch Entwürfe – diese Links führen ins Leere, bis jemand sie veröffentlicht.', { names: draftNames(linked) }), {
+          kind: 'notice',
+          ms: 9000,
+        });
+      else toast(t('Gespeichert. Die Website ist aktualisiert.'));
       return true;
     } catch (e) {
       toast((e as Error).message, { kind: 'bad' });
