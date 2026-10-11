@@ -335,6 +335,21 @@ export function setupWidgets(root: ParentNode, edit = false) {
       document.querySelectorAll<HTMLDetailsElement>('details[data-hs][open]').forEach((o) => !o.contains(e.target as Node) && (o.open = false));
     });
   }
+  // Flip boxes: without hover (touch), a tap turns them; a tap on their button follows the link.
+  root.querySelectorAll<HTMLElement>('[data-flip]').forEach((box) => {
+    if (ready.has(box)) return;
+    ready.add(box);
+    box.addEventListener('click', (e) => {
+      if ((e.target as Element).closest('a') || matchMedia('(hover: hover)').matches) return;
+      box.classList.toggle('on');
+    });
+    box.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === box) {
+        e.preventDefault();
+        box.classList.toggle('on');
+      }
+    });
+  });
   root.querySelectorAll<HTMLElement>('[data-rotate]').forEach((el) => {
     if (ready.has(el)) return;
     ready.add(el);

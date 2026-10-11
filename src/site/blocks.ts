@@ -1201,6 +1201,17 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       }
       return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
     }
+    case 'flipbox': {
+      // Both sides are in the page for everyone; the turn is only the eye's. Hover, focus inside or a tap (touch) turns it.
+      const m = await ctx.media(p.image);
+      const effect = ['flip', 'flipup', 'fade'].includes(String(p.effect)) ? String(p.effect) : 'flip';
+      const height = Math.min(700, Math.max(160, Number(p.height) || 300));
+      const txt = (prop: string, tag: 'p' | 'strong', klass: string) =>
+        p[prop] || rc.edit ? html`${raw(`<${tag} class="${klass}"`)}${editField(prop)}>${lines(String(p[prop] ?? ''))}${raw(`</${tag}>`)}` : html``;
+      const button = p.label && (p.href || rc.edit) ? html`<a class="btn fb-btn" href="${rc.edit || rc.inLink ? '#' : p.href || '#'}">${p.label}</a>` : html``;
+      ctx.needs.add('widgets');
+      return html`<div class="${cls(`fb-${effect}${m ? ' fb-pic' : ''}`)}"${attrs} style="--fbh:${height}px" data-flip${raw(p.label && p.href ? '' : ' tabindex="0"')}><div class="fb-inner"><div class="fb-side fb-front">${m ? picture(m, { className: 'fb-img', sizes: '(min-width: 64rem) 33vw, 100vw', alt: '' }) : ''}${p.icon ? html`<span class="fb-icon" aria-hidden="true">${raw(siteIconSvg(String(p.icon)))}</span>` : ''}${txt('title', 'strong', 'fb-title')}${txt('text', 'p', 'fb-text')}</div><div class="fb-side fb-back">${txt('backTitle', 'strong', 'fb-title')}${txt('backText', 'p', 'fb-text')}${button}</div></div></div>`;
+    }
     case 'hotspots': {
       // Each point is a native disclosure: works without the script, which only closes the others and answers Escape.
       const m = await ctx.media(p.image);

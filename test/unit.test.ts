@@ -2255,6 +2255,22 @@ describe('CSS pro Element', () => {
   });
 });
 
+describe('Flip-Box', () => {
+  it('keeps plain texts, a safe link, a known turn and a sensible height', () => {
+    const [el] = sanitizeEls([
+      {
+        id: 'f',
+        kind: 'flipbox',
+        props: { image: 'img-2', icon: '../x', title: ' Kaffee ', backText: 'Zeile 1\nZeile 2', label: 'Los', href: 'javascript:alert(1)', effect: 'spin', height: 5 },
+      },
+    ]);
+    expect(el.props).toMatchObject({ image: 'img-2', icon: '', title: 'Kaffee', backText: 'Zeile 1\nZeile 2', label: 'Los', href: undefined, effect: 'flip', height: 160 });
+    // Both sides are read by search and the page description.
+    expect(elementsText([{ ...el, props: { ...el.props, backTitle: 'Aus Äthiopien' } }])).toContain('Aus Äthiopien');
+    expect(elementsMedia([el])).toEqual(['img-2']);
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

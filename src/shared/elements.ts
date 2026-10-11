@@ -45,6 +45,7 @@ export const EL_KINDS = [
   'compare',
   'headline',
   'hotspots',
+  'flipbox',
   'accordion',
   'tabs',
   'slider',
@@ -765,6 +766,47 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       shape: 'underline',
       accent: true,
       level: '2',
+    },
+  },
+  flipbox: {
+    kind: 'flipbox',
+    group: 'interactive',
+    label: 'Flip-Box',
+    description: 'Eine Karte mit Vorder- und Rückseite: beim Darüberfahren oder Antippen dreht sie sich und zeigt mehr – mit Knopf.',
+    icon: 'rotate',
+    fields: [
+      { key: 'image', type: 'image', label: 'Bild vorne', help: 'Füllt die Vorderseite, abgedunkelt für den Text.' },
+      { key: 'icon', type: 'icon', label: 'Symbol vorne' },
+      { key: 'title', type: 'text', label: 'Titel vorne', inline: true, maxLength: 120 },
+      { key: 'text', type: 'textarea', label: 'Text vorne', inline: true, maxLength: 300 },
+      { key: 'backTitle', type: 'text', label: 'Titel hinten', inline: true, maxLength: 120 },
+      { key: 'backText', type: 'textarea', label: 'Text hinten', inline: true, maxLength: 500 },
+      { key: 'label', type: 'text', label: 'Knopf hinten', maxLength: 60 },
+      { key: 'href', type: 'url', label: 'Link des Knopfs' },
+      {
+        key: 'effect',
+        type: 'select',
+        label: 'Wechsel',
+        options: [
+          { value: 'flip', label: 'Drehen (seitlich)' },
+          { value: 'flipup', label: 'Drehen (nach oben)' },
+          { value: 'fade', label: 'Überblenden' },
+        ],
+        default: 'flip',
+      },
+      { key: 'height', type: 'number', label: 'Höhe in Pixeln', min: 160, max: 700, default: 300 },
+    ],
+    defaults: {
+      image: null,
+      icon: 'star',
+      title: 'Frisch vom Markt',
+      text: 'Was heute auf den Teller kommt',
+      backTitle: 'Jeden Morgen eingekauft',
+      backText: 'Gemüse und Kräuter aus der Region, Fisch vom See – die Karte wechselt mit der Saison.',
+      label: 'Zur Karte',
+      href: '',
+      effect: 'flip',
+      height: 300,
     },
   },
   hotspots: {
@@ -1507,6 +1549,19 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'flipbox':
+      return {
+        image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null,
+        icon: typeof p.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(p.icon) ? p.icon : '',
+        title: plain(p.title, 120),
+        text: sanitizePlain(typeof p.text === 'string' ? p.text : '', true).slice(0, 300),
+        backTitle: plain(p.backTitle, 120),
+        backText: sanitizePlain(typeof p.backText === 'string' ? p.backText : '', true).slice(0, 500),
+        label: plain(p.label, 60),
+        href: href(p.href),
+        effect: one(p.effect, ['flip', 'flipup', 'fade'] as const, 'flip'),
+        height: typeof p.height === 'number' && Number.isFinite(p.height) ? Math.min(700, Math.max(160, Math.round(p.height))) : 300,
+      };
     case 'hotspots':
       return {
         image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null,
@@ -1778,6 +1833,7 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'flipbox') for (const k of ['title', 'text', 'backTitle', 'backText', 'label']) out.push(String(el.props[k] ?? ''));
       if (el.kind === 'hotspots')
         for (const pt of (el.props.points as { title?: string; text?: string }[] | undefined) ?? []) out.push(String(pt?.title ?? ''), String(pt?.text ?? ''));
       if (el.kind === 'iconlist') for (const it of (el.props.items as { text?: string }[] | undefined) ?? []) out.push(String(it?.text ?? ''));
@@ -1807,7 +1863,7 @@ export function elementsMedia(els: El[]): string[] {
     if (el.kind === 'image' && typeof el.props.image === 'string') out.push(el.props.image);
     if (el.kind === 'gallery' && Array.isArray(el.props.images)) out.push(...el.props.images.filter((x): x is string => typeof x === 'string'));
     if (el.kind === 'video' && typeof el.props.poster === 'string') out.push(el.props.poster);
-    if (el.kind === 'hotspots' && typeof el.props.image === 'string') out.push(el.props.image);
+    if ((el.kind === 'hotspots' || el.kind === 'flipbox') && typeof el.props.image === 'string') out.push(el.props.image);
     if (el.kind === 'compare') for (const k of ['before', 'after']) if (typeof el.props[k] === 'string') out.push(el.props[k] as string);
   });
   return out;

@@ -443,6 +443,19 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.el-flipbox{perspective:1400px;min-height:var(--fbh,300px);display:grid;outline-offset:4px}
+.fb-inner{position:relative;display:grid;min-height:inherit;transition:transform .75s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
+.fb-side{grid-area:1/1;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:.5rem;padding:1.75rem;border-radius:var(--radius,14px);background:var(--surface);color:var(--ink);backface-visibility:hidden;-webkit-backface-visibility:hidden;isolation:isolate}
+.fb-back{background:var(--accent);color:var(--accent-ink)}
+.fb-flip .fb-back{transform:rotateY(180deg)}.fb-flipup .fb-back{transform:rotateX(180deg)}
+.fb-flip:is(:hover,:focus-within,.on) .fb-inner{transform:rotateY(180deg)}.fb-flipup:is(:hover,:focus-within,.on) .fb-inner{transform:rotateX(180deg)}
+.fb-fade .fb-inner{transform:none}.fb-fade .fb-back{opacity:0;transition:opacity .45s}.fb-fade:is(:hover,:focus-within,.on) .fb-back{opacity:1}
+.fb-img,.fb-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.fb-pic .fb-front{color:#fff;justify-content:flex-end}.fb-pic .fb-front::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgb(0 0 0/0) 30%,rgb(0 0 0/.7))}
+.fb-icon svg{width:2.25rem;height:2.25rem;color:var(--accent)}.fb-pic .fb-icon svg{color:#fff}
+.fb-title{display:block;font:600 var(--step-1)/1.2 var(--font-display)}.fb-text{margin:0;opacity:.9}
+.fb-btn{align-self:flex-start;margin-top:.5rem;background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+@media (prefers-reduced-motion:reduce){.fb-inner,.fb-fade .fb-back{transition:none}}
 .el-hotspots{position:relative;margin:0}.el-hotspots>picture,.el-hotspots>picture img{display:block;width:100%;height:auto;border-radius:var(--img-radius,0)}
 .hs{position:absolute;z-index:1;width:0;height:0}.hs[open]{z-index:3}
 .hs>summary{list-style:none;position:absolute;left:-.95rem;top:-.95rem;width:1.9rem;height:1.9rem;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font:700 .8rem/1 var(--font-body);box-shadow:0 0 0 3px rgb(255 255 255/.85),0 4px 14px rgb(0 0 0/.3);cursor:pointer;transition:transform .2s}
