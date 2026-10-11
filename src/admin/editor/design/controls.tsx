@@ -281,7 +281,7 @@ export function useColorPreview() {
   };
 }
 
-function toHex(c: string): string | null {
+export function toHex(c: string): string | null {
   const s = c.trim();
   if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
   if (/^#[0-9a-f]{3}$/i.test(s))

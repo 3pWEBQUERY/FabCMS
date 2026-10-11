@@ -927,4 +927,31 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Tutte le condizioni devono essere soddisfatte. Nell’editor il blocco resta visibile – sbiadito se ora non apparirebbe.',
     en: 'All conditions must hold. In the editor the block stays visible – pale when it would not show right now.',
   },
+  'Diese Seite nutzt nur die Farben des Themes. Eigene Farben aus dem Design-Panel erscheinen hier.': {
+    fr: 'Cette page n’utilise que les couleurs du thème. Les couleurs choisies dans le panneau Design apparaissent ici.',
+    it: 'Questa pagina usa solo i colori del tema. I colori scelti nel pannello Design appaiono qui.',
+    en: 'This page only uses the theme’s colours. Colours set in the design panel show up here.',
+  },
+  'Alle Farben, die Blöcke und Elemente dieser Seite selbst setzen – auf allen Bildschirmgrössen und bei Hover.': {
+    fr: 'Toutes les couleurs que les blocs et éléments de cette page définissent eux-mêmes – sur toutes les tailles d’écran et au survol.',
+    it: 'Tutti i colori che blocchi ed elementi di questa pagina impostano – su tutte le dimensioni dello schermo e al passaggio del mouse.',
+    en: 'Every colour the blocks and elements of this page set themselves – on every screen size and on hover.',
+  },
+  'Theme-Farbe': { fr: 'Couleur du thème', it: 'Colore del tema', en: 'Theme colour' },
+  '1 Stelle': { fr: '1 endroit', it: '1 punto', en: '1 place' },
+  '{n} Stellen': { fr: '{n} endroits', it: '{n} punti', en: '{n} places' },
+  'Durch Theme-Farbe «{name}» ersetzen': {
+    fr: 'Remplacer par la couleur du thème « {name} »',
+    it: 'Sostituisci con il colore del tema «{name}»',
+    en: 'Replace with theme colour “{name}”',
+  },
+  'Neue Farbe': { fr: 'Nouvelle couleur', it: 'Nuovo colore', en: 'New colour' },
+  'Überall auf dieser Seite ersetzen': { fr: 'Remplacer partout sur cette page', it: 'Sostituisci ovunque in questa pagina', en: 'Replace everywhere on this page' },
+  'Gesperrte Blöcke bleiben, wie sie sind.': {
+    fr: 'Les blocs verrouillés restent tels quels.',
+    it: 'I blocchi bloccati restano come sono.',
+    en: 'Locked blocks stay as they are.',
+  },
+  'Farben dieser Seite': { fr: 'Couleurs de cette page', it: 'Colori di questa pagina', en: 'Colours of this page' },
+  'Farbe ersetzt.': { fr: 'Couleur remplacée.', it: 'Colore sostituito.', en: 'Colour replaced.' },
 };

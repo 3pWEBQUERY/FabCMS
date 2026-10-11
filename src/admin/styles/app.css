@@ -7901,3 +7901,40 @@ textarea.dg-input {
   border: 0;
   transform-origin: 0 0;
 }
+
+/* «Farben dieser Seite» */
+.pc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.pc-list > li {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.pc-list > li.open {
+  border-color: var(--sel);
+}
+.pc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pc-row .grow {
+  display: grid;
+  min-width: 0;
+}
+.pc-edit {
+  padding: 0 0.6rem 0.6rem;
+}

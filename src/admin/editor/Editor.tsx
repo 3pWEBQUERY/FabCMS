@@ -22,6 +22,8 @@ import { BlockPicker } from './BlockPicker';
 import { Inspector } from './Inspector';
 import { GlobalPanel, HistoryPanel, PagePanel, SeoPanel, StructurePanel } from './Panels';
 import { DeviceOverview } from './DeviceOverview';
+import { ColorsPanel } from './ColorsPanel';
+import { replaceColor } from '../../shared/page-colors';
 import { changedBlockIds, postToCanvas, setIn, updateBlock } from './util';
 import { BLOCK_MAP, createBlock } from '../../shared/blocks';
 import { shortId } from '../../shared/text';
@@ -122,7 +124,7 @@ async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   return mediaUrlCache;
 }
 
-type Panel = 'inspector' | 'seo' | 'contrast' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
+type Panel = 'inspector' | 'seo' | 'contrast' | 'colors' | 'history' | 'page' | 'structure' | 'header' | 'footer' | 'comments' | null;
 type Device = 'desktop' | 'tablet' | 'mobile';
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -135,6 +137,7 @@ const panelTitle = (p: Exclude<Panel, null>): string =>
     inspector: t('Block'),
     seo: t('Suchmaschinen'),
     contrast: t('Kontrast'),
+    colors: t('Farben dieser Seite'),
     history: t('Verlauf'),
     page: t('Seite'),
     structure: t('Aufbau'),
@@ -1226,6 +1229,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
               ['structure', 'layers', t('Aufbau')],
               ['seo', 'seo', t('Suchmaschinen')],
               ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
+              ['colors', 'paint', t('Farben dieser Seite')],
               ['history', 'history', t('Verlauf')],
             ] as [Panel, string, string][]
           )
@@ -1603,6 +1607,18 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
                 {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
                 {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}
+                {panel === 'colors' && (
+                  <TokenColors.Provider value={tokenColors}>
+                    <ColorsPanel
+                      blocks={doc.data.blocks ?? []}
+                      locked={studio ? (doc.data.blocks ?? []).filter((b) => (b.lock ?? 'none') !== 'none').length : 0}
+                      onReplace={(from, to) => {
+                        reorderAll(replaceColor(blocksRef.current, from, to, studio ? (b) => (b.lock ?? 'none') !== 'none' : undefined));
+                        toast(t('Farbe ersetzt.'));
+                      }}
+                    />
+                  </TokenColors.Provider>
+                )}
                 {panel === 'page' && <PagePanel doc={doc} />}
                 {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
                 {panel === 'structure' && (

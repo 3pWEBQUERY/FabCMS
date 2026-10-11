@@ -39,6 +39,7 @@ import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
 import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
+import { colorKey, pageColors, replaceColor } from '../src/shared/page-colors';
 import { cleanConds, condsHold, type CondEnv } from '../src/shared/conditions';
 import { fieldKey, freeAddress, keyFields, newType, STUDIO_FIELD_TYPES, TYPE_PRESETS, typeAddress } from '../src/shared/type-presets';
 import {
@@ -2187,5 +2188,62 @@ describe('Filter für Schleife', () => {
     expect(FILTER_SORTS['preis-auf']).toMatchObject({ sort: 'field-asc', field: 'price' });
     const [f] = sanitizeEls([{ id: 'f1', kind: 'filter', props: { target: '"><x', search: false, category: 'tiles', tag: 1, placeholder: 'Suche' } }]);
     expect(f.props).toEqual({ target: '', search: false, placeholder: 'Suche', category: 'chips', tag: false, sort: false });
+  });
+});
+
+describe('Farben dieser Seite', () => {
+  it('lists every colour of blocks, elements and variants, and replaces one everywhere', () => {
+    const blocks = [
+      { id: 'b1', type: 'text', props: {}, style: { design: { desktop: { bg: '#C33', color: '$ink' }, hover: { bg: '#cc3333' } } } },
+      {
+        id: 'b2',
+        type: 'layout',
+        props: {
+          els: [
+            {
+              id: 'e1',
+              kind: 'box',
+              props: {},
+              design: { mobile: { borderColor: '#cc3333', shadow: { x: 0, y: 2, blur: 4, spread: 0, color: '#cc3333' } } },
+              children: [
+                {
+                  id: 'e2',
+                  kind: 'heading',
+                  props: {},
+                  design: {
+                    desktop: {
+                      textGradient: {
+                        type: 'linear',
+                        stops: [
+                          { color: '#cc3333', at: 0 },
+                          { color: '$accent', at: 100 },
+                        ],
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          variants: [{ id: 'v1', name: 'Dunkel', designs: { e1: { desktop: { bg: '#cc3333' } } } }],
+        },
+      },
+      { id: 'b3', type: 'text', props: {}, lock: 'layout', style: { design: { desktop: { color: '#cc3333' } } } },
+    ] as unknown as Block[];
+    // Written two ways, counted as one.
+    expect(pageColors(blocks)).toEqual([
+      { value: '#C33', count: 7 },
+      { value: '$accent', count: 1 },
+      { value: '$ink', count: 1 },
+    ]);
+    const next = replaceColor(blocks, '#cc3333', '$accent', (b) => (b.lock ?? 'none') !== 'none');
+    expect(pageColors(next)).toEqual([
+      { value: '$accent', count: 7 },
+      { value: '#cc3333', count: 1 },
+      { value: '$ink', count: 1 },
+    ]);
+    // Untouched blocks stay the same objects; the locked one keeps its colour.
+    expect(next[2]).toBe(blocks[2]);
+    expect(colorKey(' #ABC ')).toBe('#aabbcc');
   });
 });
