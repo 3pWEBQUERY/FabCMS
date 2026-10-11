@@ -1582,6 +1582,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           source={listSource}
                           bindSource={listSource ?? ownType}
                           archiveFor={archiveFor}
+                          onSiteSaved={() => void renderAll().catch(() => {})}
                           onSelect={selectElement}
                           locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
                           onOpenComponent={openComponent}

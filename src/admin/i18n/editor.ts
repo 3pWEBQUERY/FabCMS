@@ -970,4 +970,10 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Apri una voce mostrata direttamente sulla pagina. Le nuove compaiono nel ciclo appena pubblicate.',
     en: 'Open an entry shown here straight from the canvas. New ones appear in the loop once published.',
   },
+  'Website-Daten – gelten auf allen Seiten': {
+    fr: 'Données du site – valables sur toutes les pages',
+    it: 'Dati del sito – validi su tutte le pagine',
+    en: 'Website data – applies on every page',
+  },
+  'Leer = der Name der Website.': { fr: 'Vide = le nom du site.', it: 'Vuoto = il nome del sito.', en: 'Empty = the website’s name.' },
 };

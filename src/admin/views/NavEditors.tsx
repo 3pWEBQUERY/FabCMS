@@ -185,3 +185,24 @@ export function FooterEditor({ footer, onChange }: { footer: SiteSettings['foote
     </>
   );
 }
+
+/** The social media links: a name and an address per row. */
+export function SocialEditor({ social, onChange }: { social: SiteSettings['social']; onChange: (s: SiteSettings['social']) => void }) {
+  const put = (i: number, patch: Partial<SiteSettings['social'][number]>) => onChange(social.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <>
+      {social.map((l, i) => (
+        <div key={i} className="row nav-row">
+          <input className="input" value={l.label} placeholder={t('z. B. Instagram')} aria-label={t('Beschriftung')} onChange={(e) => put(i, { label: e.target.value })} />
+          <input className="input mono" value={l.href} placeholder="https://" aria-label={t('Ziel')} onChange={(e) => put(i, { href: e.target.value })} />
+          <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={() => onChange(social.filter((_, j) => j !== i))}>
+            <Icon name="x" size="s" />
+          </button>
+        </div>
+      ))}
+      <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => onChange([...social, { label: '', href: '' }])}>
+        <Icon name="plus" size="s" /> {t('Social-Link')}
+      </button>
+    </>
+  );
+}

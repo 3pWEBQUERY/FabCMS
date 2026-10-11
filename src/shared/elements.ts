@@ -145,6 +145,40 @@ export const SITE_BINDS: Record<'text' | 'href' | 'image' | 'date' | 'images', [
   images: [],
 };
 
+/** A piece of the website's own data an element shows. */
+export type SiteKey = 'name' | 'tagline' | 'logo' | 'phone' | 'email' | 'address' | 'legal' | 'hours' | 'nav' | 'footer' | 'social';
+
+const FROM_BIND: Record<string, SiteKey> = {
+  'site:name': 'name',
+  'site:tagline': 'tagline',
+  'site:logo': 'logo',
+  'site:phone': 'phone',
+  'site:phone-link': 'phone',
+  'site:email': 'email',
+  'site:email-link': 'email',
+  'site:address': 'address',
+  'site:copyright': 'legal',
+  'site:hours': 'hours',
+};
+
+/** What of the website's data an element shows: through its bindings, or because it is a logo, opening hours or a menu. */
+export function siteDataOf(el: El): SiteKey[] {
+  const keys = new Set<SiteKey>();
+  for (const v of Object.values(el.bind ?? {})) if (Object.hasOwn(FROM_BIND, v)) keys.add(FROM_BIND[v]);
+  if (el.kind === 'logo') {
+    keys.add('logo');
+    keys.add('name');
+  }
+  if (el.kind === 'hours') keys.add('hours');
+  if (el.kind === 'menu') {
+    const source = el.props.source ?? 'main';
+    if (source === 'main') keys.add('nav');
+    if (source === 'footer') keys.add('footer');
+    if (source === 'social') keys.add('social');
+  }
+  return [...keys];
+}
+
 /** What a property takes: a picture, a link, a moment (countdowns), or text. */
 export const bindKind = (prop: string): 'text' | 'href' | 'image' | 'date' | 'images' =>
   prop === 'image' ? 'image' : prop === 'href' ? 'href' : prop === 'to' ? 'date' : prop === 'images' ? 'images' : 'text';

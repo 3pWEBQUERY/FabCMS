@@ -67,6 +67,7 @@ import {
   archiveStarter,
   footerStarter,
   headerStarter,
+  siteDataOf,
   variantsCss,
   walkEls,
   type El,
@@ -1983,6 +1984,29 @@ describe('Kopfzeile, Fusszeile und Archiv', () => {
     // A type without categories gets no filter.
     const team = { ...posts, id: 'team', fields: posts.fields.filter((f) => f.key !== 'category') };
     expect(kinds(archiveStarter(team))).not.toContain('terms');
+  });
+});
+
+describe('Website-Daten am Element', () => {
+  it('knows which of the website data an element shows', () => {
+    const el = (kind: El['kind'], props: Record<string, unknown> = {}, bind?: Record<string, string>) => ({ id: 'x', kind, props, ...(bind ? { bind } : {}) }) as El;
+    expect(siteDataOf(el('heading', {}, { text: 'site:name' }))).toEqual(['name']);
+    // Phone as text and as call link, the address, the copyright with the legal name.
+    expect(siteDataOf(el('button', {}, { label: 'site:phone', href: 'site:phone-link' }))).toEqual(['phone']);
+    expect(siteDataOf(el('text', {}, { html: 'site:address' }))).toEqual(['address']);
+    expect(siteDataOf(el('text', {}, { html: 'site:copyright' }))).toEqual(['legal']);
+    expect(siteDataOf(el('image', {}, { image: 'site:logo' }))).toEqual(['logo']);
+    // Nothing to edit: the year, the page title, the home link, an entry's fields, unknown words.
+    expect(siteDataOf(el('text', {}, { html: 'site:year', href: 'site:home' }))).toEqual([]);
+    expect(siteDataOf(el('heading', {}, { text: 'title' }))).toEqual([]);
+    expect(siteDataOf(el('heading', {}, { text: 'constructor' }))).toEqual([]);
+    // The website's own elements: logo with name, opening hours, the chosen menu.
+    expect(siteDataOf(el('logo'))).toEqual(['logo', 'name']);
+    expect(siteDataOf(el('hours'))).toEqual(['hours']);
+    expect(siteDataOf(el('menu', { source: 'main' }))).toEqual(['nav']);
+    expect(siteDataOf(el('menu', { source: 'footer' }))).toEqual(['footer']);
+    expect(siteDataOf(el('menu', { source: 'social' }))).toEqual(['social']);
+    expect(siteDataOf(el('menu', { source: 'legal' }))).toEqual([]);
   });
 });
 

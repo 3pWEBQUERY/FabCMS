@@ -22,7 +22,8 @@ import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
 import { GlobalContrast } from './design/contrast';
 import { useSettingsDraft } from '../views/settingsDraft';
-import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider } from '../views/NavEditors';
+import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider, SocialEditor } from '../views/NavEditors';
+import { SiteSaveBar } from './elements/SiteData';
 import type { ContrastIssue } from '../../shared/contrast';
 
 /* ---------- SEO coach ---------- */
@@ -560,7 +561,6 @@ export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'f
   const toast = useToast();
   // Menu, header button, footer and social links edited right here – the same drafts as in the settings.
   const { draft, set, dirty, save, reset } = useSettingsDraft();
-  const [busy, setBusy] = useState(false);
   // A header or footer designed in the free layout replaces the theme's while it is published.
   const { data: own } = useApi<{ entries: { id: string; status: string; fields?: { kind?: string } }[] }>('/api/entries?collection=sections&limit=500');
   const mine = own?.entries.filter((x) => x.fields?.kind === which) ?? [];
@@ -636,74 +636,12 @@ export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'f
             <>
               <FooterEditor footer={draft.footer} onChange={(f) => set('footer', f)} />
               <span className="section-title">{t('Social Media')}</span>
-              {draft.social.map((l, i) => (
-                <div key={i} className="row nav-row">
-                  <input
-                    className="input"
-                    value={l.label}
-                    placeholder={t('z. B. Instagram')}
-                    aria-label={t('Beschriftung')}
-                    onChange={(e) =>
-                      set(
-                        'social',
-                        draft.social.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
-                      )
-                    }
-                  />
-                  <input
-                    className="input mono"
-                    value={l.href}
-                    placeholder="https://"
-                    aria-label={t('Ziel')}
-                    onChange={(e) =>
-                      set(
-                        'social',
-                        draft.social.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
-                      )
-                    }
-                  />
-                  <button
-                    className="btn ghost s icon-only"
-                    aria-label={t('Entfernen')}
-                    onClick={() =>
-                      set(
-                        'social',
-                        draft.social.filter((_, j) => j !== i),
-                      )
-                    }
-                  >
-                    <Icon name="x" size="s" />
-                  </button>
-                </div>
-              ))}
-              <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('social', [...draft.social, { label: '', href: '' }])}>
-                <Icon name="plus" size="s" /> {t('Social-Link')}
-              </button>
+              <SocialEditor social={draft.social} onChange={(v) => set('social', v)} />
             </>
           )}
         </PageLinksProvider>
       )}
-      {dirty && (
-        <div className="panel-save">
-          <button className="btn ghost s" onClick={reset} disabled={busy}>
-            {t('Verwerfen')}
-          </button>
-          <button
-            className="btn primary s"
-            aria-busy={busy || undefined}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                if (await save()) onSaved?.();
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {t('Speichern – auf allen Seiten')}
-          </button>
-        </div>
-      )}
+      {dirty && <SiteSaveBar save={save} reset={reset} onSaved={onSaved} />}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import { InteractionControls } from './Interaction';
 import { ConditionControls } from './Conditions';
 import { ImageFocus } from './ImageFocus';
 import { LoopEntries, LoopRules, loopFields } from './LoopRules';
+import { SiteData } from './SiteData';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -38,6 +39,7 @@ export function ElementInspector({
   blockEls,
   bindSource,
   archiveFor,
+  onSiteSaved,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -65,6 +67,8 @@ export function ElementInspector({
   bindSource: CollectionDef | null;
   /** In an archive template: the content type it is the overview of. */
   archiveFor?: CollectionDef | null;
+  /** The website's data shown by the element was saved: the whole canvas draws it anew. */
+  onSiteSaved?: () => void;
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
@@ -115,6 +119,7 @@ export function ElementInspector({
               ))}
             </details>
           )}
+          <SiteData el={el} onSaved={onSiteSaved} />
           <FieldList
             fields={
               el.kind === 'list'
