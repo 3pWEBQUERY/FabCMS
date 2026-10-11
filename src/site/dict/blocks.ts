@@ -142,4 +142,5 @@ export const blocks: Record<string, { fr: string; it: string; en: string }> = {
   'bis {until}': { fr: 'jusqu’au {until}', it: 'fino al {until}', en: 'until {until}' },
   'Punkt {n}': { fr: 'Point {n}', it: 'Punto {n}', en: 'Point {n}' },
   'Mehr erfahren': { fr: 'En savoir plus', it: 'Scopri di più', en: 'Learn more' },
+  'Nach oben': { fr: 'Vers le haut', it: 'Torna su', en: 'Back to top' },
 };

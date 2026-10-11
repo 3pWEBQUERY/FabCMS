@@ -350,6 +350,26 @@ export function setupWidgets(root: ParentNode, edit = false) {
       }
     });
   });
+  // «Nach oben»: a gentle scroll to the top; floating ones appear once the page has been scrolled a bit.
+  const tops = [...root.querySelectorAll<HTMLAnchorElement>('a[data-totop]')].filter((a) => !ready.has(a));
+  tops.forEach((a) => {
+    ready.add(a);
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' });
+    });
+  });
+  const floats = tops.filter((a) => a.classList.contains('tt-float'));
+  if (floats.length) {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const on = scrollY > innerHeight * 0.6;
+      floats.forEach((a) => a.classList.toggle('on', on));
+    };
+    addEventListener('scroll', () => (frame ||= requestAnimationFrame(update)), { passive: true });
+    update();
+  }
   root.querySelectorAll<HTMLElement>('[data-rotate]').forEach((el) => {
     if (ready.has(el)) return;
     ready.add(el);

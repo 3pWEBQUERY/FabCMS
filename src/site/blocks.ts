@@ -12,6 +12,7 @@ import { condsHold, type CondEnv } from '../shared/conditions';
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, iaClass, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
+import { networkOf, socialSvg } from '../shared/social';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
 import { bestsellers, publishedEntries, categoriesOf, tagsOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
@@ -1210,6 +1211,33 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
         middle = html`<span class="hl-words hl-${effect}" aria-hidden="true"${words.length > 1 ? raw(` data-rotate="${seconds}"`) : ''}>${words.map((w, i) => html`<span class="hl-w${i === 0 ? ' on' : ''}" data-w="${w}"></span>`)}</span><span class="sr">${words.join(', ')}</span>`;
       }
       return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
+    }
+    case 'social': {
+      // The profiles from the website's data (Einstellungen → Social-Media): one place, every page.
+      const links = (ctx.settings.social ?? []).filter((l) => l.href);
+      if (!links.length) return rc.edit ? html`<div class="${cls('el-empty')}"${attrs}>Noch keine Social-Profile – im Inspektor unter «Website-Daten» eintragen.</div>` : html``;
+      const look = ['icons', 'both', 'labels'].includes(String(p.look)) ? String(p.look) : 'icons';
+      const shape = ['plain', 'circle', 'square'].includes(String(p.shape)) ? String(p.shape) : 'circle';
+      const size = Math.min(48, Math.max(14, Number(p.size) || 20));
+      const items = links.map((l) => {
+        const n = networkOf(l.href);
+        const name = l.label || n.name;
+        const inner = html`${look !== 'labels' ? raw(socialSvg(n.id)) : ''}${look !== 'icons' ? html`<span>${name}</span>` : ''}`;
+        // Only icons: the name is for screen readers.
+        const label = look === 'icons' ? raw(` aria-label="${esc(name)}" title="${esc(name)}"`) : '';
+        return rc.inLink ? html`<li><span${label}>${inner}</span></li>` : html`<li><a href="${l.href}" rel="noopener me"${label}>${inner}</a></li>`;
+      });
+      return html`<ul class="${cls(`so-${look} so-${shape}`)}"${attrs} style="--so:${size}px">${items}</ul>`;
+    }
+    case 'totop': {
+      const look = ['icon', 'both', 'text'].includes(String(p.look)) ? String(p.look) : 'icon';
+      // The standard wording in the visitor's language; one of its own as written.
+      const label = typeof p.label === 'string' && p.label && p.label !== 'Nach oben' ? p.label : t(ctx, 'Nach oben');
+      // Floating in the corner only on the page; in the editor it stays where it is placed, to be designed.
+      const float = p.float !== false && !rc.edit;
+      ctx.needs.add('widgets');
+      const arrow = raw('<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16V4.5M5.25 9 10 4.25 14.75 9"/></svg>');
+      return html`<a href="#" class="${cls(`tt-${look}${float ? ' tt-float' : ''}`)}"${attrs} data-totop${look === 'icon' ? raw(` aria-label="${esc(label)}" title="${esc(label)}"`) : ''}>${look !== 'text' ? arrow : ''}${look !== 'icon' ? html`<span${editField('label')}>${label}</span>` : ''}</a>`;
     }
     case 'testimonial': {
       const look = ['card', 'plain', 'center'].includes(String(p.look)) ? String(p.look) : 'card';

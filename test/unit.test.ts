@@ -38,6 +38,7 @@ import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
 import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
 import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
+import { networkOf, socialSvg } from '../src/shared/social';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2371,6 +2372,28 @@ describe('Folgt der Maus', () => {
     expect(motionAttrs({ mouse: 'tilt', mouseStrength: 250, mouseAway: true })).toBe('data-mouse="tilt" data-mouse-k="-100"');
     expect(motionAttrs({ mouse: 'wobble' as 'shift' })).toBe('');
     expect(hasMotion({ mouse: 'shift' })).toBe(true);
+  });
+});
+
+describe('Social-Profile und Nach oben', () => {
+  it('knows the network of a profile link, with a globe for the rest', () => {
+    expect(networkOf('https://www.instagram.com/linde').id).toBe('instagram');
+    expect(networkOf('https://youtu.be/abc').id).toBe('youtube');
+    expect(networkOf('https://twitter.com/linde').id).toBe('x');
+    expect(networkOf('https://wa.me/41790000000').id).toBe('whatsapp');
+    expect(networkOf('mailto:hallo@linde.ch').id).toBe('mail');
+    // A look-alike host is just a website.
+    expect(networkOf('https://instagram.com.evil.example/x').id).toBe('web');
+    expect(networkOf('kaputt').id).toBe('web');
+    expect(socialSvg('linkedin')).toContain('aria-hidden="true"');
+  });
+  it('keeps known looks and sizes, and the floating button by default', () => {
+    const [so, tt] = sanitizeEls([
+      { id: 's', kind: 'social', props: { look: 'neon', shape: 'star', size: 400 } },
+      { id: 't', kind: 'totop', props: { label: '  ', look: 'big' } },
+    ]);
+    expect(so.props).toEqual({ look: 'icons', shape: 'circle', size: 48 });
+    expect(tt.props).toEqual({ label: 'Nach oben', look: 'icon', float: true });
   });
 });
 

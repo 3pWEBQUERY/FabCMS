@@ -47,6 +47,8 @@ export const EL_KINDS = [
   'hotspots',
   'flipbox',
   'testimonial',
+  'social',
+  'totop',
   'accordion',
   'tabs',
   'slider',
@@ -230,6 +232,7 @@ export function siteDataOf(el: El): SiteKey[] {
     keys.add('name');
   }
   if (el.kind === 'hours') keys.add('hours');
+  if (el.kind === 'social') keys.add('social');
   if (el.kind === 'menu') {
     const source = el.props.source ?? 'main';
     if (source === 'main') keys.add('nav');
@@ -816,6 +819,62 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       accent: true,
       level: '2',
     },
+  },
+  social: {
+    kind: 'social',
+    group: 'site',
+    label: 'Social-Profile',
+    description: 'Die Social-Media-Profile der Website als Symbole – Instagram, Facebook, LinkedIn und mehr, aus den Website-Daten.',
+    icon: 'people',
+    fields: [
+      {
+        key: 'look',
+        type: 'select',
+        label: 'Zeigen',
+        options: [
+          { value: 'icons', label: 'Nur Symbole' },
+          { value: 'both', label: 'Symbol und Name' },
+          { value: 'labels', label: 'Nur Namen' },
+        ],
+        default: 'icons',
+      },
+      {
+        key: 'shape',
+        type: 'select',
+        label: 'Form',
+        options: [
+          { value: 'plain', label: 'Ohne Hintergrund' },
+          { value: 'circle', label: 'Im Kreis' },
+          { value: 'square', label: 'Im Quadrat' },
+        ],
+        default: 'circle',
+      },
+      { key: 'size', type: 'number', label: 'Symbolgrösse in Pixeln', min: 14, max: 48, default: 20 },
+    ],
+    defaults: { look: 'icons', shape: 'circle', size: 20 },
+  },
+  totop: {
+    kind: 'totop',
+    group: 'site',
+    label: 'Nach oben scrollen',
+    description: 'Ein Knopf, der sanft an den Anfang der Seite scrollt – auf Wunsch schwebend in der Ecke, sobald man ein Stück gescrollt hat.',
+    icon: 'arrowUp',
+    fields: [
+      { key: 'label', type: 'text', label: 'Beschriftung', inline: true, maxLength: 40 },
+      {
+        key: 'look',
+        type: 'select',
+        label: 'Zeigen',
+        options: [
+          { value: 'icon', label: 'Nur Pfeil' },
+          { value: 'both', label: 'Pfeil und Text' },
+          { value: 'text', label: 'Nur Text' },
+        ],
+        default: 'icon',
+      },
+      { key: 'float', type: 'boolean', label: 'Schwebend unten rechts, erst nach dem Scrollen' },
+    ],
+    defaults: { label: 'Nach oben', look: 'icon', float: true },
   },
   testimonial: {
     kind: 'testimonial',
@@ -1625,6 +1684,14 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'social':
+      return {
+        look: one(p.look, ['icons', 'both', 'labels'] as const, 'icons'),
+        shape: one(p.shape, ['plain', 'circle', 'square'] as const, 'circle'),
+        size: typeof p.size === 'number' && Number.isFinite(p.size) ? Math.min(48, Math.max(14, Math.round(p.size))) : 20,
+      };
+    case 'totop':
+      return { label: plain(p.label, 40) || 'Nach oben', look: one(p.look, ['icon', 'both', 'text'] as const, 'icon'), float: p.float !== false };
     case 'testimonial':
       return {
         quote: sanitizePlain(typeof p.quote === 'string' ? p.quote : '', true).slice(0, 600),
