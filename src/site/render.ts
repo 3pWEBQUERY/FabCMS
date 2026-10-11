@@ -3,7 +3,7 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
-import { fillToc, langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
+import { CRUMBS_MARK, fillToc, langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
 import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, archiveTemplate, globalSection, legalPages, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { abGroups, popupConf, popupOnPath, runningPopups } from '../shared/popups';
@@ -167,6 +167,26 @@ function breadcrumbs(ctx: RenderContext, crumbs: Crumb[]): Html {
   )}</ol></nav>`;
 }
 
+/**
+ * «Brotkrumen» elements placed on the page, in a designed header or in a template:
+ * the way to this page goes there instead of above the content. On the home page
+ * there is no way – the element is left out; the editor shows an example.
+ */
+function fillCrumbs(ctx: RenderContext, crumbs: Crumb[], page: string): string {
+  if (!page.includes(CRUMBS_MARK)) return page;
+  const sample = ctx.current && ctx.current.collection !== 'sections' ? ctx.current.data.title : t(ctx, 'Seite');
+  const way = crumbs.length > 1 ? crumbs : ctx.edit ? [{ label: t(ctx, 'Startseite'), href: '/' }, { label: sample, href: ctx.path }] : [];
+  if (!way.length) return page.replace(/<nav [^>]*><!--nova-crumbs--><\/nav>/g, '');
+  const home = siteIconSvg('house');
+  const list = html`<ol>${way.map((c, i) =>
+    i === way.length - 1
+      ? html`<li aria-current="page"><span>${c.label}</span></li>`
+      : // In the editor the way is only shown: a click selects the element instead of leaving the page.
+        html`<li><a${ctx.edit ? '' : html` href="${c.href}"`}>${i === 0 ? html`${raw(home)}<span>${c.label}</span>` : c.label}</a></li>`,
+  )}</ol>`.value;
+  return page.split(CRUMBS_MARK).join(list);
+}
+
 function ageGate(ctx: RenderContext): Html {
   const g = ctx.settings.ageGate;
   if (!g.enabled || ctx.ageOk || ctx.edit) return html``;
@@ -192,7 +212,10 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
   const { css, parts, preload } = themeCss(s);
   const { palette } = resolveTheme(s);
   const [hdr, ftr, logo] = await Promise.all([header(ctx), footer(ctx), ctx.media(s.logo)]);
-  const crumbHtml = breadcrumbs(ctx, crumbs);
+  // Brotkrumen placed as an element replace the ones above the content; search engines learn the way once.
+  const ownCrumbs = [main.value, hdr.value, ftr.value].some((x) => x.includes(CRUMBS_MARK));
+  const crumbHtml = ownCrumbs ? html`` : breadcrumbs(ctx, crumbs);
+  if (ownCrumbs && crumbs.length > 1) ctx.jsonLd.push(breadcrumbLd(ctx, crumbs));
   if (ctx.path === '/') ctx.jsonLd.unshift(organizationLd(ctx, logo), websiteLd(ctx));
   const favicon = await ctx.media(s.favicon ?? s.logo);
   // Own selects, calendars, steppers and file pickers only where such fields exist.
@@ -244,7 +267,7 @@ export async function documentHtml(ctx: RenderContext, meta: PageMeta, main: Htm
       ctx.edit ? ' data-nova-edit="1"' : '',
     ].join(''),
   );
-  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${hdr}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : fillToc(main.value, ctx.edit)}</main>${ftr}${consentBar(ctx, stats)}${pops}</body></html>`;
+  const doc = `<!doctype html><html lang="${esc(s.locale)}"><head>${head}</head><body${bodyAttrs}>${gate}<a class="skip" href="#inhalt">${esc(t(ctx, 'Zum Inhalt springen'))}</a>${fillCrumbs(ctx, crumbs, hdr.value)}<main id="inhalt">${withheld ? '' : crumbHtml}${withheld ? '' : fillCrumbs(ctx, crumbs, fillToc(main.value, ctx.edit))}</main>${fillCrumbs(ctx, crumbs, ftr.value)}${consentBar(ctx, stats)}${pops}</body></html>`;
   // Only the rules this page can use – not in the editor or previews, and not when own scripts may add classes.
   const lean = ctx.edit || ctx.preview || s.security.allowCustomScripts ? css : parts.fixed + pruneCss(parts.nova, htmlClasses(doc, new Set(await scriptClasses()))) + parts.own;
   // Animations bring their own rules (classes set by the runtime, never pruned); the editor may add some at any time.

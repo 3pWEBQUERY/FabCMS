@@ -146,4 +146,5 @@ export const blocks: Record<string, { fr: string; it: string; en: string }> = {
   'Reihe {n}': { fr: 'Série {n}', it: 'Serie {n}', en: 'Series {n}' },
   'Daten als Tabelle': { fr: 'Données sous forme de tableau', it: 'Dati come tabella', en: 'Data as a table' },
   Andere: { fr: 'Autres', it: 'Altri', en: 'Other' },
+  Seite: { fr: 'Page', it: 'Pagina', en: 'Page' },
 };

@@ -222,6 +222,30 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${id}`);
   });
 
+  it('puts the way to the page into a «Brotkrumen» element instead of above the content', async () => {
+    const parent = (await req('POST', '/api/entries', { collection: 'pages', slug: 'angebot-bk', data: { title: 'Angebot', blocks: [] } })).data.entry;
+    await req('POST', `/api/entries/${parent.id}/publish`, {});
+    const els = [{ id: 'bk', kind: 'crumbs', props: { sep: 'chevron', home: 'icon', current: true } }];
+    const child = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'angebot-bk/kurse', data: { title: 'Kurse', blocks: [{ id: 'ly', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    await req('POST', `/api/entries/${child.id}/publish`, {});
+    const page = (await req('GET', '/angebot-bk/kurse', undefined, { cookies: new Map() })).data as string;
+    const nav = /<nav class="el el-crumbs[^"]*crumbs-chevron crumbs-home-icon[^"]*"[^>]*>(.*?)<\/nav>/.exec(page);
+    expect(nav).not.toBeNull();
+    expect(nav![1]).toContain('href="/angebot-bk">Angebot</a>');
+    expect(nav![1]).toContain('<li aria-current="page"><span>Kurse</span></li>');
+    expect(nav![1]).toContain('<svg class="ico"');
+    // Not twice: the theme's way above the content steps aside, the structured data stays – once.
+    expect(page).not.toContain('class="wrap crumbs"');
+    expect(page.match(/BreadcrumbList/g)).toHaveLength(1);
+    // The home page has no way: the element is left out.
+    const home = (await req('GET', '/', undefined, { cookies: new Map() })).data as string;
+    expect(home).not.toContain('<!--nova-crumbs-->');
+    await req('DELETE', `/api/entries/${child.id}`);
+    await req('DELETE', `/api/entries/${parent.id}`);
+  });
+
   it('sanitizes rich text and strips code for non-developers', async () => {
     const { data } = await req('POST', '/api/entries', {
       collection: 'pages',

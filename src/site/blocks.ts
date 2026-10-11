@@ -34,6 +34,9 @@ import { env } from '../server/env';
 import { t, L } from './i18n';
 import { langInfo } from '../shared/i18n';
 
+/** Where a «Brotkrumen» element shows the page's way (filled in by render.ts). */
+export const CRUMBS_MARK = '<!--nova-crumbs-->';
+
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
 
 /** Blocks whose heading counts toward the section numbers («01», «02» …). */
@@ -1231,6 +1234,11 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       );
       return html`<div class="${cls(`tbl-wrap${p.stripes === true ? ' tbl-stripes' : ''}`)}"${attrs}><table class="tbl">${head}<tbody>${body}</tbody></table></div>`;
     }
+    case 'crumbs':
+      // Filled in with the page's way once the whole page is known (render.ts, fillCrumbs).
+      return html`<nav class="${cls(
+        `crumbs-${['chevron', 'arrow', 'dot'].includes(String(p.sep)) ? p.sep : 'slash'} crumbs-home-${['icon', 'both'].includes(String(p.home)) ? p.home : 'text'}${p.current === false ? ' crumbs-nocurrent' : ''}`,
+      )}"${attrs} aria-label="${t(ctx, 'Brotkrümel')}">${raw(CRUMBS_MARK)}</nav>`;
     case 'skills': {
       const items = (Array.isArray(p.items) ? p.items : []) as { label?: string; value?: number }[];
       if (!items.length) return handles ? html`<div class="${cls('el-empty')}"${attrs}>Noch keine Balken – im Inspektor hinzufügen.</div>` : html``;

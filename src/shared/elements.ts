@@ -53,6 +53,7 @@ export const EL_KINDS = [
   'table',
   'chart',
   'skills',
+  'crumbs',
   'accordion',
   'tabs',
   'slider',
@@ -926,6 +927,40 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       rounded: true,
       showValue: true,
     },
+  },
+  crumbs: {
+    kind: 'crumbs',
+    group: 'site',
+    label: 'Brotkrumen',
+    description: 'Der Weg zur aktuellen Seite – «Startseite / Angebot / Kurse». Frei platziert, statt oben über dem Inhalt; Google bekommt ihn als strukturierte Daten.',
+    icon: 'nav',
+    fields: [
+      {
+        key: 'sep',
+        type: 'select',
+        label: 'Trennzeichen',
+        options: [
+          { value: 'slash', label: 'Schrägstrich /' },
+          { value: 'chevron', label: 'Winkel ›' },
+          { value: 'arrow', label: 'Pfeil →' },
+          { value: 'dot', label: 'Punkt ·' },
+        ],
+        default: 'slash',
+      },
+      {
+        key: 'home',
+        type: 'select',
+        label: 'Startseite als',
+        options: [
+          { value: 'text', label: 'Wort' },
+          { value: 'icon', label: 'Haus-Symbol' },
+          { value: 'both', label: 'Symbol und Wort' },
+        ],
+        default: 'text',
+      },
+      { key: 'current', type: 'boolean', label: 'Aktuelle Seite am Schluss zeigen' },
+    ],
+    defaults: { sep: 'slash', home: 'text', current: true },
   },
   social: {
     kind: 'social',
@@ -1826,6 +1861,12 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         height: typeof p.height === 'number' && Number.isFinite(p.height) ? Math.min(640, Math.max(160, Math.round(p.height))) : 300,
       };
     }
+    case 'crumbs':
+      return {
+        sep: one(p.sep, ['slash', 'chevron', 'arrow', 'dot'] as const, 'slash'),
+        home: one(p.home, ['text', 'icon', 'both'] as const, 'text'),
+        current: p.current !== false,
+      };
     case 'skills': {
       const max = typeof p.max === 'number' && Number.isFinite(p.max) ? Math.min(1000, Math.max(1, p.max)) : 100;
       return {
