@@ -22,6 +22,8 @@ export interface RenderContext {
   /** On a page drawn from a template: its entry, and its own content («Inhalt des Eintrags»). */
   entry?: BoundEntry;
   entryView?: (mode: 'blocks' | 'default') => Promise<Html>;
+  /** The entry the page shows (any content type), for loops: «like this entry», «leave this one out». */
+  current?: { id: string; collection: string; data: EntryData };
   /** Level for item headings (cards, menu sections): 2 under the page title, 3 under a section heading. */
   hl?: number;
   settings: SiteSettings;

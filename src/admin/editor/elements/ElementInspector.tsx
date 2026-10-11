@@ -15,6 +15,7 @@ import { ItemsEditor } from './ItemsEditor';
 import { ShapeControls } from './ShapeControls';
 import { InteractionControls } from './Interaction';
 import { ImageFocus } from './ImageFocus';
+import { LoopRules, loopFields } from './LoopRules';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -100,12 +101,19 @@ export function ElementInspector({
           )}
           <FieldList
             fields={
-              el.kind === 'list' ? def.fields.map((f) => (f.key === 'collection' ? { ...f, options: collections.map((c) => ({ value: c.id, label: c.name })) } : f)) : def.fields
+              el.kind === 'list'
+                ? loopFields(
+                    def.fields,
+                    collections,
+                    collections.find((c) => c.id === el.props.collection),
+                  )
+                : def.fields
             }
             values={el.props}
             skip={Object.keys(el.bind ?? {})}
             onChange={(k, v) => onChange({ ...el, props: { ...el.props, [k]: v } })}
           />
+          {el.kind === 'list' && <LoopRules el={el} collection={collections.find((c) => c.id === el.props.collection)} onChange={onChange} />}
           {el.kind === 'image' && !el.bind?.image && <ImageFocus el={el} onChange={onChange} />}
           {ITEM_CONTAINERS.includes(el.kind) && <ItemsEditor el={el} onChange={onChange} onSelect={onSelect} locked={locked} />}
           {el.kind === 'list' && (

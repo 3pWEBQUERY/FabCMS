@@ -7,7 +7,8 @@ import { computeSlots, zonedToUtc, localDay, type BookingResource, type BookingS
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { BLOCKS, createBlock, sentences } from '../src/shared/blocks';
 import { blockLookCss, cleanStyles, stylesUsed } from '../src/shared/styles';
-import type { Block } from '../src/shared/types';
+import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../src/shared/query';
+import type { Block, CollectionDef } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath } from '../src/shared/paths';
 import { totpCode, verifyTotp, base32Encode, sign, unsign, hashPassword, verifyPassword } from '../src/server/lib/crypto';
@@ -1248,7 +1249,16 @@ describe('free layout', () => {
     const [list] = sanitizeEls([
       {
         kind: 'list',
-        props: { collection: 'Posts; drop', limit: 900, sort: 'random', category: '  Touren  ' },
+        props: {
+          collection: 'Posts; drop',
+          limit: 900,
+          sort: 'shuffle',
+          category: '  Touren  ',
+          offset: -3,
+          rules: [{ field: '../x', is: 'a' }, { field: 'kind', is: ' <b>Wein</b> ' }, 'x'],
+          related: 'all',
+          paginate: 'yes',
+        },
         children: [
           { kind: 'heading', props: { text: 'Titel' }, bind: { text: 'title', level: 'title' } },
           { kind: 'image', props: {}, bind: { image: 'field:cover', href: 'javascript:x' } },
@@ -1256,7 +1266,21 @@ describe('free layout', () => {
         ],
       },
     ]);
-    expect(list.props).toEqual({ collection: 'posts', limit: 48, sort: 'newest', category: 'Touren' });
+    expect(list.props).toEqual({
+      collection: 'posts',
+      limit: 48,
+      offset: 0,
+      sort: 'newest',
+      sortField: '',
+      category: 'Touren',
+      tag: '',
+      rules: [{ field: 'kind', is: 'bWein/b' }],
+      related: 'none',
+      excludeCurrent: false,
+      time: 'all',
+      paginate: false,
+      empty: '',
+    });
     expect(list.children!.map((c) => c.bind)).toEqual([{ text: 'title' }, { image: 'field:cover' }, undefined]);
     // The ready-made list carries its card template with bindings.
     const made = createEl('list');
@@ -1829,5 +1853,32 @@ describe('image focus per place', () => {
     const css = elementsCss([ok, none]);
     expect(css).toContain(':is(#e-f1,.e-f1) img{object-position:20% 80%!important}');
     expect(css).not.toContain('e-f3) img');
+  });
+});
+
+describe('Inhaltsschleife', () => {
+  it('finds the date to split by, the wall time and what «like this entry» means', () => {
+    const c = (fields: { key: string; type: string }[]) => ({ fields }) as unknown as CollectionDef;
+    expect(
+      timeField(
+        c([
+          { key: 'title', type: 'text' },
+          { key: 'end', type: 'datetime' },
+          { key: 'start', type: 'datetime' },
+        ]),
+      ),
+    ).toBe('start');
+    expect(timeField(c([{ key: 'date', type: 'date' }]))).toBe('date');
+    expect(timeField(c([{ key: 'title', type: 'text' }]))).toBeNull();
+    // 22:30 UTC is already the next day in Zurich in summer.
+    expect(localNow(new Date('2026-07-01T22:30:00Z'), 'Europe/Zurich')).toBe('2026-07-02T00:30');
+    const q = (related: string) => loopQuery({ related });
+    expect(relatedTo(q('none'), { title: 'x', category: 'Touren' })).toBeNull();
+    expect(relatedTo(q('category'), { title: 'x', category: 'Touren' })).toEqual({ category: 'Touren' });
+    // Without a category nothing is «the same».
+    expect(relatedTo(q('category'), { title: 'x' })).toEqual({ tags: [] });
+    expect(relatedTo(q('tags'), { title: 'x', tags: ['Berg', 2, 'See'] })).toEqual({ tags: ['berg', 'see'] });
+    expect(relatedTo(q('tags'), null)).toBeNull();
+    expect(pageParam('abc')).toBe('seite-abc');
   });
 });

@@ -4428,6 +4428,14 @@ button.list-item {
   margin: 0 0 0.35rem;
 }
 
+/* «Nur wenn» rules of a content loop */
+.loop-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 /* element interactions in the inspector */
 .ia-box {
   padding-top: 0.75rem;

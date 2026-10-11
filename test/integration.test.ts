@@ -3515,6 +3515,67 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('runs the Inhaltsschleife: filters, rules, time, «like this entry», pages and an empty state', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const mkPost = async (slug: string, data: Record<string, unknown>) => {
+      const e = (await req('POST', '/api/entries', { collection: 'posts', slug, data: { body: '<p>x</p>', ...data } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const loop = (id: string, props: Record<string, unknown>) => ({
+      id,
+      kind: 'list',
+      props: { collection: 'posts', limit: 6, sort: 'title', ...props },
+      children: [{ id: `${id}t`, kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'title' } }],
+    });
+    const related = loop('qlrel', { related: 'category', excludeCurrent: true });
+    const a = await mkPost('ql-a', {
+      title: 'QL Alpha',
+      category: 'qlkat',
+      tags: ['QLtag'],
+      date: '2020-01-01',
+      blocks: [{ id: 'qlrb', type: 'layout', props: { els: [related] } }],
+    });
+    const b = await mkPost('ql-b', { title: 'QL Beta', category: 'QLKAT', tags: ['qltag', 'anders'], date: '2999-01-01' });
+    const c = await mkPost('ql-c', { title: 'QL Gamma', category: 'qlkat2', date: '2999-02-01' });
+    const els = [
+      loop('qltag', { tag: 'qltag' }),
+      loop('qlrule', { rules: [{ field: 'category', is: 'QLKAT2' }] }),
+      loop('qlpage', { category: 'qlkat', limit: 1, paginate: true }),
+      loop('qlnone', { tag: 'gibtsnicht', empty: 'Nichts da.' }),
+      loop('qlsoon', { time: 'upcoming', rules: [{ field: 'tags', is: 'anders' }] }),
+      loop('qlpast', { time: 'past', category: 'qlkat' }),
+    ];
+    const page = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'ql-seite', data: { title: 'Schleifen', blocks: [{ id: 'qlb', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+
+    const titles = (html: string, id: string) => {
+      const m = html.match(new RegExp(`id="e-${id}"[^>]*>([\\s\\S]*?)</div>(?:<nav|<div class="el|</section|<div id)`));
+      return [...(m?.[1] ?? '').matchAll(/QL \w+/g)].map((x) => x[0]);
+    };
+    const html = (await req('GET', '/ql-seite', undefined, anon)).data as string;
+    // A tag and a rule, case does not count.
+    expect(titles(html, 'qltag')).toEqual(['QL Alpha', 'QL Beta']);
+    expect(titles(html, 'qlrule')).toEqual(['QL Gamma']);
+    // One per page: the first, a link to the next with its own parameter.
+    expect(titles(html, 'qlpage')).toEqual(['QL Alpha']);
+    expect(html).toContain('href="/ql-seite?seite-qlpage=2" rel="next"');
+    const second = (await req('GET', '/ql-seite?seite-qlpage=2', undefined, anon)).data as string;
+    expect(titles(second, 'qlpage')).toEqual(['QL Beta']);
+    expect(second).toContain('rel="prev"');
+    // Nothing matches: the text the editor gave.
+    expect(html).toMatch(/id="e-qlnone"[^>]*><p>Nichts da\.<\/p>/);
+    // Dated content: still to come, or over.
+    expect(titles(html, 'qlsoon')).toEqual(['QL Beta']);
+    expect(titles(html, 'qlpast')).toEqual(['QL Alpha']);
+    // On a post: others of its category, never itself.
+    const post = (await req('GET', '/journal/ql-a', undefined, anon)).data as string;
+    expect(titles(post, 'qlrel')).toEqual(['QL Beta']);
+    for (const e of [a, b, c, page]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

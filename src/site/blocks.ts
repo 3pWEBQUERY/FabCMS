@@ -5,6 +5,7 @@ import { BLOCK_MAP } from '../shared/blocks';
 import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
+import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../shared/query';
 import { applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
@@ -1146,13 +1147,44 @@ async function renderAccordion(el: El, ctx: RenderContext, rc: ElRender, attrs: 
 
 /** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
 async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
-  const p = el.props as P;
-  const c = ctx.collections.find((x) => x.id === p.collection);
+  const q = loopQuery(el.props as P);
+  const c = ctx.collections.find((x) => x.id === q.collection);
   const template = listTemplate(el);
   if (!c || !template || rc.list) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
-  const sort = { newest: ['published_at', 'desc'], oldest: ['published_at', 'asc'], title: ['title', 'asc'], order: ['sort', 'asc'] }[String(p.sort)] ?? ['published_at', 'desc'];
-  const { items } = await publishedEntries(c, { limit: Math.min(48, Math.max(1, Number(p.limit) || 3)), sortField: sort[0], sortDir: sort[1] as 'asc' | 'desc', category: p.category || undefined });
-  if (!items.length) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Noch keine veröffentlichten Einträge in «${c.name}».</div>` : html``;
+  const sort = { newest: ['published_at', 'desc'], oldest: ['published_at', 'asc'], title: ['title', 'asc'], order: ['sort', 'asc'] }[q.sort as string];
+  const byField = q.sort === 'field-asc' || q.sort === 'field-desc';
+  // «Like this entry» needs one: on other pages such a loop shows nothing (and says so in the editor).
+  const current = ctx.current?.collection === c.id ? ctx.current : null;
+  const like = relatedTo(q, ctx.current?.data);
+  if (q.related !== 'none' && !like)
+    return rc.edit ? html`<div class="${cls} el-empty"${attrs}>«Wie der Eintrag dieser Seite» zeigt erst auf einer Eintragsseite oder in einer Seitenvorlage etwas.</div>` : html``;
+  const tf = q.time === 'all' ? null : timeField(c);
+  const now = localNow(ctx.now, ctx.settings.timezone);
+  const page = q.paginate ? Math.min(200, Math.max(1, Number(ctx.query.get(pageParam(el.id))) || 1)) : 1;
+  // Coming events soonest first, past ones latest first; otherwise as chosen.
+  const [sortField, sortDir] =
+    byField && q.sortField
+      ? [q.sortField, q.sort === 'field-asc' ? 'asc' : 'desc']
+      : tf && (q.sort === 'newest' || q.sort === 'oldest')
+        ? [tf, q.time === 'upcoming' ? 'asc' : 'desc']
+        : (sort ?? ['published_at', 'desc']);
+  const { items, total } = await publishedEntries(c, {
+    limit: q.limit,
+    offset: q.offset + (page - 1) * q.limit,
+    sortField,
+    sortDir: sortDir as 'asc' | 'desc',
+    random: q.sort === 'random',
+    category: q.category || like?.category || undefined,
+    tag: q.tag || undefined,
+    rules: q.rules.filter((r) => r.is),
+    anyTag: like?.tags,
+    exclude: q.excludeCurrent && current ? [current.id] : undefined,
+    time: tf ? (q.time === 'upcoming' ? { field: tf, from: now.slice(0, 10) } : { field: tf, until: now.slice(0, 10) }) : undefined,
+  });
+  if (!items.length) {
+    if (q.empty) return html`<div class="${cls} loop-empty"${attrs}><p>${q.empty}</p></div>`;
+    return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Nichts passt zu diesen Regeln in «${c.name}».</div>` : html``;
+  }
   const out: Html[] = [];
   for (let i = 0; i < items.length; i++) {
     const e = items[i];
@@ -1160,7 +1192,22 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
     const item = await renderEl(template, ctx, { path: `${rc.path}.children.0`, edit: rc.edit && i === 0, entry: { e, c, open }, list: true });
     out.push(rc.edit && i > 0 ? html`<div class="el-ghost" data-nova-ghost>${item}</div>` : item);
   }
-  return html`<div class="${cls}"${attrs}>${out}</div>`;
+  // Pages of their own per loop: other loops and filters on the page keep their place.
+  const pages = q.paginate ? Math.ceil(Math.max(0, total - q.offset) / q.limit) : 1;
+  const link = (n: number) => {
+    const next = new URLSearchParams(ctx.query);
+    if (n > 1) next.set(pageParam(el.id), String(n));
+    else next.delete(pageParam(el.id));
+    const qs = next.toString();
+    return `${ctx.path}${qs ? `?${qs}` : ''}`;
+  };
+  const pager =
+    pages > 1
+      ? html`<nav class="pager loop-pages" aria-label="${t(ctx, 'Seiten')}">${page > 1 ? html`<a class="btn-2" href="${link(page - 1)}" rel="prev">${t(ctx, 'Zurück')}</a>` : html`<span></span>`}<span class="muted">${t(ctx, 'Seite {n} von {total}', { n: page, total: pages })}</span>${
+          page < pages ? html`<a class="btn-2" href="${link(page + 1)}" rel="next">${t(ctx, 'Weiter')}</a>` : html`<span></span>`
+        }</nav>`
+      : html``;
+  return pages > 1 ? html`<div class="${cls}"${attrs}>${out}</div>${pager}` : html`<div class="${cls}"${attrs}>${out}</div>`;
 }
 
 export function hoursTable(ctx: RenderContext): Html {

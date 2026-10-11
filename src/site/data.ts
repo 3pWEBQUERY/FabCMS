@@ -21,6 +21,16 @@ export interface ListOptions {
   sortField?: string;
   sortDir?: 'asc' | 'desc';
   where?: (e: PublicEntry) => boolean;
+  /** Inhaltsschleife: */
+  random?: boolean;
+  tag?: string;
+  /** A field has this value – for lists (tags, choices) one of their values; case does not count. */
+  rules?: { field: string; is: string }[];
+  /** Sharing at least one of these tags (lower case). */
+  anyTag?: string[];
+  exclude?: string[];
+  /** A dated field from (inclusive) or until (exclusive), as wall time («2026-10-11T09:30»). */
+  time?: { field: string; from?: string; until?: string };
 }
 
 const SORT_SAFE = /^[a-zA-Z_][a-zA-Z0-9_]{0,40}$/;
@@ -38,12 +48,24 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
           ? sql`e.published_data ->> ${field} ${dir} nulls last, e.published_at desc`
           : sql`e.published_at desc`;
   const cat = o.category ? sql`and lower(e.published_data ->> 'category') = lower(${o.category})` : sql``;
+  // A field's values as text, whether it holds one value or a list of them.
+  const values = (f: string) =>
+    sql`jsonb_array_elements_text(case when jsonb_typeof(e.published_data -> ${f}) = 'array' then e.published_data -> ${f} else jsonb_build_array(e.published_data -> ${f}) end)`;
+  const has = (f: string, v: string) => sql`and exists (select 1 from ${values(f)} v where lower(v) = lower(${v}))`;
+  const filters = [
+    o.tag ? has('tags', o.tag) : sql``,
+    ...(o.rules ?? []).filter((r) => SORT_SAFE.test(r.field)).map((r) => has(r.field, r.is)),
+    o.anyTag ? sql`and exists (select 1 from ${values('tags')} v where lower(v) = any(${o.anyTag}::text[]))` : sql``,
+    o.exclude?.length ? sql`and e.id <> all(${o.exclude}::uuid[])` : sql``,
+    o.time && SORT_SAFE.test(o.time.field) && o.time.from ? sql`and e.published_data ->> ${o.time.field} >= ${o.time.from}` : sql``,
+    o.time && SORT_SAFE.test(o.time.field) && o.time.until ? sql`and e.published_data ->> ${o.time.field} < ${o.time.until}` : sql``,
+  ].reduce((a, b) => sql`${a} ${b}`, sql``);
   const rows = await sql`
     select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, u.name as author_name,
            count(*) over() as total
     from entries e left join users u on u.id = e.author_id
-    where e.collection = ${c.id} and e.status = 'published' ${cat}
-    order by ${order}
+    where e.collection = ${c.id} and e.status = 'published' ${cat} ${filters}
+    order by ${o.random ? sql`random()` : order}
     limit ${o.limit ?? 100} offset ${o.offset ?? 0}`;
   return { items: await localized(rows as unknown as PublicEntry[], c), total: Number(rows[0]?.total ?? 0) };
 }

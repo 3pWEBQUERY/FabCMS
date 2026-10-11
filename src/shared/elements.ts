@@ -12,6 +12,7 @@ import { cssColor, designCss, designImages, type CompileOptions, type Design, ty
 import { motionVars, type Motion } from './motion';
 import { safeHref, sanitizePlain, sanitizeRichText } from './richtext';
 import { shortId, stripHtml } from './text';
+import { loopQuery } from './query';
 
 export const EL_KINDS = [
   'box',
@@ -91,7 +92,6 @@ export interface Variant {
 
 /** What each kind can take from an entry. */
 export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
-export const LIST_SORTS = ['newest', 'oldest', 'title', 'order'] as const;
 const BIND = /^(?:title|url|date|field:[a-z][\w]{0,40})$/;
 
 export interface ElDef {
@@ -430,13 +430,22 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
   list: {
     kind: 'list',
     group: 'cms',
-    label: 'Inhalte aus dem CMS',
-    description: 'Beiträge, Produkte, Events oder eigene Inhaltstypen – als Liste oder Raster, gestaltet wie du willst.',
+    label: 'Inhaltsschleife',
+    description: 'Holt Einträge aus dem CMS nach deinen Regeln – Filter, Reihenfolge, Blättern – und zeigt jeden im Design des ersten.',
     icon: 'database',
     fields: [
-      // The choice of content types is filled in by the editor.
+      // The choices of content types and fields are filled in by the editor.
       { key: 'collection', type: 'select', label: 'Inhaltstyp', options: [] },
-      { key: 'limit', type: 'number', label: 'Wie viele', min: 1, max: 48 },
+      { key: 'limit', type: 'number', label: 'Wie viele', min: 1, max: 48, width: 'half' },
+      {
+        key: 'offset',
+        type: 'number',
+        label: 'Überspringen',
+        min: 0,
+        max: 200,
+        width: 'half',
+        help: 'Die ersten so viele auslassen – z. B. wenn eine zweite Schleife sie schon zeigt.',
+      },
       {
         key: 'sort',
         type: 'select',
@@ -446,12 +455,58 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
           { value: 'oldest', label: 'Älteste zuerst' },
           { value: 'title', label: 'Nach Titel' },
           { value: 'order', label: 'Eigene Reihenfolge' },
+          { value: 'field-asc', label: 'Nach einem Feld, aufsteigend' },
+          { value: 'field-desc', label: 'Nach einem Feld, absteigend' },
+          { value: 'random', label: 'Zufällig' },
         ],
         default: 'newest',
       },
-      { key: 'category', type: 'text', label: 'Nur aus Kategorie', help: 'Leer = alle.' },
+      { key: 'sortField', type: 'select', label: 'Feld', options: [], showIf: { field: 'sort', equals: ['field-asc', 'field-desc'] } },
+      { key: 'category', type: 'text', label: 'Nur aus Kategorie', help: 'Leer = alle.', width: 'half' },
+      { key: 'tag', type: 'text', label: 'Nur mit Schlagwort', help: 'Leer = alle.', width: 'half' },
+      {
+        key: 'time',
+        type: 'select',
+        label: 'Zeitraum',
+        options: [
+          { value: 'all', label: 'Alle' },
+          { value: 'upcoming', label: 'Nur kommende' },
+          { value: 'past', label: 'Nur vergangene' },
+        ],
+        default: 'all',
+        help: 'Für Inhalte mit Datum, z. B. Events und Kurse.',
+      },
+      {
+        key: 'related',
+        type: 'select',
+        label: 'Wie der Eintrag dieser Seite',
+        options: [
+          { value: 'none', label: 'Egal' },
+          { value: 'category', label: 'Gleiche Kategorie' },
+          { value: 'tags', label: 'Mindestens ein gleiches Schlagwort' },
+        ],
+        default: 'none',
+        help: 'Auf Eintragsseiten und in Seitenvorlagen – für «Mehr zum Thema».',
+      },
+      { key: 'excludeCurrent', type: 'boolean', label: 'Den Eintrag dieser Seite auslassen' },
+      { key: 'paginate', type: 'boolean', label: 'Blättern', help: 'Links «Zurück» und «Weiter» unter der Liste, wenn es mehr gibt.' },
+      { key: 'empty', type: 'text', label: 'Wenn nichts passt', placeholder: 'z. B. Zurzeit keine Termine.', help: 'Leer = die Schleife verschwindet dann ganz.' },
     ],
-    defaults: { collection: 'posts', limit: 3, sort: 'newest', category: '' },
+    defaults: {
+      collection: 'posts',
+      limit: 3,
+      offset: 0,
+      sort: 'newest',
+      sortField: '',
+      category: '',
+      tag: '',
+      rules: [],
+      related: 'none',
+      excludeCurrent: false,
+      time: 'all',
+      paginate: false,
+      empty: '',
+    },
   },
 };
 
@@ -827,12 +882,7 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         variant: typeof p.variant === 'string' && ID.test(p.variant) ? p.variant : null,
       };
     case 'list':
-      return {
-        collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',
-        limit: typeof p.limit === 'number' ? Math.min(48, Math.max(1, Math.round(p.limit))) : 3,
-        sort: one(p.sort, LIST_SORTS, 'newest'),
-        category: plain(p.category, 80),
-      };
+      return { ...loopQuery(p) };
   }
 }
 
