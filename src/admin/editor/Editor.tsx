@@ -653,10 +653,11 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     if (building && (selected || selectedEl)) setPanel((p) => p ?? 'inspector');
   }, [building, selected, selectedEl]);
 
-  // While the hover look is being designed, the canvas shows it on the selected block.
+  // While a state (hover, focus, pressed) is being designed, the canvas shows it on the selected block or element.
   useEffect(() => {
-    if (ready) postToCanvas(frame.current, { t: 'hover-state', id: designState === 'hover' && panel === 'inspector' ? selected : null });
-  }, [designState, panel, selected, ready]);
+    const on = designState !== 'normal' && panel === 'inspector';
+    if (ready) postToCanvas(frame.current, { t: 'hover-state', id: on ? selected : null, el: on ? selectedEl : null, state: designState });
+  }, [designState, panel, selected, selectedEl, ready]);
 
   const insertBlock = async (type: string, index: number, props?: Record<string, unknown>) => {
     const block = createBlock(type, props);

@@ -1687,6 +1687,8 @@ const overlaps = (a: DOMRect, b: DOMRect) => {
   return w > 0 && h > 0 && w * h > 0.2 * b.width * b.height;
 };
 
+const STATE_CLASSES = ['nova-hover', 'nova-focus', 'nova-active'];
+
 // Blocks and elements with a designed hover look. In the editor their CSS also
 // carries a `.nova-hover` rule, which shows that look without the mouse.
 function hoverTargets(): HTMLElement[] {
@@ -1721,8 +1723,8 @@ function measureContrast(): ContrastIssue[] {
   // Measured without transitions, or colours would be caught halfway.
   root.classList.add('nova-still');
   // The hover look being designed right now is put aside: the normal look is measured as normal.
-  const held = [...d.querySelectorAll<HTMLElement>('.nova-hover')];
-  held.forEach((x) => x.classList.remove('nova-hover'));
+  const held = STATE_CLASSES.flatMap((c) => [...d.querySelectorAll<HTMLElement>(`.${c}`)].map((x) => [x, c] as const));
+  held.forEach(([x, c]) => x.classList.remove(c));
   try {
     const tops = blocks();
     const globals = [...d.querySelectorAll<HTMLElement>('[data-nova-global]')];
@@ -1814,7 +1816,7 @@ function measureContrast(): ContrastIssue[] {
     }
     return [...found.values()].map((x) => x.issue).slice(0, 60);
   } finally {
-    held.forEach((x) => x.classList.add('nova-hover'));
+    held.forEach(([x, c]) => x.classList.add(c));
     // Styles settle before transitions come back, so nothing fades in or out.
     void getComputedStyle(root).color;
     root.classList.remove('nova-still');
@@ -1919,7 +1921,7 @@ addEventListener('message', (e) => {
       const old = blockEl(m.id);
       const next = htmlToElement(m.html);
       if (!old || !next) break;
-      if (old.classList.contains('nova-hover')) next.classList.add('nova-hover');
+      for (const c of STATE_CLASSES) if (old.classList.contains(c)) next.classList.add(c);
       const state = widgetState(old);
       old.replaceWith(next);
       setupFields(next);
@@ -2162,10 +2164,11 @@ addEventListener('message', (e) => {
       shadow.querySelector('.grid')?.classList.toggle('on', Boolean(m.on));
       break;
     case 'hover-state': {
-      // While hover is being designed, the selected block shows its hover look without the mouse.
-      d.querySelectorAll('.nova-hover').forEach((x) => x.classList.remove('nova-hover'));
-      const el = m.id ? blockEl(m.id) : null;
-      el?.classList.add('nova-hover');
+      // While a state is being designed, the selected block or element shows that look without the mouse or keyboard.
+      for (const c of STATE_CLASSES) d.querySelectorAll(`.${c}`).forEach((x) => x.classList.remove(c));
+      const el = m.el ? elEl(m.el) : m.id ? blockEl(m.id) : null;
+      const c = `nova-${m.state === 'focus' || m.state === 'active' ? m.state : 'hover'}`;
+      el?.classList.add(c);
       break;
     }
   }

@@ -1065,4 +1065,20 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
   'Drehen zur Seite': { fr: 'Tourner sur le côté', it: 'Girare di lato', en: 'Turn sideways' },
   Neigen: { fr: 'Incliner', it: 'Inclinare', en: 'Skew' },
   Tiefe: { fr: 'Profondeur', it: 'Profondità', en: 'Depth' },
+  Fokus: { fr: 'Focus', it: 'Focus', en: 'Focus' },
+  Gedrückt: { fr: 'Pressé', it: 'Premuto', en: 'Pressed' },
+  'Weitere Zustände': { fr: 'Autres états', it: 'Altri stati', en: 'More states' },
+  'Fokus – mit der Tastatur angewählt': { fr: 'Focus – choisi au clavier', it: 'Focus – selezionato con la tastiera', en: 'Focus – selected with the keyboard' },
+  'Gedrückt – während des Klicks': { fr: 'Pressé – pendant le clic', it: 'Premuto – durante il clic', en: 'Pressed – while clicking' },
+  '{state} zurücksetzen': { fr: 'Réinitialiser {state}', it: 'Reimposta {state}', en: 'Reset {state}' },
+  'Du gestaltest den Fokus: wie es aussieht, wenn es (oder etwas darin) mit der Tastatur angewählt ist. Gut sichtbar hilft allen, die ohne Maus unterwegs sind.': {
+    fr: 'Tu conçois le focus : son aspect lorsqu’il (ou quelque chose à l’intérieur) est choisi au clavier. Bien visible, il aide tous ceux qui naviguent sans souris.',
+    it: 'Stai progettando il focus: come appare quando esso (o qualcosa al suo interno) è selezionato con la tastiera. Ben visibile aiuta chi naviga senza mouse.',
+    en: 'You are designing the focus: how it looks when it (or something in it) is selected with the keyboard. Clearly visible, it helps everyone without a mouse.',
+  },
+  'Du gestaltest «Gedrückt»: wie es aussieht, während man darauf klickt oder tippt.': {
+    fr: 'Tu conçois «Pressé» : son aspect pendant qu’on clique ou touche.',
+    it: 'Stai progettando «Premuto»: come appare mentre lo si clicca o tocca.',
+    en: 'You are designing “Pressed”: how it looks while it is clicked or tapped.',
+  },
 };

@@ -22,7 +22,7 @@ export function mergeDesign(base: Design | undefined, own: Design | undefined): 
   if (!base) return own;
   if (!own) return base;
   const out: Design = { ...base, ...own };
-  for (const layer of ['desktop', 'tablet', 'mobile', 'hover'] as const) if (base[layer] || own[layer]) out[layer] = { ...base[layer], ...own[layer] };
+  for (const layer of ['desktop', 'tablet', 'mobile', 'hover', 'focus', 'active'] as const) if (base[layer] || own[layer]) out[layer] = { ...base[layer], ...own[layer] };
   return out;
 }
 

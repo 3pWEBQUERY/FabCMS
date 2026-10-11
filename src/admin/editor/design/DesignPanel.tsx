@@ -12,6 +12,7 @@ import {
   type Design,
   type DesignBp,
   type DesignState,
+  type StateLayer,
   type StyleProps,
 } from '../../../shared/design';
 import { t } from '../../lib/i18n';
@@ -24,6 +25,8 @@ import { ColorInput, DesignSection, IconChoice, LengthInput, NumberInput, PropRo
 import { BoxModel, GradientEditor, gradientPreviewCss, overlayPresets, PositionGrid, ShadowEditor, spaceTokens } from './parts';
 
 export type DesignTarget = 'block' | 'element';
+
+const stateLabel = (s: DesignState) => ({ normal: t('Normal'), hover: t('Hover'), focus: t('Fokus'), active: t('Gedrückt') })[s];
 
 const bpLabel = (b: DesignBp | 'normal') => ({ desktop: t('Computer'), tablet: t('Tablet'), mobile: t('Handy'), normal: t('Normal') })[b];
 
@@ -224,8 +227,9 @@ const COL_PRESETS: Record<number, string[]> = {
 export function DesignPanel({ design, onChange, target, bp, onBp, state, onState, scheme, bgMedia, dividers, rhythm, visibility, pro, kind, savedStyle }: DesignPanelProps) {
   const toast = useToast();
   const preview = useColorPreview();
-  const layer: DesignBp | 'hover' = state === 'hover' ? 'hover' : bp;
-  const hover = state === 'hover';
+  const layer: DesignBp | StateLayer = state === 'normal' ? bp : state;
+  // Hover, focus and pressed are state layers: only colours, borders and effects change there.
+  const hover = state !== 'normal';
   const block = target === 'block';
 
   const prop = <K extends keyof StyleProps>(key: K) => {
@@ -275,7 +279,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
   const color = (key: 'color' | 'accent' | 'bg' | 'overlay' | 'borderColor', label: string) =>
     row(key, label, (p) => <ColorInput value={p.value} placeholder={p.inherited} onChange={(v) => p.set(v)} ariaLabel={label} />);
 
-  const layerHasValues = (b: DesignBp | 'hover') => Boolean(design?.[b] && Object.keys(design[b]!).length);
+  const layerHasValues = (b: DesignBp | StateLayer) => Boolean(design?.[b] && Object.keys(design[b]!).length);
 
   const copy = () => {
     try {
@@ -317,11 +321,28 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
           <button type="button" aria-pressed={!hover} onClick={() => onState('normal')}>
             {t('Normal')}
           </button>
-          <button type="button" aria-pressed={hover} onClick={() => onState('hover')}>
+          <button type="button" aria-pressed={state === 'hover'} onClick={() => onState('hover')}>
             <Icon name="cursor" size="s" />
             {t('Hover')}
             {layerHasValues('hover') && <span className="dp-has" />}
           </button>
+          <Menu
+            trigger={
+              <button
+                type="button"
+                aria-pressed={state === 'focus' || state === 'active'}
+                aria-label={t('Weitere Zustände')}
+                title={state === 'focus' ? t('Fokus') : state === 'active' ? t('Gedrückt') : t('Weitere Zustände')}
+              >
+                {state === 'focus' ? t('Fokus') : state === 'active' ? t('Gedrückt') : <Icon name="more" size="s" />}
+                {(layerHasValues('focus') || layerHasValues('active')) && <span className="dp-has" />}
+              </button>
+            }
+            items={[
+              { label: t('Fokus – mit der Tastatur angewählt'), icon: 'keyboard', onSelect: () => onState('focus') },
+              { label: t('Gedrückt – während des Klicks'), icon: 'cursor', onSelect: () => onState('active') },
+            ]}
+          />
         </div>
         <span className="grow" />
         <Menu
@@ -335,7 +356,7 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
             { label: t('Design einfügen'), icon: 'download', onSelect: paste },
             'sep',
             {
-              label: hover ? t('Hover zurücksetzen') : t('{bp} zurücksetzen', { bp: bpLabel(bp) }),
+              label: hover ? t('{state} zurücksetzen', { state: stateLabel(state) }) : t('{bp} zurücksetzen', { bp: bpLabel(bp) }),
               icon: 'undo',
               onSelect: () => {
                 const d = { ...(design ?? {}) };
@@ -350,12 +371,16 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
       </div>
       {(bp !== 'desktop' || hover) && (
         <p className="dp-note">
-          <Icon name={hover ? 'cursor' : bp === 'mobile' ? 'phone' : 'tablet'} size="s" />
-          {hover
+          <Icon name={state === 'focus' ? 'keyboard' : hover ? 'cursor' : bp === 'mobile' ? 'phone' : 'tablet'} size="s" />
+          {state === 'hover'
             ? t('Du gestaltest den Hover-Zustand: wie es aussieht, wenn die Maus darüber ist.')
-            : bp === 'tablet'
-              ? t('Änderungen gelten nur für Tablets und Handys. Der Rest kommt vom Computer.')
-              : t('Änderungen gelten nur für Handys.')}
+            : state === 'focus'
+              ? t('Du gestaltest den Fokus: wie es aussieht, wenn es (oder etwas darin) mit der Tastatur angewählt ist. Gut sichtbar hilft allen, die ohne Maus unterwegs sind.')
+              : state === 'active'
+                ? t('Du gestaltest «Gedrückt»: wie es aussieht, während man darauf klickt oder tippt.')
+                : bp === 'tablet'
+                  ? t('Änderungen gelten nur für Tablets und Handys. Der Rest kommt vom Computer.')
+                  : t('Änderungen gelten nur für Handys.')}
         </p>
       )}
 

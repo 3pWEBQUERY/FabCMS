@@ -2350,6 +2350,21 @@ describe('Textschatten, Textspalten, 3D und Rahmen pro Seite', () => {
   });
 });
 
+describe('Zustände Fokus und Gedrückt', () => {
+  it('styles keyboard focus (also of something inside) and pressing, with a class for the editor', () => {
+    const d = { desktop: { bg: '#ffffff' }, focus: { borderColor: '#000000', borderWidth: '2px' }, active: { scale: 0.96 } };
+    const css = designCss('#k', d, { forceHover: 'nova-hover' });
+    expect(css).toContain('#k:is(:focus-visible,:has(:focus-visible)){border-width:2px;border-style:solid;border-color:#000000}');
+    expect(css).toContain('#k:active{transform:scale(0.96)}');
+    expect(css).toContain('#k.nova-focus{');
+    expect(css).toContain('#k.nova-active{');
+    // States glide like hover.
+    expect(css).toMatch(/^#k\{[^}]*;transition:color 250ms/);
+    expect(isEmptyDesign({ focus: { bg: '#000' } })).toBe(false);
+    expect(isEmptyDesign({ focus: {}, active: {} })).toBe(true);
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

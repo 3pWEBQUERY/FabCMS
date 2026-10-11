@@ -26,12 +26,12 @@ const PARTS: Record<string, () => string> = {
 
 /** What a style sets, in the words of the design panel, and for which screen sizes and states. */
 function summary(d: Design): { parts: string[]; layers: string[] } {
-  const layers = (['desktop', 'tablet', 'mobile', 'hover'] as const).filter((l) => d[l] && Object.keys(d[l]!).length);
+  const layers = (['desktop', 'tablet', 'mobile', 'hover', 'focus', 'active'] as const).filter((l) => d[l] && Object.keys(d[l]!).length);
   const keys = new Set(layers.flatMap((l) => Object.keys(d[l]!)));
   const parts = Object.entries(SECTIONS)
     .filter(([, ks]) => ks.some((k) => keys.has(k)))
     .map(([sec]) => PARTS[sec]());
-  const names = { desktop: t('Computer'), tablet: t('Tablet'), mobile: t('Handy'), hover: t('Hover') };
+  const names = { desktop: t('Computer'), tablet: t('Tablet'), mobile: t('Handy'), hover: t('Hover'), focus: t('Fokus'), active: t('Gedrückt') };
   return { parts, layers: layers.map((l) => names[l]) };
 }
 

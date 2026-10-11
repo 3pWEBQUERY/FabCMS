@@ -14,7 +14,10 @@
 import { motionVars, type Motion } from './motion';
 
 export type DesignBp = 'desktop' | 'tablet' | 'mobile';
-export type DesignState = 'normal' | 'hover';
+export type DesignState = 'normal' | 'hover' | 'focus' | 'active';
+/** Looks for a state, as in Webflow: hover, keyboard focus, pressed. */
+export const STATE_LAYERS = ['hover', 'focus', 'active'] as const;
+export type StateLayer = (typeof STATE_LAYERS)[number];
 export const DESIGN_BPS: DesignBp[] = ['desktop', 'tablet', 'mobile'];
 
 /** Same limits as the theme (hide-tablet / hide-mobile). */
@@ -161,6 +164,10 @@ export interface Design {
   tablet?: StyleProps;
   mobile?: StyleProps;
   hover?: StyleProps;
+  /** While it (or something in it) has the keyboard focus. */
+  focus?: StyleProps;
+  /** While it is pressed. */
+  active?: StyleProps;
   /** Hover transition in ms. */
   transition?: number;
 }
@@ -491,10 +498,13 @@ export function designCss(selector: string, d: Design | undefined, opts: Compile
   const out: string[] = [];
   const base = styleDeclarations(d.desktop, opts);
   const hover = styleDeclarations(d.hover, opts);
+  const focus = styleDeclarations(d.focus, opts);
+  const active = styleDeclarations(d.active, opts);
   const ms = num(d.transition, 0, 3000) ?? 250;
-  const transition = hover
-    ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms,clip-path ${ms}ms,text-shadow ${ms}ms`
-    : '';
+  const transition =
+    hover || focus || active
+      ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms,clip-path ${ms}ms,text-shadow ${ms}ms`
+      : '';
   if (base || transition) out.push(`${selector}{${[base, transition].filter(Boolean).join(';')}}`);
   for (const bp of ['tablet', 'mobile'] as const) {
     const decl = styleDeclarations(d[bp], opts);
@@ -503,6 +513,15 @@ export function designCss(selector: string, d: Design | undefined, opts: Compile
   if (hover) {
     out.push(`@media (hover:hover){${selector}:hover{${hover}}}`);
     if (opts.forceHover) out.push(`${selector}.${opts.forceHover}{${hover}}`);
+  }
+  // In the editor the same class trick shows focus and pressed: nova-focus, nova-active.
+  if (focus) {
+    out.push(`${selector}:is(:focus-visible,:has(:focus-visible)){${focus}}`);
+    if (opts.forceHover) out.push(`${selector}.${opts.forceHover.replace(/hover$/, 'focus')}{${focus}}`);
+  }
+  if (active) {
+    out.push(`${selector}:active{${active}}`);
+    if (opts.forceHover) out.push(`${selector}.${opts.forceHover.replace(/hover$/, 'active')}{${active}}`);
   }
   return out.join('');
 }
@@ -519,7 +538,7 @@ export function blockCss(selector: string, style: { design?: Design; motion?: Mo
 /** Media ids used as background images (so the renderer can look them up first). */
 export function designImages(d: Design | undefined): string[] {
   if (!d) return [];
-  return [d.desktop, d.tablet, d.mobile, d.hover].map((p) => p?.bgImage).filter((x): x is string => typeof x === 'string' && x.length > 0);
+  return [d.desktop, d.tablet, d.mobile, d.hover, d.focus, d.active].map((p) => p?.bgImage).filter((x): x is string => typeof x === 'string' && x.length > 0);
 }
 
 /** The value in effect at a breakpoint: phone falls back to tablet, tablet to desktop. */
@@ -533,7 +552,7 @@ export function effective<K extends keyof StyleProps>(d: Design | undefined, bp:
 }
 
 /** Sets (or with `undefined` removes) one property; empty layers disappear. */
-export function setDesign<K extends keyof StyleProps>(d: Design | undefined, layer: DesignBp | 'hover', key: K, value: StyleProps[K] | undefined): Design {
+export function setDesign<K extends keyof StyleProps>(d: Design | undefined, layer: DesignBp | StateLayer, key: K, value: StyleProps[K] | undefined): Design {
   const next: Design = { ...(d ?? {}) };
   const props: StyleProps = { ...(next[layer] ?? {}) };
   if (value === undefined || value === '' || value === null) delete props[key];
@@ -543,4 +562,4 @@ export function setDesign<K extends keyof StyleProps>(d: Design | undefined, lay
   return next;
 }
 
-export const isEmptyDesign = (d: Design | undefined) => !d || (DESIGN_BPS.every((b) => !d[b] || !Object.keys(d[b]!).length) && (!d.hover || !Object.keys(d.hover).length));
+export const isEmptyDesign = (d: Design | undefined) => !d || [...DESIGN_BPS, ...STATE_LAYERS].every((b) => !d[b] || !Object.keys(d[b]!).length);

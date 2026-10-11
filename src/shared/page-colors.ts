@@ -9,7 +9,7 @@ import type { El, Variant } from './elements';
 import type { Block } from './types';
 
 const COLOR_PROPS = ['color', 'bg', 'borderColor', 'accent', 'overlay'] as const;
-const LAYERS = ['desktop', 'tablet', 'mobile', 'hover'] as const;
+const LAYERS = ['desktop', 'tablet', 'mobile', 'hover', 'focus', 'active'] as const;
 
 /** One way of writing a colour: `#C33` and `#cc3333` are the same, tokens stay as they are. */
 export function colorKey(v: string): string {
