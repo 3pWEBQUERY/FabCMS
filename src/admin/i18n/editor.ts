@@ -1135,4 +1135,36 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     en: 'So links like /#team jump straight to this element.',
   },
   team: { fr: 'equipe', it: 'team', en: 'team' },
+  'Punkte setzen': { fr: 'Placer les points', it: 'Posiziona i punti', en: 'Place points' },
+  'Mehr als {n} Punkte gehen nicht.': { fr: 'Pas plus de {n} points.', it: 'Non più di {n} punti.', en: 'No more than {n} points.' },
+  'Tipp ins Bild für einen neuen Punkt, zieh einen Punkt, um ihn zu verschieben.': {
+    fr: 'Touche l’image pour un nouveau point, fais glisser un point pour le déplacer.',
+    it: 'Tocca l’immagine per un nuovo punto, trascina un punto per spostarlo.',
+    en: 'Tap the picture for a new point, drag a point to move it.',
+  },
+  'Punkt {n} – mit den Pfeiltasten verschieben': {
+    fr: 'Point {n} – à déplacer avec les flèches',
+    it: 'Punto {n} – da spostare con le frecce',
+    en: 'Point {n} – move with the arrow keys',
+  },
+  Hinweispunkte: { fr: 'Points d’info', it: 'Punti informativi', en: 'Hotspots' },
+  'Ein Bild mit Punkten darauf, die beim Antippen eine kurze Erklärung zeigen – für Zimmer, Produkte, Pläne oder ein Team-Foto.': {
+    fr: 'Une image avec des points qui affichent une courte explication quand on les touche – pour des chambres, produits, plans ou une photo d’équipe.',
+    it: 'Un’immagine con punti che mostrano una breve spiegazione quando li si tocca – per camere, prodotti, piani o una foto del team.',
+    en: 'A picture with points that show a short explanation when tapped – for rooms, products, plans or a team photo.',
+  },
+  'Was das Bild zeigt': { fr: 'Ce que montre l’image', it: 'Cosa mostra l’immagine', en: 'What the picture shows' },
+  'Für Screenreader und Suchmaschinen.': {
+    fr: 'Pour les lecteurs d’écran et les moteurs de recherche.',
+    it: 'Per gli screen reader e i motori di ricerca.',
+    en: 'For screen readers and search engines.',
+  },
+  'Tipp oben ins Bild, um einen Punkt zu setzen; ziehen verschiebt ihn.': {
+    fr: 'Touche l’image en haut pour placer un point ; le faire glisser le déplace.',
+    it: 'Tocca l’immagine in alto per posizionare un punto; trascinarlo lo sposta.',
+    en: 'Tap the picture above to place a point; drag it to move it.',
+  },
+  Plus: { fr: 'Plus', it: 'Più', en: 'Plus' },
+  Nummern: { fr: 'Numéros', it: 'Numeri', en: 'Numbers' },
+  'Punkte pulsieren sanft': { fr: 'Les points pulsent doucement', it: 'I punti pulsano dolcemente', en: 'Points pulse gently' },
 };

@@ -8191,3 +8191,42 @@ textarea.dg-input {
   padding: 0.55rem 0.75rem;
   border-top: 1px solid var(--line);
 }
+
+/* «Bild mit Hinweispunkten»: points set on the picture in the inspector */
+.hs-placer {
+  position: relative;
+  cursor: crosshair;
+  border-radius: var(--r-m);
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+.hs-placer img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.hs-placer-dot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: -0.8rem 0 0 -0.8rem;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--sel);
+  color: #fff;
+  font: 700 var(--t-xs) / 1 var(--font);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+  cursor: grab;
+  touch-action: none;
+}
+.hs-placer-dot:active {
+  cursor: grabbing;
+}
+.hs-placer-dot:focus-visible {
+  outline: 2px solid var(--sel);
+  outline-offset: 3px;
+}

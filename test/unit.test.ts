@@ -2183,6 +2183,34 @@ describe('Sprungmarken einer Seite', () => {
   });
 });
 
+describe('Hinweispunkte', () => {
+  it('keeps points on the picture, with plain texts and safe links, at most twelve', () => {
+    const [el] = sanitizeEls([
+      {
+        id: 'h',
+        kind: 'hotspots',
+        props: {
+          image: 'img-1',
+          marker: 'stern',
+          points: [
+            { x: 12.345, y: 30, title: '  Röstung ', text: 'Zeile 1\nZeile 2', href: '/kontakt' },
+            { x: 'links', y: 500, title: 'x', href: 'javascript:alert(1)' },
+            ...Array.from({ length: 20 }, () => ({ x: 1, y: 1 })),
+          ],
+        },
+      },
+    ]);
+    const points = el.props.points as { x: number; y: number; title: string; text: string; href?: string }[];
+    expect(points).toHaveLength(12);
+    expect(points[0]).toEqual({ x: 12.3, y: 30, title: 'Röstung', text: 'Zeile 1\nZeile 2', href: '/kontakt' });
+    expect(points[1]).toMatchObject({ x: 50, y: 100, href: undefined });
+    expect(el.props).toMatchObject({ image: 'img-1', marker: 'plus', pulse: true });
+    // The picture counts as used; the points' texts and links are seen by search and checks.
+    expect(elementsMedia([el])).toEqual(['img-1']);
+    expect(elementsText([el])).toContain('Röstung');
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

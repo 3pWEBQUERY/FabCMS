@@ -44,6 +44,7 @@ export const EL_KINDS = [
   'iconlist',
   'compare',
   'headline',
+  'hotspots',
   'accordion',
   'tabs',
   'slider',
@@ -763,6 +764,42 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       level: '2',
     },
   },
+  hotspots: {
+    kind: 'hotspots',
+    group: 'media',
+    label: 'Hinweispunkte',
+    description: 'Ein Bild mit Punkten darauf, die beim Antippen eine kurze Erklärung zeigen – für Zimmer, Produkte, Pläne oder ein Team-Foto.',
+    icon: 'pin',
+    fields: [
+      { key: 'image', type: 'image', label: 'Bild' },
+      { key: 'alt', type: 'text', label: 'Was das Bild zeigt', help: 'Für Screenreader und Suchmaschinen.' },
+      {
+        key: 'points',
+        type: 'group',
+        label: 'Punkte',
+        itemLabel: 'Punkt',
+        help: 'Tipp oben ins Bild, um einen Punkt zu setzen; ziehen verschiebt ihn.',
+        fields: [
+          { key: 'title', type: 'text', label: 'Titel' },
+          { key: 'text', type: 'textarea', label: 'Text' },
+          { key: 'href', type: 'url', label: 'Link' },
+        ],
+      },
+      {
+        key: 'marker',
+        type: 'select',
+        label: 'Punkte zeigen',
+        options: [
+          { value: 'plus', label: 'Plus' },
+          { value: 'number', label: 'Nummern' },
+          { value: 'dot', label: 'Punkt' },
+        ],
+        default: 'plus',
+      },
+      { key: 'pulse', type: 'boolean', label: 'Punkte pulsieren sanft' },
+    ],
+    defaults: { image: null, alt: '', points: [], marker: 'plus', pulse: true },
+  },
   compare: {
     kind: 'compare',
     group: 'media',
@@ -1371,6 +1408,10 @@ const one = <T extends string>(v: unknown, list: readonly T[], fallback: T): T =
 const productRef = (v: unknown) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : '');
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
+export const MAX_HOTSPOTS = 12;
+/** A spot on a picture, in percent of its width or height (one decimal); anything else – the middle. */
+const pct = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v * 10) / 10)) : 50);
+
 /** The changing or highlighted words of an «Animierte Überschrift»: one per line, at most eight. */
 export const headlineWords = (v: unknown): string[] =>
   sanitizePlain(typeof v === 'string' ? v : '', true)
@@ -1463,6 +1504,23 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'hotspots':
+      return {
+        image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null,
+        alt: plain(p.alt, 200),
+        points: (Array.isArray(p.points) ? p.points : [])
+          .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === 'object')
+          .slice(0, MAX_HOTSPOTS)
+          .map((x) => ({
+            x: pct(x.x),
+            y: pct(x.y),
+            title: plain(x.title, 80),
+            text: sanitizePlain(typeof x.text === 'string' ? x.text : '', true).slice(0, 400),
+            href: href(x.href),
+          })),
+        marker: one(p.marker, ['plus', 'number', 'dot'] as const, 'plus'),
+        pulse: p.pulse !== false,
+      };
     case 'headline':
       return {
         before: plain(p.before, 200),
@@ -1673,6 +1731,8 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'hotspots')
+        for (const pt of (el.props.points as { title?: string; text?: string }[] | undefined) ?? []) out.push(String(pt?.title ?? ''), String(pt?.text ?? ''));
       if (el.kind === 'iconlist') for (const it of (el.props.items as { text?: string }[] | undefined) ?? []) out.push(String(it?.text ?? ''));
       if (el.children) visit(el.children);
     }
@@ -1700,6 +1760,7 @@ export function elementsMedia(els: El[]): string[] {
     if (el.kind === 'image' && typeof el.props.image === 'string') out.push(el.props.image);
     if (el.kind === 'gallery' && Array.isArray(el.props.images)) out.push(...el.props.images.filter((x): x is string => typeof x === 'string'));
     if (el.kind === 'video' && typeof el.props.poster === 'string') out.push(el.props.poster);
+    if (el.kind === 'hotspots' && typeof el.props.image === 'string') out.push(el.props.image);
     if (el.kind === 'compare') for (const k of ['before', 'after']) if (typeof el.props[k] === 'string') out.push(el.props[k] as string);
   });
   return out;
@@ -1709,6 +1770,7 @@ export function elementsLinks(els: El[]): string[] {
   const out: string[] = [];
   walkEls(els, (el) => {
     if (typeof el.props.href === 'string') out.push(el.props.href);
+    if (el.kind === 'hotspots') for (const pt of (el.props.points as { href?: string }[] | undefined) ?? []) if (pt?.href) out.push(pt.href);
     if (el.kind === 'text') out.push(...[...String(el.props.html ?? '').matchAll(/href="([^"]+)"/g)].map((m) => m[1]));
   });
   return out;

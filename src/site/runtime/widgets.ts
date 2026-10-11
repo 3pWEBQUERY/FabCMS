@@ -313,6 +313,28 @@ export function setupWidgets(root: ParentNode, edit = false) {
     ready.add(el);
     counters!.observe(el);
   });
+  // Hint points: one open at a time; Escape or a tap elsewhere closes it.
+  root.querySelectorAll<HTMLDetailsElement>('details[data-hs]').forEach((d) => {
+    if (ready.has(d)) return;
+    ready.add(d);
+    d.addEventListener('toggle', () => {
+      if (!d.open) return;
+      d.parentElement?.querySelectorAll<HTMLDetailsElement>(':scope > details[data-hs][open]').forEach((o) => o !== d && (o.open = false));
+    });
+  });
+  if (!hsReady && root.querySelector('details[data-hs]')) {
+    hsReady = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const open = document.querySelector<HTMLDetailsElement>('details[data-hs][open]');
+      if (!open) return;
+      open.open = false;
+      open.querySelector('summary')?.focus();
+    });
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll<HTMLDetailsElement>('details[data-hs][open]').forEach((o) => !o.contains(e.target as Node) && (o.open = false));
+    });
+  }
   root.querySelectorAll<HTMLElement>('[data-rotate]').forEach((el) => {
     if (ready.has(el)) return;
     ready.add(el);
@@ -338,6 +360,7 @@ export function setupWidgets(root: ParentNode, edit = false) {
 /* ---------- animated headline ---------- */
 
 let marks: IntersectionObserver | null = null;
+let hsReady = false;
 
 /** «Wörter wechseln»: the next word every few seconds; with less motion the first one stays. */
 function rotate(box: HTMLElement) {

@@ -443,6 +443,20 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.el-hotspots{position:relative;margin:0}.el-hotspots>picture,.el-hotspots>picture img{display:block;width:100%;height:auto;border-radius:var(--img-radius,0)}
+.hs{position:absolute;z-index:1;width:0;height:0}.hs[open]{z-index:3}
+.hs>summary{list-style:none;position:absolute;left:-.95rem;top:-.95rem;width:1.9rem;height:1.9rem;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font:700 .8rem/1 var(--font-body);box-shadow:0 0 0 3px rgb(255 255 255/.85),0 4px 14px rgb(0 0 0/.3);cursor:pointer;transition:transform .2s}
+.hs>summary::-webkit-details-marker{display:none}.hs>summary:hover,.hs[open]>summary{transform:scale(1.12)}
+.hs>summary:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.hs-plus .hs>summary::after{content:"";position:absolute;inset:0;background:linear-gradient(currentColor 0 0) center/.75rem 2px no-repeat,linear-gradient(currentColor 0 0) center/2px .75rem no-repeat;transition:transform .2s}
+.hs-plus .hs[open]>summary::after{transform:rotate(45deg)}
+.hs-dot .hs>summary{left:-.6rem;top:-.6rem;width:1.2rem;height:1.2rem}
+.hs-pulse .hs:not([open])>summary::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--accent);animation:hs-pulse 2.4s ease-out infinite;z-index:-1}
+@keyframes hs-pulse{from{transform:scale(1);opacity:.6}to{transform:scale(2.2);opacity:0}}
+@media (prefers-reduced-motion:reduce){.hs-pulse .hs>summary::before{animation:none}}
+.hs-card{position:absolute;left:1.4rem;top:-.5rem;width:min(16rem,70vw);padding:.85rem 1rem;border-radius:12px;background:var(--surface,#fff);color:var(--ink);box-shadow:0 12px 32px rgb(0 0 0/.28);font-size:var(--step-n1);line-height:1.45}
+.hs-l .hs-card{left:auto;right:1.4rem}.hs-u .hs-card{top:auto;bottom:-.5rem}
+.hs-card strong{display:block;margin-bottom:.2rem;font-size:var(--step-0)}.hs-card p{margin:0}.hs-link{display:inline-block;margin-top:.5rem;color:var(--accent);font-weight:600}
 .hl-accent .hl-words,.hl-accent .hl-mark{color:var(--accent)}
 .hl-words{display:inline-grid;vertical-align:bottom;text-align:start}
 .hl-w{grid-area:1/1;opacity:0;transition:opacity .45s ease,transform .5s cubic-bezier(.2,.7,.2,1),clip-path .7s cubic-bezier(.6,0,.3,1)}

@@ -1201,6 +1201,24 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       }
       return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
     }
+    case 'hotspots': {
+      // Each point is a native disclosure: works without the script, which only closes the others and answers Escape.
+      const m = await ctx.media(p.image);
+      if (!m) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Bild wählen, dann im Inspektor Punkte darauf setzen</span></figure>` : html``;
+      const points = (Array.isArray(p.points) ? p.points : []) as { x?: number; y?: number; title?: string; text?: string; href?: string }[];
+      if (points.length) ctx.needs.add('widgets');
+      const marker = ['plus', 'number', 'dot'].includes(String(p.marker)) ? String(p.marker) : 'plus';
+      const spots = points.map((pt, i) => {
+        const x = Math.min(100, Math.max(0, Number(pt.x ?? 50)));
+        const y = Math.min(100, Math.max(0, Number(pt.y ?? 50)));
+        // The card opens away from the nearest edges.
+        const side = `${x > 60 ? ' hs-l' : ''}${y > 55 ? ' hs-u' : ''}`;
+        const label = pt.title || t(ctx, 'Punkt {n}', { n: i + 1 });
+        const link = pt.href && !rc.edit && !rc.inLink ? html`<a class="hs-link" href="${pt.href}">${t(ctx, 'Mehr erfahren')}</a>` : html``;
+        return html`<details class="hs${side}" style="left:${x}%;top:${y}%" data-hs><summary aria-label="${label}"><span aria-hidden="true">${marker === 'number' ? String(i + 1) : ''}</span></summary><div class="hs-card">${pt.title ? html`<strong>${pt.title}</strong>` : ''}${pt.text ? html`<p>${lines(pt.text)}</p>` : ''}${link}</div></details>`;
+      });
+      return html`<figure class="${cls(`hs-${marker}${p.pulse === false ? '' : ' hs-pulse'}`)}"${attrs}>${picture(m, { sizes: '(min-width: 64rem) 60vw, 100vw', alt: p.alt || undefined })}${spots}</figure>`;
+    }
     case 'compare': {
       const [before, after] = await Promise.all([ctx.media(p.before), ctx.media(p.after)]);
       if (!before || !after) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Ein Bild für vorher und eins für nachher wählen</span></figure>` : html``;
