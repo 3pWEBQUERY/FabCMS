@@ -194,6 +194,34 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     expect(del.data.entry.data.blocks).toHaveLength(1);
   });
 
+  it('lets only the Werkbank give elements CSS of their own, scoped to them', async () => {
+    await req('PATCH', '/api/me', { mode: 'werkbank' });
+    const els = [{ id: 'btnx', kind: 'button', props: { label: 'Los' }, css: '&:hover{rotate:-2deg} span{letter-spacing:0}</style><script>', className: 'cta big"><x' }];
+    const { data } = await req('POST', '/api/entries', { collection: 'pages', slug: 'el-css', data: { title: 'CSS', blocks: [{ id: 'ly', type: 'layout', props: { els } }] } });
+    const id = data.entry.id;
+    const el = data.entry.data.blocks[0].props.els[0];
+    expect(el.className).toBe('cta bigx');
+    expect(el.css).not.toContain('<');
+    await req('POST', `/api/entries/${id}/publish`, {});
+    const page = (await req('GET', '/el-css', undefined, { cookies: new Map() })).data as string;
+    expect(page).toContain(':is(#e-btnx,.e-btnx):hover{rotate:-2deg}');
+    expect(page).toContain(':is(#e-btnx,.e-btnx) span{letter-spacing:0}');
+    expect(page).toContain('class="el el-button e-btnx cta bigx');
+    // In the Studio the CSS can't be changed or removed – also not by moving the element to a new layout.
+    await req('PATCH', '/api/me', { mode: 'studio' });
+    const cur = (await req('GET', `/api/entries/${id}`)).data.entry as Entry;
+    const moved = { ...cur.data, blocks: [{ id: 'ly2', type: 'layout', props: { els: [{ ...el, css: 'body{display:none}', className: '' }] } }] };
+    const r = await req('PUT', `/api/entries/${id}`, { data: moved, baseVersion: cur.version });
+    expect(r.data.entry.data.blocks[0].props.els[0]).toMatchObject({ css: el.css, className: 'cta bigx' });
+    const added = {
+      ...r.data.entry.data,
+      blocks: [...r.data.entry.data.blocks, { id: 'ly3', type: 'layout', props: { els: [{ id: 'newx', kind: 'text', props: {}, css: 'body{display:none}' }] } }],
+    };
+    const r2 = await req('PUT', `/api/entries/${id}`, { data: added, baseVersion: r.data.entry.version });
+    expect(r2.data.entry.data.blocks[1].props.els[0].css).toBeUndefined();
+    await req('DELETE', `/api/entries/${id}`);
+  });
+
   it('sanitizes rich text and strips code for non-developers', async () => {
     const { data } = await req('POST', '/api/entries', {
       collection: 'pages',

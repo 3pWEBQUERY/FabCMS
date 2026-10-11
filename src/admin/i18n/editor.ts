@@ -1178,4 +1178,15 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: '{n} risultati – Invio sceglie il primo',
     en: '{n} matches – Enter picks the first',
   },
+  'Für eigenes CSS oder Skripte, getrennt durch Leerzeichen.': {
+    fr: 'Pour ton propre CSS ou des scripts, séparées par des espaces.',
+    it: 'Per CSS o script propri, separate da spazi.',
+    en: 'For your own CSS or scripts, separated by spaces.',
+  },
+  'CSS für dieses Element': { fr: 'CSS pour cet élément', it: 'CSS per questo elemento', en: 'CSS for this element' },
+  'Regeln gelten nur innerhalb des Elements. «&» steht für das Element selbst, z. B. {example}.': {
+    fr: 'Les règles ne s’appliquent qu’à l’intérieur de l’élément. «&» désigne l’élément lui-même, p. ex. {example}.',
+    it: 'Le regole valgono solo all’interno dell’elemento. «&» indica l’elemento stesso, ad es. {example}.',
+    en: 'Rules only apply inside the element. “&” stands for the element itself, e.g. {example}.',
+  },
 };

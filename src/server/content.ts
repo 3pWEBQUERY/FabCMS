@@ -2,7 +2,7 @@ import { entryHooks } from './hooks';
 import { sql, json, type Tx } from './db';
 import { BUILTIN_COLLECTIONS } from '../shared/collections';
 import { BLOCK_MAP } from '../shared/blocks';
-import { sanitizeEls, sanitizeVariants, type El } from '../shared/elements';
+import { keepCodeOf, sanitizeEls, sanitizeVariants, type El } from '../shared/elements';
 import { validateFields, type FieldDef } from '../shared/fields';
 import { sanitizePlain, sanitizeRichText, safeHref } from '../shared/richtext';
 import { cleanConds } from '../shared/conditions';
@@ -166,6 +166,8 @@ function sanitizeObject(fields: FieldDef[], obj: Record<string, unknown>): Recor
 export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Block[] = []): Block[] {
   if (!Array.isArray(blocks)) return [];
   const prevById = new Map(previous.map((b) => [b.id, b]));
+  let prevElsCache: El[] | null = null;
+  const prevEls = () => (prevElsCache ??= previous.filter((b) => b.type === 'layout').flatMap((b) => sanitizeEls(b.props.els)));
   return blocks
     .filter((b): b is Block => b && typeof b === 'object' && typeof b.type === 'string' && BLOCK_MAP[b.type] !== undefined)
     .map((b) => {
@@ -189,6 +191,8 @@ export function sanitizeBlocks(blocks: unknown, canCode: boolean, previous: Bloc
       // Free layout: the element tree is cleaned element by element.
       if (b.type === 'layout') {
         props.els = sanitizeEls(props.els);
+        // An element moved to another layout keeps its Werkbank CSS too: looked up across the whole previous page.
+        if (!canCode) props.els = keepCodeOf(props.els as El[], prevEls());
         // A component's variants: only designs, only for its own elements.
         if (props.variants !== undefined) props.variants = sanitizeVariants(props.variants, props.els as El[]);
       }

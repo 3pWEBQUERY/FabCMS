@@ -77,6 +77,7 @@ import {
   variantsCss,
   walkEls,
   headlineText,
+  scopeElCss,
   cleanAnchor,
   elDomId,
   type El,
@@ -2242,6 +2243,15 @@ describe('Ebenen durchsuchen', () => {
     expect(find('kontaktbox')).toEqual(['box', 'btn']);
     expect(find('   ')).toEqual([]);
     expect(searchLayers(blocks, 'offerte', names)[0].path).toEqual(['2. Freies Layout', 'Kontaktbox']);
+  });
+});
+
+describe('CSS pro Element', () => {
+  it('puts every rule inside the element, also within @media', () => {
+    const sel = ':is(#e-a,.e-a)';
+    expect(scopeElCss('&{color:red} h2, &:hover p{margin:0}', sel)).toBe(`${sel}{color:red}${sel} h2,${sel}:hover p{margin:0}`);
+    expect(scopeElCss('@media (max-width:600px){&{display:none} img{width:100%}}', sel)).toBe(`@media (max-width:600px){${sel}{display:none}${sel} img{width:100%}}`);
+    expect(scopeElCss('</style><script>alert(1)</script>', sel)).not.toContain('<');
   });
 });
 

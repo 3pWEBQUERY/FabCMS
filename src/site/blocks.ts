@@ -1008,7 +1008,7 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
   const path = rc.path;
   const attrs = el.show?.length && rc.edit && !rc.copy ? raw(`${elAttrs(el, ctx, rc).value} data-nova-cond="${holds ? 'on' : 'off'}"`) : elAttrs(el, ctx, rc);
   const handles = rc.edit && !rc.copy;
-  const cls = (extra = '') => `el el-${el.kind} e-${el.id}${styleOf(el.use) ? ` st-${el.use}` : ''}${extra ? ` ${extra}` : ''}`;
+  const cls = (extra = '') => `el el-${el.kind} e-${el.id}${styleOf(el.use) ? ` st-${el.use}` : ''}${el.className ? ` ${el.className}` : ''}${extra ? ` ${extra}` : ''}`;
   const val = (prop: string) => bound(el, prop, rc, ctx);
   const editField = (prop: string, kind: 'plain' | 'rich' = 'plain') => {
     if (val(prop).set) return '';

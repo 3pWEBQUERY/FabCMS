@@ -90,6 +90,9 @@ export interface El {
   pinned?: boolean;
   /** «Sprungmarke»: its id in the page instead of e-…, so links like /seite#team land here. */
   anchor?: string;
+  /** Werkbank: CSS of its own («&» is the element) and extra class names. */
+  css?: string;
+  className?: string;
   /** «Nur zeigen, wenn …»: all of them must hold (shared/conditions.ts). */
   show?: Cond[];
 }
@@ -1620,6 +1623,40 @@ export function cleanAnchor(v: unknown): string | undefined {
   return a && !/^[eb]-/.test(a) ? a : undefined;
 }
 
+export const MAX_EL_CSS = 5000;
+
+/**
+ * Werkbank CSS of one element: every rule is put inside it – «&» stands for the
+ * element itself, other selectors are looked for inside it, also within @media.
+ */
+export function scopeElCss(css: string, sel: string): string {
+  return css
+    .replace(/<\/?style/gi, '')
+    .replace(/</g, '')
+    .replace(/(^|[{}])\s*([^{}@]+)\{/g, (_, before: string, selectors: string) => {
+      const scoped = selectors
+        .split(',')
+        .map((x) => (x.includes('&') ? x.trim().replace(/&/g, sel) : `${sel} ${x.trim()}`))
+        .join(',');
+      return `${before}${scoped}{`;
+    });
+}
+
+/** Werkbank settings (own CSS, class names) only change in the Werkbank: elsewhere each element keeps what it had. */
+export function keepCodeOf(els: El[], previous: El[]): El[] {
+  const before = new Map<string, Pick<El, 'css' | 'className'>>();
+  walkEls(previous, (el) => before.set(el.id, { css: el.css, className: el.className }));
+  const keep = (list: El[]): El[] =>
+    list.map((el) => {
+      const { css, className, ...rest } = el;
+      void css;
+      void className;
+      const old = before.get(el.id);
+      return { ...rest, ...(old?.css ? { css: old.css } : {}), ...(old?.className ? { className: old.className } : {}), ...(el.children ? { children: keep(el.children) } : {}) };
+    });
+  return keep(els);
+}
+
 /** The id an element carries in the page: its «Sprungmarke», or e-… */
 export const elDomId = (el: Pick<El, 'id' | 'anchor'>) => cleanAnchor(el.anchor) || `e-${el.id}`;
 
@@ -1651,6 +1688,15 @@ export function sanitizeEls(input: unknown, depth = 0, budget = { n: MAX_ELS }, 
       el.act = { do: raw.act.do as ElAct, target: raw.act.target };
     if (raw.hidden === true) el.hidden = true;
     if (raw.pinned === true) el.pinned = true;
+    if (typeof raw.css === 'string' && raw.css.trim()) el.css = raw.css.replace(/</g, '').slice(0, MAX_EL_CSS);
+    if (typeof raw.className === 'string') {
+      const c = raw.className
+        .replace(/[^\w\- ]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      if (c) el.className = c;
+    }
     // Each «Sprungmarke» once in a layout: the first keeps it.
     const anchor = cleanAnchor(raw.anchor);
     if (anchor && !anchors.has(anchor)) {
@@ -1685,6 +1731,7 @@ export function elementsCss(els: El[], opts: CompileOptions & { forceHover?: str
     // A focus for this place only: over the picture's own from the media library (set on the img itself).
     const focus = el.kind === 'image' ? focusOf(el.props.focus).focus : undefined;
     if (focus) out.push(`${sel} img{object-position:${focus.x}% ${focus.y}%!important}`);
+    if (el.css) out.push(scopeElCss(el.css, sel));
   });
   return out.join('');
 }

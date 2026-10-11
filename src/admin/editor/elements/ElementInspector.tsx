@@ -1,7 +1,7 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, bindKind, cleanAnchor, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, bindKind, cleanAnchor, MAX_EL_CSS, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -75,7 +75,13 @@ export function ElementInspector({
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
-  const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && el.kind !== 'shape' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
+  const [tab, setTab] = useState<'content' | 'style' | 'motion' | 'code'>(
+    el.kind !== 'component' && el.kind !== 'shape' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content',
+  );
+  // Back in the Studio, the Werkbank's tab is gone.
+  useEffect(() => {
+    if (!pro && tab === 'code') setTab('content');
+  }, [pro, tab]);
   // «Dieses Archiv» takes the content type from the overview.
   const archiveLoop = el.kind === 'list' && el.props.archive === true && Boolean(archiveFor);
   const loopType = archiveLoop ? archiveFor! : collections.find((c) => c.id === el.props.collection);
@@ -91,8 +97,10 @@ export function ElementInspector({
           { value: 'content' as const, label: t('Inhalt') },
           { value: 'style' as const, label: t('Design') },
           { value: 'motion' as const, label: t('Animation') },
+          ...(pro && el.kind !== 'component' ? [{ value: 'code' as const, label: t('Code') }] : []),
         ]}
       />
+      {tab === 'code' && pro && <ElementCode el={el} onChange={onChange} />}
       {tab === 'content' && el.kind === 'component' && <ComponentInspector el={el} onChange={onChange} onOpen={onOpenComponent} onDetach={onDetach} locked={locked} />}
       {tab === 'content' && el.kind !== 'component' && (
         <div className="stack">
@@ -279,5 +287,31 @@ function AnchorField({ el, onChange }: { el: El; onChange: (el: El) => void }) {
         />
       </div>
     </Field>
+  );
+}
+
+/** Werkbank: CSS of its own for this element and extra class names – like a block's. */
+function ElementCode({ el, onChange }: { el: El; onChange: (el: El) => void }) {
+  return (
+    <div className="stack">
+      <Field label={t('CSS-Klassen')} keyName="className" help={t('Für eigenes CSS oder Skripte, getrennt durch Leerzeichen.')}>
+        <input className="input mono" value={el.className ?? ''} maxLength={120} onChange={(e) => onChange({ ...el, className: e.target.value || undefined })} />
+      </Field>
+      <Field
+        label={t('CSS für dieses Element')}
+        keyName="css"
+        help={t('Regeln gelten nur innerhalb des Elements. «&» steht für das Element selbst, z. B. {example}.', { example: '«&:hover { transform: rotate(-2deg) }»' })}
+      >
+        <textarea
+          className="textarea code"
+          style={{ minHeight: '10rem' }}
+          spellCheck={false}
+          maxLength={MAX_EL_CSS}
+          value={el.css ?? ''}
+          placeholder={'& {\n  \n}'}
+          onChange={(e) => onChange({ ...el, css: e.target.value || undefined })}
+        />
+      </Field>
+    </div>
   );
 }
