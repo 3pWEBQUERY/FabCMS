@@ -5,6 +5,7 @@
  * window (admin) owns the data and does all saving.
  */
 import { normalizeLinkInput, sanitizeRichText } from '../../shared/richtext';
+import { pageForLink } from '../../shared/paths';
 import { replay, setupMotion } from './motion';
 import { activeTab, reveal, setupWidgets, showTab } from './widgets';
 import { shortcutAction } from '../../shared/shortcuts';
@@ -142,6 +143,15 @@ shadow.innerHTML = `<style>
 .lnk input{width:240px;height:28px;border:0;border-radius:5px;padding:0 8px;background:rgba(255,255,255,.12);color:#fff;font:500 12px/1 inherit;outline:none}
 .lnk input::placeholder{color:rgba(255,255,255,.55)}
 .lnk input:focus{box-shadow:0 0 0 2px #6d8fe0}
+.lnk-list{position:absolute;top:calc(100% + 6px);left:0;display:none;flex-direction:column;gap:1px;width:340px;padding:4px;background:#1b1a17;border-radius:8px;box-shadow:0 12px 32px -8px rgba(0,0,0,.4)}
+.rich.linking .lnk-list.on{display:flex}
+.rich .lnk-list button{display:flex;align-items:baseline;gap:8px;width:100%;height:auto;min-height:30px;padding:7px 8px;text-align:left;font:500 12px/1.3 inherit}
+.lnk-list button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lnk-list .path{flex:none;font-family:ui-monospace,monospace;opacity:.65}
+.rich .lnk-list button[aria-selected=true]{background:rgba(255,255,255,.14)}
+.lnk-list .new{color:#a9bfff;font-weight:600}
+.lnk-list button+.new{margin-top:3px;border-top:1px solid rgba(255,255,255,.12)}
+.lnk-list[aria-busy=true]{opacity:.6;pointer-events:none}
 .lnk .ok{background:#2b59c3}
 .lnk .ok:hover{background:#3a68d4}
 .entry{position:absolute;display:none;align-items:center;gap:5px;max-width:240px;height:26px;padding:0 10px 0 8px;border:0;border-radius:13px;background:#1b1a17;color:#fff;font:600 12px/1 inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);transform:translateX(-100%)}
@@ -163,6 +173,7 @@ shadow.innerHTML = `<style>
 <div class="rich" role="toolbar" aria-label="Formatierung">
 <span class="fmt" style="display:contents"><button data-c="bold" data-tip="Fett" aria-label="Fett"><b>F</b></button><button data-c="italic" data-tip="Kursiv" aria-label="Kursiv"><i>K</i></button><button data-c="h2" data-tip="Zwischentitel" aria-label="Zwischentitel">H2</button><button data-c="h3" data-tip="Kleiner Zwischentitel" aria-label="Kleiner Zwischentitel">H3</button><button data-c="p" data-tip="Absatz" aria-label="Absatz">¶</button><button data-c="ul" data-tip="Aufzählung" aria-label="Aufzählung">•</button><button data-c="quote" data-tip="Zitat" aria-label="Zitat">“</button><button data-c="link" data-tip="Link setzen" aria-label="Link setzen">Link</button></span>
 <span class="lnk"><input type="text" inputmode="url" placeholder="/kontakt oder https://…" aria-label="Link-Adresse"><button data-l="ok" class="ok">OK</button><button data-l="rm" data-tip="Link entfernen" aria-label="Link entfernen">✕</button></span>
+<div class="lnk-list" role="listbox" aria-label="Seiten der Website"></div>
 </div>`;
 const ins = shadow.querySelector('.ins') as HTMLElement;
 const grip = shadow.querySelector('.grip') as HTMLElement;
@@ -241,6 +252,8 @@ d.addEventListener('input', (e) => {
 // Single-line fields: Enter leaves the field instead of inserting a line break.
 d.addEventListener('keydown', (e) => {
   const t = e.target as HTMLElement;
+  // Typing in the editor's own controls (the link address) is no shortcut for the page.
+  if (t === host) return;
   const field = t.closest?.<HTMLElement>('[data-nova-field]');
   if (field && e.key === 'Enter' && field.dataset.novaKind === 'plain') {
     e.preventDefault();
@@ -913,6 +926,8 @@ d.addEventListener(
   'click',
   (e) => {
     const t = e.target as HTMLElement;
+    // The editor's own controls (formatting bar, insert button …) live in the chrome: their clicks select nothing.
+    if (t === host) return;
     // Nothing navigates or submits in the editor – also not a click on a text being written inside a link (a button's label).
     if (t.closest('a[href]')) e.preventDefault();
     else if ((t.closest('button') || t.closest('form')) && !t.closest('[data-nova-field]')) e.preventDefault();
@@ -1146,6 +1161,13 @@ d.addEventListener('selectionchange', () => {
   rich.classList.add('on');
 });
 
+// The editor's element toolbar sits right where this bar appears: tell it when the bar comes and goes.
+let richShown = false;
+new MutationObserver(() => {
+  const on = rich.classList.contains('on');
+  if (on !== richShown) post({ t: 'rich', on: (richShown = on) });
+}).observe(rich, { attributes: true, attributeFilter: ['class'] });
+
 // Own link field instead of the browser's prompt(): the toolbar turns into an address input.
 const linkInput = rich.querySelector('.lnk input') as HTMLInputElement;
 let savedRange: Range | null = null;
@@ -1171,10 +1193,13 @@ function openLink() {
   rich.classList.add('linking');
   linkInput.focus();
   linkInput.select();
+  showPages();
+  void loadPages().then(showPages);
 }
 function closeLink(apply: 'set' | 'remove' | null) {
   const range = savedRange;
   rich.classList.remove('linking');
+  linkList.classList.remove('on');
   restoreSelection();
   if (apply === 'remove') d.execCommand('unlink');
   else if (apply === 'set') {
@@ -1185,16 +1210,99 @@ function closeLink(apply: 'set' | 'remove' | null) {
   if (apply) changed(range);
   savedRange = null;
 }
+/* The site's pages under the address field – and, for an address no page has yet, a new page right away. */
+const linkList = rich.querySelector('.lnk-list') as HTMLElement;
+let sitePages: { path: string; title: string }[] | null = null;
+let linkActive = -1;
+async function loadPages() {
+  if (sitePages) return;
+  try {
+    const r = await fetch('/api/entries?collection=pages&limit=300', { headers: { 'X-Nova': '1' } });
+    const { entries } = (await r.json()) as { entries: { slug: string; title: string }[] };
+    sitePages = entries.map((p) => ({ path: p.slug ? `/${p.slug}` : '/', title: p.title }));
+  } catch {
+    sitePages = [];
+  }
+}
+function option(cls: string, parts: [string, string?]) {
+  const b = d.createElement('button');
+  b.type = 'button';
+  b.className = cls;
+  b.setAttribute('role', 'option');
+  for (const [i, text] of parts.entries()) {
+    if (!text) continue;
+    const sp = d.createElement('span');
+    if (i === 0 && cls === 'page') sp.className = 'path';
+    sp.textContent = text;
+    b.append(sp);
+  }
+  return b;
+}
+function showPages() {
+  if (!rich.classList.contains('linking')) return;
+  const typed = linkInput.value.trim();
+  const q = typed.toLowerCase();
+  const pages = sitePages ?? [];
+  const shown = pages.filter((p) => p.path !== typed && (!q || p.path.toLowerCase().includes(q) || p.title.toLowerCase().includes(q))).slice(0, 6);
+  const want = pageForLink(typed);
+  const taken = !want || pages.some((p) => p.path === `/${want.slug}` || p.title.toLowerCase() === want.title.toLowerCase());
+  const items = shown.map((p) => {
+    const b = option('page', [p.path, p.title]);
+    b.addEventListener('click', () => {
+      linkInput.value = p.path;
+      closeLink('set');
+    });
+    return b;
+  });
+  if (!taken && sitePages) {
+    const b = option('new', [`+ Neue Seite «${want.title}» anlegen`]);
+    b.addEventListener('click', () => void createPage(want));
+    items.push(b);
+  }
+  linkActive = -1;
+  linkList.replaceChildren(...items);
+  linkList.classList.toggle('on', items.length > 0);
+}
+async function createPage(want: { title: string; slug: string }) {
+  linkList.setAttribute('aria-busy', 'true');
+  try {
+    const r = await fetch('/api/entries', {
+      method: 'POST',
+      headers: { 'X-Nova': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'pages', slug: want.slug, data: { title: want.title } }),
+    });
+    const j = (await r.json().catch(() => ({}))) as { entry?: { id: string; slug: string }; error?: string };
+    if (!r.ok || !j.entry) throw new Error(j.error || 'Die Seite liess sich nicht anlegen.');
+    sitePages = null;
+    linkInput.value = `/${j.entry.slug}`;
+    closeLink('set');
+    post({ t: 'page-created', id: j.entry.id, title: want.title });
+  } catch (e) {
+    post({ t: 'page-failed', message: (e as Error).message });
+  } finally {
+    linkList.removeAttribute('aria-busy');
+  }
+}
+
 // Clicking somewhere else in the page leaves the link field without changes.
 linkInput.addEventListener('blur', () => {
   if (!rich.classList.contains('linking')) return;
   rich.classList.remove('linking', 'on');
+  linkList.classList.remove('on');
   savedRange = null;
 });
+linkInput.addEventListener('input', showPages);
 linkInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
+  const options = [...linkList.querySelectorAll<HTMLButtonElement>('button')];
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && options.length) {
     e.preventDefault();
-    closeLink('set');
+    const n = options.length;
+    linkActive = e.key === 'ArrowDown' ? (linkActive + 1) % n : (linkActive - 1 + n) % n;
+    options.forEach((o, i) => o.setAttribute('aria-selected', String(i === linkActive)));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (options[linkActive]) options[linkActive].click();
+    else closeLink('set');
   } else if (e.key === 'Escape') {
     e.preventDefault();
     closeLink(null);

@@ -212,6 +212,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   }, [overview]);
   const [tokenColors, setTokenColors] = useState<Record<string, string>>({});
   const [picker, setPicker] = useState<{ index: number; rect: Rect } | null>(null);
+  const [richOpen, setRichOpen] = useState(false);
   // Free layout: the selected element inside the selected block, and where to insert a new one.
   const [selectedEl, setSelectedEl] = useState<string | null>(null);
   /** Elements of a free canvas chosen together with Shift-click (the selected one first). */
@@ -429,6 +430,21 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           break;
         case 'section':
           navigate(`/inhalte/sections/${m.id}`);
+          break;
+        case 'rich':
+          // The text formatting bar sits where the element toolbar would: it gives way meanwhile.
+          setRichOpen(Boolean(m.on));
+          break;
+        case 'page-created':
+          // A new page from the link field of a text: a draft, to publish before the link leads anywhere.
+          if (typeof m.id === 'string')
+            toast(t('Seite «{name}» als Entwurf angelegt. Veröffentliche sie, damit der Link auf der Website funktioniert.', { name: String(m.title ?? '') }), {
+              ms: 9000,
+              action: { label: t('Öffnen'), run: () => navigate(entryUrl('pages', m.id)) },
+            });
+          break;
+        case 'page-failed':
+          toast(String(m.message ?? ''), { kind: 'bad' });
           break;
         case 'open-entry':
           // A card of a loop: its entry, in its own editor.
@@ -1352,7 +1368,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             )}
             <div className="canvas-overlay">
               <AnimatePresence>
-                {selectedBlock && selectedElInfo && elRect && !picker && (
+                {selectedBlock && selectedElInfo && elRect && !picker && !richOpen && (
                   <ElementToolbar
                     key={`el-${selectedElInfo.el.id}`}
                     found={selectedElInfo}
