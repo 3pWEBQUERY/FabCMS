@@ -37,7 +37,7 @@ import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
 import { BUILTIN_COLLECTIONS } from '../src/shared/collections';
 import { blockCss, blockDomId, cssColor, cssLength, designCss, effective, isEmptyDesign, setDesign, type Design } from '../src/shared/design';
-import { MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
+import { hasMotion, MOTION_CSS, motionAttrs, motionVars } from '../src/shared/motion';
 import { shortcutAction } from '../src/shared/shortcuts';
 import {
   applyOverrides,
@@ -1163,6 +1163,53 @@ describe('animations', () => {
     );
     expect(motionVars({ scroll: 'fade' })).toBe('');
     expect(blockCss('#b-x', { motion: { enter: 'zoom' } })).toBe('#b-x{--anim-dur:700ms;--anim-delay:0ms;--anim-dist:32px;--anim-ease:cubic-bezier(.2,.7,.2,1)}');
+  });
+
+  it('knows the scroll, text and hover effects of an element, and the visual effects of the design', () => {
+    expect(motionAttrs({ scroll: 'unveil', hover: 'magnet', text: 'scrub' })).toBe('data-scroll="unveil" data-scroll-k="30" data-hover-self="magnet" data-text="scrub"');
+    expect(motionAttrs({ hover: 'wobble' as never, text: '<i>' as never })).toBe('');
+    expect(hasMotion({ text: 'words' })).toBe(true);
+    // An element moves itself, a block its content; without a word split nothing waits hidden.
+    expect(MOTION_CSS).toContain('.el[data-scroll]{translate:var(--sx,0) var(--sy,0);scale:var(--ss,1);rotate:var(--sr,0deg)}');
+    expect(MOTION_CSS).toContain('.text-ready[data-text=words]:not(.text-in) .tw{opacity:0');
+    expect(MOTION_CSS.indexOf('.text-ready')).toBeGreaterThan(MOTION_CSS.indexOf('@media (prefers-reduced-motion:no-preference)'));
+    const css = designCss('#e', {
+      desktop: {
+        textGradient: {
+          type: 'linear',
+          angle: 90,
+          stops: [
+            { color: '$accent', at: 0 },
+            { color: '#ff0080', at: 100 },
+          ],
+        },
+        bg: '$bg',
+        gradient: {
+          type: 'linear',
+          stops: [
+            { color: '#000', at: 0 },
+            { color: '#fff', at: 100 },
+          ],
+        },
+        blur: '2px',
+        grayscale: 100,
+        saturate: 900,
+        blend: 'multiply',
+        shape: 'diamond',
+      },
+      hover: { grayscale: 0 },
+    });
+    // The gradient shows through the letters; the background gradient gives way to it.
+    expect(css).toContain(
+      'background-image:linear-gradient(90deg,var(--accent) 0%,#ff0080 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent',
+    );
+    expect(css).not.toContain('linear-gradient(180deg');
+    expect(css).toContain('filter:blur(2px) grayscale(100%) saturate(300%)');
+    expect(css).toContain('mix-blend-mode:multiply');
+    expect(css).toContain('clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)');
+    expect(css).toContain('#e:hover{filter:grayscale(0%)}');
+    expect(designCss('#e', { desktop: { blend: 'plus-darker' as never, shape: 'url(x)' as never, brightness: 'x' as never } })).toBe('');
+    expect(designCss('#e', { desktop: { shape: 'blob' } })).toBe('#e{border-radius:58% 42% 38% 62% / 52% 38% 62% 48%}');
   });
 
   it('only hides content while JavaScript runs and motion is welcome, with a fallback', () => {

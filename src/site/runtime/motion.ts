@@ -81,6 +81,7 @@ function observer() {
 /* ---------- scroll effects ---------- */
 
 const scrollers = new Set<HTMLElement>();
+const scrubbers = new Set<HTMLElement>();
 const withBg = new WeakSet<HTMLElement>();
 let ticking = false;
 
@@ -107,7 +108,29 @@ function frame() {
       case 'slide':
         el.style.setProperty('--sx', `${(p * k * 140).toFixed(1)}px`);
         break;
+      case 'rotate':
+        el.style.setProperty('--sr', `${(p * k * 40).toFixed(2)}deg`);
+        break;
+      case 'blur':
+        // Sharp in the middle of the screen, soft towards the edges.
+        el.style.setProperty('--sb', `${(Math.min(1, Math.abs(p)) * k * 24).toFixed(1)}px`);
+        break;
+      case 'color':
+        el.style.setProperty('--sg', Math.min(1, Math.abs(p) * (0.6 + k)).toFixed(3));
+        break;
+      case 'unveil':
+        // Opens from a narrow window to the whole picture while it comes up the screen.
+        el.style.setProperty('--sc', `${(Math.max(0, Math.min(1, p)) * k * 60).toFixed(1)}%`);
+        break;
     }
+  }
+  for (const el of scrubbers) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom < -100 || r.top > vh + 100) continue;
+    // From entering at the bottom to its end passing 40 % of the screen: every word lit.
+    const total = Number(el.dataset.words) || 1;
+    const p = Math.max(0, Math.min(1, (vh * 0.9 - r.top) / (vh * 0.5 + r.height)));
+    el.style.setProperty('--tp', (p * (total + 1)).toFixed(2));
   }
 }
 const onScroll = () => {
@@ -130,6 +153,72 @@ function tilt(item: HTMLElement) {
     item.style.removeProperty('--rx');
     item.style.removeProperty('--ry');
   });
+}
+
+/** Pulls the element a little towards the pointer, and lets go when it leaves. */
+function magnet(el: HTMLElement) {
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${Math.max(-14, Math.min(14, (e.clientX - r.left - r.width / 2) * 0.22)).toFixed(1)}px`);
+    el.style.setProperty('--my', `${Math.max(-10, Math.min(10, (e.clientY - r.top - r.height / 2) * 0.3)).toFixed(1)}px`);
+  });
+  el.addEventListener('pointerleave', () => {
+    el.style.removeProperty('--mx');
+    el.style.removeProperty('--my');
+  });
+}
+
+/* ---------- texts word by word ---------- */
+
+/** Wraps every word of the text in a span with its number; links and emphasis stay as they are. Returns the count. */
+function splitWords(el: HTMLElement): number {
+  let i = 0;
+  const walk = (node: Node) => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const parts = (child.textContent ?? '').split(/(\s+)/);
+        if (!parts.some((x) => x.trim())) continue;
+        const frag = document.createDocumentFragment();
+        for (const part of parts) {
+          if (!part) continue;
+          if (!part.trim()) frag.append(part);
+          else {
+            const w = document.createElement('span');
+            w.className = 'tw';
+            w.style.setProperty('--i', String(i++));
+            w.textContent = part;
+            frag.append(w);
+          }
+        }
+        child.replaceWith(frag);
+      } else if (child instanceof HTMLElement && !['STYLE', 'SCRIPT', 'SVG', 'IMG', 'BR'].includes(child.tagName)) walk(child);
+    }
+  };
+  walk(el);
+  return i;
+}
+
+let textIo: IntersectionObserver | null = null;
+
+function setupText(el: HTMLElement) {
+  if (el.classList.contains('text-ready')) return;
+  const words = splitWords(el);
+  if (!words) return;
+  el.dataset.words = String(words);
+  el.classList.add('text-ready');
+  if (el.dataset.text === 'scrub') scrubbers.add(el);
+  else
+    (textIo ??= new IntersectionObserver(
+      (entries) => {
+        for (const e of entries)
+          if (e.isIntersecting) {
+            e.target.classList.add('text-in');
+            textIo!.unobserve(e.target);
+          }
+      },
+      { rootMargin: '0px 0px -12% 0px' },
+    )).observe(el);
 }
 
 /**
@@ -157,17 +246,25 @@ export function setupMotion(root: ParentNode = document, edit = false): void {
       if (el.dataset.hover === 'tilt') tilt(item);
     }
   }
-  const before = scrollers.size;
+  for (const el of root.querySelectorAll<HTMLElement>('[data-hover-self=tilt],[data-hover-self=magnet]')) {
+    if (el.dataset.hoverBound) continue;
+    el.dataset.hoverBound = '1';
+    if (el.dataset.hoverSelf === 'tilt') tilt(el);
+    else magnet(el);
+  }
+  // Texts are split only on the page: in the editor they are being written.
+  if (!edit) for (const el of root.querySelectorAll<HTMLElement>('[data-text]')) setupText(el);
+  const before = scrollers.size + scrubbers.size;
   for (const el of root.querySelectorAll<HTMLElement>('[data-scroll]')) {
     if (getComputedStyle(el).backgroundImage.includes('url(')) withBg.add(el);
     scrollers.add(el);
   }
   for (const el of scrollers) if (!el.isConnected) scrollers.delete(el);
-  if (!before && scrollers.size) {
+  if (!before && scrollers.size + scrubbers.size) {
     addEventListener('scroll', onScroll, { passive: true });
     addEventListener('resize', onScroll);
   }
-  if (scrollers.size) frame();
+  if (scrollers.size + scrubbers.size) frame();
 }
 
 /** Editor: plays the entrance of one block again. */

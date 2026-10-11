@@ -165,7 +165,14 @@ export function ElementInspector({
         />
       )}
       {tab === 'motion' && (
-        <MotionPanel motion={el.motion} onChange={(m) => onChange({ ...el, motion: hasMotion(m) ? m : undefined })} onPlay={onPlay} target="element" items={el.kind === 'box'} />
+        <MotionPanel
+          motion={el.motion}
+          onChange={(m) => onChange({ ...el, motion: hasMotion(m) ? m : undefined })}
+          onPlay={onPlay}
+          target="element"
+          items={el.kind === 'box'}
+          text={el.kind === 'heading' || el.kind === 'text'}
+        />
       )}
     </div>
   );

@@ -5438,6 +5438,40 @@ body.scrubbing.v * {
 .mp-tile.on .mp-scroll-slide .mp-card {
   animation-name: mp-slide;
 }
+.mp-tile:hover .mp-scroll-rotate .mp-card,
+.mp-tile.on .mp-scroll-rotate .mp-card {
+  animation-name: mp-srot;
+}
+.mp-tile:hover .mp-scroll-blur .mp-card,
+.mp-tile.on .mp-scroll-blur .mp-card {
+  animation-name: mp-sblur;
+}
+.mp-tile:hover .mp-scroll-unveil .mp-card,
+.mp-tile.on .mp-scroll-unveil .mp-card {
+  animation-name: mp-unveil;
+}
+.mp-tile:hover .mp-scroll-color .mp-card,
+.mp-tile.on .mp-scroll-color .mp-card {
+  animation-name: mp-scolor;
+}
+.mp-tile:hover .mp-text-words .mp-card,
+.mp-tile.on .mp-text-words .mp-card {
+  animation-name: mp-words;
+}
+.mp-tile:hover .mp-text-scrub .mp-card,
+.mp-tile.on .mp-text-scrub .mp-card {
+  animation-name: mp-scrub;
+}
+.mp-text-words .mp-card,
+.mp-text-scrub .mp-card,
+.mp-text-none .mp-card {
+  width: 2.2rem;
+  height: 0.5rem;
+  border-radius: 3px;
+}
+.mp-text-scrub .mp-card {
+  background: linear-gradient(90deg, var(--sel) 50%, color-mix(in srgb, var(--sel) 25%, transparent) 50%) 100% 0 / 200% 100%;
+}
 .mp-tile .mp-card.ghost {
   animation-name: none !important;
 }
@@ -5448,7 +5482,8 @@ body.scrubbing.v * {
 .mp-hover-lift .mp-card,
 .mp-hover-grow .mp-card,
 .mp-hover-glow .mp-card,
-.mp-hover-tilt .mp-card {
+.mp-hover-tilt .mp-card,
+.mp-hover-magnet .mp-card {
   transition:
     transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
     box-shadow 0.3s;
@@ -5465,6 +5500,130 @@ body.scrubbing.v * {
 }
 .mp-tile:hover .mp-hover-tilt .mp-card {
   transform: rotateY(28deg) rotateX(-12deg);
+}
+.mp-tile:hover .mp-hover-magnet .mp-card {
+  transform: translate(5px, -3px);
+}
+@keyframes mp-srot {
+  0%,
+  15% {
+    transform: rotate(-18deg);
+  }
+  85%,
+  100% {
+    transform: rotate(18deg);
+  }
+}
+@keyframes mp-sblur {
+  0%,
+  15% {
+    filter: blur(3px);
+  }
+  50% {
+    filter: blur(0);
+  }
+  85%,
+  100% {
+    filter: blur(3px);
+  }
+}
+@keyframes mp-unveil {
+  0%,
+  15% {
+    clip-path: inset(40%);
+  }
+  70%,
+  100% {
+    clip-path: inset(0);
+  }
+}
+@keyframes mp-scolor {
+  0%,
+  15% {
+    filter: grayscale(1);
+  }
+  60%,
+  100% {
+    filter: grayscale(0);
+  }
+}
+@keyframes mp-words {
+  0%,
+  10% {
+    clip-path: inset(0 100% 0 0);
+  }
+  25% {
+    clip-path: inset(0 66% 0 0);
+  }
+  45% {
+    clip-path: inset(0 33% 0 0);
+  }
+  65%,
+  100% {
+    clip-path: inset(0);
+  }
+}
+@keyframes mp-scrub {
+  0%,
+  10% {
+    background-position: 100% 0;
+  }
+  80%,
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* cut-out shapes */
+.dp-shapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.dp-shapes button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.dp-shapes button[aria-pressed='true'] {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 1px var(--sel);
+}
+.dp-shapes button.inherited {
+  border-color: color-mix(in srgb, var(--edited) 55%, transparent);
+}
+.dp-shape {
+  width: 1.1rem;
+  height: 1.1rem;
+  background: var(--ink-2);
+  border-radius: 2px;
+}
+.dp-shape-none {
+  background: none;
+  border: 1.5px dashed var(--ink-3, var(--line));
+}
+.dp-shape-circle {
+  clip-path: circle(closest-side at 50% 50%);
+}
+.dp-shape-arch {
+  clip-path: inset(0 round 999px 999px 0 0);
+}
+.dp-shape-diamond {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.dp-shape-slant {
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
+}
+.dp-shape-blob {
+  border-radius: 58% 42% 38% 62% / 52% 38% 62% 48%;
+}
+.dp-shape-hexagon {
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
 }
 @keyframes mp-fade {
   0%,

@@ -6,8 +6,12 @@
  */
 
 export const ENTER_EFFECTS = ['fade', 'up', 'down', 'left', 'right', 'zoom', 'zoom-out', 'blur', 'flip', 'tilt', 'reveal'] as const;
-export const SCROLL_EFFECTS = ['parallax', 'fade', 'zoom', 'slide'] as const;
+export const SCROLL_EFFECTS = ['parallax', 'fade', 'zoom', 'slide', 'rotate', 'blur', 'unveil', 'color'] as const;
 export const ITEM_HOVERS = ['lift', 'grow', 'glow', 'tilt'] as const;
+/** An element's own reaction to the mouse; «magnet» pulls it a little towards the pointer. */
+export const SELF_HOVERS = ['lift', 'grow', 'glow', 'tilt', 'magnet'] as const;
+/** Texts: word by word as they come into view, or lighting up word by word while scrolling. */
+export const TEXT_EFFECTS = ['words', 'scrub'] as const;
 export const LOOPS = ['float', 'pulse', 'spin', 'wiggle'] as const;
 export const EASINGS = {
   smooth: 'cubic-bezier(.2,.7,.2,1)',
@@ -20,6 +24,8 @@ export const EASINGS = {
 export type EnterEffect = (typeof ENTER_EFFECTS)[number];
 export type ScrollEffect = (typeof SCROLL_EFFECTS)[number];
 export type ItemHover = (typeof ITEM_HOVERS)[number];
+export type SelfHover = (typeof SELF_HOVERS)[number];
+export type TextEffect = (typeof TEXT_EFFECTS)[number];
 export type Loop = (typeof LOOPS)[number];
 export type Easing = keyof typeof EASINGS;
 
@@ -41,6 +47,10 @@ export interface Motion {
   itemHover?: ItemHover;
   /** Elements: a gentle movement that keeps going. */
   loop?: Loop;
+  /** Elements: how the element itself reacts to the mouse. */
+  hover?: SelfHover;
+  /** Headings and texts: word by word. */
+  text?: TextEffect;
 }
 
 const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : null);
@@ -63,6 +73,10 @@ export function motionAttrs(m: Motion | undefined): string {
   if (hover) out.push(`data-hover="${hover}"`);
   const loop = one(m.loop, LOOPS);
   if (loop) out.push(`data-loop="${loop}"`);
+  const self = one(m.hover, SELF_HOVERS);
+  if (self) out.push(`data-hover-self="${self}"`);
+  const text = one(m.text, TEXT_EFFECTS);
+  if (text) out.push(`data-text="${text}"`);
   return out.join(' ');
 }
 
@@ -78,7 +92,7 @@ export function motionVars(m: Motion | undefined): string {
   return vars.join(';');
 }
 
-export const hasMotion = (m: Motion | undefined) => Boolean(m && (m.enter || m.scroll || m.itemHover || m.loop));
+export const hasMotion = (m: Motion | undefined) => Boolean(m && (m.enter || m.scroll || m.itemHover || m.loop || m.hover || m.text));
 
 /**
  * The CSS the runtime relies on; part of the page whenever something moves.
@@ -89,8 +103,13 @@ export const hasMotion = (m: Motion | undefined) => Boolean(m && (m.enter || m.s
  *   anim-items  – items come one after another (anim-item, own --item-delay)
  *   anim-replay – the editor plays an entrance on demand; otherwise the canvas shows everything
  *
- * Scroll effects use the separate translate/scale properties, so they never
- * fight the entrance; «reduce motion» turns all of it off.
+ * Scroll effects use the separate translate/scale/rotate properties, so they
+ * never fight the entrance; on a block they move its content, on an element
+ * the element itself. «reduce motion» turns all of it off.
+ *
+ *   text-ready – the runtime split a text into words (.tw, each with --i);
+ *                text-in: in view, the words come one after another;
+ *                «scrub» lights them up by --tp, the scroll progress in words
  */
 export const MOTION_CSS = `
 [data-anim]{--anim-t:none;--anim-f:none;--anim-c:none}
@@ -111,19 +130,31 @@ export const MOTION_CSS = `
 @media (prefers-reduced-motion:no-preference){
 body:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)>:not(style),body:not([data-nova-edit]) .anim-ready:not([data-self]):not(.anim-in):not(.anim-items)>:not(style),body:not([data-nova-edit]) [data-self]:not(.anim-ready),body:not([data-nova-edit]) .anim-ready[data-self]:not(.anim-in):not(.anim-items),body:not([data-nova-edit]) .anim-items:not(.anim-in) .anim-item,[data-nova-edit] .anim-replay:not([data-self]):not(.anim-in):not(.anim-items)>:not(style),[data-nova-edit] .anim-replay[data-self]:not(.anim-in):not(.anim-items),[data-nova-edit] .anim-replay.anim-items:not(.anim-in) .anim-item{opacity:0;transform:var(--anim-t);filter:var(--anim-f);clip-path:var(--anim-c)}
 body:not([data-nova-edit]) [data-anim]:not([data-self]):not(.anim-ready)>:not(style),body:not([data-nova-edit]) [data-self]:not(.anim-ready){animation:nova-show 0s 4s forwards}
-[data-scroll]>:not(style){translate:var(--sx,0) var(--sy,0);scale:var(--ss,1)}
-[data-scroll=fade]>:not(style){opacity:var(--so,1)}
+[data-scroll]:not(.el)>:not(style),.el[data-scroll]{translate:var(--sx,0) var(--sy,0);scale:var(--ss,1);rotate:var(--sr,0deg)}
+[data-scroll=fade]:not(.el)>:not(style),.el[data-scroll=fade]{opacity:var(--so,1)}
+[data-scroll=blur]:not(.el)>:not(style),.el[data-scroll=blur]{filter:blur(var(--sb,0px))}
+[data-scroll=color]:not(.el)>:not(style),.el[data-scroll=color]{filter:grayscale(var(--sg,0))}
+[data-scroll=unveil]:not(.el)>:not(style),.el[data-scroll=unveil]{clip-path:inset(var(--sc,0%) var(--sc,0%) var(--sc,0%) var(--sc,0%) round var(--sc-r,0px))}
+.text-ready .tw{display:inline-block;transition:opacity .6s cubic-bezier(.2,.7,.2,1) calc(var(--i)*45ms),translate .6s cubic-bezier(.2,.7,.2,1) calc(var(--i)*45ms),filter .6s cubic-bezier(.2,.7,.2,1) calc(var(--i)*45ms)}
+.text-ready[data-text=words]:not(.text-in) .tw{opacity:0;translate:0 .45em;filter:blur(4px)}
+.text-ready[data-text=scrub] .tw{opacity:clamp(.16,calc(var(--tp,0) - var(--i)),1);transition:opacity .2s linear}
 [data-loop=float]{animation:nova-float 5s ease-in-out infinite}
 [data-loop=pulse]{animation:nova-pulse 2.4s ease-in-out infinite}
 [data-loop=spin]{animation:nova-spin 14s linear infinite}
 [data-loop=wiggle]{animation:nova-wiggle 3.2s ease-in-out infinite}
 }
 [data-hover] .hover-item:not(.anim-item){transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s cubic-bezier(.2,.7,.2,1)}
+[data-hover-self]{transition:translate .35s cubic-bezier(.2,.7,.2,1),scale .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s cubic-bezier(.2,.7,.2,1),transform .18s ease-out}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
 [data-hover=lift] .hover-item:hover{transform:translateY(-6px);box-shadow:0 18px 40px -16px color-mix(in srgb,var(--ink) 35%,transparent)}
 [data-hover=grow] .hover-item:hover{transform:scale(1.035)}
 [data-hover=glow] .hover-item:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 12px 44px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
 [data-hover=tilt] .hover-item{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition-duration:.18s}
+[data-hover-self=lift]:hover{translate:0 -6px;box-shadow:0 18px 40px -16px color-mix(in srgb,var(--ink) 35%,transparent)}
+[data-hover-self=grow]:hover{scale:1.04}
+[data-hover-self=glow]:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 12px 44px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
+[data-hover-self=tilt]{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+[data-hover-self=magnet]{translate:var(--mx,0) var(--my,0)}
 }
 @keyframes nova-show{to{opacity:1;transform:none;filter:none;clip-path:none}}
 @keyframes nova-float{50%{translate:0 -10px}}

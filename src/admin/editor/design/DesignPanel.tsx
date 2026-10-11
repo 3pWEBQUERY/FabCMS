@@ -1,6 +1,18 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { ElKind } from '../../../shared/elements';
-import { DESIGN_BPS, effective, isEmptyDesign, setDesign, SIZE_TOKENS, type Design, type DesignBp, type DesignState, type StyleProps } from '../../../shared/design';
+import {
+  BLENDS,
+  DESIGN_BPS,
+  effective,
+  isEmptyDesign,
+  setDesign,
+  SHAPE_CUTS,
+  SIZE_TOKENS,
+  type Design,
+  type DesignBp,
+  type DesignState,
+  type StyleProps,
+} from '../../../shared/design';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Menu, Tip } from '../../ui/kit';
@@ -26,6 +38,10 @@ const HOVER_KEYS = new Set<keyof StyleProps>([
   'shadow',
   'opacity',
   'blur',
+  'grayscale',
+  'saturate',
+  'brightness',
+  'textGradient',
   'rotate',
   'scale',
   'x',
@@ -37,13 +53,45 @@ export const SECTIONS: Record<string, (keyof StyleProps)[]> = {
   spacing: ['mt', 'mr', 'mb', 'ml', 'pt', 'pr', 'pb', 'pl'],
   size: ['width', 'minWidth', 'maxWidth', 'height', 'minHeight', 'maxHeight', 'contentWidth', 'aspect', 'overflow', 'fit', 'vAlign'],
   position: ['position', 'top', 'right', 'bottom', 'left', 'z'],
-  type: ['font', 'fontSize', 'weight', 'lineHeight', 'tracking', 'textAlign', 'textTransform', 'italic', 'underline', 'color', 'accent'],
+  type: ['font', 'fontSize', 'weight', 'lineHeight', 'tracking', 'textAlign', 'textTransform', 'italic', 'underline', 'color', 'textGradient', 'accent'],
   background: ['bg', 'gradient', 'bgImage', 'bgSize', 'bgPosition', 'bgRepeat', 'bgFixed', 'overlay'],
   border: ['borderWidth', 'borderStyle', 'borderColor', 'radius', 'radiusTL', 'radiusTR', 'radiusBR', 'radiusBL'],
-  effects: ['shadow', 'opacity', 'blur', 'backdrop', 'rotate', 'scale', 'x', 'y', 'cursor'],
+  effects: ['shadow', 'opacity', 'blur', 'grayscale', 'saturate', 'brightness', 'blend', 'shape', 'backdrop', 'rotate', 'scale', 'x', 'y', 'cursor'],
 };
 
 const CLIPBOARD = 'nova-design-clipboard';
+
+/** Elements whose text can carry a gradient. */
+const TEXT_KINDS = new Set(['heading', 'text', 'button', 'counter', 'marquee']);
+
+const blendLabel = (b: string) =>
+  (
+    ({
+      normal: t('Normal'),
+      multiply: t('Multiplizieren'),
+      screen: t('Negativ multiplizieren'),
+      overlay: t('Überlagern'),
+      darken: t('Abdunkeln'),
+      lighten: t('Aufhellen'),
+      difference: t('Differenz'),
+      exclusion: t('Ausschluss'),
+      luminosity: t('Luminanz'),
+      color: t('Farbe'),
+    }) as Record<string, string>
+  )[b] ?? b;
+
+const shapeLabel = (v: string) =>
+  (
+    ({
+      none: t('Keine Form'),
+      circle: t('Kreis'),
+      arch: t('Bogen'),
+      diamond: t('Raute'),
+      slant: t('Schräge Kante'),
+      blob: t('Organisch'),
+      hexagon: t('Sechseck'),
+    }) as Record<string, string>
+  )[v] ?? v;
 
 /** Ready-made looks for a whole section – one click, then fine-tune. */
 const quickStyles = (): { id: string; label: string; look: StyleProps; thumb: (p: (c: string) => string | null) => CSSProperties }[] => [
@@ -467,6 +515,19 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
       <ContrastNote onFix={(c) => prop('color').set(c)} />
       <DesignSection id="type" title={t('Text & Farben')} icon="type" count={count('type')} defaultOpen={block}>
         {color('color', t('Textfarbe'))}
+        {!block &&
+          TEXT_KINDS.has(kind ?? '') &&
+          row(
+            'textGradient',
+            t('Verlaufstext'),
+            (p) => (
+              <>
+                {p.value === undefined && p.inherited && <span className="dp-inh-grad" style={{ background: gradientPreviewCss(p.inherited, preview) }} />}
+                <GradientEditor value={p.value} onChange={p.set} />
+              </>
+            ),
+            true,
+          )}
         {color('accent', t('Akzentfarbe'))}
         {!hover && (
           <>
@@ -673,7 +734,51 @@ export function DesignPanel({ design, onChange, target, bp, onBp, state, onState
         <div className="dp-grid2">
           {len('blur', t('Unschärfe'), { units: ['px'], min: 0 })}
           {show('backdrop') && len('backdrop', t('Glas'), { units: ['px'], min: 0 })}
+          {row('grayscale', t('Graustufen'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited ?? 0} onChange={p.set} min={0} max={100} suffix="%" icon="opacity" ariaLabel={t('Graustufen')} />
+          ))}
+          {row('saturate', t('Sättigung'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited ?? 100} onChange={p.set} min={0} max={300} step={5} suffix="%" icon="paint" ariaLabel={t('Sättigung')} />
+          ))}
+          {row('brightness', t('Helligkeit'), (p) => (
+            <NumberInput value={p.value} placeholder={p.inherited ?? 100} onChange={p.set} min={0} max={300} step={5} suffix="%" icon="sun" ariaLabel={t('Helligkeit')} />
+          ))}
         </div>
+        {!hover &&
+          row('blend', t('Mischen'), (p) => (
+            <select className="input" value={p.value ?? ''} onChange={(e) => p.set((e.target.value || undefined) as StyleProps['blend'])} aria-label={t('Mischen')}>
+              <option value="">{p.inherited ? `${blendLabel(p.inherited)} (${t('übernommen')})` : t('Normal')}</option>
+              {BLENDS.filter((b) => b !== 'normal').map((b) => (
+                <option key={b} value={b}>
+                  {blendLabel(b)}
+                </option>
+              ))}
+            </select>
+          ))}
+        {!hover &&
+          !block &&
+          row(
+            'shape',
+            t('Form'),
+            (p) => (
+              <div className="dp-shapes" role="group" aria-label={t('Form')}>
+                {SHAPE_CUTS.map((v) => (
+                  <Tip key={v} label={shapeLabel(v)}>
+                    <button
+                      type="button"
+                      aria-label={shapeLabel(v)}
+                      aria-pressed={(p.value ?? p.inherited ?? 'none') === v}
+                      className={p.value === undefined && p.inherited === v ? 'inherited' : ''}
+                      onClick={() => p.set(v === 'none' ? undefined : v)}
+                    >
+                      <span className={`dp-shape dp-shape-${v}`} aria-hidden="true" />
+                    </button>
+                  </Tip>
+                ))}
+              </div>
+            ),
+            true,
+          )}
         <span className="dp-sub">{t('Verwandeln')}</span>
         <div className="dp-grid2">
           {len('x', t('Verschieben X'), { units: ['px', '%', 'rem'] })}

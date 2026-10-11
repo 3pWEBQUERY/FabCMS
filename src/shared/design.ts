@@ -93,6 +93,8 @@ export interface StyleProps {
   italic?: boolean;
   underline?: boolean;
   color?: string;
+  /** The text itself filled with a gradient. */
+  textGradient?: Gradient;
   accent?: string;
   /* background */
   bg?: string;
@@ -116,6 +118,14 @@ export interface StyleProps {
   shadow?: 'none' | 's' | 'm' | 'l' | 'xl' | Shadow;
   opacity?: number;
   blur?: string;
+  /** Colour filters in percent: 0 = full colour … 100 = grey; saturation and brightness 100 = as is. */
+  grayscale?: number;
+  saturate?: number;
+  brightness?: number;
+  /** How it mixes with what lies behind (mix-blend-mode). */
+  blend?: (typeof BLENDS)[number];
+  /** A cut-out shape: circle, arch, diamond, slanted edge, blob, hexagon. */
+  shape?: (typeof SHAPE_CUTS)[number];
   backdrop?: string;
   rotate?: number;
   scale?: number;
@@ -132,6 +142,16 @@ export interface Design {
   /** Hover transition in ms. */
   transition?: number;
 }
+
+export const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'difference', 'exclusion', 'luminosity', 'color'] as const;
+export const SHAPE_CUTS = ['none', 'circle', 'arch', 'diamond', 'slant', 'blob', 'hexagon'] as const;
+const SHAPE_CSS: Record<Exclude<(typeof SHAPE_CUTS)[number], 'none' | 'blob'>, string> = {
+  circle: 'circle(closest-side at 50% 50%)',
+  arch: 'inset(0 round 999px 999px 0 0)',
+  diamond: 'polygon(50% 0,100% 50%,50% 100%,0 50%)',
+  slant: 'polygon(0 0,100% 0,100% 86%,0 100%)',
+  hexagon: 'polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)',
+};
 
 /* ---------- tokens ---------- */
 
@@ -306,6 +326,15 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
     addVar('--ink-2', `color-mix(in srgb,${color} 72%,transparent)`);
   }
   addVar('--accent', cssColor(p.accent));
+  // Gradient text: the gradient shows through the letters only.
+  const textGrad = gradientCss(p.textGradient);
+  if (textGrad) {
+    add('background-image', textGrad);
+    add('-webkit-background-clip', 'text');
+    add('background-clip', 'text');
+    add('-webkit-text-fill-color', 'transparent');
+    add('color', 'transparent');
+  }
 
   // background: overlay over gradient over image, on top of the colour
   const bg = cssColor(p.bg);
@@ -320,7 +349,7 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   if (grad) layers.push(grad);
   const img = typeof p.bgImage === 'string' && /^[\w-]{1,64}$/.test(p.bgImage) ? opts.image?.(p.bgImage) : null;
   if (img && /^[\w/.:-]+$/.test(img)) layers.push(`url("${img}")`);
-  if (layers.length) {
+  if (layers.length && !textGrad) {
     add('background-image', layers.join(','));
     if (img) {
       add('background-size', pick(p.bgSize, ['cover', 'contain', 'auto'] as const) ?? 'cover');
@@ -344,8 +373,21 @@ export function styleDeclarations(p: StyleProps | undefined, opts: CompileOption
   add('box-shadow', shadowCss(p.shadow));
   const opacity = num(p.opacity, 0, 100);
   if (opacity !== null) add('opacity', opacity / 100);
+  const filters: string[] = [];
   const blur = cssLength(p.blur);
-  if (blur) add('filter', `blur(${blur})`);
+  if (blur) filters.push(`blur(${blur})`);
+  const gray = num(p.grayscale, 0, 100);
+  if (gray !== null) filters.push(`grayscale(${gray}%)`);
+  const sat = num(p.saturate, 0, 300);
+  if (sat !== null) filters.push(`saturate(${sat}%)`);
+  const bright = num(p.brightness, 0, 300);
+  if (bright !== null) filters.push(`brightness(${bright}%)`);
+  if (filters.length) add('filter', filters.join(' '));
+  add('mix-blend-mode', pick(p.blend, BLENDS));
+  const shape = pick(p.shape, SHAPE_CUTS);
+  if (shape === 'none') add('clip-path', 'none');
+  else if (shape === 'blob') add('border-radius', '58% 42% 38% 62% / 52% 38% 62% 48%');
+  else if (shape) add('clip-path', SHAPE_CSS[shape]);
   const backdrop = cssLength(p.backdrop);
   if (backdrop) add('backdrop-filter', `blur(${backdrop})`);
   const tf: string[] = [];
@@ -370,7 +412,9 @@ export function designCss(selector: string, d: Design | undefined, opts: Compile
   const base = styleDeclarations(d.desktop, opts);
   const hover = styleDeclarations(d.hover, opts);
   const ms = num(d.transition, 0, 3000) ?? 250;
-  const transition = hover ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms` : '';
+  const transition = hover
+    ? `transition:color ${ms}ms,background-color ${ms}ms,border-color ${ms}ms,box-shadow ${ms}ms,transform ${ms}ms,opacity ${ms}ms,filter ${ms}ms,clip-path ${ms}ms`
+    : '';
   if (base || transition) out.push(`${selector}{${[base, transition].filter(Boolean).join(';')}}`);
   for (const bp of ['tablet', 'mobile'] as const) {
     const decl = styleDeclarations(d[bp], opts);

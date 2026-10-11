@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { type Easing, type EnterEffect, type ItemHover, type Loop, type Motion, type ScrollEffect } from '../../../shared/motion';
+import { type Easing, type EnterEffect, type ItemHover, type Loop, type Motion, type ScrollEffect, type SelfHover, type TextEffect } from '../../../shared/motion';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Switch, Tip } from '../../ui/kit';
@@ -26,6 +26,25 @@ const scrollEffects = (): { value: ScrollEffect | ''; label: string }[] => [
   { value: 'fade', label: t('Ausblenden') },
   { value: 'zoom', label: t('Wachsen') },
   { value: 'slide', label: t('Gleiten') },
+  { value: 'rotate', label: t('Drehen') },
+  { value: 'blur', label: t('Schärfe') },
+  { value: 'unveil', label: t('Aufziehen') },
+  { value: 'color', label: t('Einfärben') },
+];
+
+const selfHovers = (): { value: SelfHover | ''; label: string }[] => [
+  { value: '', label: t('Keiner') },
+  { value: 'lift', label: t('Anheben') },
+  { value: 'grow', label: t('Vergrössern') },
+  { value: 'glow', label: t('Leuchten') },
+  { value: 'tilt', label: t('3D-Neigen') },
+  { value: 'magnet', label: t('Magnetisch') },
+];
+
+const textEffects = (): { value: TextEffect | ''; label: string }[] => [
+  { value: '', label: t('Keiner') },
+  { value: 'words', label: t('Wort für Wort') },
+  { value: 'scrub', label: t('Beim Scrollen aufleuchten') },
 ];
 
 const hoverEffects = (): { value: ItemHover | ''; label: string }[] => [
@@ -79,6 +98,7 @@ export function MotionPanel({
   onPlay,
   target,
   items = target === 'block',
+  text = false,
 }: {
   motion: Motion | undefined;
   onChange: (m: Motion) => void;
@@ -86,6 +106,8 @@ export function MotionPanel({
   target: 'block' | 'element';
   /** Offer «one after another» (blocks and containers). */
   items?: boolean;
+  /** Headings and texts: word-by-word effects. */
+  text?: boolean;
 }) {
   const m = motion ?? {};
   const set = (patch: Partial<Motion>) => {
@@ -222,6 +244,46 @@ export function MotionPanel({
         )}
         {m.scroll && <p className="xsmall faint">{t('Im Editor sichtbar, sobald du in der Seite scrollst.')}</p>}
       </DesignSection>
+
+      {text && (
+        <DesignSection id="motion-text" title={t('Text')} icon="type" count={m.text ? 1 : 0}>
+          <Tiles label={t('Wie der Text erscheint')}>
+            {textEffects().map((e) => (
+              <Tile
+                key={e.value}
+                kind="text"
+                value={e.value}
+                label={e.label}
+                active={(m.text ?? '') === e.value}
+                onClick={() => set({ text: (e.value || undefined) as TextEffect | undefined })}
+              />
+            ))}
+          </Tiles>
+          <p className="xsmall faint">
+            {m.text === 'scrub'
+              ? t('Die Wörter sind erst blass und leuchten nacheinander auf, während man an ihnen vorbeiscrollt.')
+              : t('Auf der Website und in der Vorschau zu sehen – im Editor bleibt der Text zum Schreiben ganz.')}
+          </p>
+        </DesignSection>
+      )}
+
+      {target === 'element' && (
+        <DesignSection id="motion-self-hover" title={t('Bei Hover')} icon="cursor" count={m.hover ? 1 : 0}>
+          <Tiles label={t('Wie das Element auf die Maus reagiert')}>
+            {selfHovers().map((e) => (
+              <Tile
+                key={e.value}
+                kind="hover"
+                value={e.value}
+                label={e.label}
+                active={(m.hover ?? '') === e.value}
+                onClick={() => set({ hover: (e.value || undefined) as SelfHover | undefined })}
+              />
+            ))}
+          </Tiles>
+          <p className="xsmall faint">{t('«Magnetisch» zieht Knöpfe und Symbole sanft zur Maus – probier es im Editor aus.')}</p>
+        </DesignSection>
+      )}
 
       {target === 'element' && (
         <DesignSection id="motion-loop" title={t('Dauernd')} icon="recycle" count={m.loop ? 1 : 0}>
