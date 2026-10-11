@@ -23,6 +23,7 @@ import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlC
 import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { SavedStylesOverview } from './SavedStylesOverview';
+import { DesignVariables } from './DesignVariables';
 import { FooterEditor, HeaderOptions, MenuEditor } from './NavEditors';
 import { t, tl, tm } from '../lib/i18n';
 
@@ -368,6 +369,11 @@ function DesignSettings() {
           </header>
           <LoadingFrame title={t('Design-Vorschau')} src={preview} />
         </div>
+      </div>
+      <div className="card" style={{ marginTop: '1.25rem' }}>
+        <Section title={t('Variablen')} sub={t('Eigene Farben und Grössen für die ganze Website – im Editor überall wählbar, hier an einer Stelle geändert.')}>
+          <DesignVariables value={draft.variables ?? []} onChange={(next) => set('variables', next)} />
+        </Section>
       </div>
       <div className="card" style={{ marginTop: '1.25rem' }}>
         <Section

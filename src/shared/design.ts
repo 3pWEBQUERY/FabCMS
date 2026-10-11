@@ -206,6 +206,8 @@ const FUNC_COLOR = /^(?:rgba?|hsla?|oklch|oklab)\([0-9.,%\s/+-]+\)$/i;
 
 function token(v: string): string | null {
   const m = /^\$([a-z0-9-]+)$/.exec(v);
+  // A design variable of the website (shared/variables.ts): $v-…
+  if (m && /^v-[a-z][a-z0-9-]{0,30}$/.test(m[1])) return `var(--${m[1]})`;
   return m && TOKENS.has(m[1]) ? `var(--${m[1]})` : null;
 }
 
@@ -235,7 +237,7 @@ export function cssColor(v: unknown): string | null {
   if (s === 'transparent' || s === 'currentColor') return s;
   if (HEX.test(s) || FUNC_COLOR.test(s)) return s;
   const m = /^\$([a-z0-9-]+)(?:\/(\d{1,3}))?$/.exec(s);
-  if (m && (COLOR_TOKENS as readonly string[]).includes(m[1])) {
+  if (m && ((COLOR_TOKENS as readonly string[]).includes(m[1]) || /^v-[a-z][a-z0-9-]{0,30}$/.test(m[1]))) {
     const alpha = m[2] === undefined ? 100 : Math.min(100, Number(m[2]));
     return alpha >= 100 ? `var(--${m[1]})` : `color-mix(in srgb,var(--${m[1]}) ${alpha}%,transparent)`;
   }

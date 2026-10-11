@@ -3,7 +3,7 @@ import type { Gradient, Shadow, StyleProps } from '../../../shared/design';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Popover, Tip } from '../../ui/kit';
-import { ColorInput, LengthInput, NumberInput, parseLength, useColorPreview, type TokenOption } from './controls';
+import { ColorInput, LengthInput, NumberInput, parseLength, useColorPreview, useDesignVars, type TokenOption } from './controls';
 
 /* ---------- spacing scale ---------- */
 
@@ -21,9 +21,9 @@ export const spaceTokens = (): TokenOption[] => [
   { value: '$gutter', label: t('Seitenrand') },
 ];
 
-const short = (v: string | undefined) => {
+const short = (v: string | undefined, vars: { id: string; name: string }[] = []) => {
   if (v === undefined) return null;
-  if (v.startsWith('$')) return spaceTokens().find((x) => x.value === v)?.label ?? v.slice(1);
+  if (v.startsWith('$')) return spaceTokens().find((x) => x.value === v)?.label ?? vars.find((x) => `$v-${x.id}` === v)?.name ?? v.slice(1);
   const p = parseLength(v);
   return p.n === null ? v : p.unit === 'px' ? String(p.n) : `${p.n}${p.unit}`;
 };
@@ -84,6 +84,7 @@ function BoxValue({
   const key = `${box}${side}` as BoxKey;
   const own = get(key);
   const inh = inherited(key);
+  const sizeVars = useDesignVars('size');
   const start = useRef<{ x: number; y: number; n: number; unit: string; moved: boolean } | null>(null);
   const [open, setOpen] = useState(false);
   const label = `${box === 'm' ? t('Aussenabstand') : t('Innenabstand')} ${sideName(side)}`;
@@ -98,7 +99,7 @@ function BoxValue({
         <button
           type="button"
           className={`dp-box-v ${own !== undefined ? 'set' : inh !== undefined ? 'inherited' : ''} ${side === 't' || side === 'b' ? 'v' : 'h'}`}
-          aria-label={`${label}: ${short(own ?? inh) ?? t('nicht gesetzt')}`}
+          aria-label={`${label}: ${short(own ?? inh, sizeVars) ?? t('nicht gesetzt')}`}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             const p = parseLength(own ?? inh);
@@ -128,7 +129,7 @@ function BoxValue({
             }
           }}
         >
-          {short(own ?? inh) ?? '–'}
+          {short(own ?? inh, sizeVars) ?? '–'}
         </button>
       }
     >

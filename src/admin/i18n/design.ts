@@ -1096,4 +1096,31 @@ export const design: Record<string, { fr: string; it: string; en: string }> = {
       it: 'Si sposta o si inclina verso il punto in cui si trova il mouse – più livelli con intensità diverse danno profondità. Visibile sul sito e nell’anteprima, non con il dito né con «riduci movimento».',
       en: 'It moves or tilts towards wherever the mouse is in the window – several layers at different strengths look three-dimensional. Shown on the website and in the preview, not by finger and not with “reduce motion”.',
     },
+  Variablen: { fr: 'Variables', it: 'Variabili', en: 'Variables' },
+  'Variable «{name}» löschen?': { fr: 'Supprimer la variable «{name}» ?', it: 'Eliminare la variabile «{name}»?', en: 'Delete the variable “{name}”?' },
+  'Wo sie verwendet wird, gilt danach wieder der Wert des Themes oder gar keiner.': {
+    fr: 'Là où elle est utilisée, la valeur du thème s’applique à nouveau – ou aucune.',
+    it: 'Dove è usata varrà di nuovo il valore del tema – o nessuno.',
+    en: 'Wherever it is used, the theme’s value applies again – or none.',
+  },
+  'Noch keine Variablen. Leg Farben und Grössen an, die du immer wieder brauchst – z. B. «Marke Grün» oder «Kartenabstand».': {
+    fr: 'Pas encore de variables. Crée les couleurs et tailles dont tu as souvent besoin – p. ex. «Vert marque» ou «Écart des cartes».',
+    it: 'Ancora nessuna variabile. Crea i colori e le dimensioni che usi spesso – ad es. «Verde marchio» o «Spazio schede».',
+    en: 'No variables yet. Create the colours and sizes you need again and again – e.g. “Brand green” or “Card gap”.',
+  },
+  'Name der Variable': { fr: 'Nom de la variable', it: 'Nome della variabile', en: 'Variable name' },
+  'So heisst sie im Code': { fr: 'Son nom dans le code', it: 'Il suo nome nel codice', en: 'Its name in code' },
+  'Variable «{name}» löschen': { fr: 'Supprimer la variable «{name}»', it: 'Elimina la variabile «{name}»', en: 'Delete the variable “{name}”' },
+  'Farbe hinzufügen': { fr: 'Ajouter une couleur', it: 'Aggiungi colore', en: 'Add colour' },
+  'Grösse hinzufügen': { fr: 'Ajouter une taille', it: 'Aggiungi dimensione', en: 'Add size' },
+  'Im Editor findest du sie in jeder Farbe und jeder Grösse unter «Variablen». Änderst du hier einen Wert, ändert er sich überall, wo die Variable verwendet wird.': {
+    fr: 'Dans l’éditeur, tu les trouves sous «Variables» dans chaque couleur et chaque taille. Si tu changes une valeur ici, elle change partout où la variable est utilisée.',
+    it: 'Nell’editor le trovi in ogni colore e ogni dimensione sotto «Variabili». Se cambi un valore qui, cambia ovunque la variabile sia usata.',
+    en: 'In the editor you find them in every colour and size under “Variables”. Change a value here and it changes wherever the variable is used.',
+  },
+  'Eigene Farben und Grössen für die ganze Website – im Editor überall wählbar, hier an einer Stelle geändert.': {
+    fr: 'Tes propres couleurs et tailles pour tout le site – à choisir partout dans l’éditeur, modifiées ici en un seul endroit.',
+    it: 'Colori e dimensioni propri per tutto il sito – selezionabili ovunque nell’editor, modificati qui in un solo punto.',
+    en: 'Colours and sizes of your own for the whole website – chosen anywhere in the editor, changed here in one place.',
+  },
 };

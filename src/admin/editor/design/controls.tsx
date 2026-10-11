@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 import { COLOR_TOKENS, cssColor } from '../../../shared/design';
 import { t } from '../../lib/i18n';
+import { useSession } from '../../lib/session';
 import { Icon } from '../../ui/icons';
 import { Popover, Tip } from '../../ui/kit';
 
@@ -23,6 +24,12 @@ export const colorTokenLabel = (tok: string): string =>
     'inv-ink': t('Text auf Dunkel'),
     'inv-ink2': t('Text auf Dunkel, leicht'),
   })[tok] ?? tok;
+
+/** The website's design variables of one kind (Einstellungen → Design → Variablen). */
+export function useDesignVars(kind: 'color' | 'size') {
+  const vars = useSession().settings?.variables;
+  return useMemo(() => (vars ?? []).filter((v) => v.kind === kind), [vars, kind]);
+}
 
 /* ---------- lengths ---------- */
 
@@ -107,10 +114,11 @@ export function LengthInput({
   ariaLabel: string;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const sizeVars = useDesignVars('size');
   const p = parseLength(value);
   const ph = parseLength(placeholder);
   const unit = p.n !== null ? p.unit : ph.n !== null ? ph.unit : units[0];
-  const tokenLabel = value?.startsWith('$') ? (tokens.find((x) => x.value === value)?.label ?? value.slice(1)) : null;
+  const tokenLabel = value?.startsWith('$') ? (tokens.find((x) => x.value === value)?.label ?? sizeVars.find((x) => `$v-${x.id}` === value)?.name ?? value.slice(1)) : null;
   const shown = draft ?? (tokenLabel ? '' : p.n !== null ? String(p.n) : (value ?? ''));
   const commit = (raw: string) => {
     setDraft(null);
@@ -187,6 +195,12 @@ export function LengthInput({
           {tokens.map((k) => (
             <button key={k.value} type="button" aria-pressed={value === k.value} onClick={() => onChange(k.value)}>
               {k.label}
+            </button>
+          ))}
+          {sizeVars.length > 0 && <span className="dp-menu-head">{t('Variablen')}</span>}
+          {sizeVars.map((v) => (
+            <button key={v.id} type="button" aria-pressed={value === `$v-${v.id}`} onClick={() => onChange(`$v-${v.id}`)}>
+              {v.name} <span className="faint mono">{v.value}</span>
             </button>
           ))}
         </div>
@@ -269,16 +283,20 @@ export function NumberInput({
 /** What a stored colour looks like on screen (tokens resolved through the canvas). */
 export function useColorPreview() {
   const tokens = useContext(TokenColors);
-  return (v: string | undefined): string | null => {
+  const vars = useDesignVars('color');
+  const resolve = (v: string | undefined, depth = 0): string | null => {
     if (!v) return null;
     const m = /^\$([a-z0-9-]+)(?:\/(\d{1,3}))?$/.exec(v);
     if (m) {
-      const base = tokens[m[1]];
+      // A design variable shows its own value (which may be a theme colour).
+      const own = m[1].startsWith('v-') && depth < 2 ? resolve(vars.find((x) => `v-${x.id}` === m[1])?.value, depth + 1) : null;
+      const base = own ?? tokens[m[1]];
       if (!base) return null;
       return m[2] === undefined ? base : `color-mix(in srgb, ${base} ${m[2]}%, transparent)`;
     }
     return cssColor(v);
   };
+  return (v: string | undefined) => resolve(v);
 }
 
 export function toHex(c: string): string | null {
@@ -340,8 +358,10 @@ export function ColorInput({
   const tokens = useContext(TokenColors);
   const preview = useColorPreview();
   const shown = value ?? placeholder;
+  const colorVars = useDesignVars('color');
   const tok = shown && /^\$([a-z0-9-]+)/.exec(shown)?.[1];
-  const name = shown ? (tok ? colorTokenLabel(tok) : (toHex(shown) ?? shown)) : t('Keine');
+  const varName = (k: string) => colorVars.find((x) => `v-${x.id}` === k)?.name;
+  const name = shown ? (tok ? (varName(tok) ?? colorTokenLabel(tok)) : (toHex(shown) ?? shown)) : t('Keine');
   const alpha = shown ? alphaOf(shown) : 100;
   const [hexDraft, setHexDraft] = useState<string | null>(null);
   const [hoverTok, setHoverTok] = useState<string | null>(null);
@@ -376,7 +396,30 @@ export function ColorInput({
             </button>
           ))}
         </div>
-        <span className="dp-token-name">{hoverTok ? colorTokenLabel(hoverTok) : tok && value !== undefined ? colorTokenLabel(tok) : '\u00a0'}</span>
+        {colorVars.length > 0 && (
+          <>
+            <span className="dp-menu-head">{t('Variablen')}</span>
+            <div className="dp-tokens" onPointerLeave={() => setHoverTok(null)}>
+              {colorVars.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className="dp-token-swatch"
+                  aria-label={v.name}
+                  aria-pressed={tok === `v-${v.id}` && value !== undefined}
+                  onPointerEnter={() => setHoverTok(`v-${v.id}`)}
+                  onFocus={() => setHoverTok(`v-${v.id}`)}
+                  onClick={() => onChange(withAlpha(`$v-${v.id}`, alpha))}
+                >
+                  <Swatch color={preview(`$v-${v.id}`)} size={26} />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <span className="dp-token-name">
+          {hoverTok ? (varName(hoverTok) ?? colorTokenLabel(hoverTok)) : tok && value !== undefined ? (varName(tok) ?? colorTokenLabel(tok)) : '\u00a0'}
+        </span>
         <span className="dp-menu-head">{t('Eigene Farbe')}</span>
         <div className="dp-color-row">
           <label className="dp-native">

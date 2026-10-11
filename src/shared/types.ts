@@ -1,4 +1,5 @@
 import type { SavedStyle } from './styles';
+import type { DesignVariable } from './variables';
 import type { MailText } from './mails';
 import type { ServerHook } from './hooks';
 import type { SiteTranslation } from './i18n';
@@ -215,6 +216,8 @@ export interface SiteSettings {
   ai: { enabled: boolean };
   /** Saved styles for blocks and elements (shared/styles.ts). */
   styles: SavedStyle[];
+  /** Design variables – colours and sizes of one's own (shared/variables.ts). */
+  variables?: DesignVariable[];
   shop: {
     currency: string;
     vatIncluded: boolean;

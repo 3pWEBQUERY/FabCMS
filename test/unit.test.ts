@@ -40,6 +40,7 @@ import { pageAnchors } from '../src/shared/anchors';
 import { searchLayers } from '../src/admin/editor/layerSearch';
 import { networkOf, socialSvg } from '../src/shared/social';
 import { auditOrder } from '../src/shared/audit';
+import { cleanVariables, variableId, variablesCss } from '../src/shared/variables';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2407,6 +2408,27 @@ describe('Prüfung', () => {
       { kind: 'link-empty', text: 'd' },
     ]);
     expect(list.map((i) => i.text)).toEqual(['b', 'd', 'a', 'c']);
+  });
+});
+
+describe('Design-Variablen', () => {
+  it('keeps unique variables with real values and compiles them for :root', () => {
+    const vars = cleanVariables([
+      { id: 'marke', name: 'Marke', kind: 'color', value: '#16a34a' },
+      { id: 'weich', name: 'Weich', kind: 'color', value: '$accent/40' },
+      { id: 'abstand', name: 'Abstand', kind: 'size', value: '2rem' },
+      { id: 'marke', name: 'Doppelt', kind: 'color', value: '#000' },
+      { id: 'kette', name: 'Kette', kind: 'color', value: '$v-marke' },
+      { id: 'boese', name: 'Böse', kind: 'color', value: 'red;}body{display:none' },
+      { id: 'X!', name: 'Falsche ID', kind: 'size', value: '1px' },
+    ]);
+    expect(vars.map((v) => v.id)).toEqual(['marke', 'weich', 'abstand']);
+    expect(variablesCss(vars)).toBe('--v-marke:#16a34a;--v-weich:color-mix(in srgb,var(--accent) 40%,transparent);--v-abstand:2rem');
+    expect(variableId('Marke Grün')).toBe('marke-gruen');
+    // Used anywhere in a design, also with a share of its colour.
+    expect(designCss('#a', { desktop: { bg: '$v-marke', pt: '$v-abstand', borderColor: '$v-marke/50' } })).toBe(
+      '#a{padding-top:var(--v-abstand);background-color:var(--v-marke);--bg:var(--v-marke);border-color:color-mix(in srgb,var(--v-marke) 50%,transparent)}',
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import { FONT_PAIRS, FONTS, fontFaces, fontPreload } from './fonts';
 import type { SiteSettings } from '../shared/types';
+import { variablesCss } from '../shared/variables';
 
 /**
  * Four style directions, each with its own typographic voice, rule system
@@ -1405,9 +1406,11 @@ export function themeCss(settings: SiteSettings): { css: string; parts: { fixed:
     .filter(([k]) => /^--[a-z0-9-]+$/.test(k))
     .map(([k, v]) => `${k}:${cssValue(String(v))}`)
     .join(';');
+  // The website's own design variables (shared/variables.ts) after the theme's, so they may build on them.
+  const vars = variablesCss(settings.variables);
   const root = `:root{${SCALE};${Object.entries(tokens)
     .map(([k, v]) => `${k}:${v}`)
-    .join(';')}}`;
+    .join(';')}${vars ? `;${vars}` : ''}}`;
   const custom = (settings.theme.css ?? '').replace(/<\/?style/gi, '');
   // fixed: fonts and tokens; nova: base and theme rules (a page can drop what it doesn't use); own: Werkbank tokens and CSS, never touched.
   const parts = {

@@ -64,6 +64,7 @@ export function defaultSettings(): SiteSettings {
     ageGate: { enabled: false, minAge: 18, text: 'Diese Website enthält Inhalte für Erwachsene.', method: 'self' },
     ai: { enabled: false },
     styles: [],
+    variables: [],
     shop: {
       currency: 'CHF',
       vatIncluded: true,
