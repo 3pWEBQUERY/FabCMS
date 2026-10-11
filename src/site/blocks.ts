@@ -5,14 +5,14 @@ import { BLOCK_MAP } from '../shared/blocks';
 import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
-import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../shared/query';
+import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { bestsellers, publishedEntries, categoriesOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
+import { bestsellers, publishedEntries, categoriesOf, tagsOf, getForm, legalPages, productById, ratingSummaries, relatedProducts, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -825,7 +825,7 @@ const R: Record<string, Renderer> = {
     const p = b.props as P;
     const els = (p.els as El[]) ?? [];
     // On a template page its elements are bound to the page's entry.
-    const inner = await renderEls(els, ctx, { path: 'els', edit: ctx.edit, entry: ctx.entry });
+    const inner = await renderEls(els, ctx, { path: 'els', edit: ctx.edit, entry: ctx.entry, root: els });
     const empty = ctx.edit && !els.length ? html`<div class="el-empty">${'Leeres Layout – füg über «+» das erste Element hinzu.'}</div>` : '';
     return html`<div class="${p.width === 'full' ? 'lay lay-full' : 'wrap lay'}">${inner}${empty}</div>`;
   },
@@ -861,6 +861,8 @@ interface ElRender {
   depth?: number;
   /** Inside a link (a linked container): no forms or buttons in there. */
   inLink?: boolean;
+  /** All elements of the layout (a filter finds the loop it narrows down). */
+  root?: El[];
   /** Customers' stars of the products in a loop, fetched once for all of them. */
   ratings?: Map<string, { average: number; count: number }>;
 }
@@ -1158,6 +1160,8 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     case 'stock':
     case 'rating':
       return renderShopEl(el, ctx, rc, attrs, cls());
+    case 'filter':
+      return renderFilter(el, ctx, rc, attrs, cls());
     case 'countdown':
       return renderCountdown(el, ctx, rc, attrs, cls());
     case 'toc': {
@@ -1331,6 +1335,65 @@ async function renderTerms(el: El, ctx: RenderContext, attrs: Html, cls: string)
   return html`<nav class="${cls} filters"${attrs} aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${String(active === '' && !here?.tag)}">${t(ctx, 'Alle')}</a>${cats.map(
     (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${String(active === cat.toLowerCase())}">${cat}</a>`,
   )}</nav>`;
+}
+
+/**
+ * «Filter für Schleife»: a plain GET form – it works without any script; with
+ * one, it sends itself as soon as something changes. Its fields write the
+ * loop's own address parameters, other parameters of the page stay.
+ */
+async function renderFilter(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  let loop: El | undefined;
+  walkEls(rc.root ?? [], (x) => void (x.id === p.target && x.kind === 'list' && (loop = x)));
+  if (!loop || rc.list) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle die Inhaltsschleife, die dieser Filter eingrenzt.</div>` : html``;
+  const lq = loopQuery(loop.props as P);
+  const arch = lq.archive ? ctx.archive : undefined;
+  const c = arch?.c ?? ctx.collections.find((x) => x.id === lq.collection);
+  if (!c) return html``;
+  const fp = filterParams(loop.id, Boolean(arch));
+  const now = (k: string) => ctx.query.get(k) ?? '';
+  const cats = p.category !== 'none' && c.fields.some((f) => f.key === 'category') ? await categoriesOf(c.id) : [];
+  const tags = p.tag && c.fields.some((f) => f.key === 'tags') ? await tagsOf(c.id) : [];
+  const sorts = (Object.keys(FILTER_SORTS) as FilterSort[]).filter((k) => !FILTER_SORTS[k].label.startsWith('Preis') || c.fields.some((f) => f.key === 'price'));
+  // Everything else on the page stays as it is; the loop starts again at its first page.
+  const ours = new Set([fp.q, fp.cat, fp.tag, fp.sort, fp.page]);
+  const keep = [...ctx.query.entries()].filter(([k]) => !ours.has(k));
+  const active = [fp.q, fp.cat, fp.tag, fp.sort].some((k) => now(k));
+  const uid = el.id;
+  const reset = [...keep].map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  ctx.needs.add('widgets');
+  return html`<form class="${cls}"${attrs} method="get" action="${ctx.path}#e-${loop.id}" role="search" data-filter>${keep.map(
+    ([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`,
+  )}${
+    p.search !== false
+      ? html`<div class="fld filter-q"><label class="sr" for="fq-${uid}">${t(ctx, 'Suchen')}</label><input id="fq-${uid}" type="search" name="${fp.q}" value="${now(fp.q)}" placeholder="${p.placeholder || t(ctx, 'Suchen …')}" maxlength="80"></div>`
+      : ''
+  }${
+    cats.length > 1 && p.category === 'select'
+      ? html`<div class="fld"><label class="sr" for="fc-${uid}">${t(ctx, 'Kategorie')}</label><select id="fc-${uid}" name="${fp.cat}"><option value="">${t(ctx, 'Alle Kategorien')}</option>${cats.map(
+          (x) => html`<option${now(fp.cat).toLowerCase() === x.toLowerCase() ? raw(' selected') : ''}>${x}</option>`,
+        )}</select></div>`
+      : cats.length > 1
+        ? html`<fieldset class="filter-chips"><legend class="sr">${t(ctx, 'Kategorie')}</legend><label><input type="radio" name="${fp.cat}" value=""${now(fp.cat) ? '' : raw(' checked')}><span>${t(ctx, 'Alle')}</span></label>${cats.map(
+            (x) => html`<label><input type="radio" name="${fp.cat}" value="${x}"${now(fp.cat).toLowerCase() === x.toLowerCase() ? raw(' checked') : ''}><span>${x}</span></label>`,
+          )}</fieldset>`
+        : ''
+  }${
+    tags.length
+      ? html`<div class="fld"><label class="sr" for="ft-${uid}">${t(ctx, 'Schlagwort')}</label><select id="ft-${uid}" name="${fp.tag}"><option value="">${t(ctx, 'Alle Schlagwörter')}</option>${tags.map(
+          (x) => html`<option${now(fp.tag).toLowerCase() === x.toLowerCase() ? raw(' selected') : ''}>${x}</option>`,
+        )}</select></div>`
+      : ''
+  }${
+    p.sort
+      ? html`<div class="fld"><label class="sr" for="fs-${uid}">${t(ctx, 'Reihenfolge')}</label><select id="fs-${uid}" name="${fp.sort}"><option value="">${t(ctx, 'Wie vorgesehen')}</option>${sorts.map(
+          (k) => html`<option value="${k}"${now(fp.sort) === k ? raw(' selected') : ''}>${t(ctx, FILTER_SORTS[k].label)}</option>`,
+        )}</select></div>`
+      : ''
+  }<button class="btn filter-go">${t(ctx, 'Filtern')}</button>${
+    active ? html`<a class="filter-reset" href="${ctx.path}${reset ? `?${reset}` : ''}#e-${loop.id}">${t(ctx, 'Zurücksetzen')}</a>` : ''
+  }</form>`;
 }
 
 /* ---------- countdown, sharing, table of contents ---------- */
@@ -1515,9 +1578,18 @@ async function renderShopEl(el: El, ctx: RenderContext, rc: ElRender, attrs: Htm
 
 /** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
 async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
-  const q = loopQuery(el.props as P);
+  const set = loopQuery(el.props as P);
   // «Dieses Archiv»: the overview's content type and filter, its pages counted in its own address.
-  const arch = q.archive ? ctx.archive : undefined;
+  const arch = set.archive ? ctx.archive : undefined;
+  // What visitors chose in a filter for this loop (address parameters): search, category, tag, order.
+  const fp = filterParams(el.id, Boolean(arch));
+  const word = (k: string) => (ctx.query.get(k) ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const search = word(fp.q);
+  const chosenCat = arch ? '' : word(fp.cat);
+  const chosenTag = arch ? '' : word(fp.tag);
+  const order = FILTER_SORTS[ctx.query.get(fp.sort) as FilterSort] as { sort: LoopSort; field?: string } | undefined;
+  const q = order ? { ...set, sort: order.sort, sortField: order.field ?? '' } : set;
+  const filtering = Boolean(search || chosenCat || chosenTag || arch?.category || arch?.tag);
   const c = arch?.c ?? ctx.collections.find((x) => x.id === q.collection);
   const template = listTemplate(el);
   if (!c || !template || rc.list) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
@@ -1556,15 +1628,19 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
     offset: q.offset + (page - 1) * q.limit,
     sortField,
     sortDir: sortDir as 'asc' | 'desc',
+    numeric: ['number', 'money'].includes(c.fields.find((f) => f.key === sortField)?.type ?? ''),
     random: q.sort === 'random',
-    category: arch?.category || q.category || like?.category || undefined,
-    tag: arch?.tag || q.tag || undefined,
+    search: search || undefined,
+    category: arch?.category || chosenCat || q.category || like?.category || undefined,
+    tag: arch?.tag || chosenTag || q.tag || undefined,
     rules: q.rules.filter((r) => r.is),
     anyTag: like?.tags,
     exclude: q.excludeCurrent && current ? [current.id] : undefined,
     time: tf ? (q.time === 'upcoming' ? { field: tf, from: now.slice(0, 10) } : { field: tf, until: now.slice(0, 10) }) : undefined,
   });
   if (!items.length) {
+    // Narrowed down by a visitor: say so, and keep the place the filter jumps to.
+    if (filtering && !q.empty) return html`<div class="${cls} loop-empty"${attrs}><p>${t(ctx, 'Keine Treffer. Versuch es mit weniger Filtern.')}</p></div>`;
     if (q.empty) return html`<div class="${cls} loop-empty"${attrs}><p>${q.empty}</p></div>`;
     return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Nichts passt zu diesen Regeln in «${c.name}».</div>` : html``;
   }

@@ -3996,6 +3996,94 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     await req('DELETE', `/api/entries/${page.id}`);
   });
 
+  it('lets visitors narrow a loop with its filter: search, category, tag and order – prices as numbers', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const made = [];
+    for (const [slug, title, category, tags, excerpt] of [
+      ['fl-a', 'Filter Alpenrose', 'Garten', ['Sommer'], 'Blüht im Juni'],
+      ['fl-b', 'Filter Bergahorn', 'Wald', ['Herbst'], 'Leuchtend rot'],
+      ['fl-c', 'Filter Christrose', 'Garten', ['Winter'], 'Blüht im Schnee'],
+    ] as const) {
+      const e = (await req('POST', '/api/entries', { collection: 'posts', slug, data: { title, category, tags, excerpt, body: '<p>x</p>' } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      made.push(e);
+    }
+    const loop = {
+      id: 'flloop',
+      kind: 'list',
+      props: { collection: 'posts', sort: 'newest', limit: 10 },
+      children: [{ id: 'flt', kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'title' } }],
+    };
+    const els = [{ id: 'flf', kind: 'filter', props: { target: 'flloop', search: true, category: 'chips', tag: true, sort: true } }, loop];
+    const page = (
+      await req('POST', '/api/entries', { collection: 'pages', slug: 'filter-test', data: { title: 'Filter', blocks: [{ id: 'flb', type: 'layout', props: { els } }] } })
+    ).data.entry;
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const titles = (html: string) => [...html.slice(html.indexOf('id="e-flloop"')).matchAll(/>(Filter \w+)<\/h3>/g)].map((m) => m[1]);
+    const get = async (qs: string) => (await req('GET', `/filter-test${qs}`, undefined, anon)).data as string;
+    const plain = await get('');
+    // A GET form to the loop, its fields named after it; the categories as choices.
+    expect(plain).toMatch(/<form class="el el-filter e-flf" id="e-flf" method="get" action="\/filter-test#e-flloop" role="search" data-filter>/);
+    expect(plain).toContain('name="suche-flloop"');
+    expect(plain).toMatch(/<input type="radio" name="kategorie-flloop" value="Garten">/);
+    expect(plain).toMatch(/<option>Herbst<\/option>/);
+    expect(titles(await get('?suche-flloop=bl%C3%BCht'))).toEqual(expect.arrayContaining(['Filter Alpenrose', 'Filter Christrose']));
+    expect(titles(await get('?suche-flloop=bl%C3%BCht'))).not.toContain('Filter Bergahorn');
+    expect(titles(await get('?kategorie-flloop=wald'))).toEqual(['Filter Bergahorn']);
+    expect(titles(await get('?schlagwort-flloop=winter'))).toEqual(['Filter Christrose']);
+    const az = titles(await get('?sortierung-flloop=az&kategorie-flloop=Garten'));
+    expect(az).toEqual(['Filter Alpenrose', 'Filter Christrose']);
+    // Wildcards are text, not patterns; nothing found says so, and the form offers to start over.
+    const none = await get('?suche-flloop=%25%25%25&andere=1');
+    expect(titles(none)).toEqual([]);
+    expect(none).toContain('Keine Treffer. Versuch es mit weniger Filtern.');
+    expect(none).toContain('<input type="hidden" name="andere" value="1">');
+    expect(none).toMatch(/<a class="filter-reset" href="\/filter-test\?andere=1#e-flloop">/);
+
+    // Prices sort as numbers: 9.– before 12.– before 100.–.
+    const prods = [];
+    for (const [slug, price] of [
+      ['fl-p1', 10000],
+      ['fl-p2', 900],
+      ['fl-p3', 1200],
+    ] as const) {
+      const e = (await req('POST', '/api/entries', { collection: 'products', slug, data: { title: `Preis ${slug}`, price, category: 'FLtest' } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      prods.push(e);
+    }
+    const shop = (
+      await req('POST', '/api/entries', {
+        collection: 'pages',
+        slug: 'filter-preis',
+        data: {
+          title: 'Preise',
+          blocks: [
+            {
+              id: 'fpb',
+              type: 'layout',
+              props: {
+                els: [
+                  {
+                    id: 'fploop',
+                    kind: 'list',
+                    props: { collection: 'products', category: 'FLtest', sort: 'field-asc', sortField: 'price', limit: 5 },
+                    children: [{ id: 'fpt', kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'title' } }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      })
+    ).data.entry;
+    await req('POST', `/api/entries/${shop.id}/publish`, {});
+    const priced = (await req('GET', '/filter-preis', undefined, anon)).data as string;
+    expect([...priced.matchAll(/>(Preis fl-p\d)<\/h3>/g)].map((m) => m[1])).toEqual(['Preis fl-p2', 'Preis fl-p3', 'Preis fl-p1']);
+    const down = (await req('GET', '/filter-preis?sortierung-fploop=preis-ab', undefined, anon)).data as string;
+    expect([...down.matchAll(/>(Preis fl-p\d)<\/h3>/g)].map((m) => m[1])).toEqual(['Preis fl-p1', 'Preis fl-p3', 'Preis fl-p2']);
+    for (const e of [page, shop, ...made, ...prods]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

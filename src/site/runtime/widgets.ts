@@ -285,6 +285,17 @@ export function setupWidgets(root: ParentNode, edit = false) {
     ready.add(b);
     setupShare(b);
   });
+  // A loop's filter sends itself on every choice; the search field when Enter is pressed or it is left.
+  root.querySelectorAll<HTMLFormElement>('form[data-filter]').forEach((form) => {
+    if (ready.has(form)) return;
+    ready.add(form);
+    form.dataset.js = '1';
+    form.addEventListener('change', () => form.requestSubmit());
+    // Empty choices stay out of the address: …?kategorie-x=Garten instead of …?suche-x=&kategorie-x=Garten&sortierung-x=
+    form.addEventListener('formdata', (e) => {
+      for (const [k, v] of [...e.formData.entries()]) if (v === '') e.formData.delete(k);
+    });
+  });
   const bars = [...root.querySelectorAll<HTMLElement>('[data-progress]')].filter((b) => !ready.has(b));
   bars.forEach((b) => ready.add(b));
   if (bars.length) setupProgress(bars);

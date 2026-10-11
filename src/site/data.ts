@@ -34,6 +34,10 @@ export interface ListOptions {
   /** Products: with a higher «Statt-Preis», or something left to buy. */
   onSale?: boolean;
   inStock?: boolean;
+  /** Words visitors typed into a loop's filter: in the title or the short texts. */
+  search?: string;
+  /** The sort field holds numbers (prices, counts): sorted as numbers, not as text. */
+  numeric?: boolean;
 }
 
 const SORT_SAFE = /^[a-zA-Z_][a-zA-Z0-9_]{0,40}$/;
@@ -47,9 +51,11 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
       ? sql`e.sort_index ${dir}`
       : field === 'published_at' || field === 'created_at'
         ? sql`e.published_at ${dir} nulls last`
-        : SORT_SAFE.test(field)
-          ? sql`e.published_data ->> ${field} ${dir} nulls last, e.published_at desc`
-          : sql`e.published_at desc`;
+        : SORT_SAFE.test(field) && o.numeric
+          ? sql`case when jsonb_typeof(e.published_data -> ${field}) = 'number' then (e.published_data ->> ${field})::numeric end ${dir} nulls last, e.published_at desc`
+          : SORT_SAFE.test(field)
+            ? sql`e.published_data ->> ${field} ${dir} nulls last, e.published_at desc`
+            : sql`e.published_at desc`;
   const cat = o.category ? sql`and lower(e.published_data ->> 'category') = lower(${o.category})` : sql``;
   // A field's values as text, whether it holds one value or a list of them.
   const values = (f: string) =>
@@ -67,6 +73,10 @@ export async function publishedEntries(c: CollectionDef, o: ListOptions = {}): P
             and (e.published_data ->> 'comparePrice')::numeric > (e.published_data ->> 'price')::numeric`
       : sql``,
     o.inStock ? sql`and not (${soldOutSql})` : sql``,
+    o.search
+      ? sql`and concat_ws(' ', e.published_data ->> 'title', e.published_data ->> 'excerpt', e.published_data ->> 'description', e.published_data ->> 'summary',
+              e.published_data ->> 'intro', e.published_data ->> 'category', e.published_data ->> 'tags') ilike ${`%${o.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}`
+      : sql``,
   ].reduce((a, b) => sql`${a} ${b}`, sql``);
   const rows = await sql`
     select e.id, e.slug, e.published_data as data, e.published_at, e.updated_at, e.sort_index, u.name as author_name,
@@ -154,6 +164,15 @@ export async function categoriesOf(collection: string): Promise<string[]> {
     where collection = ${collection} and status = 'published' and coalesce(published_data ->> 'category', '') <> ''
     order by 1`;
   return rows.map((r) => r.c as string);
+}
+
+/** The tags used by published entries of a content type, as written the first time. */
+export async function tagsOf(collection: string): Promise<string[]> {
+  const rows = await sql`
+    select min(t) as t from entries, jsonb_array_elements_text(case when jsonb_typeof(published_data -> 'tags') = 'array' then published_data -> 'tags' else '[]'::jsonb end) t
+    where collection = ${collection} and status = 'published' and t <> ''
+    group by lower(t) order by lower(t) limit 200`;
+  return rows.map((r) => r.t as string);
 }
 
 export async function getForm(id: unknown): Promise<FormDef | null> {

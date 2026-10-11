@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, bindKind, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, bindKind, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -119,19 +119,25 @@ export function ElementInspector({
             fields={
               el.kind === 'list'
                 ? loopFields(def.fields, collections, loopType, { archive: archiveLoop, offered: Boolean(archiveFor) || el.props.archive === true })
-                : el.kind === 'terms'
+                : el.kind === 'filter'
                   ? def.fields.map((f) =>
-                      f.key === 'collection'
-                        ? {
-                            ...f,
-                            options: [
-                              { value: '', label: archiveFor ? t('Der dieser Übersicht ({name})', { name: tl(archiveFor.name) }) : t('Bitte wählen') },
-                              ...collections.filter((c) => c.list_route && c.fields.some((x) => x.key === 'category')).map((c) => ({ value: c.id, label: tl(c.name) })),
-                            ],
-                          }
+                      f.key === 'target'
+                        ? { ...f, options: loopsIn(blockEls).map((x) => ({ value: x.id, label: x.name || `${tl(EL_DEFS.list.label)} · ${loopName(x, collections)}` })) }
                         : f,
                     )
-                  : def.fields
+                  : el.kind === 'terms'
+                    ? def.fields.map((f) =>
+                        f.key === 'collection'
+                          ? {
+                              ...f,
+                              options: [
+                                { value: '', label: archiveFor ? t('Der dieser Übersicht ({name})', { name: tl(archiveFor.name) }) : t('Bitte wählen') },
+                                ...collections.filter((c) => c.list_route && c.fields.some((x) => x.key === 'category')).map((c) => ({ value: c.id, label: tl(c.name) })),
+                              ],
+                            }
+                          : f,
+                      )
+                    : def.fields
             }
             values={el.props}
             skip={Object.keys(el.bind ?? {})}
@@ -179,6 +185,15 @@ export function ElementInspector({
     </div>
   );
 }
+
+/** The loops of a layout – what a filter can narrow down. */
+function loopsIn(els: El[]): El[] {
+  const out: El[] = [];
+  walkEls(els, (x) => void (x.kind === 'list' && out.push(x)));
+  return out;
+}
+const loopName = (x: El, collections: CollectionDef[]) =>
+  x.props.archive === true ? t('Dieses Archiv') : tl(collections.find((c) => c.id === x.props.collection)?.name ?? String(x.props.collection ?? ''));
 
 const propLabel = (el: El, prop: string): string => {
   if (prop === 'href') return t('Link');

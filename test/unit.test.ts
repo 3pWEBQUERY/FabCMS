@@ -7,7 +7,7 @@ import { computeSlots, zonedToUtc, localDay, type BookingResource, type BookingS
 import { analyzeSeo } from '../src/shared/seo-analyze';
 import { BLOCKS, createBlock, sentences } from '../src/shared/blocks';
 import { blockLookCss, cleanStyles, stylesUsed } from '../src/shared/styles';
-import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../src/shared/query';
+import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField } from '../src/shared/query';
 import type { Block, CollectionDef } from '../src/shared/types';
 import { validateFields } from '../src/shared/fields';
 import { matchRoute, entryPath } from '../src/shared/paths';
@@ -2172,5 +2172,15 @@ describe('Countdown, Inhaltsverzeichnis, Teilen, Lesefortschritt', () => {
     expect(sanitizeEls([{ id: 'n5', kind: 'share', props: { networks: ['tiktok'] } }])[0].props.networks).toEqual(['copy', 'mail']);
     expect(bar.props).toEqual({ place: 'top', size: 12 });
     expect(bindKind('to')).toBe('date');
+  });
+});
+
+describe('Filter für Schleife', () => {
+  it('writes parameters of its own loop – the plain ones of an overview in an archive', () => {
+    expect(filterParams('ab12', false)).toEqual({ q: 'suche-ab12', cat: 'kategorie-ab12', tag: 'schlagwort-ab12', sort: 'sortierung-ab12', page: 'seite-ab12' });
+    expect(filterParams('ab12', true)).toEqual({ q: 'suche', cat: 'kategorie', tag: 'schlagwort', sort: 'sortierung', page: 'seite' });
+    expect(FILTER_SORTS['preis-auf']).toMatchObject({ sort: 'field-asc', field: 'price' });
+    const [f] = sanitizeEls([{ id: 'f1', kind: 'filter', props: { target: '"><x', search: false, category: 'tiles', tag: 1, placeholder: 'Suche' } }]);
+    expect(f.props).toEqual({ target: '', search: false, placeholder: 'Suche', category: 'chips', tag: false, sort: false });
   });
 });

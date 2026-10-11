@@ -311,6 +311,16 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .el-hours ul{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
 .el-hours .open-now{margin-bottom:.5rem}
 .el-terms.filters{margin-bottom:0}
+.el-filter{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+.el-filter .fld{margin:0}
+.el-filter .filter-q{flex:1 1 14rem}
+.el-filter[data-js] .filter-go{display:none}
+.filter-chips{display:flex;flex-wrap:wrap;gap:.4rem;border:0;margin:0;padding:0}
+.filter-chips input{position:absolute;opacity:0;pointer-events:none}
+.filter-chips span{display:inline-block;padding:.4rem .9rem;border:1px solid var(--line);border-radius:var(--chip-radius,2rem);font-size:var(--step-n1);cursor:pointer}
+.filter-chips input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.filter-chips input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.filter-reset{font-size:var(--step-n1)}
 .el-countdown{display:flex;flex-wrap:wrap;gap:var(--s-4);font-variant-numeric:tabular-nums}
 .cd-part{display:grid;justify-items:center;min-width:4.5rem;padding:var(--s-3) var(--s-4);border:1px solid var(--line);border-radius:var(--radius,.5rem)}
 .cd-n{font-family:var(--font-display);font-size:var(--step-4);line-height:1}

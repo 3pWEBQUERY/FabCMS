@@ -44,6 +44,7 @@ export const EL_KINDS = [
   'slider',
   'marquee',
   'list',
+  'filter',
   'component',
   'entrybody',
   'canvas',
@@ -457,6 +458,33 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     icon: 'divider',
     fields: [],
     defaults: {},
+  },
+  filter: {
+    kind: 'filter',
+    group: 'cms',
+    label: 'Filter für Schleife',
+    description: 'Suche, Kategorien, Schlagwörter und Reihenfolge, mit denen Besucher eine Inhaltsschleife derselben Fläche eingrenzen.',
+    icon: 'filter',
+    fields: [
+      // The loops of the layout are filled in by the editor.
+      { key: 'target', type: 'select', label: 'Welche Schleife', options: [] },
+      { key: 'search', type: 'boolean', label: 'Suchfeld' },
+      { key: 'placeholder', type: 'text', label: 'Text im Suchfeld', placeholder: 'Suchen …', showIf: { field: 'search', equals: [true] } },
+      {
+        key: 'category',
+        type: 'select',
+        label: 'Kategorien',
+        options: [
+          { value: 'chips', label: 'Als Knöpfe' },
+          { value: 'select', label: 'Als Auswahl' },
+          { value: 'none', label: 'Nicht zeigen' },
+        ],
+        default: 'chips',
+      },
+      { key: 'tag', type: 'boolean', label: 'Schlagwörter als Auswahl' },
+      { key: 'sort', type: 'boolean', label: 'Reihenfolge wählbar' },
+    ],
+    defaults: { target: '', search: true, placeholder: '', category: 'chips', tag: false, sort: false },
   },
   countdown: {
     kind: 'countdown',
@@ -1127,6 +1155,15 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { status: p.status !== false };
     case 'terms':
       return { collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : '' };
+    case 'filter':
+      return {
+        target: typeof p.target === 'string' && ID.test(p.target) ? p.target : '',
+        search: p.search !== false,
+        placeholder: plain(p.placeholder, 60),
+        category: one(p.category, ['chips', 'select', 'none'] as const, 'chips'),
+        tag: p.tag === true,
+        sort: p.sort === true,
+      };
     case 'countdown':
       return {
         to: typeof p.to === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(p.to.slice(0, 16)) ? p.to.slice(0, 16) : '',

@@ -112,3 +112,24 @@ export function relatedTo(q: LoopQuery, current: EntryData | null | undefined): 
 
 /** The query parameter of a loop's page number – one per loop, so two loops on a page page on their own. */
 export const pageParam = (elId: string) => `seite-${elId}`;
+
+/** What visitors may sort a loop by in its filter, and how that maps to the loop's own sorting. */
+export const FILTER_SORTS = {
+  neu: { sort: 'newest', label: 'Neueste zuerst' },
+  alt: { sort: 'oldest', label: 'Älteste zuerst' },
+  az: { sort: 'title', label: 'Von A bis Z' },
+  'preis-auf': { sort: 'field-asc', field: 'price', label: 'Preis aufsteigend' },
+  'preis-ab': { sort: 'field-desc', field: 'price', label: 'Preis absteigend' },
+} as const satisfies Record<string, { sort: LoopSort; field?: string; label: string }>;
+export type FilterSort = keyof typeof FILTER_SORTS;
+
+/**
+ * The address parameters a loop's filter writes: per loop, so two loops on a
+ * page filter on their own. An archive's loop uses the overview's plain names
+ * (kategorie, schlagwort, seite), like its links.
+ */
+export function filterParams(loopId: string, archive: boolean) {
+  return archive
+    ? { q: 'suche', cat: 'kategorie', tag: 'schlagwort', sort: 'sortierung', page: 'seite' }
+    : { q: `suche-${loopId}`, cat: `kategorie-${loopId}`, tag: `schlagwort-${loopId}`, sort: `sortierung-${loopId}`, page: pageParam(loopId) };
+}
