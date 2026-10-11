@@ -92,7 +92,33 @@ export interface Variant {
 
 /** What each kind can take from an entry. */
 export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
-const BIND = /^(?:title|url|date|field:[a-z][\w]{0,40})$/;
+const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:name|tagline|phone|phone-link|email|email-link|address|hours|year|copyright|home|logo))$/;
+
+/**
+ * Dynamic data from the website itself, for any element anywhere – in a
+ * header or footer as on a page. Grouped by what a property takes.
+ */
+export const SITE_BINDS: Record<'text' | 'href' | 'image', [string, string][]> = {
+  text: [
+    ['site:name', 'Name der Website'],
+    ['site:tagline', 'Untertitel der Website'],
+    ['site:phone', 'Telefon'],
+    ['site:email', 'E-Mail'],
+    ['site:address', 'Adresse'],
+    ['site:hours', 'Geöffnet oder geschlossen – jetzt'],
+    ['site:year', 'Aktuelles Jahr'],
+    ['site:copyright', '© Jahr und Name'],
+  ],
+  href: [
+    ['site:home', 'Startseite'],
+    ['site:phone-link', 'Anrufen'],
+    ['site:email-link', 'E-Mail schreiben'],
+  ],
+  image: [['site:logo', 'Logo']],
+};
+
+/** What a property takes: a picture, a link, or text. */
+export const bindKind = (prop: string): 'text' | 'href' | 'image' => (prop === 'image' ? 'image' : prop === 'href' ? 'href' : 'text');
 
 export interface ElDef {
   kind: ElKind;

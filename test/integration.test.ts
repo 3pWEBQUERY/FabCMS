@@ -3576,6 +3576,66 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [a, b, c, page]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it("binds any element to the website's own data, and on an entry page to its entry", async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const before = (await req('GET', '/api/settings')).data.settings;
+    await req('PATCH', '/api/settings', {
+      business: { ...before.business, phone: '044 123 45 67', email: 'hallo@example.ch', street: 'Dorfstrasse 1', zip: '8400', city: 'Winterthur' },
+    });
+    const els = [
+      { id: 'dyname', kind: 'heading', props: { text: 'fest' }, bind: { text: 'site:name' } },
+      { id: 'dyaddr', kind: 'text', props: { html: '<p>fest</p>' }, bind: { html: 'site:address' } },
+      { id: 'dycall', kind: 'button', props: { label: 'Anrufen', href: '/x' }, bind: { label: 'site:phone', href: 'site:phone-link' } },
+      { id: 'dycopy', kind: 'text', props: { html: '' }, bind: { html: 'site:copyright' } },
+      // A site value where it does not fit, and entry data on a page without an entry: as entered.
+      { id: 'dywrong', kind: 'button', props: { label: 'Bleibt', href: '/bleibt' }, bind: { href: 'site:name', label: 'title' } },
+      // Not a known source: dropped when saved.
+      { id: 'dybad', kind: 'heading', props: { text: 'x' }, bind: { text: 'site:password' } },
+    ];
+    const page = (await req('POST', '/api/entries', { collection: 'pages', slug: 'dyn-daten', data: { title: 'Daten', blocks: [{ id: 'dyb', type: 'layout', props: { els } }] } }))
+      .data.entry;
+    expect(page.data.blocks[0].props.els[5].bind).toBeUndefined();
+    await req('POST', `/api/entries/${page.id}/publish`, {});
+    const html = (await req('GET', '/dyn-daten', undefined, anon)).data as string;
+    expect(html).toMatch(new RegExp(`<h2 class="el el-heading e-dyname" id="e-dyname">${before.name}</h2>`));
+    expect(html).toContain('<p>Dorfstrasse 1, 8400 Winterthur</p>');
+    expect(html).toContain('href="tel:0441234567"');
+    expect(html).toContain('<span>044 123 45 67</span>');
+    expect(html).toMatch(/© 20\d\d /);
+    expect(html).toContain('href="/bleibt"');
+    expect(html).toContain('<span>Bleibt</span>');
+
+    // On a post, its own layout shows its title, author and reading time.
+    const post = (
+      await req('POST', '/api/entries', {
+        collection: 'posts',
+        slug: 'dyn-post',
+        data: {
+          title: 'Ein Beitrag mit Daten',
+          blocks: [
+            { id: 'dytx', type: 'text', props: { body: '<p>' + 'Wort '.repeat(450) + '</p>' } },
+            {
+              id: 'dypb',
+              type: 'layout',
+              props: {
+                els: [
+                  { id: 'dyt', kind: 'heading', props: { text: 'x', level: '2' }, bind: { text: 'title' } },
+                  { id: 'dyr', kind: 'text', props: { html: '' }, bind: { html: 'readtime' } },
+                ],
+              },
+            },
+          ],
+        },
+      })
+    ).data.entry;
+    await req('POST', `/api/entries/${post.id}/publish`, {});
+    const postHtml = (await req('GET', '/journal/dyn-post', undefined, anon)).data as string;
+    expect(postHtml).toContain('id="e-dyt">Ein Beitrag mit Daten</h2>');
+    expect(postHtml).toMatch(/id="e-dyr"><p>3 Min\. Lesezeit<\/p>/);
+    await req('PATCH', '/api/settings', { business: before.business });
+    for (const e of [page, post]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

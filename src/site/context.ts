@@ -12,7 +12,7 @@ export interface Crumb {
 
 /** An entry elements are bound to: the one a template page shows, or each one of a CMS list. */
 export interface BoundEntry {
-  e: { id: string; slug: string; data: EntryData; published_at: string | null };
+  e: { id: string; slug: string; data: EntryData; published_at: string | null; author_name?: string | null };
   c: CollectionDef;
   /** Members-only entries the visitor may not read show only what their paywall shows. */
   open: boolean;
@@ -23,7 +23,7 @@ export interface RenderContext {
   entry?: BoundEntry;
   entryView?: (mode: 'blocks' | 'default') => Promise<Html>;
   /** The entry the page shows (any content type), for loops: «like this entry», «leave this one out». */
-  current?: { id: string; collection: string; data: EntryData };
+  current?: { id: string; collection: string; slug: string; data: EntryData; published_at: string | null; author_name?: string | null };
   /** Level for item headings (cards, menu sections): 2 under the page title, 3 under a section heading. */
   hl?: number;
   settings: SiteSettings;

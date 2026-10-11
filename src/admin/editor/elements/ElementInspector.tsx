@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, bindKind, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -35,6 +35,7 @@ export function ElementInspector({
   onDetach,
   variants,
   blockEls,
+  bindSource,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -58,6 +59,8 @@ export function ElementInspector({
   variants?: VariantControls & { design: Design | undefined; onDesign: (d: Design | undefined) => void };
   /** Every element of the layout – targets for a button's click. */
   blockEls: El[];
+  /** Whose fields elements can show: the loop's or template's content type, or the entry being edited. */
+  bindSource: CollectionDef | null;
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
@@ -80,9 +83,11 @@ export function ElementInspector({
       {tab === 'content' && el.kind !== 'component' && (
         <div className="stack">
           {el.kind === 'shape' && <ShapeControls el={el} onChange={onChange} locked={locked} />}
-          {source && BINDABLE[el.kind] && (
-            <div className="bind-box">
-              <span className="section-title">{t('Inhalt aus «{name}»', { name: tl(source.name) })}</span>
+          {BINDABLE[el.kind] && (
+            <details className="bind-box" open={Boolean(el.bind && Object.keys(el.bind).length) || Boolean(source)}>
+              <summary className="section-title">
+                {bindSource ? t('Dynamische Daten – Website und «{name}»', { name: tl(bindSource.name) }) : t('Dynamische Daten – Website')}
+              </summary>
               {BINDABLE[el.kind]!.map((prop) => (
                 <Field key={prop} label={propLabel(el, prop)}>
                   <Select
@@ -93,11 +98,15 @@ export function ElementInspector({
                       else delete bind[prop];
                       onChange({ ...el, bind: Object.keys(bind).length ? bind : undefined });
                     }}
-                    options={[{ value: '', label: t('Fest – selbst eingeben') }, ...bindOptions(source, el.kind, prop)]}
+                    options={[
+                      { value: '', label: t('Fest – selbst eingeben') },
+                      ...(bindSource ? bindOptions(bindSource, el.kind, prop).map((o) => ({ ...o, label: `${tl(bindSource.name)} · ${o.label}` })) : []),
+                      ...SITE_BINDS[bindKind(prop)].map(([value, label]) => ({ value, label: `${t('Website')} · ${tl(label)}` })),
+                    ]}
                   />
                 </Field>
               ))}
-            </div>
+            </details>
           )}
           <FieldList
             fields={
@@ -168,5 +177,12 @@ function bindOptions(c: CollectionDef, kind: ElKind, prop: string): { value: str
   const own = c.fields.filter((f) => fit.includes(f.type) && f.key !== c.title_field && f.key !== 'title').map((f) => ({ value: `field:${f.key}`, label: tl(f.label) }));
   if (prop === 'href') return [...(c.route ? [{ value: 'url', label: t('Seite des Eintrags') }] : []), ...own];
   if (prop === 'image') return own;
-  return [{ value: 'title', label: t('Titel') }, ...(kind !== 'text' || prop === 'html' ? [{ value: 'date', label: t('Datum') }] : []), ...own];
+  const extras =
+    c.id === 'posts'
+      ? [
+          { value: 'author', label: t('Autor:in') },
+          { value: 'readtime', label: t('Lesezeit') },
+        ]
+      : [];
+  return [{ value: 'title', label: t('Titel') }, ...(kind !== 'text' || prop === 'html' ? [{ value: 'date', label: t('Datum') }] : []), ...extras, ...own];
 }

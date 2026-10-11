@@ -6,7 +6,7 @@ import { blockDomId, designImages } from '../shared/design';
 import { blockLookCss, savedStyleImages, savedStylesCss, styleOf, stylesUsed } from '../shared/styles';
 import { motionAttrs } from '../shared/motion';
 import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../shared/query';
-import { applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef } from '../shared/types';
@@ -888,11 +888,54 @@ const chevron = (dir: 'left' | 'right') =>
   raw(`<svg viewBox="0 0 20 20" aria-hidden="true"><path d="${dir === 'left' ? 'M12.5 4.5 7 10l5.5 5.5' : 'M7.5 4.5 13 10l-5.5 5.5'}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 
 /** A value from the entry an element is bound to – only what the visitor may see. */
+/** Data of the website itself, for a property of this kind – nothing for one it does not fit. */
+function siteValue(key: string, prop: string, ctx: RenderContext): string | null {
+  const s = ctx.settings;
+  const b = s.business;
+  const kind = bindKind(prop);
+  const year = new Intl.DateTimeFormat('en', { timeZone: s.timezone, year: 'numeric' }).format(ctx.now);
+  if (kind === 'image') return key === 'logo' ? (s.logo ?? '') : null;
+  if (kind === 'href') {
+    if (key === 'home') return '/';
+    if (key === 'phone-link') return b.phone ? `tel:${b.phone.replace(/[^+\d]/g, '')}` : '';
+    if (key === 'email-link') return b.email ? `mailto:${b.email}` : '';
+    return null;
+  }
+  switch (key) {
+    case 'name':
+      return s.name;
+    case 'tagline':
+      return s.tagline;
+    case 'phone':
+      return b.phone ?? '';
+    case 'email':
+      return b.email ?? '';
+    case 'address':
+      return [b.street, [b.zip, b.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    case 'hours':
+      return openStatus(s.hours, s.timezone, ctx.now, ctx.lang)?.label ?? '';
+    case 'year':
+      return year;
+    case 'copyright':
+      return `© ${year} ${b.legalName || s.name}`;
+  }
+  return null;
+}
+
 function bound(el: El, prop: string, rc: ElRender, ctx: RenderContext): { set: boolean; value: unknown; field?: FieldDef } {
   const src = el.bind?.[prop];
-  if (!src || !rc.entry) return { set: false, value: undefined };
-  const { e, c, open } = rc.entry;
+  if (!src) return { set: false, value: undefined };
+  if (src.startsWith('site:')) {
+    const v = siteValue(src.slice(5), prop, ctx);
+    return v === null ? { set: false, value: undefined } : { set: true, value: v };
+  }
+  // In a loop its entry; in a page template or on an entry's own page, the entry the page shows.
+  const entry = rc.entry ?? currentEntry(ctx);
+  if (!entry) return { set: false, value: undefined };
+  const { e, c, open } = entry;
   if (src === 'title') return { set: true, value: e.data.title };
+  if (src === 'author') return { set: true, value: e.author_name ?? '' };
+  if (src === 'readtime') return { set: true, value: open ? t(ctx, '{min} Min. Lesezeit', { min: readingTime(`${blocksText(e.data.blocks ?? [])} ${stripHtml(String(e.data.body ?? ''))}`) }) : '' };
   if (src === 'url') return { set: true, value: entryPath(c, e.slug) ?? '' };
   if (src === 'date') return { set: true, value: new Date(String(e.data.date || e.published_at)).toLocaleDateString(L(ctx), { day: 'numeric', month: 'long', year: 'numeric' }) };
   const key = src.slice(6);
@@ -905,6 +948,15 @@ function bound(el: El, prop: string, rc: ElRender, ctx: RenderContext): { set: b
   if (field?.type === 'images' && Array.isArray(v)) return { set: true, value: v[0], field };
   if (Array.isArray(v)) return { set: true, value: v.join(', '), field };
   return { set: true, value: v ?? '', field };
+}
+
+/** The entry an entry page shows, for bindings outside a loop. */
+function currentEntry(ctx: RenderContext): ElRender['entry'] {
+  if (ctx.entry) return ctx.entry;
+  const cur = ctx.current;
+  const c = cur && ctx.collections.find((x) => x.id === cur.collection);
+  if (!cur || !c || c.id === 'pages' || c.id === 'sections') return undefined;
+  return { e: { id: cur.id, slug: cur.slug, data: cur.data, published_at: cur.published_at, author_name: cur.author_name }, c, open: entryAccess(cur.data) === 'public' || mayRead(entryAccess(cur.data), ctx.member?.level ?? null) };
 }
 
 async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html> {

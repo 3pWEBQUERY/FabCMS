@@ -346,7 +346,7 @@ const TEMPLATED = new Set(['pages', 'posts', 'products', 'projects', 'properties
 export async function renderPage(ctx: RenderContext, c: CollectionDef, e: RenderEntry): Promise<string> {
   const isHome = c.id === 'pages' && e.slug === '';
   const path = entryPath(c, e.slug) ?? ctx.path;
-  ctx.current = { id: e.id, collection: c.id, data: e.data };
+  ctx.current = { id: e.id, collection: c.id, slug: e.slug, data: e.data, published_at: e.published_at, author_name: e.author_name };
   const image = await pageImage(e.data, ctx, e.id, e.version);
   const meta: PageMeta = {
     title: e.data.seo?.title?.trim() ? e.data.seo.title : formatTitle(ctx, e.data.title, isHome),
@@ -441,7 +441,7 @@ export async function templateContext(ctx: RenderContext, data: EntryData): Prom
     return;
   }
   ctx.entry = { e: sample, c, open: true };
-  ctx.current = { id: sample.id, collection: c.id, data: sample.data };
+  ctx.current = { id: sample.id, collection: c.id, slug: sample.slug, data: sample.data, published_at: sample.published_at, author_name: sample.author_name };
   ctx.entryView = async (mode) => {
     // The sample is only looked at here – edited it is in its own editor.
     const view: RenderContext = { ...ctx, edit: false, entry: undefined, entryView: undefined };

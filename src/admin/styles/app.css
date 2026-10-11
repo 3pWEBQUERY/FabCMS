@@ -6360,6 +6360,19 @@ body.scrubbing.v * {
 .bind-box .section-title {
   color: var(--sel);
 }
+.bind-box > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.bind-box > summary::-webkit-details-marker {
+  display: none;
+}
+.bind-box > summary::before {
+  content: '▸ ';
+}
+.bind-box[open] > summary::before {
+  content: '▾ ';
+}
 
 /* ---------- trash ---------- */
 

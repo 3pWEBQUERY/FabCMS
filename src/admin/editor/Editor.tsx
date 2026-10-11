@@ -230,6 +230,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const docData = (doc.data ?? {}) as Record<string, unknown>;
   const templateFor = doc.collection?.id === 'sections' && docData.kind === 'template' ? (collections.find((c) => c.id === docData.template_for) ?? null) : null;
   const listSource = listAncestor ? (collections.find((c) => c.id === listAncestor.props.collection) ?? null) : templateFor;
+  // On an entry's own page its elements can show its fields too (a post's date in its own layout).
+  const ownType =
+    doc.collection?.route && doc.collection.id !== 'pages' && doc.collection.id !== 'sections' ? (collections.find((c) => c.id === doc.collection!.id) ?? null) : null;
   const backTo = doc.collection?.id === 'pages' || !doc.collection ? '/seiten' : `/inhalte/${doc.collection.id}`;
 
   /* ---------- rendering into the canvas ---------- */
@@ -1531,6 +1534,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           pro={session.pro}
                           collections={collections}
                           source={listSource}
+                          bindSource={listSource ?? ownType}
                           onSelect={selectElement}
                           locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
                           onOpenComponent={openComponent}
