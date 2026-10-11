@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
 import { BINDABLE, bindKind, cleanAnchor, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
@@ -19,6 +19,7 @@ import { ImageFocus } from './ImageFocus';
 import { LoopEntries, LoopRules, loopFields } from './LoopRules';
 import { SiteData } from './SiteData';
 import { MapPlace } from './MapPlace';
+import { PageAnchorsContext } from '../../ui/PageLinkInput';
 
 /** Settings of one element of the free layout: what it says, how it looks, how it moves. */
 export function ElementInspector({
@@ -162,7 +163,7 @@ export function ElementInspector({
           <Field label={t('Name in den Ebenen')} help={t('Hilft, im Aufbau den Überblick zu behalten.')}>
             <input className="input" value={el.name ?? ''} placeholder={tl(def.label)} maxLength={60} onChange={(e) => onChange({ ...el, name: e.target.value || undefined })} />
           </Field>
-          <AnchorField el={el} els={blockEls} onChange={onChange} />
+          <AnchorField el={el} onChange={onChange} />
         </div>
       )}
       {tab === 'style' && variants && <VariantBar v={variants} locked={locked} />}
@@ -246,17 +247,15 @@ function bindOptions(c: CollectionDef, kind: ElKind, prop: string): { value: str
  * «Sprungmarke»: the element's own id in the page, so a menu entry or button
  * can jump right here (#team, or /ueber-uns#team from elsewhere).
  */
-function AnchorField({ el, els, onChange }: { el: El; els: El[]; onChange: (el: El) => void }) {
+function AnchorField({ el, onChange }: { el: El; onChange: (el: El) => void }) {
   const clean = cleanAnchor(el.anchor);
-  let taken = false;
-  walkEls(els, (x) => {
-    if (x.id !== el.id && clean && cleanAnchor(x.anchor) === clean) taken = true;
-  });
+  // Anywhere on the page: another element's, or a block's.
+  const taken = useContext(PageAnchorsContext).some((a) => a.anchor === clean && a.owner !== el.id);
   return (
     <Field
       label={t('Sprungmarke')}
       htmlFor={`anchor-${el.id}`}
-      error={taken ? t('Diese Sprungmarke trägt schon ein anderes Element in diesem Bereich – wähl eine andere.') : null}
+      error={taken ? t('Diese Sprungmarke gibt es auf der Seite schon – wähl eine andere.') : null}
       help={
         clean
           ? t('Verlinke mit «#{anchor}» auf dieser Seite, von anderen Seiten mit der Seitenadresse davor.', { anchor: clean })

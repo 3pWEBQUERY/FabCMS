@@ -65,6 +65,8 @@ import { ElementInspector } from './elements/ElementInspector';
 import { ElementPicker, ElementToolbar, elLabel } from './elements/ElementToolbar';
 import { BuilderPanel, type BuilderTab } from './BuilderPanel';
 import { rememberEl } from './elements/recentEls';
+import { PageAnchorsContext } from '../ui/PageLinkInput';
+import { pageAnchors } from '../../shared/anchors';
 import { ContextMenu, KEYS, ShortcutsDialog, type CtxItem } from './ContextMenu';
 import { shortcutAction, type EditorAction } from '../../shared/shortcuts';
 import type { Design } from '../../shared/design';
@@ -241,6 +243,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const renderSeq = useRef<Record<string, number>>({});
   const blocksRef = useRef<Block[]>([]);
   blocksRef.current = doc.data?.blocks ?? [];
+  // The page's «Sprungmarken»: suggested in every link field, checked for doubles.
+  const anchors = useMemo(() => pageAnchors(doc.data?.blocks ?? []), [doc.data?.blocks]);
   const { data: sectionsData, reload: reloadSections } = useApi<{ entries: { id: string; title: string; fields?: { kind?: string } }[] }>(
     '/api/entries?collection=sections&limit=200',
   );
@@ -1335,537 +1339,539 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const pickComponent = (c: { id: string; title: string }) => placeElement(createEl('component', { ref: c.id, overrides: {} }, { name: c.title }));
 
   return (
-    <div className="editor">
-      <header className="editor-bar">
-        <Tip label={t('Zurück')}>
-          <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label={t('Zurück')}>
-            <Icon name="arrowLeft" />
-          </button>
-        </Tip>
-        <div className="editor-title grow">
-          <strong className="ellipsis">{doc.data?.title || '…'}</strong>
-          <span className="ellipsis mono">{doc.path ?? ''}</span>
-        </div>
-        <Presence peers={doc.peers} link={doc.link} local={doc.local} />
-        <SaveStatus
-          state={doc.saveState}
-          error={doc.error}
-          onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
-        />
-        <div className="row hide-m" style={{ gap: 2 }}>
-          <Tip label={t('Rückgängig')} keys={`${modKey} Z`}>
-            <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('Rückgängig')}>
-              <Icon name="undo" />
+    <PageAnchorsContext.Provider value={anchors}>
+      <div className="editor">
+        <header className="editor-bar">
+          <Tip label={t('Zurück')}>
+            <button className="btn ghost icon-only" onClick={() => navigate(backTo)} aria-label={t('Zurück')}>
+              <Icon name="arrowLeft" />
             </button>
           </Tip>
-          <Tip label={t('Wiederholen')} keys={`${modKey} ⇧ Z`}>
-            <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('Wiederholen')}>
-              <Icon name="redo" />
-            </button>
-          </Tip>
-        </div>
-        <div className="hide-m">
-          <Segmented
-            label={t('Vorschau-Grösse')}
-            value={overview ? 'all' : device}
-            onChange={(v) => {
-              if (v === 'all') return setOverview(true);
-              setOverview(false);
-              chooseDevice(v);
-            }}
-            options={[
-              { value: 'desktop' as const, label: '', icon: 'desktop', title: t('Computer') },
-              { value: 'tablet' as const, label: '', icon: 'tablet', title: t('Tablet') },
-              { value: 'mobile' as const, label: '', icon: 'phone', title: t('Handy') },
-              { value: 'all' as const, label: '', icon: 'columns', title: t('Alle Geräte nebeneinander') },
-            ]}
+          <div className="editor-title grow">
+            <strong className="ellipsis">{doc.data?.title || '…'}</strong>
+            <span className="ellipsis mono">{doc.path ?? ''}</span>
+          </div>
+          <Presence peers={doc.peers} link={doc.link} local={doc.local} />
+          <SaveStatus
+            state={doc.saveState}
+            error={doc.error}
+            onRetry={() => (doc.saveState === 'conflict' ? void doc.reload().then(() => setCanvasKey((k) => k + 1)) : void doc.saveNow())}
           />
-        </div>
-        <div className="row editor-tools" style={{ gap: 2 }}>
-          <Tip label={t('Kommentare')}>
-            <button
-              className="btn ghost icon-only badge-host"
-              aria-pressed={panel === 'comments'}
-              onClick={() => setPanel(panel === 'comments' ? null : 'comments')}
-              aria-label={comments.open ? t('Kommentare, {n} offen', { n: comments.open }) : t('Kommentare')}
-            >
-              <Icon name="chat" />
-              {comments.open > 0 && <span className="dot-count">{comments.open}</span>}
-            </button>
-          </Tip>
-          {!narrow && (
-            <Tip label={builder ? t('Baukasten ausblenden') : t('Baukasten einblenden')}>
-              <button className="btn ghost icon-only" aria-pressed={builder} onClick={() => setBuilder(!builder)} aria-label={t('Baukasten')}>
-                <Icon name="builder" />
+          <div className="row hide-m" style={{ gap: 2 }}>
+            <Tip label={t('Rückgängig')} keys={`${modKey} Z`}>
+              <button className="btn ghost icon-only" onClick={doc.undo} disabled={!doc.canUndo} aria-label={t('Rückgängig')}>
+                <Icon name="undo" />
               </button>
             </Tip>
-          )}
-          {(
-            [
-              ['page', 'page', t('Seite')],
-              ['structure', 'layers', t('Aufbau')],
-              ['seo', 'seo', t('Suchmaschinen')],
-              ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
-              ['colors', 'paint', t('Farben dieser Seite')],
-              ['history', 'history', t('Verlauf')],
-            ] as [Panel, string, string][]
-          )
-            .filter(([p]) => !(lang && p === 'history'))
-            .map(([p, icon, label]) => (
-              <Tip key={p} label={label}>
-                <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
-                  <Icon name={icon} />
-                  {p === 'contrast' && contrast.length > 0 && <span className="dot-count">{contrast.length}</span>}
+            <Tip label={t('Wiederholen')} keys={`${modKey} ⇧ Z`}>
+              <button className="btn ghost icon-only" onClick={doc.redo} disabled={!doc.canRedo} aria-label={t('Wiederholen')}>
+                <Icon name="redo" />
+              </button>
+            </Tip>
+          </div>
+          <div className="hide-m">
+            <Segmented
+              label={t('Vorschau-Grösse')}
+              value={overview ? 'all' : device}
+              onChange={(v) => {
+                if (v === 'all') return setOverview(true);
+                setOverview(false);
+                chooseDevice(v);
+              }}
+              options={[
+                { value: 'desktop' as const, label: '', icon: 'desktop', title: t('Computer') },
+                { value: 'tablet' as const, label: '', icon: 'tablet', title: t('Tablet') },
+                { value: 'mobile' as const, label: '', icon: 'phone', title: t('Handy') },
+                { value: 'all' as const, label: '', icon: 'columns', title: t('Alle Geräte nebeneinander') },
+              ]}
+            />
+          </div>
+          <div className="row editor-tools" style={{ gap: 2 }}>
+            <Tip label={t('Kommentare')}>
+              <button
+                className="btn ghost icon-only badge-host"
+                aria-pressed={panel === 'comments'}
+                onClick={() => setPanel(panel === 'comments' ? null : 'comments')}
+                aria-label={comments.open ? t('Kommentare, {n} offen', { n: comments.open }) : t('Kommentare')}
+              >
+                <Icon name="chat" />
+                {comments.open > 0 && <span className="dot-count">{comments.open}</span>}
+              </button>
+            </Tip>
+            {!narrow && (
+              <Tip label={builder ? t('Baukasten ausblenden') : t('Baukasten einblenden')}>
+                <button className="btn ghost icon-only" aria-pressed={builder} onClick={() => setBuilder(!builder)} aria-label={t('Baukasten')}>
+                  <Icon name="builder" />
                 </button>
               </Tip>
-            ))}
-        </div>
-        <Tip label={grid ? t('Raster ausblenden') : t('Raster einblenden')}>
-          <button className="btn ghost icon-only hide-m" aria-pressed={grid} onClick={() => setGrid(!grid)} aria-label={t('Raster')}>
-            <Icon name="columns" />
-          </button>
-        </Tip>
-        <Tip label={t('Tastenkürzel')} keys="?">
-          <button className="btn ghost icon-only hide-m" onClick={() => setHelp(true)} aria-label={t('Tastenkürzel')}>
-            <Icon name="keyboard" />
-          </button>
-        </Tip>
-        <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
-        <SaveTemplateDialog
-          open={Boolean(saveAsTemplate)}
-          suggestion={saveAsTemplate ? tl(BLOCK_MAP[blocksRef.current.find((b) => b.id === saveAsTemplate)?.type ?? '']?.label) : ''}
-          onClose={() => setSaveAsTemplate(null)}
-          onSave={async (name) => {
-            const b = blocksRef.current.find((x) => x.id === saveAsTemplate);
-            if (!b) return setSaveAsTemplate(null);
-            try {
-              await saveSectionTemplate(b, name);
-              reloadSections();
-              toast(t('«{name}» gespeichert. Du findest die Vorlage unter «Block einfügen» → «Meine Vorlagen».', { name }));
-            } catch (e) {
-              toast((e as Error).message, { kind: 'bad' });
-            }
-            setSaveAsTemplate(null);
-          }}
-        />
-        <ComponentDialog
-          open={Boolean(componentFor)}
-          suggestion={componentFor ? componentName(componentFor) : ''}
-          onClose={() => setComponentFor(null)}
-          onCreate={async (name) => {
-            if (componentFor) await createComponent(componentFor.block, componentFor.el, name);
-            setComponentFor(null);
-          }}
-        />
-        <span className="hide-m">
-          <ModeSwitch />
-        </span>
-        <LangSwitch doc={doc} />
-        <PublishControls doc={doc} onPublished={() => void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })} />
-      </header>
+            )}
+            {(
+              [
+                ['page', 'page', t('Seite')],
+                ['structure', 'layers', t('Aufbau')],
+                ['seo', 'seo', t('Suchmaschinen')],
+                ['contrast', 'eye', contrast.length ? t('Kontrast, {n} schwer lesbar', { n: contrast.length }) : t('Kontrast')],
+                ['colors', 'paint', t('Farben dieser Seite')],
+                ['history', 'history', t('Verlauf')],
+              ] as [Panel, string, string][]
+            )
+              .filter(([p]) => !(lang && p === 'history'))
+              .map(([p, icon, label]) => (
+                <Tip key={p} label={label}>
+                  <button className="btn ghost icon-only badge-host" aria-pressed={panel === p} onClick={() => setPanel(panel === p ? null : p)} aria-label={label}>
+                    <Icon name={icon} />
+                    {p === 'contrast' && contrast.length > 0 && <span className="dot-count">{contrast.length}</span>}
+                  </button>
+                </Tip>
+              ))}
+          </div>
+          <Tip label={grid ? t('Raster ausblenden') : t('Raster einblenden')}>
+            <button className="btn ghost icon-only hide-m" aria-pressed={grid} onClick={() => setGrid(!grid)} aria-label={t('Raster')}>
+              <Icon name="columns" />
+            </button>
+          </Tip>
+          <Tip label={t('Tastenkürzel')} keys="?">
+            <button className="btn ghost icon-only hide-m" onClick={() => setHelp(true)} aria-label={t('Tastenkürzel')}>
+              <Icon name="keyboard" />
+            </button>
+          </Tip>
+          <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
+          <SaveTemplateDialog
+            open={Boolean(saveAsTemplate)}
+            suggestion={saveAsTemplate ? tl(BLOCK_MAP[blocksRef.current.find((b) => b.id === saveAsTemplate)?.type ?? '']?.label) : ''}
+            onClose={() => setSaveAsTemplate(null)}
+            onSave={async (name) => {
+              const b = blocksRef.current.find((x) => x.id === saveAsTemplate);
+              if (!b) return setSaveAsTemplate(null);
+              try {
+                await saveSectionTemplate(b, name);
+                reloadSections();
+                toast(t('«{name}» gespeichert. Du findest die Vorlage unter «Block einfügen» → «Meine Vorlagen».', { name }));
+              } catch (e) {
+                toast((e as Error).message, { kind: 'bad' });
+              }
+              setSaveAsTemplate(null);
+            }}
+          />
+          <ComponentDialog
+            open={Boolean(componentFor)}
+            suggestion={componentFor ? componentName(componentFor) : ''}
+            onClose={() => setComponentFor(null)}
+            onCreate={async (name) => {
+              if (componentFor) await createComponent(componentFor.block, componentFor.el, name);
+              setComponentFor(null);
+            }}
+          />
+          <span className="hide-m">
+            <ModeSwitch />
+          </span>
+          <LangSwitch doc={doc} />
+          <PublishControls doc={doc} onPublished={() => void glide.start({ scale: [0.985, 1], y: [6, 0], transition: { duration: 0.6, ease: [0.2, 0.7, 0.2, 1] } })} />
+        </header>
 
-      {lang && (
-        <div className="editor-note">
-          <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
-        </div>
-      )}
-      <div className={building ? 'editor-stage with-builder' : 'editor-stage'}>
-        {building && doc.data && (
-          <BuilderPanel
-            tab={builderTab}
-            onTab={setBuilderTab}
-            elements={{ onPick: insertElement, into, inTemplate: Boolean(templateFor), components, onPickComponent: pickComponent }}
-            blocks={{
-              sections,
-              saved: savedSections,
-              onPick: (type, props) => void insertBlock(type, index + 1 || blocksRef.current.length, props),
-              onPickSaved: (sid) => void insertSaved(sid, index + 1 || blocksRef.current.length),
-            }}
-            layers={structurePanel}
-          />
+        {lang && (
+          <div className="editor-note">
+            <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
+          </div>
         )}
-        {overview && (
-          <DeviceOverview
-            src={`/_nova/preview/${id}${lang ? `?lang=${lang}` : ''}`}
-            version={saves}
-            onPick={(d) => {
-              setOverview(false);
-              chooseDevice(d);
-            }}
-          />
-        )}
-        <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? '0 0 0 14px' : '1rem 0', ...(overview ? { display: 'none' } : {}) }}>
-          <motion.div
-            ref={frameBox}
-            className="canvas-frame"
-            animate={glide}
-            style={{
-              width: customWidth !== null ? `${customWidth}px` : DEVICE_WIDTH[device],
-              position: 'relative',
-              transition: widthDrag.current ? 'none' : 'width .32s cubic-bezier(.2,.7,.2,1)',
-              maxWidth: '100%',
-            }}
-          >
-            <div
-              className="canvas-size hide-m"
-              role="slider"
-              tabIndex={0}
-              aria-label={t('Breite der Vorschau')}
-              aria-valuemin={MIN_CANVAS}
-              aria-valuemax={frameBox.current?.parentElement?.clientWidth ?? 2560}
-              aria-valuenow={Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0)}
-              aria-valuetext={t('{n} px', { n: Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0) })}
-              title={t('Ziehen für jede Breite dazwischen')}
-              onPointerDown={(e) => {
-                const box = frameBox.current;
-                if (!box?.parentElement) return;
-                e.preventDefault();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                widthDrag.current = { x: e.clientX, w: box.getBoundingClientRect().width, max: box.parentElement.clientWidth };
+        <div className={building ? 'editor-stage with-builder' : 'editor-stage'}>
+          {building && doc.data && (
+            <BuilderPanel
+              tab={builderTab}
+              onTab={setBuilderTab}
+              elements={{ onPick: insertElement, into, inTemplate: Boolean(templateFor), components, onPickComponent: pickComponent }}
+              blocks={{
+                sections,
+                saved: savedSections,
+                onPick: (type, props) => void insertBlock(type, index + 1 || blocksRef.current.length, props),
+                onPickSaved: (sid) => void insertSaved(sid, index + 1 || blocksRef.current.length),
               }}
-              onPointerMove={(e) => {
-                const drag = widthDrag.current;
-                // The canvas sits in the middle: one edge moved is twice the width (this is the left edge).
-                if (drag) resizeTo(drag.w - 2 * (e.clientX - drag.x), drag.max);
-              }}
-              onPointerUp={() => {
-                widthDrag.current = null;
-              }}
-              onPointerCancel={() => {
-                widthDrag.current = null;
-              }}
-              onKeyDown={(e) => {
-                const box = frameBox.current;
-                if (!box?.parentElement || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
-                e.preventDefault();
-                const step = (e.shiftKey ? 100 : 10) * (e.key === 'ArrowLeft' ? -1 : 1);
-                resizeTo(box.getBoundingClientRect().width + step, box.parentElement.clientWidth);
+              layers={structurePanel}
+            />
+          )}
+          {overview && (
+            <DeviceOverview
+              src={`/_nova/preview/${id}${lang ? `?lang=${lang}` : ''}`}
+              version={saves}
+              onPick={(d) => {
+                setOverview(false);
+                chooseDevice(d);
               }}
             />
-            <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
-            {customWidth !== null && (
-              <div className="canvas-width" role="status">
-                <span>
-                  {t('{n} px', { n: customWidth })} · {device === 'desktop' ? t('Computer') : device === 'tablet' ? t('Tablet') : t('Handy')}
-                </span>
-                <button type="button" onClick={() => chooseDevice(device)} aria-label={t('Zurück zur festen Breite')}>
-                  <Icon name="x" size="s" />
-                </button>
-              </div>
-            )}
-            <div className="canvas-overlay">
-              <AnimatePresence>
-                {selectedBlock && selectedElInfo && elRect && !picker && !richOpen && (
-                  <ElementToolbar
-                    key={`el-${selectedElInfo.el.id}`}
-                    found={selectedElInfo}
-                    top={elRect.top > 52 ? elRect.top - 44 : Math.max(6, elRect.top + 8)}
-                    left={Math.max(8, elRect.left)}
-                    locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
-                    onSelect={selectElement}
-                    onSelectBlock={() => selectElement(null)}
-                    onEdit={() => setPanel('inspector')}
-                    onMove={(dir) => moveElementBy(selectedBlock.id, selectedElInfo.el.id, dir)}
-                    onInsert={(r) =>
-                      setElPicker({
-                        top: r.top - (frame.current?.getBoundingClientRect().top ?? 0),
-                        left: r.left - (frame.current?.getBoundingClientRect().left ?? 0),
-                        width: r.width,
-                        height: r.height,
-                      })
-                    }
-                    onAddItem={() => addItem(selectedBlock.id, selectedElInfo.el.id)}
-                    onDuplicate={() => duplicateElement(selectedBlock.id, selectedElInfo.el.id)}
-                    onWrap={() => wrapElement(selectedBlock.id, selectedElInfo.el.id)}
-                    onComponent={() =>
-                      selectedElInfo.el.kind === 'component'
-                        ? openComponent(String(selectedElInfo.el.props.ref))
-                        : setComponentFor({ block: selectedBlock.id, el: selectedElInfo.el.id })
-                    }
-                    onRemove={() => (multi.length > 1 ? removeElements(selectedBlock.id, multi) : removeElement(selectedBlock.id, selectedElInfo.el.id))}
-                    canvas={
-                      selectedElInfo.parent?.kind === 'canvas'
-                        ? { count: Math.max(1, multi.length), onAlign: (how) => postToCanvas(frame.current, { t: 'align', how }) }
-                        : undefined
-                    }
-                  />
-                )}
-                {selectedBlock && !selectedElInfo && toolbarPos && !picker && (
-                  <motion.div
-                    key={selectedBlock.id}
-                    className="block-toolbar"
-                    initial={{ opacity: 0, y: 4, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1, top: toolbarPos.top, left: toolbarPos.left }}
-                    exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                    transition={{ type: 'spring', stiffness: 700, damping: 45 }}
-                    style={{ top: toolbarPos.top, left: toolbarPos.left }}
-                    role="toolbar"
-                    aria-label={t('{name} bearbeiten', { name: tl(BLOCK_MAP[selectedBlock.type]?.label) })}
-                  >
-                    <span className="name">
-                      {lock !== 'none' && <Icon name="lock" size="s" style={{ marginRight: 4, verticalAlign: '-3px' }} />}
-                      {tl(BLOCK_MAP[selectedBlock.type]?.label)}
-                    </span>
-                    <span className="sep" />
-                    {lock !== 'all' && (
-                      <button className="btn" onClick={() => setPanel('inspector')}>
-                        <Icon name="settings" size="s" /> {t('Bearbeiten')}
-                      </button>
-                    )}
-                    {lock === 'none' && (
-                      <>
-                        <Tip label={t('Nach oben')}>
-                          <button className="btn icon-only" disabled={index <= 0} onClick={() => moveBlock(selectedBlock.id, -1)} aria-label={t('Nach oben')}>
-                            <Icon name="arrowUp" size="s" />
-                          </button>
-                        </Tip>
-                        <Tip label={t('Nach unten')}>
-                          <button
-                            className="btn icon-only"
-                            disabled={index >= blocksRef.current.length - 1}
-                            onClick={() => moveBlock(selectedBlock.id, 1)}
-                            aria-label={t('Nach unten')}
-                          >
-                            <Icon name="arrowDown" size="s" />
-                          </button>
-                        </Tip>
-                        {selectedBlock.type === 'layout' && (
-                          <Tip label={t('Element einfügen')}>
-                            <button
-                              className="btn icon-only"
-                              onClick={(e) => {
-                                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                const f = frame.current?.getBoundingClientRect();
-                                setElPicker({ top: r.top - (f?.top ?? 0), left: r.left - (f?.left ?? 0), width: r.width, height: r.height });
-                              }}
-                              aria-label={t('Element einfügen')}
-                            >
-                              <Icon name="box" size="s" />
+          )}
+          <div className="canvas-wrap" style={{ padding: device === 'desktop' && customWidth === null ? '0 0 0 14px' : '1rem 0', ...(overview ? { display: 'none' } : {}) }}>
+            <motion.div
+              ref={frameBox}
+              className="canvas-frame"
+              animate={glide}
+              style={{
+                width: customWidth !== null ? `${customWidth}px` : DEVICE_WIDTH[device],
+                position: 'relative',
+                transition: widthDrag.current ? 'none' : 'width .32s cubic-bezier(.2,.7,.2,1)',
+                maxWidth: '100%',
+              }}
+            >
+              <div
+                className="canvas-size hide-m"
+                role="slider"
+                tabIndex={0}
+                aria-label={t('Breite der Vorschau')}
+                aria-valuemin={MIN_CANVAS}
+                aria-valuemax={frameBox.current?.parentElement?.clientWidth ?? 2560}
+                aria-valuenow={Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0)}
+                aria-valuetext={t('{n} px', { n: Math.round(customWidth ?? frameBox.current?.getBoundingClientRect().width ?? 0) })}
+                title={t('Ziehen für jede Breite dazwischen')}
+                onPointerDown={(e) => {
+                  const box = frameBox.current;
+                  if (!box?.parentElement) return;
+                  e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  widthDrag.current = { x: e.clientX, w: box.getBoundingClientRect().width, max: box.parentElement.clientWidth };
+                }}
+                onPointerMove={(e) => {
+                  const drag = widthDrag.current;
+                  // The canvas sits in the middle: one edge moved is twice the width (this is the left edge).
+                  if (drag) resizeTo(drag.w - 2 * (e.clientX - drag.x), drag.max);
+                }}
+                onPointerUp={() => {
+                  widthDrag.current = null;
+                }}
+                onPointerCancel={() => {
+                  widthDrag.current = null;
+                }}
+                onKeyDown={(e) => {
+                  const box = frameBox.current;
+                  if (!box?.parentElement || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+                  e.preventDefault();
+                  const step = (e.shiftKey ? 100 : 10) * (e.key === 'ArrowLeft' ? -1 : 1);
+                  resizeTo(box.getBoundingClientRect().width + step, box.parentElement.clientWidth);
+                }}
+              />
+              <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
+              {customWidth !== null && (
+                <div className="canvas-width" role="status">
+                  <span>
+                    {t('{n} px', { n: customWidth })} · {device === 'desktop' ? t('Computer') : device === 'tablet' ? t('Tablet') : t('Handy')}
+                  </span>
+                  <button type="button" onClick={() => chooseDevice(device)} aria-label={t('Zurück zur festen Breite')}>
+                    <Icon name="x" size="s" />
+                  </button>
+                </div>
+              )}
+              <div className="canvas-overlay">
+                <AnimatePresence>
+                  {selectedBlock && selectedElInfo && elRect && !picker && !richOpen && (
+                    <ElementToolbar
+                      key={`el-${selectedElInfo.el.id}`}
+                      found={selectedElInfo}
+                      top={elRect.top > 52 ? elRect.top - 44 : Math.max(6, elRect.top + 8)}
+                      left={Math.max(8, elRect.left)}
+                      locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                      onSelect={selectElement}
+                      onSelectBlock={() => selectElement(null)}
+                      onEdit={() => setPanel('inspector')}
+                      onMove={(dir) => moveElementBy(selectedBlock.id, selectedElInfo.el.id, dir)}
+                      onInsert={(r) =>
+                        setElPicker({
+                          top: r.top - (frame.current?.getBoundingClientRect().top ?? 0),
+                          left: r.left - (frame.current?.getBoundingClientRect().left ?? 0),
+                          width: r.width,
+                          height: r.height,
+                        })
+                      }
+                      onAddItem={() => addItem(selectedBlock.id, selectedElInfo.el.id)}
+                      onDuplicate={() => duplicateElement(selectedBlock.id, selectedElInfo.el.id)}
+                      onWrap={() => wrapElement(selectedBlock.id, selectedElInfo.el.id)}
+                      onComponent={() =>
+                        selectedElInfo.el.kind === 'component'
+                          ? openComponent(String(selectedElInfo.el.props.ref))
+                          : setComponentFor({ block: selectedBlock.id, el: selectedElInfo.el.id })
+                      }
+                      onRemove={() => (multi.length > 1 ? removeElements(selectedBlock.id, multi) : removeElement(selectedBlock.id, selectedElInfo.el.id))}
+                      canvas={
+                        selectedElInfo.parent?.kind === 'canvas'
+                          ? { count: Math.max(1, multi.length), onAlign: (how) => postToCanvas(frame.current, { t: 'align', how }) }
+                          : undefined
+                      }
+                    />
+                  )}
+                  {selectedBlock && !selectedElInfo && toolbarPos && !picker && (
+                    <motion.div
+                      key={selectedBlock.id}
+                      className="block-toolbar"
+                      initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1, top: toolbarPos.top, left: toolbarPos.left }}
+                      exit={{ opacity: 0, transition: { duration: 0.08 } }}
+                      transition={{ type: 'spring', stiffness: 700, damping: 45 }}
+                      style={{ top: toolbarPos.top, left: toolbarPos.left }}
+                      role="toolbar"
+                      aria-label={t('{name} bearbeiten', { name: tl(BLOCK_MAP[selectedBlock.type]?.label) })}
+                    >
+                      <span className="name">
+                        {lock !== 'none' && <Icon name="lock" size="s" style={{ marginRight: 4, verticalAlign: '-3px' }} />}
+                        {tl(BLOCK_MAP[selectedBlock.type]?.label)}
+                      </span>
+                      <span className="sep" />
+                      {lock !== 'all' && (
+                        <button className="btn" onClick={() => setPanel('inspector')}>
+                          <Icon name="settings" size="s" /> {t('Bearbeiten')}
+                        </button>
+                      )}
+                      {lock === 'none' && (
+                        <>
+                          <Tip label={t('Nach oben')}>
+                            <button className="btn icon-only" disabled={index <= 0} onClick={() => moveBlock(selectedBlock.id, -1)} aria-label={t('Nach oben')}>
+                              <Icon name="arrowUp" size="s" />
                             </button>
                           </Tip>
-                        )}
-                        <Tip label={t('Block darunter einfügen')}>
-                          <button
-                            className="btn icon-only"
-                            onClick={() => setPicker({ index: index + 1, rect: { top: toolbarPos.top, left: toolbarPos.left, width: 1, height: 36 } })}
-                            aria-label={t('Block darunter einfügen')}
-                          >
-                            <Icon name="plus" size="s" />
-                          </button>
-                        </Tip>
-                        <Tip label={t('Kommentieren')}>
-                          <button className="btn icon-only" onClick={() => setPanel('comments')} aria-label={t('Kommentieren')}>
-                            <Icon name="chat" size="s" />
-                          </button>
-                        </Tip>
-                        <Tip label={t('Als Vorlage speichern')}>
-                          <button className="btn icon-only" onClick={() => setSaveAsTemplate(selectedBlock.id)} aria-label={t('Als Vorlage speichern')}>
-                            <Icon name="folder" size="s" />
-                          </button>
-                        </Tip>
-                        <Tip label={t('Duplizieren')}>
-                          <button className="btn icon-only" onClick={() => void duplicateBlock(selectedBlock.id)} aria-label={t('Duplizieren')}>
-                            <Icon name="copy" size="s" />
-                          </button>
-                        </Tip>
-                        <Tip label={t('Entfernen')}>
-                          <button className="btn icon-only" onClick={() => void removeBlock(selectedBlock.id)} aria-label={t('Entfernen')}>
-                            <Icon name="trash" size="s" />
-                          </button>
-                        </Tip>
-                      </>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              {ctx && selectedBlock && <ContextMenu x={ctx.x} y={ctx.y} items={contextItems()} onClose={() => setCtx(null)} />}
-              <RPopover.Root open={Boolean(elPicker)} onOpenChange={(o) => !o && setElPicker(null)}>
-                <RPopover.Anchor asChild>
-                  <span style={{ position: 'absolute', top: elPicker?.top ?? 0, left: elPicker?.left ?? 0, width: elPicker?.width ?? 0, height: elPicker?.height ?? 0 }} />
-                </RPopover.Anchor>
-                <RPopover.Portal>
-                  <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    <ElementPicker onPick={insertElement} inTemplate={Boolean(templateFor)} components={components} onPickComponent={pickComponent} into={into} />
-                  </RPopover.Content>
-                </RPopover.Portal>
-              </RPopover.Root>
-              <RPopover.Root open={Boolean(picker)} onOpenChange={(o) => !o && setPicker(null)}>
-                <RPopover.Anchor asChild>
-                  <span
-                    style={{ position: 'absolute', top: picker?.rect.top ?? 0, left: picker?.rect.left ?? 0, width: picker?.rect.width ?? 0, height: picker?.rect.height ?? 0 }}
-                  />
-                </RPopover.Anchor>
-                <RPopover.Portal>
-                  <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                    {picker && (
-                      <BlockPicker
-                        sections={sections}
-                        saved={savedSections}
-                        onPick={(type, props) => void insertBlock(type, picker.index, props)}
-                        onPickSaved={(sid) => void insertSaved(sid, picker.index)}
-                      />
-                    )}
-                  </RPopover.Content>
-                </RPopover.Portal>
-              </RPopover.Root>
-              <AnimatePresence>
-                {hint && ready && (
-                  <motion.div
-                    className="hint"
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      bottom: 20,
-                      translateX: '-50%',
-                      pointerEvents: 'auto',
-                      boxShadow: 'var(--shadow-3)',
-                      background: 'var(--panel)',
-                      maxWidth: 'calc(100% - 2rem)',
-                    }}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                  >
-                    <svg className="hint-anim" viewBox="0 0 36 36" aria-hidden="true">
-                      <rect x="4" y="12" width="28" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                      <motion.rect
-                        x="8"
-                        y="16"
-                        width="1.6"
-                        height="4"
-                        fill="currentColor"
-                        animate={{ opacity: [1, 0, 1], x: [8, 8, 22] }}
-                        transition={{ duration: 2.4, repeat: Infinity }}
-                      />
-                    </svg>
-                    <span>{t('Klick in einen Text und schreib los. Mit «+» zwischen zwei Abschnitten fügst du neue hinzu.')}</span>
-                    <button className="btn s ghost" onClick={dismissHint}>
-                      {t('Verstanden')}
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        </div>
-
-        <AnimatePresence>
-          {panel && doc.data && (
-            <motion.aside
-              className="side-panel"
-              aria-label={panelTitle(panel)}
-              initial={narrow ? { y: '100%' } : { x: 24, opacity: 0 }}
-              animate={narrow ? { y: 0 } : { x: 0, opacity: 1 }}
-              exit={narrow ? { y: '100%' } : { x: 24, opacity: 0, transition: { duration: 0.12 } }}
-              transition={{ type: 'spring', stiffness: 520, damping: 44 }}
-            >
-              <header>
-                <h2>
-                  {panel === 'inspector' && selectedElInfo
-                    ? elLabel(selectedElInfo.el)
-                    : panel === 'inspector' && selectedBlock
-                      ? tl(BLOCK_MAP[selectedBlock.type]?.label)
-                      : panelTitle(panel)}
-                </h2>
-                <button className="btn ghost icon-only s" onClick={() => setPanel(null)} aria-label={t('Schliessen')}>
-                  <Icon name="x" />
-                </button>
-              </header>
-              <div className="side-body">
-                <SavedStyles.Provider value={savedStyles}>
-                  {panel === 'inspector' && selectedBlock && selectedElInfo && (
-                    <TokenColors.Provider value={tokenColors}>
-                      <ContrastNow.Provider value={contrastHere}>
-                        <ElementInspector
-                          key={selectedElInfo.el.id}
-                          el={selectedElInfo.el}
-                          onChange={(el) => changeElement(selectedBlock.id, el)}
-                          blockEls={elsOf(selectedBlock)}
-                          device={device}
-                          onDevice={chooseDevice}
-                          designState={designState}
-                          onDesignState={setDesignState}
-                          onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
-                          pro={session.pro}
-                          collections={collections}
-                          source={listSource}
-                          bindSource={listSource ?? ownType}
-                          archiveFor={archiveFor}
-                          onSiteSaved={() => void renderAll().catch(() => {})}
-                          onSelect={selectElement}
-                          locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
-                          onOpenComponent={openComponent}
-                          onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
-                          variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
-                        />
-                      </ContrastNow.Provider>
-                    </TokenColors.Provider>
+                          <Tip label={t('Nach unten')}>
+                            <button
+                              className="btn icon-only"
+                              disabled={index >= blocksRef.current.length - 1}
+                              onClick={() => moveBlock(selectedBlock.id, 1)}
+                              aria-label={t('Nach unten')}
+                            >
+                              <Icon name="arrowDown" size="s" />
+                            </button>
+                          </Tip>
+                          {selectedBlock.type === 'layout' && (
+                            <Tip label={t('Element einfügen')}>
+                              <button
+                                className="btn icon-only"
+                                onClick={(e) => {
+                                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  const f = frame.current?.getBoundingClientRect();
+                                  setElPicker({ top: r.top - (f?.top ?? 0), left: r.left - (f?.left ?? 0), width: r.width, height: r.height });
+                                }}
+                                aria-label={t('Element einfügen')}
+                              >
+                                <Icon name="box" size="s" />
+                              </button>
+                            </Tip>
+                          )}
+                          <Tip label={t('Block darunter einfügen')}>
+                            <button
+                              className="btn icon-only"
+                              onClick={() => setPicker({ index: index + 1, rect: { top: toolbarPos.top, left: toolbarPos.left, width: 1, height: 36 } })}
+                              aria-label={t('Block darunter einfügen')}
+                            >
+                              <Icon name="plus" size="s" />
+                            </button>
+                          </Tip>
+                          <Tip label={t('Kommentieren')}>
+                            <button className="btn icon-only" onClick={() => setPanel('comments')} aria-label={t('Kommentieren')}>
+                              <Icon name="chat" size="s" />
+                            </button>
+                          </Tip>
+                          <Tip label={t('Als Vorlage speichern')}>
+                            <button className="btn icon-only" onClick={() => setSaveAsTemplate(selectedBlock.id)} aria-label={t('Als Vorlage speichern')}>
+                              <Icon name="folder" size="s" />
+                            </button>
+                          </Tip>
+                          <Tip label={t('Duplizieren')}>
+                            <button className="btn icon-only" onClick={() => void duplicateBlock(selectedBlock.id)} aria-label={t('Duplizieren')}>
+                              <Icon name="copy" size="s" />
+                            </button>
+                          </Tip>
+                          <Tip label={t('Entfernen')}>
+                            <button className="btn icon-only" onClick={() => void removeBlock(selectedBlock.id)} aria-label={t('Entfernen')}>
+                              <Icon name="trash" size="s" />
+                            </button>
+                          </Tip>
+                        </>
+                      )}
+                    </motion.div>
                   )}
-                  {panel === 'inspector' && selectedBlock && !selectedElInfo && (
-                    <TokenColors.Provider value={tokenColors}>
-                      <ContrastNow.Provider value={contrastHere}>
-                        <Inspector
-                          key={selectedBlock.id}
-                          block={selectedBlock}
-                          onChange={changeBlock}
-                          device={device}
-                          onDevice={chooseDevice}
-                          designState={designState}
-                          onDesignState={setDesignState}
-                          onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
-                          source={templateFor ?? ownType}
-                        />
-                      </ContrastNow.Provider>
-                    </TokenColors.Provider>
-                  )}
-                </SavedStyles.Provider>
-                {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
-                {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
-                {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}
-                {panel === 'colors' && (
-                  <TokenColors.Provider value={tokenColors}>
-                    <ColorsPanel
-                      blocks={doc.data.blocks ?? []}
-                      locked={studio ? (doc.data.blocks ?? []).filter((b) => (b.lock ?? 'none') !== 'none').length : 0}
-                      onReplace={(from, to) => {
-                        reorderAll(replaceColor(blocksRef.current, from, to, studio ? (b) => (b.lock ?? 'none') !== 'none' : undefined));
-                        toast(t('Farbe ersetzt.'));
-                      }}
+                </AnimatePresence>
+                {ctx && selectedBlock && <ContextMenu x={ctx.x} y={ctx.y} items={contextItems()} onClose={() => setCtx(null)} />}
+                <RPopover.Root open={Boolean(elPicker)} onOpenChange={(o) => !o && setElPicker(null)}>
+                  <RPopover.Anchor asChild>
+                    <span style={{ position: 'absolute', top: elPicker?.top ?? 0, left: elPicker?.left ?? 0, width: elPicker?.width ?? 0, height: elPicker?.height ?? 0 }} />
+                  </RPopover.Anchor>
+                  <RPopover.Portal>
+                    <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
+                      <ElementPicker onPick={insertElement} inTemplate={Boolean(templateFor)} components={components} onPickComponent={pickComponent} into={into} />
+                    </RPopover.Content>
+                  </RPopover.Portal>
+                </RPopover.Root>
+                <RPopover.Root open={Boolean(picker)} onOpenChange={(o) => !o && setPicker(null)}>
+                  <RPopover.Anchor asChild>
+                    <span
+                      style={{ position: 'absolute', top: picker?.rect.top ?? 0, left: picker?.rect.left ?? 0, width: picker?.rect.width ?? 0, height: picker?.rect.height ?? 0 }}
                     />
-                  </TokenColors.Provider>
-                )}
-                {panel === 'page' && <PagePanel doc={doc} />}
-                {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
-                {panel === 'structure' && (
-                  <div className="stack">
-                    {structurePanel}
-                    <button
-                      className="btn"
-                      style={{ justifySelf: 'start' }}
-                      onClick={() => setPicker({ index: blocksRef.current.length, rect: { top: 80, left: 80, width: 1, height: 1 } })}
+                  </RPopover.Anchor>
+                  <RPopover.Portal>
+                    <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
+                      {picker && (
+                        <BlockPicker
+                          sections={sections}
+                          saved={savedSections}
+                          onPick={(type, props) => void insertBlock(type, picker.index, props)}
+                          onPickSaved={(sid) => void insertSaved(sid, picker.index)}
+                        />
+                      )}
+                    </RPopover.Content>
+                  </RPopover.Portal>
+                </RPopover.Root>
+                <AnimatePresence>
+                  {hint && ready && (
+                    <motion.div
+                      className="hint"
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        bottom: 20,
+                        translateX: '-50%',
+                        pointerEvents: 'auto',
+                        boxShadow: 'var(--shadow-3)',
+                        background: 'var(--panel)',
+                        maxWidth: 'calc(100% - 2rem)',
+                      }}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
                     >
-                      <Icon name="plus" size="s" /> {t('Block am Ende hinzufügen')}
-                    </button>
-                  </div>
-                )}
-                {(panel === 'header' || panel === 'footer') && (
-                  <GlobalPanel which={panel} contrast={contrast.filter((i) => i.global === panel)} onSaved={() => void renderAll().catch(() => {})} />
-                )}
-                {panel === 'comments' && (
-                  <CommentsPanel
-                    entryId={id}
-                    data={comments}
-                    blocks={doc.data.blocks ?? []}
-                    selectedBlock={selected}
-                    focus={focusComment}
-                    onSelectBlock={(bid) => selectBlock(bid)}
-                  />
-                )}
+                      <svg className="hint-anim" viewBox="0 0 36 36" aria-hidden="true">
+                        <rect x="4" y="12" width="28" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <motion.rect
+                          x="8"
+                          y="16"
+                          width="1.6"
+                          height="4"
+                          fill="currentColor"
+                          animate={{ opacity: [1, 0, 1], x: [8, 8, 22] }}
+                          transition={{ duration: 2.4, repeat: Infinity }}
+                        />
+                      </svg>
+                      <span>{t('Klick in einen Text und schreib los. Mit «+» zwischen zwei Abschnitten fügst du neue hinzu.')}</span>
+                      <button className="btn s ghost" onClick={dismissHint}>
+                        {t('Verstanden')}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
+            </motion.div>
+          </div>
+
+          <AnimatePresence>
+            {panel && doc.data && (
+              <motion.aside
+                className="side-panel"
+                aria-label={panelTitle(panel)}
+                initial={narrow ? { y: '100%' } : { x: 24, opacity: 0 }}
+                animate={narrow ? { y: 0 } : { x: 0, opacity: 1 }}
+                exit={narrow ? { y: '100%' } : { x: 24, opacity: 0, transition: { duration: 0.12 } }}
+                transition={{ type: 'spring', stiffness: 520, damping: 44 }}
+              >
+                <header>
+                  <h2>
+                    {panel === 'inspector' && selectedElInfo
+                      ? elLabel(selectedElInfo.el)
+                      : panel === 'inspector' && selectedBlock
+                        ? tl(BLOCK_MAP[selectedBlock.type]?.label)
+                        : panelTitle(panel)}
+                  </h2>
+                  <button className="btn ghost icon-only s" onClick={() => setPanel(null)} aria-label={t('Schliessen')}>
+                    <Icon name="x" />
+                  </button>
+                </header>
+                <div className="side-body">
+                  <SavedStyles.Provider value={savedStyles}>
+                    {panel === 'inspector' && selectedBlock && selectedElInfo && (
+                      <TokenColors.Provider value={tokenColors}>
+                        <ContrastNow.Provider value={contrastHere}>
+                          <ElementInspector
+                            key={selectedElInfo.el.id}
+                            el={selectedElInfo.el}
+                            onChange={(el) => changeElement(selectedBlock.id, el)}
+                            blockEls={elsOf(selectedBlock)}
+                            device={device}
+                            onDevice={chooseDevice}
+                            designState={designState}
+                            onDesignState={setDesignState}
+                            onPlay={() => postToCanvas(frame.current, { t: 'motion-play-el', el: selectedElInfo.el.id })}
+                            pro={session.pro}
+                            collections={collections}
+                            source={listSource}
+                            bindSource={listSource ?? ownType}
+                            archiveFor={archiveFor}
+                            onSiteSaved={() => void renderAll().catch(() => {})}
+                            onSelect={selectElement}
+                            locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
+                            onOpenComponent={openComponent}
+                            onDetach={(master) => detachComponent(selectedBlock.id, selectedElInfo.el.id, master)}
+                            variants={doc.collection?.id === 'sections' && docData.kind === 'component' ? variantControls(selectedBlock, selectedElInfo.el) : undefined}
+                          />
+                        </ContrastNow.Provider>
+                      </TokenColors.Provider>
+                    )}
+                    {panel === 'inspector' && selectedBlock && !selectedElInfo && (
+                      <TokenColors.Provider value={tokenColors}>
+                        <ContrastNow.Provider value={contrastHere}>
+                          <Inspector
+                            key={selectedBlock.id}
+                            block={selectedBlock}
+                            onChange={changeBlock}
+                            device={device}
+                            onDevice={chooseDevice}
+                            designState={designState}
+                            onDesignState={setDesignState}
+                            onPlay={() => postToCanvas(frame.current, { t: 'motion-play', id: selectedBlock.id })}
+                            source={templateFor ?? ownType}
+                          />
+                        </ContrastNow.Provider>
+                      </TokenColors.Provider>
+                    )}
+                  </SavedStyles.Provider>
+                  {panel === 'inspector' && !selectedBlock && <p className="small muted">{t('Wähl auf der Seite einen Block aus.')}</p>}
+                  {panel === 'seo' && <SeoPanel doc={doc} onTarget={onSeoTarget} />}
+                  {panel === 'contrast' && <ContrastPanel issues={contrast} onGo={goToIssue} onFix={fixIssue} />}
+                  {panel === 'colors' && (
+                    <TokenColors.Provider value={tokenColors}>
+                      <ColorsPanel
+                        blocks={doc.data.blocks ?? []}
+                        locked={studio ? (doc.data.blocks ?? []).filter((b) => (b.lock ?? 'none') !== 'none').length : 0}
+                        onReplace={(from, to) => {
+                          reorderAll(replaceColor(blocksRef.current, from, to, studio ? (b) => (b.lock ?? 'none') !== 'none' : undefined));
+                          toast(t('Farbe ersetzt.'));
+                        }}
+                      />
+                    </TokenColors.Provider>
+                  )}
+                  {panel === 'page' && <PagePanel doc={doc} />}
+                  {panel === 'history' && <HistoryPanel doc={doc} onRestored={() => void renderAll().catch(() => setCanvasKey((k) => k + 1))} />}
+                  {panel === 'structure' && (
+                    <div className="stack">
+                      {structurePanel}
+                      <button
+                        className="btn"
+                        style={{ justifySelf: 'start' }}
+                        onClick={() => setPicker({ index: blocksRef.current.length, rect: { top: 80, left: 80, width: 1, height: 1 } })}
+                      >
+                        <Icon name="plus" size="s" /> {t('Block am Ende hinzufügen')}
+                      </button>
+                    </div>
+                  )}
+                  {(panel === 'header' || panel === 'footer') && (
+                    <GlobalPanel which={panel} contrast={contrast.filter((i) => i.global === panel)} onSaved={() => void renderAll().catch(() => {})} />
+                  )}
+                  {panel === 'comments' && (
+                    <CommentsPanel
+                      entryId={id}
+                      data={comments}
+                      blocks={doc.data.blocks ?? []}
+                      selectedBlock={selected}
+                      focus={focusComment}
+                      onSelectBlock={(bid) => selectBlock(bid)}
+                    />
+                  )}
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </PageAnchorsContext.Provider>
   );
 }

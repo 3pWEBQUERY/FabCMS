@@ -1,13 +1,15 @@
-import { useEffect, useState, type InputHTMLAttributes } from 'react';
+import { createContext, useContext, useEffect, useState, type InputHTMLAttributes } from 'react';
 import { api } from '../lib/api';
 import { entryUrl } from '../lib/actions';
-import { t } from '../lib/i18n';
+import { t, tl } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { SuggestInput } from './kit';
 import { useToast } from './toast';
 import { pageForLink } from '../../shared/paths';
+import { pageAnchors, type PageAnchor } from '../../shared/anchors';
+import type { Block } from '../../shared/types';
 
-type PageLink = { value: string; label: string };
+type PageLink = { value: string; label: string; id?: string };
 
 // One list of the site's pages for every link field on screen, fetched again after half a minute or a new page.
 let cache: { at: number; list: Promise<PageLink[]> } | null = null;
@@ -18,11 +20,49 @@ function pageLinks(): Promise<PageLink[]> {
     cache = {
       at: Date.now(),
       list: api
-        .get<{ entries: { slug: string; title: string }[] }>('/api/entries?collection=pages&limit=300')
-        .then((r) => r.entries.map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title })))
+        .get<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=300')
+        .then((r) => r.entries.map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title, id: p.id })))
         .catch(() => []),
     };
   return cache.list;
+}
+
+/** The «Sprungmarken» of the page being edited – the editor provides them, link fields suggest them as #… */
+export const PageAnchorsContext = createContext<PageAnchor[]>([]);
+
+// Another page's «Sprungmarken», fetched once its address is typed with a «#».
+const anchorCache = new Map<string, Promise<PageAnchor[]>>();
+const anchorsOf = (id: string) => {
+  if (!anchorCache.has(id))
+    anchorCache.set(
+      id,
+      api
+        .get<{ entry: { data: { blocks?: Block[] } } }>(`/api/entries/${id}`)
+        .then((r) => pageAnchors(r.entry.data.blocks ?? []))
+        .catch(() => []),
+    );
+  return anchorCache.get(id)!;
+};
+
+/** «Sprungmarken» as link suggestions: this page's as #…, another page's once its address is typed with a «#». */
+function useAnchorLinks(value: string, pages: PageLink[]): PageLink[] {
+  const here = useContext(PageAnchorsContext);
+  const path = /^(\/[^#?\s]*)#/.exec(value.trim())?.[1];
+  const other = path ? pages.find((p) => p.value === path) : undefined;
+  const [there, setThere] = useState<{ id: string; list: PageAnchor[] } | null>(null);
+  useEffect(() => {
+    if (!other?.id) return;
+    let alive = true;
+    void anchorsOf(other.id).then((list) => alive && setThere({ id: other.id!, list }));
+    return () => {
+      alive = false;
+    };
+  }, [other?.id]);
+  const label = (a: PageAnchor) => t('Sprungmarke · {name}', { name: tl(a.label) });
+  return [
+    ...here.map((a) => ({ value: `#${a.anchor}`, label: label(a) })),
+    ...(other && there && there.id === other.id ? there.list.map((a) => ({ value: `${other.value}#${a.anchor}`, label: `${other.label} · ${label(a)}` })) : []),
+  ];
 }
 
 /** The site's pages as link suggestions. */
@@ -52,6 +92,7 @@ export function PageLinkInput({
   ...rest
 }: { value: string; onChange: (v: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'>) {
   const pages = usePageLinks();
+  const anchors = useAnchorLinks(value, pages);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const want = pageForLink(value);
@@ -79,7 +120,7 @@ export function PageLinkInput({
       {...rest}
       value={value}
       onChange={onChange}
-      suggestions={pages}
+      suggestions={value.includes('#') ? [...anchors, ...pages] : [...pages, ...anchors]}
       aria-busy={busy || undefined}
       extra={want && !taken ? { label: t('Neue Seite «{name}» anlegen', { name: want.title }), icon: 'plus', run: () => void create() } : undefined}
     />

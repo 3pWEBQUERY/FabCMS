@@ -1118,11 +1118,12 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   Leuchtstift: { fr: 'Surligneur', it: 'Evidenziatore', en: 'Highlighter' },
   Durchgestrichen: { fr: 'Barré', it: 'Barrato', en: 'Struck through' },
   'Wörter in der Akzentfarbe': { fr: 'Mots dans la couleur d’accent', it: 'Parole nel colore d’accento', en: 'Words in the accent colour' },
-  'Diese Sprungmarke trägt schon ein anderes Element in diesem Bereich – wähl eine andere.': {
-    fr: 'Un autre élément de cette section porte déjà cette ancre – choisis-en une autre.',
-    it: 'Un altro elemento di questa sezione ha già questa ancora – scegline un’altra.',
-    en: 'Another element in this section already has this anchor – pick a different one.',
+  'Diese Sprungmarke gibt es auf der Seite schon – wähl eine andere.': {
+    fr: 'Cette ancre existe déjà sur la page – choisis-en une autre.',
+    it: 'Questa ancora esiste già nella pagina – scegline un’altra.',
+    en: 'This anchor already exists on the page – pick a different one.',
   },
+  'Sprungmarke · {name}': { fr: 'Ancre · {name}', it: 'Ancora · {name}', en: 'Anchor · {name}' },
   'Verlinke mit «#{anchor}» auf dieser Seite, von anderen Seiten mit der Seitenadresse davor.': {
     fr: 'Crée un lien avec «#{anchor}» sur cette page, depuis d’autres pages avec l’adresse de la page devant.',
     it: 'Collega con «#{anchor}» in questa pagina, da altre pagine con l’indirizzo della pagina davanti.',

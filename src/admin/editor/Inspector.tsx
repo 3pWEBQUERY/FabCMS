@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useSavedStyle } from './design/SavedStyles';
 import { BLOCK_MAP } from '../../shared/blocks';
 import type { Block, BlockLock, BlockStyle, Breakpoint, CollectionDef } from '../../shared/types';
@@ -14,6 +14,8 @@ import { DividerControls } from './design/DividerControls';
 import { ConditionControls } from './elements/Conditions';
 import { MotionPanel } from './design/MotionPanel';
 import { hasMotion } from '../../shared/motion';
+import { slugify } from '../../shared/text';
+import { PageAnchorsContext } from '../ui/PageLinkInput';
 
 const tones = (): { value: NonNullable<BlockStyle['tone']>; label: string }[] => [
   { value: 'default', label: t('Normal') },
@@ -52,6 +54,7 @@ export function Inspector({
   const { pro } = useSession();
   const def = BLOCK_MAP[block.type];
   const [tab, setTab] = useState<'content' | 'style' | 'motion' | 'code'>('content');
+  const anchors = useContext(PageAnchorsContext);
   const lock = pro ? 'none' : (block.lock ?? 'none');
   useEffect(() => {
     if (!pro && tab === 'code') setTab('content');
@@ -171,7 +174,15 @@ export function Inspector({
                   })}
                 </div>
               </Field>
-              <Field label={t('Sprungmarke')} help={t('Damit Links wie /#preise direkt hierher springen.')}>
+              <Field
+                label={t('Sprungmarke')}
+                help={t('Damit Links wie /#preise direkt hierher springen.')}
+                error={
+                  anchors.some((a) => style.anchor && a.anchor === slugify(style.anchor) && a.owner !== block.id)
+                    ? t('Diese Sprungmarke gibt es auf der Seite schon – wähl eine andere.')
+                    : null
+                }
+              >
                 <div className="input-affix">
                   <span>#</span>
                   <input className="input" value={style.anchor ?? ''} onChange={(e) => setStyle({ anchor: e.target.value })} placeholder={t('preise')} />

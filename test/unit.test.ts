@@ -36,6 +36,7 @@ import { applyData, toData, changedBlocks } from '../src/shared/collab-doc';
 import { ADMIN_DICT } from '../src/admin/i18n/all';
 import { dragSource, NEW_BLOCK, NEW_EL } from '../src/admin/editor/dragNew';
 import { RECENT_MAX, withRecent } from '../src/admin/editor/elements/recentEls';
+import { pageAnchors } from '../src/shared/anchors';
 import { tr } from '../src/site/i18n';
 import { mergeTranslation, translatableData } from '../src/shared/i18n';
 import { compactHours as compactHoursL } from '../src/shared/hours';
@@ -2154,6 +2155,31 @@ describe('Sprungmarken für Elemente', () => {
     expect(elDomId(els[1])).toBe('e-b');
     // A copy can't share it.
     expect(cloneEl(els[0]).anchor).toBeUndefined();
+  });
+});
+
+describe('Sprungmarken einer Seite', () => {
+  it('lists blocks and elements in page order, with what they are', () => {
+    const list = pageAnchors([
+      { id: 'b1', type: 'text', props: { heading: 'Preise' }, style: { anchor: 'preise' } },
+      { id: 'b2', type: 'text', props: {} },
+      {
+        id: 'b3',
+        type: 'layout',
+        props: {
+          els: [
+            { id: 'h', kind: 'heading', props: { text: 'Unser Team' }, anchor: 'team' },
+            { id: 'x', kind: 'box', props: {}, name: 'Kontaktbox', anchor: 'Kontakt', children: [{ id: 'i', kind: 'image', props: {}, anchor: 'bild' }] },
+          ],
+        },
+      },
+    ]);
+    expect(list).toEqual([
+      { anchor: 'preise', label: 'Preise', owner: 'b1' },
+      { anchor: 'team', label: 'Unser Team', owner: 'h' },
+      { anchor: 'kontakt', label: 'Kontaktbox', owner: 'x' },
+      { anchor: 'bild', label: 'Bild', owner: 'i' },
+    ]);
   });
 });
 
