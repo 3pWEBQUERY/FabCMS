@@ -459,6 +459,9 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
           { value: 'component', label: 'Komponente – ein Element im freien Layout' },
           { value: 'template', label: 'Seitenvorlage – so sehen alle Einträge eines Inhaltstyps aus' },
           { value: 'popup', label: 'Pop-up – erscheint über der Seite, z. B. für Newsletter oder Aktionen' },
+          { value: 'header', label: 'Kopfzeile – ersetzt die des Themes auf allen Seiten' },
+          { value: 'footer', label: 'Fusszeile – ersetzt die des Themes auf allen Seiten' },
+          { value: 'archive', label: 'Archiv-Vorlage – so sieht die Übersicht eines Inhaltstyps aus' },
         ],
         default: 'section',
         help: 'Komponenten setzt du im freien Layout ein; Texte und Bilder lassen sich pro Stelle anpassen.',
@@ -468,7 +471,7 @@ export const BUILTIN_COLLECTIONS: CollectionDef[] = [
         type: 'text',
         label: 'Für Inhaltstyp',
         help: 'Die Kennung, z. B. «posts». Pro Inhaltstyp gilt die zuletzt geänderte Vorlage.',
-        showIf: { field: 'kind', equals: ['template'] },
+        showIf: { field: 'kind', equals: ['template', 'archive'] },
       },
       {
         key: 'popup_position',

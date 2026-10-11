@@ -25,6 +25,10 @@ export const EL_KINDS = [
   'spacer',
   'divider',
   'form',
+  'logo',
+  'menu',
+  'hours',
+  'terms',
   'counter',
   'accordion',
   'tabs',
@@ -44,9 +48,9 @@ export const CONTAINERS: readonly ElKind[] = ['box', 'list', 'accordion', 'tabs'
 export const ITEM_CONTAINERS: readonly ElKind[] = ['accordion', 'tabs', 'slider', 'marquee'];
 export const isContainer = (kind: ElKind) => CONTAINERS.includes(kind);
 /** Where the picker shows a kind. */
-export const EL_GROUPS = ['basic', 'media', 'interactive', 'cms'] as const;
+export const EL_GROUPS = ['basic', 'media', 'interactive', 'cms', 'site'] as const;
 export type ElGroup = (typeof EL_GROUPS)[number];
-export const EL_GROUP_LABELS: Record<ElGroup, string> = { basic: 'Grundlagen', media: 'Medien', interactive: 'Interaktiv', cms: 'Aus dem CMS' };
+export const EL_GROUP_LABELS: Record<ElGroup, string> = { basic: 'Grundlagen', media: 'Medien', interactive: 'Interaktiv', cms: 'Aus dem CMS', site: 'Website' };
 
 export interface El {
   id: string;
@@ -92,7 +96,7 @@ export interface Variant {
 
 /** What each kind can take from an entry. */
 export const BINDABLE: Partial<Record<ElKind, string[]>> = { heading: ['text'], text: ['html'], image: ['image', 'href'], button: ['label', 'href'], box: ['href'] };
-const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:name|tagline|phone|phone-link|email|email-link|address|hours|year|copyright|home|logo))$/;
+const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:name|tagline|page|phone|phone-link|email|email-link|address|hours|year|copyright|home|logo))$/;
 
 /**
  * Dynamic data from the website itself, for any element anywhere – in a
@@ -100,6 +104,7 @@ const BIND = /^(?:title|url|date|author|readtime|field:[a-z][\w]{0,40}|site:(?:n
  */
 export const SITE_BINDS: Record<'text' | 'href' | 'image', [string, string][]> = {
   text: [
+    ['site:page', 'Titel dieser Seite oder Übersicht'],
     ['site:name', 'Name der Website'],
     ['site:tagline', 'Untertitel der Website'],
     ['site:phone', 'Telefon'],
@@ -281,6 +286,69 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     fields: [{ key: 'form', type: 'form', label: 'Welches Formular?' }],
     defaults: { form: '' },
   },
+  logo: {
+    kind: 'logo',
+    group: 'site',
+    label: 'Logo',
+    description: 'Das Logo der Website – oder ihr Name, solange es keines gibt – mit Link zur Startseite.',
+    icon: 'home',
+    fields: [
+      {
+        key: 'show',
+        type: 'select',
+        label: 'Zeigen',
+        options: [
+          { value: 'auto', label: 'Logo, sonst den Namen' },
+          { value: 'name', label: 'Immer den Namen' },
+        ],
+        default: 'auto',
+      },
+    ],
+    defaults: { show: 'auto' },
+  },
+  menu: {
+    kind: 'menu',
+    group: 'site',
+    label: 'Menü',
+    description:
+      'Ein Menü der Website: das Hauptmenü mit Handy-Menü, die Spalten der Fusszeile, die rechtlichen Seiten oder die Social-Links. Gepflegt unter Einstellungen → Navigation.',
+    icon: 'nav',
+    fields: [
+      {
+        key: 'source',
+        type: 'select',
+        label: 'Welches',
+        options: [
+          { value: 'main', label: 'Hauptmenü' },
+          { value: 'footer', label: 'Spalten der Fusszeile' },
+          { value: 'legal', label: 'Impressum, Datenschutz, AGB' },
+          { value: 'social', label: 'Social Media' },
+        ],
+        default: 'main',
+      },
+      { key: 'burger', type: 'boolean', label: 'Auf schmalen Bildschirmen als Menü-Knopf', showIf: { field: 'source', equals: ['main'] } },
+      { key: 'extras', type: 'boolean', label: 'Warenkorb, Konto und Sprachen dazu', help: 'Je nachdem, was die Website hat.', showIf: { field: 'source', equals: ['main'] } },
+    ],
+    defaults: { source: 'main', burger: true, extras: true },
+  },
+  hours: {
+    kind: 'hours',
+    group: 'site',
+    label: 'Öffnungszeiten',
+    description: 'Die Öffnungszeiten aus den Einstellungen, kurz zusammengefasst.',
+    icon: 'clock',
+    fields: [{ key: 'status', type: 'boolean', label: 'Darüber: jetzt geöffnet oder geschlossen' }],
+    defaults: { status: true },
+  },
+  terms: {
+    kind: 'terms',
+    group: 'cms',
+    label: 'Kategorien-Filter',
+    description: 'Die Kategorien eines Inhaltstyps als Links zu seiner Übersicht – in einer Archiv-Vorlage ist die gewählte markiert.',
+    icon: 'tag',
+    fields: [{ key: 'collection', type: 'select', label: 'Inhaltstyp', options: [], help: 'In einer Archiv-Vorlage: leer = der Inhaltstyp der Übersicht.' }],
+    defaults: { collection: '' },
+  },
   spacer: {
     kind: 'spacer',
     group: 'basic',
@@ -460,6 +528,12 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     description: 'Holt Einträge aus dem CMS nach deinen Regeln – Filter, Reihenfolge, Blättern – und zeigt jeden im Design des ersten.',
     icon: 'database',
     fields: [
+      {
+        key: 'archive',
+        type: 'boolean',
+        label: 'Dieses Archiv zeigen',
+        help: 'In einer Archiv-Vorlage: Inhaltstyp, Kategorie, Schlagwort und Seite kommen aus der Adresse der Übersicht.',
+      },
       // The choices of content types and fields are filled in by the editor.
       { key: 'collection', type: 'select', label: 'Inhaltstyp', options: [] },
       { key: 'limit', type: 'number', label: 'Wie viele', min: 1, max: 48, width: 'half' },
@@ -866,6 +940,14 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
       return { size: one(p.size, SPACER_SIZES, 'm') };
     case 'divider':
       return {};
+    case 'logo':
+      return { show: one(p.show, ['auto', 'name'] as const, 'auto') };
+    case 'menu':
+      return { source: one(p.source, ['main', 'footer', 'legal', 'social'] as const, 'main'), burger: p.burger !== false, extras: p.extras !== false };
+    case 'hours':
+      return { status: p.status !== false };
+    case 'terms':
+      return { collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : '' };
     case 'form':
       return { form: typeof p.form === 'string' && /^[\w-]{1,64}$/.test(p.form) ? p.form : '' };
     case 'counter': {
@@ -1066,6 +1148,72 @@ export const popupStarter = (): El[] => [
     { desktop: { gap: '$s-4', align: 'center', textAlign: 'center' } },
   ),
 ];
+
+/** A header of one's own: logo on the left, main menu on the right. */
+export const headerStarter = (): El[] => [
+  box(
+    [createEl('logo'), createEl('menu', { source: 'main' })],
+    { desktop: { ...row('$s-6'), justify: 'between', minHeight: '4.25rem', pt: '$s-3', pb: '$s-3' } },
+    {},
+    { name: 'Kopfzeile' },
+  ),
+];
+
+/** A footer of one's own: name, address and opening hours, the footer columns, then copyright and legal links. */
+export const footerStarter = (): El[] => {
+  const small: StyleProps = { fontSize: '$step-n1', color: '$ink-2' };
+  return [
+    box(
+      [
+        box(
+          [
+            createEl('heading', { text: 'Name der Website', level: '3' }, { bind: { text: 'site:name' } }),
+            createEl('text', { html: '<p>Adresse</p>' }, { bind: { html: 'site:address' }, design: { desktop: small } }),
+            createEl('hours'),
+          ],
+          { desktop: { gap: '$s-3', grow: 1 } },
+        ),
+        createEl('menu', { source: 'footer' }, { design: { desktop: { grow: 2 } } }),
+      ],
+      { desktop: { ...row('$s-7'), align: 'start' }, mobile: stackOnPhone },
+      {},
+      { name: 'Oben' },
+    ),
+    createEl('divider'),
+    box(
+      [createEl('text', { html: '<p>© Jahr Name</p>' }, { bind: { html: 'site:copyright' } }), createEl('menu', { source: 'legal' })],
+      { desktop: { ...row('$s-5'), justify: 'between', wrap: true, ...small }, mobile: stackOnPhone },
+      {},
+      { name: 'Unten' },
+    ),
+  ];
+};
+
+/** An overview of a content type: its title with the chosen filter, the category links, then its entries in pages. */
+export function archiveStarter(c: CollectionDef): El[] {
+  const pic = c.fields.find((f) => f.type === 'image') ?? c.fields.find((f) => f.type === 'images');
+  const lead = c.fields.find((f) => ['excerpt', 'intro', 'summary', 'teaser'].includes(f.key) && ['text', 'textarea', 'richtext'].includes(f.type));
+  const card = box(
+    [
+      ...(pic ? [createEl('image', {}, { bind: { image: `field:${pic.key}` }, design: { desktop: { aspect: '3/2', radius: '$s-3' } } })] : []),
+      createEl('heading', { text: 'Titel des Eintrags', level: '2' }, { bind: { text: 'title' }, design: { desktop: { fontSize: '$step-2' } } }),
+      ...(lead ? [createEl('text', { html: '<p>Kurzfassung des Eintrags.</p>' }, { bind: { html: `field:${lead.key}` } })] : []),
+    ],
+    { desktop: { gap: '$s-3' } },
+    {},
+    { name: 'Eintrag', ...(c.route ? { bind: { href: 'url' } } : {}) },
+  );
+  const categories = c.fields.some((f) => f.key === 'category');
+  return [
+    createEl('heading', { text: 'Titel der Übersicht', level: '1' }, { bind: { text: 'site:page' } }),
+    ...(categories ? [createEl('terms')] : []),
+    createEl(
+      'list',
+      { archive: true, collection: c.id, limit: 9, paginate: true },
+      { children: [card], design: { desktop: { display: 'grid', columns: 3, gap: '$s-6' }, tablet: { columns: 2 }, mobile: { columns: 1 } } },
+    ),
+  ];
+}
 
 export const LAYOUT_PRESETS: LayoutPreset[] = [
   {

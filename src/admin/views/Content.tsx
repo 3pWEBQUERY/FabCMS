@@ -16,7 +16,7 @@ import { LangBadges } from '../ui/LangSwitch';
 import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { formatPrice, shortId } from '../../shared/text';
-import { popupStarter, templateStarter } from '../../shared/elements';
+import { archiveStarter, popupStarter, templateStarter } from '../../shared/elements';
 import type { CollectionDef, EntryStatus } from '../../shared/types';
 import type { FieldDef } from '../../shared/fields';
 
@@ -277,6 +277,26 @@ export function CollectionList({ collection }: { collection: string }) {
       toast((e as Error).message, { kind: 'bad' });
     }
   };
+  /** The overview of this type, designed in the free layout: opens the one there is, or starts one. */
+  const openArchive = async () => {
+    try {
+      const list = await api.get<{ entries: { id: string; fields?: { kind?: string; template_for?: string } }[] }>('/api/entries?collection=sections&limit=500');
+      const found = list.entries.find((x) => x.fields?.kind === 'archive' && x.fields.template_for === collection);
+      if (found) return navigate(entryUrl('sections', found.id));
+      const r = await api.post<{ entry: { id: string } }>('/api/entries', {
+        collection: 'sections',
+        data: {
+          title: t('Übersicht von {name}', { name: tl(col.name) }),
+          kind: 'archive',
+          template_for: collection,
+          blocks: [{ id: shortId(8), type: 'layout', props: { width: 'content', els: archiveStarter(col) }, style: {} }],
+        },
+      });
+      navigate(entryUrl('sections', r.entry.id));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
   const createPopup = async () => {
     try {
       const r = await api.post<{ entry: { id: string } }>('/api/entries', {
@@ -314,6 +334,11 @@ export function CollectionList({ collection }: { collection: string }) {
             {col.route && can('content.edit') && (
               <button className="btn" onClick={() => void openTemplate()} title={t('So sehen die Seiten aller Einträge aus – frei gestaltet, mit ihren Feldern verbunden.')}>
                 <Icon name="layout" size="s" /> {t('Seitenvorlage')}
+              </button>
+            )}
+            {col.list_route && collection !== 'dishes' && can('content.edit') && (
+              <button className="btn" onClick={() => void openArchive()} title={t('So sieht die Übersicht aller Einträge aus – mit Kategorien-Filter und Blättern.')}>
+                <Icon name="grid" size="s" /> {t('Archiv-Vorlage')}
               </button>
             )}
             {collection === 'sections' && can('content.edit') && (

@@ -36,6 +36,7 @@ export function ElementInspector({
   variants,
   blockEls,
   bindSource,
+  archiveFor,
 }: {
   el: El;
   onChange: (el: El) => void;
@@ -61,10 +62,15 @@ export function ElementInspector({
   blockEls: El[];
   /** Whose fields elements can show: the loop's or template's content type, or the entry being edited. */
   bindSource: CollectionDef | null;
+  /** In an archive template: the content type it is the overview of. */
+  archiveFor?: CollectionDef | null;
 }) {
   const def = EL_DEFS[el.kind];
   // Containers are mostly about arrangement: they open on Design.
   const [tab, setTab] = useState<'content' | 'style' | 'motion'>(el.kind !== 'component' && el.kind !== 'shape' && (el.kind === 'box' || !def.fields.length) ? 'style' : 'content');
+  // «Dieses Archiv» takes the content type from the overview.
+  const archiveLoop = el.kind === 'list' && el.props.archive === true && Boolean(archiveFor);
+  const loopType = archiveLoop ? archiveFor! : collections.find((c) => c.id === el.props.collection);
   const saved = useSavedStyle({ use: el.use, own: el.design, onOwn: (design) => onChange({ ...el, design }), onStyle: (use, design) => onChange({ ...el, use, design }) });
   return (
     <div className="stack">
@@ -111,18 +117,26 @@ export function ElementInspector({
           <FieldList
             fields={
               el.kind === 'list'
-                ? loopFields(
-                    def.fields,
-                    collections,
-                    collections.find((c) => c.id === el.props.collection),
-                  )
-                : def.fields
+                ? loopFields(def.fields, collections, loopType, { archive: archiveLoop, offered: Boolean(archiveFor) || el.props.archive === true })
+                : el.kind === 'terms'
+                  ? def.fields.map((f) =>
+                      f.key === 'collection'
+                        ? {
+                            ...f,
+                            options: [
+                              { value: '', label: archiveFor ? t('Der dieser Übersicht ({name})', { name: tl(archiveFor.name) }) : t('Bitte wählen') },
+                              ...collections.filter((c) => c.list_route && c.fields.some((x) => x.key === 'category')).map((c) => ({ value: c.id, label: tl(c.name) })),
+                            ],
+                          }
+                        : f,
+                    )
+                  : def.fields
             }
             values={el.props}
             skip={Object.keys(el.bind ?? {})}
             onChange={(k, v) => onChange({ ...el, props: { ...el.props, [k]: v } })}
           />
-          {el.kind === 'list' && <LoopRules el={el} collection={collections.find((c) => c.id === el.props.collection)} onChange={onChange} />}
+          {el.kind === 'list' && <LoopRules el={el} collection={loopType} onChange={onChange} />}
           {el.kind === 'image' && !el.bind?.image && <ImageFocus el={el} onChange={onChange} />}
           {ITEM_CONTAINERS.includes(el.kind) && <ItemsEditor el={el} onChange={onChange} onSelect={onSelect} locked={locked} />}
           {el.kind === 'list' && (

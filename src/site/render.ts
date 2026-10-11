@@ -3,9 +3,9 @@ import { html, raw, cx, esc, type Html, hx } from './html';
 import type { RenderContext, Crumb } from './context';
 import { mediaLoader } from './context';
 import { mobileNav, themeCss, resolveTheme } from './themes';
-import { ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
+import { langSwitch, navList, ownBlocks, renderBlocks, postTeasers, productCards, starsMeter, projectCards, profileCards, renderMenu, hoursSummary } from './blocks';
 import { picture, variantUrl, originalUrl } from './picture';
-import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
+import { publishedEntries, categoriesOf, approvedComments, approvedReviews, relatedProducts, entryTemplate, archiveTemplate, globalSection, legalPages, expandComponents, sampleEntry, livePopups, type PublicEntry } from './data';
 import { abGroups, popupConf, popupOnPath, runningPopups } from '../shared/popups';
 import { starText, summarize, type Review } from '../shared/reviews';
 import {
@@ -25,7 +25,7 @@ import { entryPath } from '../shared/paths';
 import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { DAYS } from '../shared/hours';
-import type { CollectionDef, EntryData, NavItem, SiteSettings } from '../shared/types';
+import type { Block, CollectionDef, EntryData, SiteSettings } from '../shared/types';
 import type { FieldDef } from '../shared/fields';
 import { siteIconSvg } from '../shared/icon-set';
 import { sql } from '../server/db';
@@ -37,7 +37,7 @@ import { eventCards, eventTemplate, upcoming } from './events';
 import { propertyList, propertyTemplate } from './realestate';
 import { entryAccess, mayRead, type Access } from '../shared/members';
 import { pwTag } from '../server/page-password';
-import { defaultLang, langInfo, localizeSettings, type Lang } from '../shared/i18n';
+import { defaultLang, localizeSettings, type Lang } from '../shared/i18n';
 import { localized } from '../server/translations';
 import { t, L } from './i18n';
 
@@ -93,33 +93,23 @@ export function createContext(input: {
   };
 }
 
-/** Language links: absolute, so the link rewriting for /fr/ leaves them alone. */
-function langSwitch(ctx: RenderContext): Html {
-  if (ctx.alternates.length < 2) return html``;
-  return html`<ul class="lang-switch" aria-label="${t(ctx, 'Sprache')}">${ctx.alternates.map(
-    (a) =>
-      html`<li><a href="${ctx.base}${a.path}" hreflang="${a.lang}" lang="${a.lang}"${a.lang === ctx.lang ? raw(' aria-current="true"') : ''} title="${langInfo(a.lang).native}">${a.lang.toUpperCase()}</a></li>`,
-  )}</ul>`;
-}
-
 /* ---------- Header & footer ---------- */
 
-function isActive(ctx: RenderContext, href: string) {
-  if (href === '/') return ctx.path === '/';
-  return ctx.path === href || ctx.path.startsWith(href + '/');
-}
+/** The kind of section the editor shows as the page (a header or footer designed on its own). */
+const editedPart = (ctx: RenderContext) => (ctx.current?.collection === 'sections' ? ctx.current.data.kind : null);
 
-function navList(ctx: RenderContext, items: NavItem[]): Html {
-  return html`<ul>${items.map(
-    (i) =>
-      html`<li><a href="${i.href}"${isActive(ctx, i.href) ? raw(' aria-current="page"') : ''}>${i.label}</a>${
-        i.children?.length ? html`<div class="sub">${i.children.map((c) => html`<a href="${c.href}">${c.label}</a>`)}</div>` : ''
-      }</li>`,
-  )}</ul>`;
+/** A header or footer designed in the free layout: its blocks as on any page, but never the page's main heading or numbers. */
+async function ownPart(ctx: RenderContext, blocks: Block[]): Promise<Html> {
+  const sub: RenderContext = { ...ctx, edit: false, h1: true, blockIndex: 1, depth: 0, jsonLd: [], theme: { ...ctx.theme, numbered: false } };
+  return renderBlocks(blocks, sub);
 }
 
 async function header(ctx: RenderContext): Promise<Html> {
   const s = ctx.settings;
+  // While one is designed, it is the page – not also above it.
+  if (editedPart(ctx) === 'header') return html``;
+  const own = await globalSection('header', ctx.preview);
+  if (own) return html`<header class="${cx('site-header custom', s.header.sticky && 'sticky')}"${ctx.edit ? raw(' data-nova-global="header"') : ''}>${await ownPart(ctx, own.blocks)}</header>`;
   const logo = await ctx.media(s.logo);
   const brand = html`<a class="brand" href="/">${
     logo ? html`<img src="${variantUrl(logo, 480, 'webp')}" alt="${s.name}" width="${logo.width ?? 160}" height="${logo.height ?? 48}">` : s.name
@@ -148,11 +138,11 @@ async function header(ctx: RenderContext): Promise<Html> {
 
 async function footer(ctx: RenderContext): Promise<Html> {
   const s = ctx.settings;
+  if (editedPart(ctx) === 'footer') return html``;
+  const own = await globalSection('footer', ctx.preview);
+  if (own) return html`<footer class="site-footer custom"${ctx.edit ? raw(' data-nova-global="footer"') : ''}>${await ownPart(ctx, own.blocks)}</footer>`;
   const b = s.business;
-  const legal = await localized(
-    (await sql`select id, slug, published_data as data from entries where collection = 'pages' and status = 'published' and slug in ('impressum', 'datenschutz', 'agb') order by slug desc`) as unknown as { id: string; slug: string; data: EntryData }[],
-    'pages',
-  );
+  const legal = await legalPages();
   const editAttr = ctx.edit ? raw(' data-nova-global="footer"') : '';
   return html`<footer class="site-footer"${editAttr}><div class="wrap"><div class="ftr"><div><p class="ftr-name">${s.name}</p>${
     s.footer.text ? html`<p>${s.footer.text}</p>` : ''
@@ -163,7 +153,7 @@ async function footer(ctx: RenderContext): Promise<Html> {
   }${s.footer.columns.map((col) => html`<div><h2>${col.title}</h2><ul>${col.links.map((l) => html`<li><a href="${l.href}">${l.label}</a></li>`)}</ul></div>`)}${
     s.social.length ? html`<div><h2>${t(ctx, 'Folgen')}</h2><ul>${s.social.map((l) => html`<li><a href="${l.href}" rel="noopener me">${l.label}</a></li>`)}</ul></div>` : ''
   }</div><div class="ftr-bottom"><span>© ${new Date().getFullYear()} ${b.legalName || s.name}</span><ul>${legal.map(
-    (l) => html`<li><a href="/${l.slug}">${l.data.title}</a></li>`,
+    (l) => html`<li><a href="/${l.slug}">${l.title}</a></li>`,
   )}${
     !ctx.edit && !ctx.preview && statsConfig(s)?.consent.length ? html`<li><button type="button" class="btn-2 ftr-consent" data-consent-open>${t(ctx, 'Statistik-Einstellungen')}</button></li>` : ''
   }</ul></div></div></footer>`;
@@ -432,6 +422,12 @@ const listCrumbs = (ctx: RenderContext, c: CollectionDef): Crumb[] =>
  * of its type, and «Inhalt des Eintrags» that entry's content.
  */
 export async function templateContext(ctx: RenderContext, data: EntryData): Promise<void> {
+  // An archive template shows its overview: «Dieses Archiv», the category filter and the page title follow it.
+  if (data.kind === 'archive' && typeof data.template_for === 'string') {
+    const c = ctx.collections.find((x) => x.id === data.template_for);
+    if (c) ctx.archive = { c, category: ctx.query.get('kategorie') ?? '', tag: ctx.query.get('schlagwort') ?? '' };
+    return;
+  }
   if (data.kind !== 'template' || typeof data.template_for !== 'string') return;
   const c = ctx.collections.find((x) => x.id === data.template_for);
   if (!c) return;
@@ -822,7 +818,17 @@ export async function renderList(ctx: RenderContext, c: CollectionDef): Promise<
   let main: Html;
   let description = '';
   ctx.h1 = true;
-  if (c.id === 'dishes') {
+  // Elements anywhere on the page (also in an own header) know which overview this is.
+  ctx.archive = { c, category, tag };
+  // An overview designed in the free layout: its loops and filters read the address (kategorie, schlagwort, seite).
+  const own = c.id !== 'dishes' && c.list_route ? await archiveTemplate(c.id, ctx.preview) : null;
+  if (own) {
+    ctx.h1 = false;
+    main = await renderBlocks(own.blocks, ctx);
+    description = category
+      ? t(ctx, '{name} von {site} – {category}.', { name: c.name, site: ctx.settings.name, category })
+      : t(ctx, '{name} von {site}.', { name: c.name, site: ctx.settings.name });
+  } else if (c.id === 'dishes') {
     main = html`<div class="wrap art-head"><h1>${c.list_route === '/karte' ? t(ctx, 'Karte') : c.name}</h1><p class="no-print"><a class="btn-2" href="/karte/druck">${t(ctx, 'Druckversion')}</a></p></div><section class="b sp-m"><div class="wrap">${((ctx.hl = 2), await renderMenu(ctx, { daily: true, allergens: true }))}</div></section>`;
     const { items } = await publishedEntries(c, { limit: 500, sortField: 'sort', sortDir: 'asc' });
     ctx.jsonLd.push(menuLd(ctx, items));

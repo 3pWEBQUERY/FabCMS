@@ -211,7 +211,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   );
   // Sections are whole blocks; components are elements of the free layout.
   const components = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind === 'component' && s.id !== id);
-  const sections = (sectionsData?.entries ?? []).filter((s) => s.fields?.kind !== 'component' && s.fields?.kind !== 'popup' && s.id !== id);
+  const sections = (sectionsData?.entries ?? []).filter((s) => !['component', 'popup', 'header', 'footer', 'archive'].includes(s.fields?.kind ?? '') && s.id !== id);
   const [componentFor, setComponentFor] = useState<{ block: string; el: string } | null>(null);
   // In a component's original: the variant being designed.
   const [variant, setVariant] = useState<string | null>(null);
@@ -229,7 +229,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   // A page template binds to its content type; inside a CMS list the list's type wins.
   const docData = (doc.data ?? {}) as Record<string, unknown>;
   const templateFor = doc.collection?.id === 'sections' && docData.kind === 'template' ? (collections.find((c) => c.id === docData.template_for) ?? null) : null;
-  const listSource = listAncestor ? (collections.find((c) => c.id === listAncestor.props.collection) ?? null) : templateFor;
+  // An archive template: its loops can show «this overview» – the content type it is the overview of.
+  const archiveFor = doc.collection?.id === 'sections' && docData.kind === 'archive' ? (collections.find((c) => c.id === docData.template_for) ?? null) : null;
+  const listSource = listAncestor
+    ? listAncestor.props.archive === true && archiveFor
+      ? archiveFor
+      : (collections.find((c) => c.id === listAncestor.props.collection) ?? null)
+    : templateFor;
   // On an entry's own page its elements can show its fields too (a post's date in its own layout).
   const ownType =
     doc.collection?.route && doc.collection.id !== 'pages' && doc.collection.id !== 'sections' ? (collections.find((c) => c.id === doc.collection!.id) ?? null) : null;
@@ -1535,6 +1541,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                           collections={collections}
                           source={listSource}
                           bindSource={listSource ?? ownType}
+                          archiveFor={archiveFor}
                           onSelect={selectElement}
                           locked={studio && (selectedBlock.lock ?? 'none') !== 'none'}
                           onOpenComponent={openComponent}

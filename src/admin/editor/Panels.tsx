@@ -12,10 +12,11 @@ import { Icon } from '../ui/icons';
 import { useToast } from '../ui/toast';
 import { analyzeSeo, fullTitle, type SeoCheck } from '../../shared/seo-analyze';
 import { blocksImages, blocksText, BLOCK_MAP } from '../../shared/blocks';
-import { excerpt, relativeTime } from '../../shared/text';
+import { excerpt, relativeTime, shortId } from '../../shared/text';
 import type { Block, CollectionDef, EntryData } from '../../shared/types';
 import type { EntryDoc } from '../lib/useEntryDoc';
-import { countEls, type El } from '../../shared/elements';
+import { countEls, footerStarter, headerStarter, type El } from '../../shared/elements';
+import { entryUrl } from '../lib/actions';
 import { AB_MIN_SHOWN } from '../../shared/popups';
 import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
@@ -555,9 +556,60 @@ export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: (
 
 export function GlobalPanel({ which, contrast }: { which: 'header' | 'footer'; contrast: ContrastIssue[] }) {
   const { settings } = useSession();
+  const toast = useToast();
+  // A header or footer designed in the free layout replaces the theme's while it is published.
+  const { data: own } = useApi<{ entries: { id: string; status: string; fields?: { kind?: string } }[] }>('/api/entries?collection=sections&limit=500');
+  const mine = own?.entries.filter((x) => x.fields?.kind === which) ?? [];
+  const live = mine.find((x) => x.status === 'published');
+  const design = async () => {
+    const found = live ?? mine[0];
+    if (found) return navigate(entryUrl('sections', found.id));
+    try {
+      const r = await api.post<{ entry: { id: string } }>('/api/entries', {
+        collection: 'sections',
+        data: {
+          title: which === 'header' ? t('Kopfzeile') : t('Fusszeile'),
+          kind: which,
+          blocks: [
+            {
+              id: shortId(8),
+              type: 'layout',
+              props: { width: 'content', els: which === 'header' ? headerStarter() : footerStarter() },
+              style: { spacing: which === 'header' ? 'none' : 's' },
+            },
+          ],
+        },
+      });
+      navigate(entryUrl('sections', r.entry.id));
+    } catch (e) {
+      toast((e as Error).message, { kind: 'bad' });
+    }
+  };
   return (
     <div className="stack">
       <GlobalContrast issues={contrast} />
+      {live && (
+        <p className="small">
+          {which === 'header'
+            ? t('Diese Kopfzeile ist frei gestaltet. Nimmst du sie offline, zeigt die Website wieder die des Themes.')
+            : t('Diese Fusszeile ist frei gestaltet. Nimmst du sie offline, zeigt die Website wieder die des Themes.')}
+        </p>
+      )}
+      <button className={live ? 'btn primary' : 'btn'} style={{ justifySelf: 'start' }} onClick={() => void design()}>
+        <Icon name="layout" size="s" />{' '}
+        {live || mine.length
+          ? which === 'header'
+            ? t('Eigene Kopfzeile bearbeiten')
+            : t('Eigene Fusszeile bearbeiten')
+          : which === 'header'
+            ? t('Kopfzeile frei gestalten')
+            : t('Fusszeile frei gestalten')}
+      </button>
+      {!live && (
+        <p className="xsmall faint">
+          {t('Mit Logo, Menü, Öffnungszeiten und allem aus dem freien Layout. Sobald du sie veröffentlichst, ersetzt sie die des Themes auf allen Seiten.')}
+        </p>
+      )}
       <p className="small muted">
         {which === 'header' ? t('Kopfzeile und Menü sind auf allen Seiten gleich.') : t('Die Fusszeile ist auf allen Seiten gleich.')} {t('Änderungen wirken überall.')}
       </p>

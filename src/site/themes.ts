@@ -303,6 +303,14 @@ button.btn-2:disabled,button.btn-2[aria-busy=true]{opacity:.5;cursor:progress}
 .ftr h2{font-family:var(--font-body);font-size:var(--step-n1);letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--ink);margin-bottom:.75rem}
 .ftr ul{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
 .ftr a{text-decoration:underline;text-decoration-color:transparent}.ftr a:hover{text-decoration-color:var(--accent)}
+.site-header.custom{border-bottom:0}
+.site-footer.custom{padding:0;border-top:0;font-size:inherit;color:inherit}
+.menu-row{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.35rem 1.25rem}
+.menu-row a{text-decoration:underline;text-decoration-color:transparent}.menu-row a:hover{text-decoration-color:var(--accent)}
+.el-menu.nav{flex-wrap:wrap}
+.el-hours ul{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
+.el-hours .open-now{margin-bottom:.5rem}
+.el-terms.filters{margin-bottom:0}
 .ftr-name{font-family:var(--font-display);font-size:var(--step-2);color:var(--ink);letter-spacing:var(--display-tracking);margin-bottom:.5rem;line-height:1.1}
 .ftr-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--line)}
 .ftr-bottom ul{display:flex;gap:1.25rem}

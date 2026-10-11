@@ -59,6 +59,9 @@ import {
   sanitizeEls,
   sanitizeVariants,
   templateStarter,
+  archiveStarter,
+  footerStarter,
+  headerStarter,
   variantsCss,
   walkEls,
   type El,
@@ -1267,6 +1270,7 @@ describe('free layout', () => {
       },
     ]);
     expect(list.props).toEqual({
+      archive: false,
       collection: 'posts',
       limit: 48,
       offset: 0,
@@ -1880,5 +1884,51 @@ describe('Inhaltsschleife', () => {
     expect(relatedTo(q('tags'), { title: 'x', tags: ['Berg', 2, 'See'] })).toEqual({ tags: ['berg', 'see'] });
     expect(relatedTo(q('tags'), null)).toBeNull();
     expect(pageParam('abc')).toBe('seite-abc');
+  });
+});
+
+describe('Kopfzeile, Fusszeile und Archiv', () => {
+  it('keeps the website elements in their safe form', () => {
+    const [logo, menu, hours, terms, loop] = sanitizeEls([
+      { id: 'a1', kind: 'logo', props: { show: '<b>' } },
+      { id: 'a2', kind: 'menu', props: { source: 'admin', burger: 'no', extras: false } },
+      { id: 'a3', kind: 'hours', props: { status: false } },
+      { id: 'a4', kind: 'terms', props: { collection: '../users' } },
+      { id: 'a5', kind: 'list', props: { archive: 'yes', collection: 'posts' }, children: [{ id: 'a6', kind: 'box', props: {} }] },
+    ]);
+    expect(logo.props).toEqual({ show: 'auto' });
+    expect(menu.props).toEqual({ source: 'main', burger: true, extras: false });
+    expect(hours.props).toEqual({ status: false });
+    expect(terms.props).toEqual({ collection: '' });
+    // Only a real «true» turns the overview's address on.
+    expect(loop.props.archive).toBe(false);
+    expect(loopQuery({ archive: true }).archive).toBe(true);
+  });
+
+  it('starts header, footer and overview with elements wired to the website', () => {
+    const kinds = (els: El[]) => {
+      const out: string[] = [];
+      walkEls(els, (e) => void out.push(e.kind));
+      return out;
+    };
+    const binds = (els: El[]) => {
+      const out: string[] = [];
+      walkEls(els, (e) => void Object.values(e.bind ?? {}).forEach((b) => out.push(b)));
+      return out;
+    };
+    // What a starter brings survives the check the server makes.
+    for (const els of [headerStarter(), footerStarter()]) expect(sanitizeEls(els)).toEqual(els);
+    expect(kinds(headerStarter())).toEqual(['box', 'logo', 'menu']);
+    expect(kinds(footerStarter())).toEqual(expect.arrayContaining(['hours', 'menu', 'divider']));
+    expect(binds(footerStarter())).toEqual(['site:name', 'site:address', 'site:copyright']);
+    const posts = BUILTIN_COLLECTIONS.find((c) => c.id === 'posts')!;
+    const archive = archiveStarter(posts);
+    expect(sanitizeEls(archive)).toEqual(archive);
+    expect(kinds(archive).slice(0, 3)).toEqual(['heading', 'terms', 'list']);
+    expect(archive[2].props).toMatchObject({ archive: true, collection: 'posts', paginate: true });
+    expect(binds(archive)).toEqual(['site:page', 'url', 'field:cover', 'title', 'field:excerpt']);
+    // A type without categories gets no filter.
+    const team = { ...posts, id: 'team', fields: posts.fields.filter((f) => f.key !== 'category') };
+    expect(kinds(archiveStarter(team))).not.toContain('terms');
   });
 });

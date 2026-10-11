@@ -7,9 +7,12 @@ import type { FieldDef } from '../../../shared/fields';
 import type { CollectionDef } from '../../../shared/types';
 
 /** The loop's own settings with the choices that depend on its content type filled in, and those that don't fit left out. */
-export function loopFields(fields: FieldDef[], collections: CollectionDef[], c: CollectionDef | undefined): FieldDef[] {
+export function loopFields(fields: FieldDef[], collections: CollectionDef[], c: CollectionDef | undefined, archive = { archive: false, offered: false }): FieldDef[] {
   const hasTags = Boolean(c?.fields.some((f) => f.key === 'tags'));
+  // «Dieses Archiv» only in archive templates; with it, type and filter come from the overview's address.
+  const fromArchive = ['collection', 'category', 'tag', 'related', 'excludeCurrent'];
   return fields
+    .filter((f) => (f.key !== 'archive' || archive.offered) && !(archive.archive && fromArchive.includes(f.key)))
     .filter((f) => (f.key !== 'time' || (c && timeField(c))) && (f.key !== 'tag' || hasTags))
     .map((f) =>
       f.key === 'collection'

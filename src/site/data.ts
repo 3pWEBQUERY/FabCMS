@@ -180,6 +180,43 @@ export async function entryTemplate(collection: string, preview: boolean): Promi
   return t ? { id: s.id as string, ...t } : null;
 }
 
+/** The site's own header or footer, designed in the free layout: the newest published one of that kind. */
+export async function globalSection(kind: 'header' | 'footer', preview: boolean): Promise<{ id: string; blocks: Block[] } | null> {
+  const col = preview ? sql`data` : sql`published_data`;
+  const [s] = await sql`
+    select id from entries
+    where collection = 'sections' and status = 'published' and ${col} ->> 'kind' = ${kind} and jsonb_array_length(coalesce(${col} -> 'blocks', '[]'::jsonb)) > 0
+    order by updated_at desc limit 1`;
+  if (!s) return null;
+  const t = await sectionBlocks(s.id as string, preview);
+  return t?.blocks.length ? { id: s.id as string, blocks: t.blocks } : null;
+}
+
+/** The overview of a content type, designed in the free layout («Archiv-Vorlage»). */
+export async function archiveTemplate(collection: string, preview: boolean): Promise<{ id: string; title: string; blocks: Block[] } | null> {
+  const col = preview ? sql`data` : sql`published_data`;
+  const [s] = await sql`
+    select id from entries
+    where collection = 'sections' and ${col} ->> 'kind' = 'archive' and ${col} ->> 'template_for' = ${collection}
+    order by updated_at desc limit 1`;
+  if (!s) return null;
+  const t = await sectionBlocks(s.id as string, preview);
+  return t?.blocks.length ? { id: s.id as string, ...t } : null;
+}
+
+/** Impressum, Datenschutz and AGB, where published – for footers. */
+export async function legalPages(): Promise<{ slug: string; title: string }[]> {
+  const rows = await localized(
+    (await sql`select id, slug, published_data as data from entries where collection = 'pages' and status = 'published' and slug in ('impressum', 'datenschutz', 'agb') order by slug desc`) as unknown as {
+      id: string;
+      slug: string;
+      data: EntryData;
+    }[],
+    'pages',
+  );
+  return rows.map((r) => ({ slug: r.slug, title: r.data.title }));
+}
+
 /** An entry to show while a template is designed: the newest published one of its type. */
 export async function sampleEntry(collection: string): Promise<PublicEntry | null> {
   const [e] = await sql`

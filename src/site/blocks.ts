@@ -9,9 +9,9 @@ import { localNow, loopQuery, pageParam, relatedTo, timeField } from '../shared/
 import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
-import type { Block, EntryData, FormDef } from '../shared/types';
+import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
 import type { FieldDef, LinkValue } from '../shared/fields';
-import { publishedEntries, categoriesOf, getForm, ratingSummaries, sectionBlocks } from './data';
+import { publishedEntries, categoriesOf, getForm, legalPages, ratingSummaries, sectionBlocks } from './data';
 import { ALLERGENS, DISH_TAGS } from '../shared/collections';
 import { entryPath } from '../shared/paths';
 import { compactHours, DAYS, formatSlots, openStatus, zonedNow } from '../shared/hours';
@@ -21,12 +21,13 @@ import { MONTHS, longDay } from '../shared/dates';
 import { formatPrice, readingTime, stripHtml } from '../shared/text';
 import { blocksText } from '../shared/blocks';
 import { entryAccess, mayRead } from '../shared/members';
-import { membershipBox } from './members';
+import { accountLink, membershipBox } from './members';
 import { eventCards, upcoming } from './events';
 import { donateBlock } from './donations';
 import { findProperties, propertyCards } from './realestate';
 import { env } from '../server/env';
 import { t, L } from './i18n';
+import { langInfo } from '../shared/i18n';
 
 type Renderer = (b: Block, ctx: RenderContext) => Promise<Html> | Html;
 
@@ -902,6 +903,12 @@ function siteValue(key: string, prop: string, ctx: RenderContext): string | null
     return null;
   }
   switch (key) {
+    case 'page': {
+      // An overview's name with its filter, else the title of the entry the page shows.
+      const a = ctx.archive;
+      if (a) return a.tag ? `${a.c.name}: #${a.tag}` : a.category ? `${a.c.name}: ${a.category}` : a.c.name;
+      return typeof ctx.current?.data.title === 'string' ? ctx.current.data.title : s.name;
+    }
     case 'name':
       return s.name;
     case 'tagline':
@@ -1105,6 +1112,22 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       const shape: { d: string; line?: boolean } = SHAPES[key];
       return html`<div class="${cls(`sh-${key}${shape.line ? ' sh-line' : ''}`)}"${attrs} aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${shape.d}" vector-effect="non-scaling-stroke"/></svg></div>`;
     }
+    case 'logo': {
+      const logo = p.show === 'name' ? null : await ctx.media(ctx.settings.logo);
+      return html`<a class="${cls('brand')}" href="/"${attrs}>${
+        logo ? html`<img src="${variantUrl(logo, 480, 'webp')}" alt="${ctx.settings.name}" width="${logo.width ?? 160}" height="${logo.height ?? 48}">` : ctx.settings.name
+      }</a>`;
+    }
+    case 'menu':
+      return renderSiteMenu(el, ctx, attrs, cls());
+    case 'hours': {
+      const s = ctx.settings;
+      if (!s.hours.length) return rc.edit ? html`<div class="${cls('el-empty')}"${attrs}>Noch keine Öffnungszeiten. Trag sie unter Einstellungen → Website ein.</div>` : html``;
+      const status = p.status !== false ? openStatus(s.hours, s.timezone, ctx.now, ctx.lang) : null;
+      return html`<div class="${cls()}"${attrs}>${status ? html`<p class="${cx('open-now', !status.open && 'closed')}">${status.label}</p>` : ''}<ul>${hoursSummary(ctx)}</ul></div>`;
+    }
+    case 'terms':
+      return renderTerms(el, ctx, attrs, cls());
     case 'entrybody': {
       if (!ctx.entryView || rc.list || rc.copy)
         return handles ? html`<div class="${cls('el-empty')}"${attrs}>Hier erscheint der Inhalt des Eintrags – in Seitenvorlagen.</div>` : html``;
@@ -1197,10 +1220,81 @@ async function renderAccordion(el: El, ctx: RenderContext, rc: ElRender, attrs: 
   return html`<div class="${cls}"${attrs}${handles ? raw(` data-nova-box="${el.id}"`) : ''}>${items}</div>`;
 }
 
+/* ---------- the website's own parts: menus, logo, hours ---------- */
+
+function isActive(ctx: RenderContext, href: string) {
+  if (href === '/') return ctx.path === '/';
+  return ctx.path === href || ctx.path.startsWith(href + '/');
+}
+
+export function navList(ctx: RenderContext, items: NavItem[]): Html {
+  return html`<ul>${items.map(
+    (i) =>
+      html`<li><a href="${i.href}"${isActive(ctx, i.href) ? raw(' aria-current="page"') : ''}>${i.label}</a>${
+        i.children?.length ? html`<div class="sub">${i.children.map((c) => html`<a href="${c.href}">${c.label}</a>`)}</div>` : ''
+      }</li>`,
+  )}</ul>`;
+}
+
+/** Language links: absolute, so the link rewriting for /fr/ leaves them alone. */
+export function langSwitch(ctx: RenderContext): Html {
+  if (ctx.alternates.length < 2) return html``;
+  return html`<ul class="lang-switch" aria-label="${t(ctx, 'Sprache')}">${ctx.alternates.map(
+    (a) =>
+      html`<li><a href="${ctx.base}${a.path}" hreflang="${a.lang}" lang="${a.lang}"${a.lang === ctx.lang ? raw(' aria-current="true"') : ''} title="${langInfo(a.lang).native}">${a.lang.toUpperCase()}</a></li>`,
+  )}</ul>`;
+}
+
+/** The «Menü» element: main menu (with the menu button on phones), footer columns, legal pages or social links. */
+async function renderSiteMenu(el: El, ctx: RenderContext, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const s = ctx.settings;
+  if (p.source === 'footer') {
+    if (!s.footer.columns.length) return ctx.edit ? html`<div class="${cls} el-empty"${attrs}>Noch keine Spalten. Leg sie unter Einstellungen → Navigation an.</div>` : html``;
+    return html`<div class="${cls} ftr"${attrs}>${s.footer.columns.map((col) => html`<div><h2>${col.title}</h2><ul>${col.links.map((l) => html`<li><a href="${l.href}">${l.label}</a></li>`)}</ul></div>`)}</div>`;
+  }
+  if (p.source === 'legal' || p.source === 'social') {
+    const links = p.source === 'legal' ? (await legalPages()).map((l) => ({ href: `/${l.slug}`, label: l.title })) : s.social;
+    if (!links.length)
+      return ctx.edit ? html`<div class="${cls} el-empty"${attrs}>${p.source === 'legal' ? 'Noch kein Impressum, keine Datenschutzerklärung veröffentlicht.' : 'Noch keine Social-Links. Trag sie unter Einstellungen → Navigation ein.'}</div>` : html``;
+    return html`<nav class="${cls}"${attrs} aria-label="${p.source === 'legal' ? t(ctx, 'Rechtliches') : t(ctx, 'Folgen')}"><ul class="menu-row">${links.map(
+      (l) => html`<li><a href="${l.href}"${p.source === 'social' ? raw(' rel="noopener me"') : ''}>${l.label}</a></li>`,
+    )}</ul></nav>`;
+  }
+  const extras =
+    p.extras !== false
+      ? html`${accountLink(ctx)}${
+          s.modules.includes('shop')
+            ? html`<a class="cart-link" href="/warenkorb" aria-label="${t(ctx, 'Warenkorb, {n} Artikel', { n: ctx.cartCount })}">${t(ctx, 'Warenkorb')} <span class="cart-count" data-cart-count>${ctx.cartCount}</span></a>`
+            : ''
+        }${langSwitch(ctx)}`
+      : html``;
+  const list = s.nav.length ? navList(ctx, s.nav) : ctx.edit ? html`<span class="el-empty">Das Hauptmenü ist leer.</span>` : html``;
+  if (p.burger === false) return html`<nav class="${cls} nav"${attrs} aria-label="${t(ctx, 'Hauptnavigation')}">${list}${extras}</nav>`;
+  return html`<div class="${cls}"${attrs}><nav class="nav desktop" aria-label="${t(ctx, 'Hauptnavigation')}">${list}${extras}</nav><details class="menu-toggle"><summary aria-label="${t(ctx, 'Menü')}"><span class="bars" aria-hidden="true"></span>${t(ctx, 'Menü')}</summary><nav class="menu-panel" aria-label="${t(ctx, 'Hauptnavigation mobil')}">${list}${extras}</nav></details></div>`;
+}
+
+/** The «Kategorien-Filter»: «Alle» and every category of a content type, as links to its overview. */
+async function renderTerms(el: El, ctx: RenderContext, attrs: Html, cls: string): Promise<Html> {
+  const p = el.props as P;
+  const c = ctx.collections.find((x) => x.id === (p.collection || ctx.archive?.c.id));
+  if (!c?.list_route) return ctx.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp mit Übersichtsseite.</div>` : html``;
+  const cats = await categoriesOf(c.id);
+  if (!cats.length) return ctx.edit ? html`<div class="${cls} el-empty"${attrs}>«${c.name}» hat noch keine Kategorien.</div>` : html``;
+  // On its own overview the chosen one is marked.
+  const here = ctx.archive?.c.id === c.id ? ctx.archive : ctx.path === c.list_route ? { category: ctx.query.get('kategorie') ?? '', tag: ctx.query.get('schlagwort') ?? '' } : null;
+  const active = here?.category.toLowerCase() ?? null;
+  return html`<nav class="${cls} filters"${attrs} aria-label="${t(ctx, 'Nach Kategorie filtern')}"><a href="${c.list_route}" aria-current="${String(active === '' && !here?.tag)}">${t(ctx, 'Alle')}</a>${cats.map(
+    (cat) => html`<a href="${c.list_route}?kategorie=${encodeURIComponent(cat)}" aria-current="${String(active === cat.toLowerCase())}">${cat}</a>`,
+  )}</nav>`;
+}
+
 /** A CMS list: the template once per published entry; in the editor only the first copy is editable. */
 async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html, cls: string): Promise<Html> {
   const q = loopQuery(el.props as P);
-  const c = ctx.collections.find((x) => x.id === q.collection);
+  // «Dieses Archiv»: the overview's content type and filter, its pages counted in its own address.
+  const arch = q.archive ? ctx.archive : undefined;
+  const c = arch?.c ?? ctx.collections.find((x) => x.id === q.collection);
   const template = listTemplate(el);
   if (!c || !template || rc.list) return rc.edit ? html`<div class="${cls} el-empty"${attrs}>Wähle einen Inhaltstyp.</div>` : html``;
   const sort = { newest: ['published_at', 'desc'], oldest: ['published_at', 'asc'], title: ['title', 'asc'], order: ['sort', 'asc'] }[q.sort as string];
@@ -1212,7 +1306,8 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
     return rc.edit ? html`<div class="${cls} el-empty"${attrs}>«Wie der Eintrag dieser Seite» zeigt erst auf einer Eintragsseite oder in einer Seitenvorlage etwas.</div>` : html``;
   const tf = q.time === 'all' ? null : timeField(c);
   const now = localNow(ctx.now, ctx.settings.timezone);
-  const page = q.paginate ? Math.min(200, Math.max(1, Number(ctx.query.get(pageParam(el.id))) || 1)) : 1;
+  const param = arch ? 'seite' : pageParam(el.id);
+  const page = q.paginate ? Math.min(200, Math.max(1, Number(ctx.query.get(param)) || 1)) : 1;
   // Coming events soonest first, past ones latest first; otherwise as chosen.
   const [sortField, sortDir] =
     byField && q.sortField
@@ -1226,8 +1321,8 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
     sortField,
     sortDir: sortDir as 'asc' | 'desc',
     random: q.sort === 'random',
-    category: q.category || like?.category || undefined,
-    tag: q.tag || undefined,
+    category: arch?.category || q.category || like?.category || undefined,
+    tag: arch?.tag || q.tag || undefined,
     rules: q.rules.filter((r) => r.is),
     anyTag: like?.tags,
     exclude: q.excludeCurrent && current ? [current.id] : undefined,
@@ -1248,8 +1343,8 @@ async function renderList(el: El, ctx: RenderContext, rc: ElRender, attrs: Html,
   const pages = q.paginate ? Math.ceil(Math.max(0, total - q.offset) / q.limit) : 1;
   const link = (n: number) => {
     const next = new URLSearchParams(ctx.query);
-    if (n > 1) next.set(pageParam(el.id), String(n));
-    else next.delete(pageParam(el.id));
+    if (n > 1) next.set(param, String(n));
+    else next.delete(param);
     const qs = next.toString();
     return `${ctx.path}${qs ? `?${qs}` : ''}`;
   };

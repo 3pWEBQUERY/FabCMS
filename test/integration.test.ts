@@ -3636,6 +3636,88 @@ describe.skipIf(!reachable)('Nova against Postgres', () => {
     for (const e of [page, post]) await req('DELETE', `/api/entries/${e.id}`);
   });
 
+  it('replaces header and footer with own ones while published, and draws an overview from its archive template', async () => {
+    const anon = { cookies: new Map<string, string>() };
+    const section = async (kind: string, els: unknown[], extra: Record<string, unknown> = {}) =>
+      (
+        await req('POST', '/api/entries', {
+          collection: 'sections',
+          data: { title: `Eigene ${kind}`, kind, ...extra, blocks: [{ id: `hf${kind}`, type: 'layout', props: { els } }] },
+        })
+      ).data.entry;
+    const hdr = await section('header', [
+      { id: 'hflogo', kind: 'logo', props: { show: 'name' } },
+      { id: 'hfmenu', kind: 'menu', props: { source: 'main' } },
+      { id: 'hfpage', kind: 'heading', props: { text: 'x', level: '3' }, bind: { text: 'site:page' } },
+    ]);
+    const ftr = await section('footer', [
+      { id: 'hflegal', kind: 'menu', props: { source: 'social' } },
+      { id: 'hfcopy', kind: 'text', props: { html: '' }, bind: { html: 'site:copyright' } },
+    ]);
+    // Not yet published: the theme's.
+    let html = (await req('GET', '/', undefined, anon)).data as string;
+    expect(html).not.toContain('site-header custom');
+    for (const e of [hdr, ftr]) await req('POST', `/api/entries/${e.id}/publish`, {});
+    html = (await req('GET', '/', undefined, anon)).data as string;
+    expect(html).toMatch(/<header class="site-header custom[^"]*">/);
+    expect(html).toMatch(/<a class="el el-logo e-hflogo brand" href="\/" id="e-hflogo">[^<]+<\/a>/);
+    // The main menu with its phone version, the title of the page in the header.
+    expect(html).toMatch(/id="e-hfmenu"><nav class="nav desktop"/);
+    expect(html).toContain('<details class="menu-toggle">');
+    expect(html).toMatch(/<footer class="site-footer custom">/);
+    expect(html).toMatch(/id="e-hfcopy"><p>© 20\d\d /);
+    // Only one of each: the theme's are gone.
+    expect(html.match(/<header class="site-header/g)).toHaveLength(1);
+    expect(html).not.toContain('class="ftr-bottom"');
+
+    // An overview of its own: «Dieses Archiv» takes type, category and page from the address.
+    const mk = async (slug: string, title: string, category: string) => {
+      const e = (await req('POST', '/api/entries', { collection: 'posts', slug, data: { title, category, body: '<p>x</p>' } })).data.entry;
+      await req('POST', `/api/entries/${e.id}/publish`, {});
+      return e;
+    };
+    const p1 = await mk('ar-eins', 'AR Eins', 'Arkat');
+    const p2 = await mk('ar-zwei', 'AR Zwei', 'Arkat');
+    const p3 = await mk('ar-drei', 'AR Drei', 'Anderes');
+    const arch = await section(
+      'archive',
+      [
+        { id: 'arh', kind: 'heading', props: { text: 'x', level: '1' }, bind: { text: 'site:page' } },
+        { id: 'art', kind: 'terms', props: {} },
+        {
+          id: 'arl',
+          kind: 'list',
+          props: { archive: true, collection: 'pages', limit: 1, paginate: true, sort: 'title' },
+          children: [{ id: 'arc', kind: 'heading', props: { text: 'x', level: '2' }, bind: { text: 'title' } }],
+        },
+      ],
+      { template_for: 'posts' },
+    );
+    await req('POST', `/api/entries/${arch.id}/publish`, {});
+    const list = (await req('GET', '/journal?kategorie=Arkat', undefined, anon)).data as string;
+    expect(list).toMatch(/<h1 class="el el-heading e-arh" id="e-arh">Beiträge: Arkat<\/h1>/);
+    // The header knows the overview too.
+    expect(list).toMatch(/id="e-hfpage">Beiträge: Arkat<\/h3>/);
+    expect(list).toMatch(/<a href="\/journal\?kategorie=Arkat" aria-current="true">Arkat<\/a>/);
+    expect(list).toContain('AR Eins');
+    expect(list).not.toContain('AR Zwei');
+    expect(list).not.toContain('AR Drei');
+    expect(list).toContain('href="/journal?kategorie=Arkat&amp;seite=2" rel="next"');
+    const second = (await req('GET', '/journal?kategorie=Arkat&seite=2', undefined, anon)).data as string;
+    expect(second).toContain('AR Zwei');
+    expect(second).not.toContain('AR Eins');
+    // Its canonical address stays the overview's.
+    expect(second).toMatch(/<link rel="canonical" href="[^"]*\/journal\?kategorie=Arkat&amp;seite=2">/);
+
+    // Offline again: the theme's header and footer, Nova's overview.
+    for (const e of [hdr, ftr, arch]) await req('POST', `/api/entries/${e.id}/unpublish`, {});
+    html = (await req('GET', '/journal', undefined, anon)).data as string;
+    expect(html).not.toContain('site-header custom');
+    expect(html).toContain('class="ftr-bottom"');
+    expect(html).not.toContain('id="e-arh"');
+    for (const e of [hdr, ftr, arch, p1, p2, p3]) await req('DELETE', `/api/entries/${e.id}`);
+  });
+
   it('asks people of a role for a second factor before anything else', async () => {
     resetRateLimits();
     expect((await req('PUT', '/api/security/2fa', { roles: ['member'] })).status).toBe(400);

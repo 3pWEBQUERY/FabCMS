@@ -22,6 +22,8 @@ export interface LoopRule {
 }
 
 export interface LoopQuery {
+  /** In an archive template: the overview's content type, category, tag and page, from its address. */
+  archive: boolean;
   collection: string;
   limit: number;
   offset: number;
@@ -57,6 +59,7 @@ export function loopQuery(p: Record<string, unknown>): LoopQuery {
         .slice(0, MAX_RULES)
     : [];
   return {
+    archive: p.archive === true,
     collection: typeof p.collection === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(p.collection) ? p.collection : 'posts',
     limit: int(p.limit, 1, 48, 3),
     offset: int(p.offset, 0, 200, 0),

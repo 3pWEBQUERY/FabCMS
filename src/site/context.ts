@@ -24,6 +24,8 @@ export interface RenderContext {
   entryView?: (mode: 'blocks' | 'default') => Promise<Html>;
   /** The entry the page shows (any content type), for loops: «like this entry», «leave this one out». */
   current?: { id: string; collection: string; slug: string; data: EntryData; published_at: string | null; author_name?: string | null };
+  /** An overview drawn from an archive template (or such a template in the editor): its content type and the filter in its address. */
+  archive?: { c: CollectionDef; category: string; tag: string };
   /** Level for item headings (cards, menu sections): 2 under the page title, 3 under a section heading. */
   hl?: number;
   settings: SiteSettings;
