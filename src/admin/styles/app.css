@@ -518,6 +518,61 @@ p {
   border-top: 1px solid var(--line);
   border-radius: 0 0 var(--r-s) var(--r-s);
 }
+/* «Meine Vorlagen» in the block picker: each saved section as a small live picture. */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.75rem;
+}
+.tpl-tile {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: var(--panel);
+  text-align: left;
+  font-size: var(--t-s);
+  font-weight: 550;
+  cursor: pointer;
+}
+.tpl-tile:hover,
+.tpl-tile:focus-visible {
+  border-color: var(--sel);
+  box-shadow: 0 0 0 1px var(--sel);
+}
+.tpl-tile > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.15rem;
+}
+.tpl-thumb {
+  position: relative;
+  display: block;
+  height: 6rem;
+  overflow: hidden;
+  border-radius: var(--r-s);
+  background: var(--sunken);
+}
+/* Drawn at 1280 px and scaled to the tile; hidden until the page has loaded. */
+.tpl-thumb iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 768px;
+  border: 0;
+  transform: scale(0.125);
+  transform-origin: 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.tpl-thumb.ready iframe {
+  opacity: 1;
+}
 /* Column splits: each preset drawn as bars in its proportions. */
 .col-preset {
   display: flex;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type SyntheticEvent } from 'react';
 import { BLOCKS, BLOCK_CATEGORIES } from '../../shared/blocks';
 import { useSession } from '../lib/session';
 import { touchScreen } from '../lib/hooks';
@@ -33,14 +33,6 @@ export function BlockPicker({
 
   const mine = saved.filter((x) => !q || x.title.toLowerCase().includes(q.toLowerCase()) || t('Meine Vorlagen').toLowerCase().includes(q.toLowerCase()));
   const items = [
-    ...mine.map((x) => ({
-      key: `v-${x.id}`,
-      label: x.title,
-      description: t('Eigene Vorlage – als Kopie eingefügt'),
-      icon: 'folder',
-      category: 'saved',
-      run: () => onPickSaved?.(x.id),
-    })),
     ...list.map((b) => ({
       key: b.type,
       label: tl(b.label),
@@ -95,6 +87,19 @@ export function BlockPicker({
         />
       </div>
       <div className="picker-list" role="listbox" aria-label={t('Blöcke')}>
+        {mine.length > 0 && (
+          <>
+            <div className="cmdk-group">{t('Meine Vorlagen')}</div>
+            <div className="tpl-grid">
+              {mine.map((x) => (
+                <button key={x.id} type="button" className="tpl-tile" onClick={() => onPickSaved?.(x.id)} title={t('Eigene Vorlage – als Kopie eingefügt')}>
+                  <TemplateThumb id={x.id} />
+                  <span>{x.title}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {presets.length > 0 && (
           <>
             <div className="cmdk-group">{t('Freie Layouts')}</div>
@@ -109,7 +114,7 @@ export function BlockPicker({
           </>
         )}
         {items.map((it, i) => {
-          const cat = it.category === 'saved' ? t('Meine Vorlagen') : it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
+          const cat = it.category === 'sections' ? t('Sektionen') : tl(BLOCK_CATEGORIES.find((c) => c.id === it.category)?.label);
           const head = !q && cat !== last ? (last = cat) : null;
           return (
             <div key={it.key}>
@@ -131,5 +136,31 @@ export function BlockPicker({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * A saved section as it looks: its draft rendered at desktop width and scaled
+ * down, without the site's header, footer and breadcrumbs.
+ */
+function TemplateThumb({ id }: { id: string }) {
+  const [fit, setFit] = useState<{ scale: number; height: number } | null>(null);
+  const bare = (e: SyntheticEvent<HTMLIFrameElement>) => {
+    const frame = e.currentTarget;
+    const d = frame.contentDocument;
+    const box = frame.parentElement;
+    if (!d || !box) return;
+    const style = d.createElement('style');
+    style.textContent = 'body>*:not(main),main>.crumbs{display:none!important}html,body{overflow:hidden!important}';
+    d.head.append(style);
+    // As wide as the tile; as tall as the section, within reason.
+    const scale = box.clientWidth / 1280;
+    const content = d.querySelector('main')?.scrollHeight ?? 600;
+    setFit({ scale, height: Math.round(Math.min(150, Math.max(56, content * scale))) });
+  };
+  return (
+    <span className={`tpl-thumb${fit ? ' ready' : ''}`} aria-hidden="true" style={fit ? { height: fit.height } : undefined}>
+      <iframe src={`/_nova/preview/${id}`} title="" tabIndex={-1} loading="lazy" onLoad={bare} style={fit ? { transform: `scale(${fit.scale})` } : undefined} />
+    </span>
   );
 }
