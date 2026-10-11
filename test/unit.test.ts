@@ -74,6 +74,7 @@ import {
   siteDataOf,
   variantsCss,
   walkEls,
+  headlineText,
   type El,
   type ElKind,
 } from '../src/shared/elements';
@@ -2090,6 +2091,45 @@ describe('Vorher/Nachher als Element', () => {
     expect(bad.props).toMatchObject({ before: null, after: null, start: 0, ratio: '3/2' });
     // Both pictures count as used (media library, «where is this file used»).
     expect(elementsMedia([ok])).toEqual(['img-a', 'img-b']);
+  });
+});
+
+describe('Animierte Überschrift', () => {
+  it('keeps up to eight words, one per line, and reads as one sentence', () => {
+    const [el] = sanitizeEls([
+      {
+        id: 'a',
+        kind: 'headline',
+        props: {
+          before: ' Wir   backen ',
+          words: 'Brot\r\n\n Zöpfe \n1\n2\n3\n4\n5\n6\n7',
+          after: 'frisch.',
+          mode: 'blink',
+          effect: 'spin',
+          seconds: 99,
+          shape: 'zigzag',
+          level: '7',
+        },
+      },
+    ]);
+    expect(el.props).toEqual({
+      before: 'Wir backen',
+      words: 'Brot\nZöpfe\n1\n2\n3\n4\n5\n6',
+      after: 'frisch.',
+      mode: 'rotate',
+      effect: 'slide',
+      seconds: 8,
+      shape: 'underline',
+      accent: true,
+      level: '2',
+    });
+    // Changing words read as a list; a highlighted phrase as it stands.
+    expect(headlineText(el.props)).toBe('Wir backen Brot, Zöpfe, 1, 2, 3, 4, 5, 6 frisch.');
+    expect(headlineText({ before: 'Gebaut für', words: 'echte\nMenschen', mode: 'highlight' })).toBe('Gebaut für echte Menschen');
+    // Description, search and the outline see the whole sentence.
+    const one = sanitizeEls([{ id: 'b', kind: 'headline', props: { before: 'Wir backen', words: 'Brot\nZöpfe', after: '', level: '1' } }]);
+    expect(elementsText(one)).toContain('Wir backen Brot, Zöpfe');
+    expect(elementsHeadings(one)).toEqual([{ level: 1, text: 'Wir backen Brot, Zöpfe', field: 'els.0.props.before' }]);
   });
 });
 

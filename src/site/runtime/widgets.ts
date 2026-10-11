@@ -313,6 +313,48 @@ export function setupWidgets(root: ParentNode, edit = false) {
     ready.add(el);
     counters!.observe(el);
   });
+  root.querySelectorAll<HTMLElement>('[data-rotate]').forEach((el) => {
+    if (ready.has(el)) return;
+    ready.add(el);
+    rotate(el);
+  });
+  marks ??= new IntersectionObserver(
+    (entries) =>
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        marks!.unobserve(e.target);
+        e.target.classList.add('in');
+      }),
+    { threshold: 0.8 },
+  );
+  root.querySelectorAll<HTMLElement>('[data-mark]').forEach((el) => {
+    if (ready.has(el)) return;
+    ready.add(el);
+    if (reduced()) el.classList.add('in');
+    else marks!.observe(el);
+  });
+}
+
+/* ---------- animated headline ---------- */
+
+let marks: IntersectionObserver | null = null;
+
+/** «Wörter wechseln»: the next word every few seconds; with less motion the first one stays. */
+function rotate(box: HTMLElement) {
+  const words = [...box.querySelectorAll<HTMLElement>('.hl-w')];
+  const ms = Math.max(1000, Number(box.dataset.rotate) * 1000 || 2500);
+  if (words.length < 2 || reduced()) return;
+  let i = 0;
+  setInterval(() => {
+    // Not while the tab is in the background.
+    if (document.hidden) return;
+    const was = words[i];
+    i = (i + 1) % words.length;
+    words.forEach((w) => w.classList.remove('out'));
+    was.classList.remove('on');
+    was.classList.add('out');
+    words[i].classList.add('on');
+  }, ms);
 }
 
 /** Brings an element into view inside its tabs, accordion or slider (editor selection). */

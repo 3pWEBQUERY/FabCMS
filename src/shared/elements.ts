@@ -43,6 +43,7 @@ export const EL_KINDS = [
   'map',
   'iconlist',
   'compare',
+  'headline',
   'accordion',
   'tabs',
   'slider',
@@ -687,6 +688,79 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       size: 20,
     },
   },
+  headline: {
+    kind: 'headline',
+    group: 'basic',
+    label: 'Animierte Überschrift',
+    description: 'Ein Titel, in dem Wörter wechseln («Wir backen Brot – Zöpfe – Torten») oder ein Wort von Hand unterstrichen oder umkreist wird.',
+    icon: 'type',
+    fields: [
+      { key: 'before', type: 'text', label: 'Text davor', inline: true, maxLength: 200 },
+      { key: 'words', type: 'textarea', label: 'Hervorgehobene Wörter', help: 'Ein Wort oder Ausdruck pro Zeile, höchstens acht.', maxLength: 400 },
+      { key: 'after', type: 'text', label: 'Text danach', inline: true, maxLength: 200 },
+      {
+        key: 'mode',
+        type: 'select',
+        label: 'Wirkung',
+        options: [
+          { value: 'rotate', label: 'Wörter wechseln' },
+          { value: 'highlight', label: 'Wort hervorheben' },
+        ],
+        default: 'rotate',
+      },
+      {
+        key: 'effect',
+        type: 'select',
+        label: 'Wechsel',
+        options: [
+          { value: 'slide', label: 'Hochrollen' },
+          { value: 'fade', label: 'Überblenden' },
+          { value: 'wipe', label: 'Aufdecken' },
+        ],
+        default: 'slide',
+        showIf: { field: 'mode', equals: ['rotate'] },
+      },
+      { key: 'seconds', type: 'number', label: 'Sekunden pro Wort', min: 1, max: 8, default: 2.5, showIf: { field: 'mode', equals: ['rotate'] } },
+      {
+        key: 'shape',
+        type: 'select',
+        label: 'Form',
+        options: [
+          { value: 'underline', label: 'Unterstrichen' },
+          { value: 'circle', label: 'Umkreist' },
+          { value: 'marker', label: 'Leuchtstift' },
+          { value: 'strike', label: 'Durchgestrichen' },
+        ],
+        default: 'underline',
+        showIf: { field: 'mode', equals: ['highlight'] },
+      },
+      { key: 'accent', type: 'boolean', label: 'Wörter in der Akzentfarbe' },
+      {
+        key: 'level',
+        type: 'select',
+        label: 'Ebene',
+        help: 'Für die Gliederung der Seite. Die Grösse stellst du unter «Design» ein.',
+        options: [
+          { value: '1', label: 'H1 – Seitentitel' },
+          { value: '2', label: 'H2 – Abschnitt' },
+          { value: '3', label: 'H3 – Unterabschnitt' },
+          { value: '4', label: 'H4 – Kleiner Titel' },
+        ],
+        default: '2',
+      },
+    ],
+    defaults: {
+      before: 'Wir backen',
+      words: 'Brot\nZöpfe\nTorten',
+      after: 'jeden Morgen frisch.',
+      mode: 'rotate',
+      effect: 'slide',
+      seconds: 2.5,
+      shape: 'underline',
+      accent: true,
+      level: '2',
+    },
+  },
   compare: {
     kind: 'compare',
     group: 'media',
@@ -1292,6 +1366,23 @@ const one = <T extends string>(v: unknown, list: readonly T[], fallback: T): T =
 const productRef = (v: unknown) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : '');
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
+/** The changing or highlighted words of an «Animierte Überschrift»: one per line, at most eight. */
+export const headlineWords = (v: unknown): string[] =>
+  sanitizePlain(typeof v === 'string' ? v : '', true)
+    .split('\n')
+    .map((w) => w.trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 8);
+
+/** All of an «Animierte Überschrift» as one sentence – what search engines, screen readers and checks read. */
+export function headlineText(p: Record<string, unknown>): string {
+  const words = headlineWords(p.words);
+  return [p.before, p.mode === 'highlight' ? words.join(' ') : words.join(', '), p.after]
+    .map((x) => String(x ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
 function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, unknown> {
   switch (kind) {
     case 'box':
@@ -1367,6 +1458,18 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'headline':
+      return {
+        before: plain(p.before, 200),
+        words: headlineWords(p.words).join('\n'),
+        after: plain(p.after, 200),
+        mode: p.mode === 'highlight' ? 'highlight' : 'rotate',
+        effect: one(p.effect, ['slide', 'fade', 'wipe'] as const, 'slide'),
+        seconds: typeof p.seconds === 'number' && Number.isFinite(p.seconds) ? Math.min(8, Math.max(1, Math.round(p.seconds * 2) / 2)) : 2.5,
+        shape: one(p.shape, ['underline', 'circle', 'marker', 'strike'] as const, 'underline'),
+        accent: p.accent !== false,
+        level: one(String(p.level ?? '2'), ['1', '2', '3', '4'] as const, '2'),
+      };
     case 'compare':
       return {
         before: typeof p.before === 'string' && MEDIA.test(p.before) ? p.before : null,
@@ -1541,6 +1644,7 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'heading' && !el.bind?.text) out.push(String(el.props.text ?? ''));
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
+      if (el.kind === 'headline') out.push(headlineText(el.props));
       if (el.kind === 'iconlist') for (const it of (el.props.items as { text?: string }[] | undefined) ?? []) out.push(String(it?.text ?? ''));
       if (el.children) visit(el.children);
     }
@@ -1555,6 +1659,7 @@ export function elementsHeadings(els: El[]): { level: number; text: string; fiel
     list.forEach((el, i) => {
       const path = `${base}.${i}`;
       if (el.kind === 'heading' && !el.bind?.text) out.push({ level: Number(el.props.level) || 2, text: String(el.props.text ?? ''), field: `${path}.props.text` });
+      if (el.kind === 'headline') out.push({ level: Number(el.props.level) || 2, text: headlineText(el.props), field: `${path}.props.before` });
       if (el.children) visit(el.children, `${path}.children`);
     });
   visit(els, 'els');

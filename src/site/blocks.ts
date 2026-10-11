@@ -9,7 +9,7 @@ import { slidesCss } from '../shared/bg-media';
 import { dividerHtml } from '../shared/dividers';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
-import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elementImages, elementsCss, elementsText, headlineWords, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import type { Block, EntryData, FormDef, NavItem } from '../shared/types';
@@ -1175,6 +1175,25 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     }
     case 'share':
       return renderShare(el, ctx, rc, attrs, cls());
+    case 'headline': {
+      // «Animierte Überschrift»: the whole sentence is in the heading once, for search engines and screen readers; the changing words are only drawn (CSS content).
+      const level = Math.min(4, Math.max(1, Number(p.level) || 2));
+      if (level === 1) ctx.h1 = true;
+      const words = headlineWords(p.words);
+      const part = (prop: 'before' | 'after') => (p[prop] || rc.edit ? html`<span class="hl-text"${editField(prop)}>${p[prop] ?? ''}</span>` : html``);
+      let middle: Html = html``;
+      if (words.length && p.mode === 'highlight') {
+        const shape = ['underline', 'circle', 'marker', 'strike'].includes(String(p.shape)) ? String(p.shape) : 'underline';
+        ctx.needs.add('widgets');
+        middle = html`<span class="hl-mark hl-${shape}${rc.edit ? ' in' : ''}" data-mark>${words.join(' ')}<svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${HEADLINE_SHAPES[shape]}" pathLength="1"/></svg></span>`;
+      } else if (words.length) {
+        const effect = ['slide', 'fade', 'wipe'].includes(String(p.effect)) ? String(p.effect) : 'slide';
+        const seconds = Math.min(8, Math.max(1, Number(p.seconds) || 2.5));
+        if (words.length > 1) ctx.needs.add('widgets');
+        middle = html`<span class="hl-words hl-${effect}" aria-hidden="true"${words.length > 1 ? raw(` data-rotate="${seconds}"`) : ''}>${words.map((w, i) => html`<span class="hl-w${i === 0 ? ' on' : ''}" data-w="${w}"></span>`)}</span><span class="sr">${words.join(', ')}</span>`;
+      }
+      return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
+    }
     case 'compare': {
       const [before, after] = await Promise.all([ctx.media(p.before), ctx.media(p.after)]);
       if (!before || !after) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Ein Bild für vorher und eins für nachher wählen</span></figure>` : html``;
@@ -1215,6 +1234,14 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       return html``;
   }
 }
+
+/** The hand-drawn strokes of «Wort hervorheben», in a 200 × 60 box stretched over the words. */
+const HEADLINE_SHAPES: Record<string, string> = {
+  underline: 'M4 54C52 46 118 60 196 50',
+  circle: 'M104 5C160 3 199 17 196 32C193 50 140 58 94 57C42 56 3 46 6 29C9 13 52 4 116 8',
+  marker: 'M2 42L198 40',
+  strike: 'M4 35C62 29 138 37 196 31',
+};
 
 /**
  * «Karte»: OpenStreetMap with a pin at the website's place or one of its own.

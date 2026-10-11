@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { EL_DEFS, isContainer, type El } from '../../../shared/elements';
+import { EL_DEFS, headlineText, isContainer, type El } from '../../../shared/elements';
 import { stripHtml } from '../../../shared/text';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
@@ -14,7 +14,15 @@ interface Row {
 }
 
 const preview = (el: El) =>
-  el.kind === 'heading' ? String(el.props.text ?? '') : el.kind === 'text' ? stripHtml(String(el.props.html ?? '')) : el.kind === 'button' ? String(el.props.label ?? '') : '';
+  el.kind === 'heading'
+    ? String(el.props.text ?? '')
+    : el.kind === 'headline'
+      ? headlineText(el.props)
+      : el.kind === 'text'
+        ? stripHtml(String(el.props.html ?? ''))
+        : el.kind === 'button'
+          ? String(el.props.label ?? '')
+          : '';
 
 /**
  * The elements of a free layout as a tree: click to select, hover to find

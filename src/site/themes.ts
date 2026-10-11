@@ -443,6 +443,22 @@ figcaption{margin-top:.75rem;font-size:var(--step-n1);color:var(--ink-2)}
 .consent.map{aspect-ratio:auto;min-height:24rem}
 .el-map-frame .consent.map{height:100%;min-height:0}
 .el-map-route{margin:.75rem 0 0}
+.hl-accent .hl-words,.hl-accent .hl-mark{color:var(--accent)}
+.hl-words{display:inline-grid;vertical-align:bottom;text-align:start}
+.hl-w{grid-area:1/1;opacity:0;transition:opacity .45s ease,transform .5s cubic-bezier(.2,.7,.2,1),clip-path .7s cubic-bezier(.6,0,.3,1)}
+.hl-w::before{content:attr(data-w)}
+.hl-w.on{opacity:1}
+.hl-slide .hl-w{transform:translateY(.55em)}.hl-slide .hl-w.on{transform:none}.hl-slide .hl-w.out{transform:translateY(-.55em)}
+.hl-wipe .hl-w{opacity:1;clip-path:inset(0 100% 0 0)}.hl-wipe .hl-w.on{clip-path:inset(0 0 0 0)}.hl-wipe .hl-w.out{clip-path:inset(0 0 0 100%)}
+.hl-mark{position:relative;display:inline-block;isolation:isolate}
+.hl-mark svg{position:absolute;z-index:-1;left:-4%;top:0;width:108%;height:100%;overflow:visible;fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.hl-mark path{vector-effect:non-scaling-stroke;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.1s cubic-bezier(.6,0,.3,1) .15s}
+.hl-mark.in path{stroke-dashoffset:0}
+.hl-circle svg{left:-12%;width:124%;top:-30%;height:160%}
+.hl-strike svg{z-index:1}
+.hl-marker svg{opacity:.32;stroke-linecap:butt}
+.hl-marker path{vector-effect:none;stroke-width:26}
+@media (prefers-reduced-motion:reduce){.hl-w,.hl-mark path{transition:none}}
 .el-iconlist{list-style:none;margin:0;padding:0;display:grid;gap:.6rem;align-content:start}
 .el-iconlist.il-row{display:flex;flex-wrap:wrap;align-content:flex-start;gap:.6rem 1.75rem}
 .el-iconlist li{display:flex;align-items:flex-start;gap:.6rem}
