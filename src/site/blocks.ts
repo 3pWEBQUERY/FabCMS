@@ -1175,6 +1175,17 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
     }
     case 'share':
       return renderShare(el, ctx, rc, attrs, cls());
+    case 'compare': {
+      const [before, after] = await Promise.all([ctx.media(p.before), ctx.media(p.after)]);
+      if (!before || !after) return rc.edit ? html`<figure class="${cls('el-ph')}"${attrs}><span>Ein Bild für vorher und eins für nachher wählen</span></figure>` : html``;
+      ctx.needs.add('compare');
+      const opts = { sizes: '(min-width: 64rem) 50vw, 100vw', maxWidth: 1920 };
+      const a = p.beforeLabel || t(ctx, 'Vorher');
+      const z = p.afterLabel || t(ctx, 'Nachher');
+      const pos = Math.min(100, Math.max(0, Number(p.start ?? 50)));
+      const ratio = ['3/2', '16/9', '4/3', '1/1', '3/4'].includes(String(p.ratio)) ? String(p.ratio) : '3/2';
+      return html`<figure class="${cls('cmp-fig')}"${attrs}><div class="cmp" style="--pos:${pos}%;aspect-ratio:${ratio}">${picture(after, { ...opts, alt: p.alt || undefined })}<div class="cmp-before" aria-hidden="true">${picture(before, opts)}</div><span class="cmp-label cmp-a">${a}</span><span class="cmp-label cmp-z">${z}</span><input class="cmp-range" type="range" min="0" max="100" value="${pos}" aria-label="${t(ctx, '{a} und {z} vergleichen', { a, z })}"></div></figure>`;
+    }
     case 'map':
       return renderMapEl(p, ctx, attrs, cls(), Boolean(handles));
     case 'iconlist': {

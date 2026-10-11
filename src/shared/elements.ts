@@ -42,6 +42,7 @@ export const EL_KINDS = [
   'progress',
   'map',
   'iconlist',
+  'compare',
   'accordion',
   'tabs',
   'slider',
@@ -685,6 +686,35 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       layout: 'column',
       size: 20,
     },
+  },
+  compare: {
+    kind: 'compare',
+    group: 'media',
+    label: 'Vorher/Nachher',
+    description: 'Zwei Bilder übereinander mit einem Schieber dazwischen – für Renovationen, Frisuren, Gärten.',
+    icon: 'compare',
+    fields: [
+      { key: 'before', type: 'image', label: 'Bild vorher' },
+      { key: 'after', type: 'image', label: 'Bild nachher', help: 'Am besten im gleichen Ausschnitt fotografiert.' },
+      { key: 'alt', type: 'text', label: 'Was die Bilder zeigen', help: 'Für Screenreader, z. B. «Badezimmer vor und nach dem Umbau».' },
+      { key: 'beforeLabel', type: 'text', label: 'Beschriftung vorher' },
+      { key: 'afterLabel', type: 'text', label: 'Beschriftung nachher' },
+      { key: 'start', type: 'number', label: 'Schieber am Anfang in Prozent', min: 0, max: 100, default: 50 },
+      {
+        key: 'ratio',
+        type: 'select',
+        label: 'Format',
+        options: [
+          { value: '3/2', label: 'Quer 3:2' },
+          { value: '16/9', label: 'Breit 16:9' },
+          { value: '4/3', label: 'Quer 4:3' },
+          { value: '1/1', label: 'Quadrat' },
+          { value: '3/4', label: 'Hoch 3:4' },
+        ],
+        default: '3/2',
+      },
+    ],
+    defaults: { before: null, after: null, alt: '', beforeLabel: 'Vorher', afterLabel: 'Nachher', start: 50, ratio: '3/2' },
   },
   progress: {
     kind: 'progress',
@@ -1337,6 +1367,16 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'compare':
+      return {
+        before: typeof p.before === 'string' && MEDIA.test(p.before) ? p.before : null,
+        after: typeof p.after === 'string' && MEDIA.test(p.after) ? p.after : null,
+        alt: plain(p.alt, 200),
+        beforeLabel: plain(p.beforeLabel, 40),
+        afterLabel: plain(p.afterLabel, 40),
+        start: typeof p.start === 'number' ? Math.min(100, Math.max(0, Math.round(p.start))) : 50,
+        ratio: one(p.ratio, ['3/2', '16/9', '4/3', '1/1', '3/4'] as const, '3/2'),
+      };
     case 'iconlist':
       return {
         items: (Array.isArray(p.items) ? p.items : [])
@@ -1527,6 +1567,7 @@ export function elementsMedia(els: El[]): string[] {
     if (el.kind === 'image' && typeof el.props.image === 'string') out.push(el.props.image);
     if (el.kind === 'gallery' && Array.isArray(el.props.images)) out.push(...el.props.images.filter((x): x is string => typeof x === 'string'));
     if (el.kind === 'video' && typeof el.props.poster === 'string') out.push(el.props.poster);
+    if (el.kind === 'compare') for (const k of ['before', 'after']) if (typeof el.props[k] === 'string') out.push(el.props[k] as string);
   });
   return out;
 }

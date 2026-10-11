@@ -1078,4 +1078,20 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Zu den Favoriten': { fr: 'Ajouter aux favoris', it: 'Aggiungi ai preferiti', en: 'Add to favourites' },
   'Aus den Favoriten nehmen': { fr: 'Retirer des favoris', it: 'Rimuovi dai preferiti', en: 'Remove from favourites' },
   '«{name}» als Favorit': { fr: '«{name}» en favori', it: '«{name}» come preferito', en: '“{name}” as a favourite' },
+  'Was die Bilder zeigen': { fr: 'Ce que montrent les images', it: 'Cosa mostrano le immagini', en: 'What the pictures show' },
+  'Für Screenreader, z. B. «Badezimmer vor und nach dem Umbau».': {
+    fr: 'Pour les lecteurs d’écran, p. ex. «Salle de bain avant et après la rénovation».',
+    it: 'Per gli screen reader, ad es. «Bagno prima e dopo la ristrutturazione».',
+    en: 'For screen readers, e.g. “Bathroom before and after the renovation”.',
+  },
+  'Schieber am Anfang in Prozent': {
+    fr: 'Position du curseur au départ en pour cent',
+    it: 'Posizione iniziale del cursore in percento',
+    en: 'Slider position at the start in percent',
+  },
+  Format: { fr: 'Format', it: 'Formato', en: 'Format' },
+  'Quer 3:2': { fr: 'Paysage 3:2', it: 'Orizzontale 3:2', en: 'Landscape 3:2' },
+  'Breit 16:9': { fr: 'Large 16:9', it: 'Panoramico 16:9', en: 'Wide 16:9' },
+  'Quer 4:3': { fr: 'Paysage 4:3', it: 'Orizzontale 4:3', en: 'Landscape 4:3' },
+  'Hoch 3:4': { fr: 'Portrait 3:4', it: 'Verticale 3:4', en: 'Portrait 3:4' },
 };

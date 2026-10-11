@@ -2080,6 +2080,19 @@ describe('Karte und Icon-Liste', () => {
   });
 });
 
+describe('Vorher/Nachher als Element', () => {
+  it('keeps two real pictures, a sensible start and a known format', () => {
+    const [ok, bad] = sanitizeEls([
+      { id: 'c1', kind: 'compare', props: { before: 'img-a', after: 'img-b', alt: 'Bad vorher und nachher', beforeLabel: 'Alt', afterLabel: 'Neu', start: 140, ratio: '1/1' } },
+      { id: 'c2', kind: 'compare', props: { before: '../etc/passwd', after: 42, start: -5, ratio: '21/9' } },
+    ]);
+    expect(ok.props).toEqual({ before: 'img-a', after: 'img-b', alt: 'Bad vorher und nachher', beforeLabel: 'Alt', afterLabel: 'Neu', start: 100, ratio: '1/1' });
+    expect(bad.props).toMatchObject({ before: null, after: null, start: 0, ratio: '3/2' });
+    // Both pictures count as used (media library, «where is this file used»).
+    expect(elementsMedia([ok])).toEqual(['img-a', 'img-b']);
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

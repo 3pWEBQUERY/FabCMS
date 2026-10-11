@@ -212,7 +212,8 @@ export function ElementPicker({
     const pick = (
       <button key={k} type="button" {...dragSource(drag, NEW_EL, { kind: k })} onClick={() => onPick(k)} title={tl(EL_DEFS[k].description)}>
         <Icon name={EL_DEFS[k].icon} />
-        <span>{tl(EL_DEFS[k].label)}</span>
+        {/* «Vorher/Nachher» may break after the slash in a narrow tile. */}
+        <span>{tl(EL_DEFS[k].label).replace('/', '/\u200b')}</span>
       </button>
     );
     // The side bar can star them; the quick picker only shows them.
