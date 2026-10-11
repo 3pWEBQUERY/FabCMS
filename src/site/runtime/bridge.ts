@@ -196,6 +196,27 @@ function setupFields(root: ParentNode) {
   });
 }
 
+/**
+ * The text of a field as written – not innerText, which follows the theme's
+ * CSS: an uppercase button would be saved in capitals. Line breaks from <br>
+ * and new lines (div, p) stay.
+ */
+function fieldText(el: HTMLElement): string {
+  let out = '';
+  const walk = (n: Node) => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === Node.TEXT_NODE) out += c.nodeValue ?? '';
+      else if (c.nodeName === 'BR') out += '\n';
+      else {
+        if (/^(DIV|P|LI)$/.test(c.nodeName) && out && !out.endsWith('\n')) out += '\n';
+        walk(c);
+      }
+    }
+  };
+  walk(el);
+  return out;
+}
+
 let editTimer = 0;
 d.addEventListener('input', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-nova-field]');
@@ -205,7 +226,7 @@ d.addEventListener('input', (e) => {
   clearTimeout(editTimer);
   editTimer = window.setTimeout(() => {
     const kind = el.dataset.novaKind;
-    const value = kind === 'rich' ? sanitizeRichText(el.innerHTML) : kind === 'multi' ? el.innerText.replace(/\n{3,}/g, '\n\n').trim() : el.innerText.replace(/\s+/g, ' ').trim();
+    const value = kind === 'rich' ? sanitizeRichText(el.innerHTML) : kind === 'multi' ? fieldText(el).replace(/\n{3,}/g, '\n\n').trim() : fieldText(el).replace(/\s+/g, ' ').trim();
     post({ t: 'edit', id: block.dataset.novaBlock, path: el.dataset.novaField, value });
   }, 120);
 });
@@ -885,10 +906,9 @@ d.addEventListener(
   'click',
   (e) => {
     const t = e.target as HTMLElement;
-    if (t.closest('a[href]') || t.closest('button') || t.closest('form')) {
-      // Nothing navigates or submits in the editor.
-      if (!t.closest('[data-nova-field]')) e.preventDefault();
-    }
+    // Nothing navigates or submits in the editor – also not a click on a text being written inside a link (a button's label).
+    if (t.closest('a[href]')) e.preventDefault();
+    else if ((t.closest('button') || t.closest('form')) && !t.closest('[data-nova-field]')) e.preventDefault();
     const global = t.closest<HTMLElement>('[data-nova-global]');
     if (global) {
       e.preventDefault();
@@ -1576,7 +1596,7 @@ addEventListener('message', (e) => {
             const html = sanitizeRichText(v);
             if (f.innerHTML !== html) f.innerHTML = html;
           } else if (kind === 'multi') {
-            if (f.innerText === v) return;
+            if (fieldText(f) === v) return;
             f.replaceChildren(...v.split('\n').flatMap((line, i) => (i ? [d.createElement('br'), d.createTextNode(line)] : [d.createTextNode(line)])));
           } else if (f.textContent !== v) f.textContent = v;
         });
@@ -1686,5 +1706,7 @@ addEventListener('message', (e) => {
 
 setupMotion(main, true);
 setupWidgets(main, true);
+// Until here a click on a link would have left the editor: the canvas held links and buttons back (themes.ts).
+d.body.setAttribute('data-nova-ready', '');
 post({ t: 'ready', blocks: blocks().map((b) => b.dataset.novaBlock) });
 sendContrast();

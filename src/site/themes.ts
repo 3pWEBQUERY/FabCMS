@@ -333,6 +333,7 @@ main :is(h2,h3)[id]{scroll-margin-top:5.5rem}
 .el-progress span{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(var(--pp,0))}
 @supports (animation-timeline: scroll()){.el-progress span{animation:nova-progress linear both;animation-timeline:scroll(root)}}
 @keyframes nova-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+[data-nova-edit]:not([data-nova-ready]) :is(a[href],button,summary,input,select,textarea){pointer-events:none}
 [data-nova-edit] .el-progress{position:relative;margin-block:.5rem}
 [data-nova-edit] .el-progress span{transform:scaleX(.35);animation:none}
 .ftr-name{font-family:var(--font-display);font-size:var(--step-2);color:var(--ink);letter-spacing:var(--display-tracking);margin-bottom:.5rem;line-height:1.1}
