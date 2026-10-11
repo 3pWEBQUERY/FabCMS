@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { EL_DEFS, headlineText, isContainer, type El } from '../../../shared/elements';
+import { headlineText, isContainer, type El } from '../../../shared/elements';
 import { stripHtml } from '../../../shared/text';
 import { t } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
-import { elLabel } from './ElementToolbar';
+import { elIcon, elLabel } from './ElementToolbar';
 
 type Drop = { id: string; where: 'before' | 'after' | 'inside' };
 interface Row {
@@ -126,7 +126,7 @@ export function LayersTree({
               <span className="layer-twist" />
             )}
             <button type="button" className="layer-main" onClick={() => onSelect(el.id)}>
-              <Icon name={EL_DEFS[el.kind].icon} size="s" />
+              <Icon name={elIcon(el)} size="s" />
               <span className="layer-name">{elLabel(el)}</span>
               {text && <span className="layer-text">{text}</span>}
               {el.show?.length ? (

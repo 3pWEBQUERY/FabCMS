@@ -24,6 +24,7 @@ export function BuilderPanel({
   onTab: (tab: BuilderTab) => void;
   elements: {
     onPick: (kind: ElKind) => void;
+    onPickStructure: (id: string) => void;
     into: string | null;
     inTemplate: boolean;
     components: { id: string; title: string }[];

@@ -170,6 +170,11 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--display-weight);le
 .lay{display:flex;flex-direction:column;gap:var(--s-5)}
 .el{min-width:0}
 .el-box{display:flex;flex-direction:column;gap:var(--s-4);position:relative}
+.box-section{width:100%;padding-block:var(--sp-m);padding-inline:var(--gutter)}
+.box-container{width:min(100%,var(--max));margin-inline:auto;gap:var(--s-5)}
+.lay-full>.box-container{width:min(100% - 2*var(--gutter),var(--max))}
+.box-block{width:100%}
+.box-div{display:block}
 a.el-box,a.el-image{color:inherit;text-decoration:none}
 .el-heading{margin:0}
 h1.el-heading{font-size:var(--step-7)}h2.el-heading{font-size:var(--step-5)}h3.el-heading{font-size:var(--step-3)}h4.el-heading{font-size:var(--step-2)}

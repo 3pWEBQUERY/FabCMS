@@ -74,6 +74,8 @@ import {
   newItem,
   removeEl,
   sanitizeEls,
+  STRUCTURES,
+  boxRole,
   sanitizeVariants,
   templateStarter,
   archiveStarter,
@@ -2449,6 +2451,25 @@ describe('Fliessende Schriftgrössen', () => {
     expect(designCss('#h', { desktop: { fontSize: '28px', fontSizeTo: '56px' } })).toBe(`#h{font-size:${css}}`);
     // Without a valid pair the plain size stays.
     expect(designCss('#k', { desktop: { fontSize: '28px', fontSizeTo: '4em' } })).toBe('#k{font-size:28px}');
+  });
+});
+
+describe('Struktur wie Bricks', () => {
+  it('builds Section › Container and columns of Blocks, and keeps the role', () => {
+    const section = STRUCTURES.find((x) => x.id === 'section')!.make();
+    expect(boxRole(section)).toBe('section');
+    expect(section.props.tag).toBe('section');
+    expect(section.children!.map(boxRole)).toEqual(['container']);
+    const cols = STRUCTURES.find((x) => x.id === 'cols-1-2')!.make();
+    expect(cols.children!.map(boxRole)).toEqual(['block', 'block']);
+    expect(cols.design?.desktop).toMatchObject({ display: 'grid', colWidths: '1 2' });
+    expect(cols.design?.mobile).toMatchObject({ columns: 1 });
+    const [clean] = sanitizeEls([{ id: 'a', kind: 'box', props: { role: 'container' }, children: [{ id: 'b', kind: 'box', props: { role: 'aside' }, children: [] }] }]);
+    expect(clean.props.role).toBe('container');
+    expect(clean.children![0].props.role).toBeUndefined();
+    // Every part of the «Struktur» group speaks all four languages.
+    for (const x of STRUCTURES)
+      for (const text of [x.label, x.description]) expect([text, Boolean(ADMIN_DICT[text]?.fr && ADMIN_DICT[text]?.it && ADMIN_DICT[text]?.en)]).toEqual([text, true]);
   });
 });
 

@@ -9,7 +9,7 @@ import { slidesCss } from '../shared/bg-media';
 import { dividerHtml } from '../shared/dividers';
 import { FILTER_SORTS, filterParams, localNow, loopQuery, pageParam, relatedTo, timeField, type FilterSort, type LoopSort } from '../shared/query';
 import { condsHold, type CondEnv } from '../shared/conditions';
-import { bindKind, applyOverrides, BOX_TAGS, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, iaClass, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
+import { bindKind, applyOverrides, BOX_ROLE_INFO, BOX_TAGS, boxRole, walkEls, componentEls, componentVariants, variantImages, variantsCss, type Variant, elDomId, elementImages, elementsCss, elementsText, headlineWords, iaClass, itemLabel, listTemplate, MARQUEE_SPEEDS, OVERRIDABLE, SHAPES, SPACER_SIZES, type El, type Overrides } from '../shared/elements';
 import { sanitizeRichText } from '../shared/richtext';
 import { siteIconSvg } from '../shared/icon-set';
 import { networkOf, socialSvg } from '../shared/social';
@@ -1039,10 +1039,17 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       const tag = (BOX_TAGS as readonly string[]).includes(String(p.tag)) ? String(p.tag) : 'div';
       const kids = el.children ?? [];
       const href = hrefOf();
-      const inner = kids.length ? await renderEls(kids, ctx, { ...rc, path: `${path}.children`, inLink: rc.inLink || Boolean(href) }) : rc.edit ? html`<div class="el-empty">Leerer Container</div>` : html``;
+      // Section, Container, Block, Div: each brings its own basic layout (themes.ts, .box-*).
+      const role = boxRole(el);
+      const inner = kids.length
+        ? await renderEls(kids, ctx, { ...rc, path: `${path}.children`, inLink: rc.inLink || Boolean(href) })
+        : rc.edit
+          ? html`<div class="el-empty">${role ? `${BOX_ROLE_INFO[role].label} – leer. Element hineinziehen oder mit «+» einfügen.` : 'Leerer Container'}</div>`
+          : html``;
+      const roleCls = role ? `box-${role}` : '';
       return href
-        ? html`<a class="${cls()}" href="${href}"${attrs}>${inner}</a>`
-        : html`${raw(`<${tag} class="${cls()}"`)}${attrs}>${inner}${raw(`</${tag}>`)}`;
+        ? html`<a class="${cls(roleCls)}" href="${href}"${attrs}>${inner}</a>`
+        : html`${raw(`<${tag} class="${cls(roleCls)}"`)}${attrs}>${inner}${raw(`</${tag}>`)}`;
     }
     case 'heading': {
       const level = Math.min(4, Math.max(1, Number(p.level) || 2));

@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { useSavedStyle } from '../design/SavedStyles';
 import { isEmptyDesign, type Design, type DesignBp, type DesignState } from '../../../shared/design';
-import { BINDABLE, bindKind, cleanAnchor, MAX_EL_CSS, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
+import { BINDABLE, bindKind, BOX_ROLE_INFO, boxRole, cleanAnchor, MAX_EL_CSS, SITE_BINDS, EL_DEFS, ITEM_CONTAINERS, walkEls, type El, type ElKind } from '../../../shared/elements';
 import type { CollectionDef } from '../../../shared/types';
 import type { FieldType } from '../../../shared/fields';
 import { hasMotion } from '../../../shared/motion';
@@ -90,7 +90,7 @@ export function ElementInspector({
   const saved = useSavedStyle({ use: el.use, own: el.design, onOwn: (design) => onChange({ ...el, design }), onStyle: (use, design) => onChange({ ...el, use, design }) });
   return (
     <div className="stack">
-      <p className="small muted">{tl(def.description)}</p>
+      <p className="small muted">{tl(boxRole(el) ? BOX_ROLE_INFO[boxRole(el)!].description : def.description)}</p>
       <Segmented
         label={t('Bereich')}
         value={tab}

@@ -3,14 +3,16 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { BLOCK_MAP } from '../../../shared/blocks';
 import type { AlignHow } from '../../../shared/canvas';
 import { useSession } from '../../lib/session';
-import { EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, type El, type ElKind, type Found } from '../../../shared/elements';
+import { BOX_ROLE_INFO, boxRole, EL_DEFS, EL_GROUP_LABELS, EL_GROUPS, EL_KINDS, ITEM_CONTAINERS, STRUCTURES, type El, type ElKind, type Found } from '../../../shared/elements';
 import { t, tl } from '../../lib/i18n';
 import { Icon } from '../../ui/icons';
 import { Menu, Tip } from '../../ui/kit';
 import { dragSource, NEW_EL } from '../dragNew';
 import { useElFavorites } from './recentEls';
 
-export const elLabel = (el: El) => el.name || tl(EL_DEFS[el.kind].label);
+export const elLabel = (el: El) => el.name || tl(boxRole(el) ? BOX_ROLE_INFO[boxRole(el)!].label : EL_DEFS[el.kind].label);
+/** The icon of an element – containers show their role (Section, Container, Block, Div). */
+export const elIcon = (el: El) => (boxRole(el) ? BOX_ROLE_INFO[boxRole(el)!].icon : EL_DEFS[el.kind].icon);
 
 /**
  * Toolbar of the selected element: where it sits (click a step to select it),
@@ -89,7 +91,7 @@ export function ElementToolbar({
           </button>
         ))}
         <span className="here" aria-current="true">
-          <Icon name={EL_DEFS[found.el.kind].icon} size="s" />
+          <Icon name={elIcon(found.el)} size="s" />
           {elLabel(found.el)}
         </span>
       </nav>
@@ -177,9 +179,12 @@ export function ElementPicker({
   inTemplate,
   components,
   onPickComponent,
+  onPickStructure,
   drag,
 }: {
   onPick: (kind: ElKind) => void;
+  /** Section, Container, Block, Div and columns – the page's structure, like in Bricks. */
+  onPickStructure?: (id: string) => void;
   into: string | null;
   /** Page templates also offer «Inhalt des Eintrags». */
   inTemplate: boolean;
@@ -196,10 +201,15 @@ export function ElementPicker({
   const hit = (...texts: string[]) => words.every((w) => texts.some((x) => x.toLowerCase().includes(w)));
   const kinds = EL_KINDS.filter(
     (k) =>
-      k !== 'component' && (k !== 'entrybody' || inTemplate) && (shop || EL_DEFS[k].group !== 'shop') && hit(tl(EL_DEFS[k].label), tl(EL_DEFS[k].description), EL_DEFS[k].label),
+      k !== 'component' &&
+      (k !== 'box' || !onPickStructure) &&
+      (k !== 'entrybody' || inTemplate) &&
+      (shop || EL_DEFS[k].group !== 'shop') &&
+      hit(tl(EL_DEFS[k].label), tl(EL_DEFS[k].description), EL_DEFS[k].label),
   );
   const comps = components.filter((c) => hit(c.title));
-  const first = () => (kinds[0] ? onPick(kinds[0]) : comps[0] ? onPickComponent(comps[0]) : undefined);
+  const structures = onPickStructure ? STRUCTURES.filter((x) => hit(tl(x.label), tl(x.description), x.label, 'struktur layout spalten')) : [];
+  const first = () => (words.length && structures[0] ? onPickStructure?.(structures[0].id) : kinds[0] ? onPick(kinds[0]) : comps[0] ? onPickComponent(comps[0]) : undefined);
   const { favs, recent, toggle } = useElFavorites();
   // Without a search: the starred ones, then the last used (those not starred).
   const pinned = words.length
@@ -253,7 +263,27 @@ export function ElementPicker({
         aria-label={t('Elemente suchen')}
         autoFocus={!drag}
       />
-      {!kinds.length && !comps.length && <p className="xsmall faint el-picker-note">{t('Nichts gefunden.')}</p>}
+      {!kinds.length && !comps.length && !structures.length && <p className="xsmall faint el-picker-note">{t('Nichts gefunden.')}</p>}
+      {structures.length > 0 && (
+        <section className="el-picker-group">
+          <h3 className="el-picker-title">{t('Struktur')}</h3>
+          <div className="el-picker-grid">
+            {structures.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                className="el-struct"
+                {...dragSource(drag, NEW_EL, { structure: x.id })}
+                onClick={() => onPickStructure?.(x.id)}
+                title={tl(x.description)}
+              >
+                <Icon name={x.icon} />
+                <span>{tl(x.label)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {pinned.map((x) => (
         <section key={x.id} className="el-picker-group">
           <h3 className="el-picker-title">{x.title}</h3>

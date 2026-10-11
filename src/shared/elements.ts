@@ -310,6 +310,19 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
     description: 'Hält andere Elemente – untereinander, nebeneinander oder im Raster.',
     icon: 'box',
     fields: [
+      {
+        key: 'role',
+        type: 'select',
+        label: 'Art',
+        help: 'Wie bei Bricks: Section über die ganze Breite, darin ein Container in Website-Breite, darin Blöcke und Divs.',
+        options: [
+          { value: 'section', label: 'Section – ganze Breite, Abstand oben und unten' },
+          { value: 'container', label: 'Container – Website-Breite, zentriert' },
+          { value: 'block', label: 'Block – füllt seine Spalte' },
+          { value: 'div', label: 'Div – ohne Vorgaben' },
+        ],
+        default: 'block',
+      },
       { key: 'href', type: 'url', label: 'Ganzer Container als Link', help: 'Leer lassen, wenn er nirgendwohin führen soll.' },
       {
         key: 'tag',
@@ -1756,7 +1769,7 @@ export function headlineText(p: Record<string, unknown>): string {
 function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, unknown> {
   switch (kind) {
     case 'box':
-      return { tag: one(p.tag, BOX_TAGS, 'div'), href: href(p.href) };
+      return { tag: one(p.tag, BOX_TAGS, 'div'), href: href(p.href), ...((BOX_ROLES as readonly string[]).includes(String(p.role)) ? { role: p.role } : {}) };
     case 'heading':
       return { text: plain(p.text, 300), level: one(String(p.level ?? '2'), ['1', '2', '3', '4'] as const, '2') };
     case 'text':
@@ -2246,6 +2259,58 @@ export function elementsLinks(els: El[]): string[] {
 /* ---------- ready-made layouts ---------- */
 
 const box = (children: El[], design?: Design, props: Record<string, unknown> = {}, extra: Partial<El> = {}) => createEl('box', props, { children, design, ...extra });
+
+/* ---------- structure like Bricks: Section › Container › Block / Div ---------- */
+
+export const BOX_ROLES = ['section', 'container', 'block', 'div'] as const;
+export type BoxRole = (typeof BOX_ROLES)[number];
+
+export const BOX_ROLE_INFO: Record<BoxRole, { label: string; description: string; icon: string }> = {
+  section: { label: 'Section', description: 'Ein Abschnitt über die ganze Breite mit Abstand oben und unten – darin ein Container für den Inhalt.', icon: 'layout' },
+  container: { label: 'Container', description: 'Hält den Inhalt in der Breite der Website und zentriert ihn.', icon: 'box' },
+  block: { label: 'Block', description: 'Füllt die ganze Breite seiner Spalte – für Spalten, Karten und Gruppen. Inhalt untereinander.', icon: 'dirBlock' },
+  div: { label: 'Div', description: 'Ein Rahmen ohne Vorgaben – für alles, was du ganz selbst gestaltest.', icon: 'shape' },
+};
+
+/** The structural role of a container, or null for other elements (and containers from before roles). */
+export const boxRole = (el: El): BoxRole | null => (el.kind === 'box' && (BOX_ROLES as readonly string[]).includes(String(el.props.role)) ? (el.props.role as BoxRole) : null);
+
+/** A container with a role. */
+export const structureBox = (role: BoxRole, children: El[] = [], design?: Design, props: Record<string, unknown> = {}) =>
+  createEl('box', { tag: role === 'section' ? 'section' : 'div', ...props, role }, { children, ...(design ? { design } : {}) });
+
+export interface Structure {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  make: () => El;
+}
+
+/** Spalten: a Block laid out as a grid of Blocks, one under the other on the phone. */
+const columnsOf = (widths: number[]): El =>
+  structureBox(
+    'block',
+    widths.map(() => structureBox('block')),
+    {
+      desktop: { display: 'grid', ...(widths.every((w) => w === widths[0]) ? { columns: widths.length } : { colWidths: widths.join(' ') }), gap: '$s-6' },
+      ...(widths.length > 2 ? { tablet: { columns: 2, colWidths: undefined } } : {}),
+      mobile: { columns: 1, colWidths: undefined },
+    },
+  );
+
+/** The building parts in the builder's «Struktur» group. */
+export const STRUCTURES: Structure[] = [
+  { id: 'section', ...BOX_ROLE_INFO.section, make: () => structureBox('section', [structureBox('container')]) },
+  { id: 'container', ...BOX_ROLE_INFO.container, make: () => structureBox('container') },
+  { id: 'block', ...BOX_ROLE_INFO.block, make: () => structureBox('block') },
+  { id: 'div', ...BOX_ROLE_INFO.div, make: () => structureBox('div') },
+  { id: 'cols-2', label: '2 Spalten', description: 'Zwei gleich breite Blöcke nebeneinander.', icon: 'columns', make: () => columnsOf([1, 1]) },
+  { id: 'cols-3', label: '3 Spalten', description: 'Drei gleich breite Blöcke nebeneinander, auf dem Tablet zwei.', icon: 'columns', make: () => columnsOf([1, 1, 1]) },
+  { id: 'cols-4', label: '4 Spalten', description: 'Vier gleich breite Blöcke nebeneinander, auf dem Tablet zwei.', icon: 'columns', make: () => columnsOf([1, 1, 1, 1]) },
+  { id: 'cols-1-2', label: '1/3 + 2/3', description: 'Eine schmale und eine breite Spalte.', icon: 'columns', make: () => columnsOf([1, 2]) },
+  { id: 'cols-2-1', label: '2/3 + 1/3', description: 'Eine breite und eine schmale Spalte.', icon: 'columns', make: () => columnsOf([2, 1]) },
+];
 const row = (gap = '$s-6'): StyleProps => ({ display: 'flex', direction: 'row', gap, align: 'center' });
 const stackOnPhone: StyleProps = { direction: 'column', align: 'stretch' };
 

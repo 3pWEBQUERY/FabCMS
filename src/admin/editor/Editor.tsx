@@ -41,6 +41,8 @@ import type { ContrastIssue } from '../../shared/contrast';
 import { AUDIT_ERRORS, type AuditIssue } from '../../shared/audit';
 import { AuditPanel } from './AuditPanel';
 import {
+  boxRole,
+  STRUCTURES,
   cloneEl,
   createEl,
   EL_DEFS,
@@ -665,8 +667,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     if (ready) postToCanvas(frame.current, { t: 'hover-state', id: on ? selected : null, el: on ? selectedEl : null, state: designState });
   }, [designState, panel, selected, selectedEl, ready]);
 
-  const insertBlock = async (type: string, index: number, props?: Record<string, unknown>) => {
+  const insertBlock = async (type: string, index: number, props?: Record<string, unknown>, style?: Block['style']) => {
     const block = createBlock(type, props);
+    if (style) block.style = { ...block.style, ...style };
     setPicker(null);
     doc.setData((d) => {
       const list = [...(d.blocks ?? [])];
@@ -693,20 +696,22 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const dropNew = async (kind: 'el' | 'block', data: Record<string, unknown>, at: { block?: string; parent?: string | null; index?: number }) => {
     const index = Math.max(0, Math.min(blocksRef.current.length, Number(at.index) || 0));
     if (kind === 'el') {
-      const el =
-        typeof data.component === 'string'
+      const structure = typeof data.structure === 'string' ? STRUCTURES.find((x) => x.id === data.structure) : undefined;
+      const el = structure
+        ? structure.make()
+        : typeof data.component === 'string'
           ? createEl('component', { ref: data.component, overrides: {} }, { name: String(data.title ?? '') })
           : (EL_KINDS as readonly string[]).includes(String(data.kind))
             ? createEl(data.kind as ElKind)
             : null;
       if (!el) return;
-      rememberEl(el.kind);
+      if (!structure) rememberEl(el.kind);
       const target = at.block ? blocksRef.current.find((b) => b.id === at.block && b.type === 'layout') : undefined;
       if (target) {
         if (studio && (target.lock ?? 'none') !== 'none') return toast(t('Dieser Block ist geschützt und lässt sich im Studio nicht ändern.'));
         setSelected(target.id);
         changeEls(target.id, (els) => onCanvasPlace(insertEl(els, at.parent ?? null, Number(at.index) || 0, el), el.id), el.id);
-      } else await insertBlock('layout', index, { els: [el] });
+      } else await insertLayoutWith(el, index);
       if (el.kind !== 'component' && EL_DEFS[el.kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
       return;
     }
@@ -897,6 +902,27 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
     rememberEl(kind);
     placeElement(createEl(kind));
     if (EL_DEFS[kind].fields.some((f) => ['image', 'url', 'icon'].includes(f.type))) setPanel('inspector');
+  };
+
+  /**
+   * A new free layout around an element. A Section brings its own width and
+   * spacing: the layout goes edge to edge and adds none of its own.
+   */
+  const insertLayoutWith = (el: El, index: number) =>
+    boxRole(el) === 'section' ? insertBlock('layout', index, { els: [el], width: 'full' }, { spacing: 'none' }) : insertBlock('layout', index, { els: [el] });
+
+  /** Section, Container, Block, Div or columns from the «Struktur» group. */
+  const insertStructure = (id: string) => {
+    const structure = STRUCTURES.find((x) => x.id === id);
+    if (!structure) return;
+    const el = structure.make();
+    if (!selectedBlock || selectedBlock.type !== 'layout') {
+      const index = selectedBlock ? blocksRef.current.findIndex((b) => b.id === selectedBlock.id) + 1 : blocksRef.current.length;
+      void insertLayoutWith(el, index);
+      setElPicker(null);
+      return;
+    }
+    placeElement(el);
   };
 
   /** An element arriving on a free canvas without a place of its own gets one. */
@@ -1521,7 +1547,7 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
             <BuilderPanel
               tab={builderTab}
               onTab={setBuilderTab}
-              elements={{ onPick: insertElement, into, inTemplate: Boolean(templateFor), components, onPickComponent: pickComponent }}
+              elements={{ onPick: insertElement, onPickStructure: insertStructure, into, inTemplate: Boolean(templateFor), components, onPickComponent: pickComponent }}
               blocks={{
                 sections,
                 saved: savedSections,
@@ -1732,7 +1758,14 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   </RPopover.Anchor>
                   <RPopover.Portal>
                     <RPopover.Content className="popover pop-anim" style={{ padding: 0 }} sideOffset={8} collisionPadding={12}>
-                      <ElementPicker onPick={insertElement} inTemplate={Boolean(templateFor)} components={components} onPickComponent={pickComponent} into={into} />
+                      <ElementPicker
+                        onPick={insertElement}
+                        onPickStructure={insertStructure}
+                        inTemplate={Boolean(templateFor)}
+                        components={components}
+                        onPickComponent={pickComponent}
+                        into={into}
+                      />
                     </RPopover.Content>
                   </RPopover.Portal>
                 </RPopover.Root>
