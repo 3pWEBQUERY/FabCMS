@@ -135,7 +135,10 @@ export function listRow(r: Record<string, any>) {
 }
 
 export async function canvasContext(c: Context<AppEnv>, entry: Entry, data: EntryData, edit: boolean, lang: Lang | null = null) {
-  const settings = await getSettings();
+  let settings = await getSettings();
+  // The editor's canvas in an own design that is not live yet (Einstellungen → Eigene Designs).
+  const draftDesign = c.req.query('design');
+  if (draftDesign && settings.designs?.some((d) => d.id === draftDesign)) settings = { ...settings, activeDesign: draftDesign };
   const collection = await getCollection(entry.collection);
   const ctx = createContext({
     lang: lang ?? undefined,

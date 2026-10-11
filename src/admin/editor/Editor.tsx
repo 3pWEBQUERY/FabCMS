@@ -244,6 +244,8 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
   const [help, setHelp] = useState(false);
   const ctxAt = useRef(0);
   const [canvasKey, setCanvasKey] = useState(0);
+  /** An own design shown on the canvas before it goes live; null = as on the website. */
+  const [canvasDesign, setCanvasDesign] = useState<string | null>(null);
   const glide = useAnimationControls();
   const renderSeq = useRef<Record<string, number>>({});
   const blocksRef = useRef<Block[]>([]);
@@ -1531,6 +1533,17 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                 { heading: t('Ansicht') },
                 { label: t('Raster'), icon: 'grid', checked: grid, onSelect: () => setGrid(!grid) },
                 { label: t('Tastenkürzel'), icon: 'keyboard', keys: '?', onSelect: () => setHelp(true) },
+                // Own designs: the canvas can already show one that is not live yet.
+                ...(session.settings?.designs?.length
+                  ? [
+                      'sep' as const,
+                      { heading: t('Design auf der Fläche') },
+                      { label: t('Wie auf der Website'), icon: 'globe', checked: canvasDesign === null, onSelect: () => setCanvasDesign(null) },
+                      ...session.settings.designs
+                        .filter((d) => d.id !== session.settings?.activeDesign)
+                        .map((d) => ({ label: d.name, icon: 'paint', checked: canvasDesign === d.id, onSelect: () => setCanvasDesign(d.id) })),
+                    ]
+                  : []),
                 ...(session.user.allowed_modes.length > 1
                   ? [
                       'sep' as const,
@@ -1573,9 +1586,22 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
           />
         </header>
 
-        {lang && (
+        {(lang || canvasDesign) && (
           <div className="editor-note">
-            <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />
+            {lang && <TranslationNote doc={doc} action={<AiTranslate doc={doc} />} />}
+            {canvasDesign && (
+              <div className="hint">
+                <Icon name="paint" />
+                <span className="grow">
+                  {t('Die Fläche zeigt den Entwurf «{name}». Besucher sehen das bisherige Design, bis du ihn unter «Eigene Designs» live schaltest.', {
+                    name: session.settings?.designs?.find((d) => d.id === canvasDesign)?.name ?? '',
+                  })}
+                </span>
+                <button className="btn s ghost" onClick={() => setCanvasDesign(null)}>
+                  {t('Wie auf der Website')}
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div className={building ? 'editor-stage with-builder' : 'editor-stage'}>
@@ -1651,7 +1677,13 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                   resizeTo(box.getBoundingClientRect().width + step, box.parentElement.clientWidth);
                 }}
               />
-              <LoadingFrame key={canvasKey} frameRef={frame} title={t('Seite bearbeiten')} src={`/_nova/canvas/${id}${lang ? `?lang=${lang}` : ''}`} label={t('Seite lädt …')} />
+              <LoadingFrame
+                key={canvasKey}
+                frameRef={frame}
+                title={t('Seite bearbeiten')}
+                src={`/_nova/canvas/${id}?${new URLSearchParams({ ...(lang ? { lang } : {}), ...(canvasDesign ? { design: canvasDesign } : {}) })}`}
+                label={t('Seite lädt …')}
+              />
               {customWidth !== null && (
                 <div className="canvas-width" role="status">
                   <span>

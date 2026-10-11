@@ -1562,4 +1562,11 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
     it: 'Più libertà: scomponi il blocco in sezione, contenitore ed elementi singoli – così ogni parte si può progettare, spostare e completare.',
     en: 'More freedom: break the block into a section, container and single elements – then every part can be designed, moved and added to.',
   },
+  'Design auf der Fläche': { fr: 'Design sur la surface', it: 'Design sulla superficie', en: 'Design on the canvas' },
+  'Wie auf der Website': { fr: 'Comme sur le site', it: 'Come sul sito', en: 'As on the website' },
+  'Die Fläche zeigt den Entwurf «{name}». Besucher sehen das bisherige Design, bis du ihn unter «Eigene Designs» live schaltest.': {
+    fr: 'La surface montre le brouillon « {name} ». Les visiteurs voient le design actuel jusqu’à ce que vous le mettiez en ligne sous « Designs personnels ».',
+    it: 'La superficie mostra la bozza «{name}». I visitatori vedono il design attuale finché non la metti online in «Design propri».',
+    en: 'The canvas shows the draft “{name}”. Visitors see the current design until you put it live under “Own designs”.',
+  },
 };
