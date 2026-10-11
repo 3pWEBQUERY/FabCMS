@@ -21,6 +21,8 @@ import { AB_MIN_SHOWN } from '../../shared/popups';
 import { LayersTree } from './elements/LayersTree';
 import { useComponentTexts } from './elements/Components';
 import { GlobalContrast } from './design/contrast';
+import { useSettingsDraft } from '../views/settingsDraft';
+import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider } from '../views/NavEditors';
 import type { ContrastIssue } from '../../shared/contrast';
 
 /* ---------- SEO coach ---------- */
@@ -554,9 +556,11 @@ export function HistoryPanel({ doc, onRestored }: { doc: EntryDoc; onRestored: (
 
 /* ---------- header & footer ---------- */
 
-export function GlobalPanel({ which, contrast }: { which: 'header' | 'footer'; contrast: ContrastIssue[] }) {
-  const { settings } = useSession();
+export function GlobalPanel({ which, contrast, onSaved }: { which: 'header' | 'footer'; contrast: ContrastIssue[]; onSaved?: () => void }) {
   const toast = useToast();
+  // Menu, header button, footer and social links edited right here – the same drafts as in the settings.
+  const { draft, set, dirty, save, reset } = useSettingsDraft();
+  const [busy, setBusy] = useState(false);
   // A header or footer designed in the free layout replaces the theme's while it is published.
   const { data: own } = useApi<{ entries: { id: string; status: string; fields?: { kind?: string } }[] }>('/api/entries?collection=sections&limit=500');
   const mine = own?.entries.filter((x) => x.fields?.kind === which) ?? [];
@@ -613,24 +617,92 @@ export function GlobalPanel({ which, contrast }: { which: 'header' | 'footer'; c
       <p className="small muted">
         {which === 'header' ? t('Kopfzeile und Menü sind auf allen Seiten gleich.') : t('Die Fusszeile ist auf allen Seiten gleich.')} {t('Änderungen wirken überall.')}
       </p>
-      {which === 'header' ? (
-        <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
-          {settings?.nav.map((n) => (
-            <li key={n.id}>
-              {n.label} <span className="faint mono">{n.href}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="small">{settings?.footer.text || t('Noch kein Text in der Fusszeile.')}</p>
+      {draft && (
+        <PageLinksProvider>
+          {which === 'header' ? (
+            <>
+              <Field label={t('Name der Website')}>
+                <input className="input" value={draft.name} onChange={(e) => set('name', e.target.value)} />
+              </Field>
+              <Field label={t('Logo')} help={t('Ohne Logo steht der Name in der Kopfzeile.')}>
+                <MediaField value={draft.logo} type="image" onChange={(v) => set('logo', v)} />
+              </Field>
+              <span className="section-title">{t('Hauptmenü')}</span>
+              <MenuEditor nav={draft.nav} onChange={(n) => set('nav', n)} />
+              <span className="section-title">{t('Knopf und Verhalten')}</span>
+              <HeaderOptions header={draft.header} onChange={(h) => set('header', h)} />
+            </>
+          ) : (
+            <>
+              <FooterEditor footer={draft.footer} onChange={(f) => set('footer', f)} />
+              <span className="section-title">{t('Social Media')}</span>
+              {draft.social.map((l, i) => (
+                <div key={i} className="row nav-row">
+                  <input
+                    className="input"
+                    value={l.label}
+                    placeholder={t('z. B. Instagram')}
+                    aria-label={t('Beschriftung')}
+                    onChange={(e) =>
+                      set(
+                        'social',
+                        draft.social.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                      )
+                    }
+                  />
+                  <input
+                    className="input mono"
+                    value={l.href}
+                    placeholder="https://"
+                    aria-label={t('Ziel')}
+                    onChange={(e) =>
+                      set(
+                        'social',
+                        draft.social.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
+                      )
+                    }
+                  />
+                  <button
+                    className="btn ghost s icon-only"
+                    aria-label={t('Entfernen')}
+                    onClick={() =>
+                      set(
+                        'social',
+                        draft.social.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    <Icon name="x" size="s" />
+                  </button>
+                </div>
+              ))}
+              <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('social', [...draft.social, { label: '', href: '' }])}>
+                <Icon name="plus" size="s" /> {t('Social-Link')}
+              </button>
+            </>
+          )}
+        </PageLinksProvider>
       )}
-      <button className="btn primary" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/navigation')}>
-        {which === 'header' ? t('Menü bearbeiten') : t('Fusszeile bearbeiten')}
-      </button>
-      {which === 'header' && (
-        <button className="btn" style={{ justifySelf: 'start' }} onClick={() => navigate('/einstellungen/website')}>
-          {t('Name & Logo ändern')}
-        </button>
+      {dirty && (
+        <div className="panel-save">
+          <button className="btn ghost s" onClick={reset} disabled={busy}>
+            {t('Verwerfen')}
+          </button>
+          <button
+            className="btn primary s"
+            aria-busy={busy || undefined}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                if (await save()) onSaved?.();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t('Speichern – auf allen Seiten')}
+          </button>
+        </div>
       )}
     </div>
   );

@@ -2575,6 +2575,28 @@ button.list-item {
   font-size: var(--t-s);
   font-weight: 650;
 }
+/* Menu, footer and social rows in the narrow editor panel: inputs share the line and wrap. */
+.side-body .nav-row {
+  flex-wrap: wrap;
+}
+.side-body .nav-row > .input {
+  flex: 1 1 7rem;
+  min-width: 0;
+}
+/* «Speichern – auf allen Seiten»: stays in sight at the panel's bottom while there are changes. */
+.panel-save {
+  position: sticky;
+  bottom: -1rem;
+  margin: 0 -1rem -1rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 12px -10px rgb(0 0 0 / 0.25);
+  z-index: 2;
+}
 .side-body {
   overflow: auto;
   padding: 1rem;

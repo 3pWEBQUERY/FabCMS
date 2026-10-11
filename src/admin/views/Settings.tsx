@@ -1,13 +1,12 @@
-import { Reorder, useDragControls } from 'motion/react';
 import { ImportSettings } from './Import';
 import { LanguageSettings } from './Languages';
-import { Fragment, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useApi, formatDate } from '../lib/hooks';
 import { Link, navigate, usePath } from '../lib/router';
 import { useSession } from '../lib/session';
 import { entryUrl } from '../lib/actions';
-import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, SuggestInput, Toggle, confirm } from '../ui/kit';
+import { Dialog, Field, Menu, PageHead, Segmented, Select, Skeleton, Toggle, confirm } from '../ui/kit';
 import { MediaField } from '../ui/FieldInput';
 import { LoadingFrame } from '../ui/loading';
 import { HoursEditor } from '../ui/HoursEditor';
@@ -19,12 +18,12 @@ import { ROLE_LABELS, ROLE_ORDER, type Capability } from '../../shared/roles';
 import { RightsMatrix, roleName, TwoFactorPolicy, useRoles } from './Roles';
 import { MissingPages } from './NotFound';
 import { MailSettings } from './MailSettings';
-import { shortId } from '../../shared/text';
-import type { NavItem, Role, SiteSettings, User } from '../../shared/types';
+import type { Role, SiteSettings, User } from '../../shared/types';
 import { ContentTypes, CodeSettings, ApiSettings, HooksSettings, Redirects, SqlConsole, AuditLog } from './SettingsPro';
 import { ExtensionsSettings } from './Extensions';
 import { SaveBar, useSettingsDraft } from './settingsDraft';
 import { SavedStylesOverview } from './SavedStylesOverview';
+import { FooterEditor, HeaderOptions, MenuEditor, PageLinksProvider } from './NavEditors';
 import { t, tl, tm } from '../lib/i18n';
 
 interface Section {
@@ -407,193 +406,26 @@ function DesignSettings() {
 
 /* ---------- navigation ---------- */
 
-/** Page addresses offered as link targets in every menu and footer row. */
-const PageLinks = createContext<{ value: string; label: string }[]>([]);
-
-function NavRow({ item, onChange, onRemove, depth }: { item: NavItem; onChange: (n: NavItem) => void; onRemove: () => void; depth: number }) {
-  const controls = useDragControls();
-  const pageLinks = useContext(PageLinks);
-  return (
-    <Reorder.Item value={item} dragListener={false} dragControls={controls} style={{ listStyle: 'none' }} whileDrag={{ scale: 1.01, zIndex: 4 }}>
-      <div className="row" style={{ marginLeft: depth * 24, padding: '0.25rem 0' }}>
-        <span className="grip" onPointerDown={(e) => controls.start(e)} aria-hidden="true">
-          <Icon name="grip" size="s" />
-        </span>
-        <input
-          className="input"
-          style={{ maxWidth: '12rem' }}
-          value={item.label}
-          placeholder={t('Beschriftung')}
-          onChange={(e) => onChange({ ...item, label: e.target.value })}
-          aria-label={t('Beschriftung')}
-        />
-        <SuggestInput
-          className="input grow mono"
-          value={item.href}
-          placeholder={t('/seite')}
-          onChange={(v) => onChange({ ...item, href: v })}
-          aria-label={t('Ziel')}
-          suggestions={pageLinks}
-        />
-        {depth === 0 && (
-          <button
-            className="btn ghost s"
-            onClick={() => onChange({ ...item, children: [...(item.children ?? []), { id: shortId(), label: '', href: '' }] })}
-            title={t('Untermenü-Punkt')}
-          >
-            + {t('Unterpunkt')}
-          </button>
-        )}
-        <button className="btn ghost s icon-only" aria-label={t('Entfernen')} onClick={onRemove}>
-          <Icon name="x" size="s" />
-        </button>
-      </div>
-      {depth === 0 && item.children && item.children.length > 0 && (
-        <Reorder.Group axis="y" values={item.children} onReorder={(c) => onChange({ ...item, children: c })} style={{ padding: 0, margin: 0 }}>
-          {item.children.map((c) => (
-            <NavRow
-              key={c.id}
-              item={c}
-              depth={1}
-              onChange={(nc) => onChange({ ...item, children: item.children!.map((x) => (x.id === c.id ? nc : x)) })}
-              onRemove={() => onChange({ ...item, children: item.children!.filter((x) => x.id !== c.id) })}
-            />
-          ))}
-        </Reorder.Group>
-      )}
-    </Reorder.Item>
-  );
-}
-
 function NavigationSettings() {
   const { draft, set, dirty, save, reset } = useSettingsDraft();
-  const { data } = useApi<{ entries: { id: string; slug: string; title: string }[] }>('/api/entries?collection=pages&limit=300');
-  const pageLinks = useMemo(() => (data?.entries ?? []).map((p) => ({ value: p.slug ? `/${p.slug}` : '/', label: p.title })), [data]);
   if (!draft) return <Skeleton />;
   return (
     <>
       <PageHead title={t('Menü & Fusszeile')} sub={t('Einmal ändern, auf allen Seiten aktuell.')} />
-      <PageLinks.Provider value={pageLinks}>
+      <PageLinksProvider>
         <div className="card">
           <Section title={t('Hauptmenü')} sub={t('Zieh die Punkte in die gewünschte Reihenfolge. Unterpunkte erscheinen als Aufklappmenü.')}>
-            <Reorder.Group axis="y" values={draft.nav} onReorder={(n) => set('nav', n)} style={{ padding: 0, margin: 0 }}>
-              {draft.nav.map((n) => (
-                <NavRow
-                  key={n.id}
-                  item={n}
-                  depth={0}
-                  onChange={(nn) =>
-                    set(
-                      'nav',
-                      draft.nav.map((x) => (x.id === n.id ? nn : x)),
-                    )
-                  }
-                  onRemove={() =>
-                    set(
-                      'nav',
-                      draft.nav.filter((x) => x.id !== n.id),
-                    )
-                  }
-                />
-              ))}
-            </Reorder.Group>
-            <button className="btn s" style={{ justifySelf: 'start' }} onClick={() => set('nav', [...draft.nav, { id: shortId(), label: '', href: '' }])}>
-              <Icon name="plus" size="s" /> {t('Menüpunkt')}
-            </button>
+            <MenuEditor nav={draft.nav} onChange={(n) => set('nav', n)} />
           </Section>
           <Section title={t('Kopfzeile')}>
-            <div className="grid-2">
-              <Field label={t('Knopf rechts im Menü')} help={t('z. B. «Tisch reservieren»')}>
-                <input
-                  className="input"
-                  value={draft.header.cta?.label ?? ''}
-                  onChange={(e) =>
-                    set('header', { ...draft.header, cta: e.target.value || draft.header.cta?.href ? { label: e.target.value, href: draft.header.cta?.href ?? '' } : null })
-                  }
-                />
-              </Field>
-              <Field label={t('Ziel des Knopfs')}>
-                <SuggestInput
-                  className="input mono"
-                  suggestions={pageLinks}
-                  value={draft.header.cta?.href ?? ''}
-                  onChange={(v) => set('header', { ...draft.header, cta: { label: draft.header.cta?.label ?? '', href: v } })}
-                />
-              </Field>
-            </div>
-            <Toggle checked={draft.header.sticky} onChange={(v) => set('header', { ...draft.header, sticky: v })} label={t('Kopfzeile beim Scrollen oben behalten')} />
+            <HeaderOptions header={draft.header} onChange={(h) => set('header', h)} />
           </Section>
           <Section title={t('Fusszeile')}>
-            <Field label={t('Text')}>
-              <textarea className="textarea" style={{ minHeight: '4rem' }} value={draft.footer.text} onChange={(e) => set('footer', { ...draft.footer, text: e.target.value })} />
-            </Field>
-            {draft.footer.columns.map((col, i) => (
-              <div key={i} className="repeat-item" style={{ padding: '0.75rem' }}>
-                <div className="row">
-                  <input
-                    className="input"
-                    value={col.title}
-                    placeholder={t('Spaltentitel')}
-                    onChange={(e) => set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, title: e.target.value } : c)) })}
-                  />
-                  <button
-                    className="btn ghost s icon-only"
-                    aria-label={t('Spalte entfernen')}
-                    onClick={() => set('footer', { ...draft.footer, columns: draft.footer.columns.filter((_, j) => j !== i) })}
-                  >
-                    <Icon name="trash" size="s" />
-                  </button>
-                </div>
-                {col.links.map((l, k) => (
-                  <div key={k} className="row" style={{ marginTop: '0.4rem' }}>
-                    <input
-                      className="input"
-                      value={l.label}
-                      placeholder={t('Beschriftung')}
-                      onChange={(e) =>
-                        set('footer', {
-                          ...draft.footer,
-                          columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, label: e.target.value } : x)) } : c)),
-                        })
-                      }
-                    />
-                    <SuggestInput
-                      className="input mono"
-                      suggestions={pageLinks}
-                      value={l.href}
-                      placeholder={t('/seite')}
-                      aria-label={t('Ziel')}
-                      onChange={(v) =>
-                        set('footer', {
-                          ...draft.footer,
-                          columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: c.links.map((x, m) => (m === k ? { ...x, href: v } : x)) } : c)),
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-                <button
-                  className="btn ghost s"
-                  style={{ marginTop: '0.4rem' }}
-                  onClick={() =>
-                    set('footer', { ...draft.footer, columns: draft.footer.columns.map((c, j) => (j === i ? { ...c, links: [...c.links, { label: '', href: '' }] } : c)) })
-                  }
-                >
-                  + {t('Link')}
-                </button>
-              </div>
-            ))}
-            <button
-              className="btn s"
-              style={{ justifySelf: 'start' }}
-              onClick={() => set('footer', { ...draft.footer, columns: [...draft.footer.columns, { title: '', links: [] }] })}
-            >
-              <Icon name="plus" size="s" /> {t('Spalte')}
-            </button>
+            <FooterEditor footer={draft.footer} onChange={(f) => set('footer', f)} />
             <p className="xsmall muted">{t('Adresse, Öffnungszeiten, Social-Media-Links und Rechtstexte erscheinen automatisch.')}</p>
           </Section>
         </div>
-      </PageLinks.Provider>
+      </PageLinksProvider>
       <SaveBar dirty={dirty} onSave={save} onReset={reset} />
     </>
   );

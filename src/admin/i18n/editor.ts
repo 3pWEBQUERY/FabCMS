@@ -954,4 +954,13 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   },
   'Farben dieser Seite': { fr: 'Couleurs de cette page', it: 'Colori di questa pagina', en: 'Colours of this page' },
   'Farbe ersetzt.': { fr: 'Couleur remplacée.', it: 'Colore sostituito.', en: 'Colour replaced.' },
+  'Ohne Logo steht der Name in der Kopfzeile.': {
+    fr: 'Sans logo, le nom figure dans l’en-tête.',
+    it: 'Senza logo, nell’intestazione appare il nome.',
+    en: 'Without a logo, the name appears in the header.',
+  },
+  'Knopf und Verhalten': { fr: 'Bouton et comportement', it: 'Pulsante e comportamento', en: 'Button and behaviour' },
+  'z. B. Instagram': { fr: 'p. ex. Instagram', it: 'p. es. Instagram', en: 'e.g. Instagram' },
+  'Social-Link': { fr: 'Lien social', it: 'Link social', en: 'Social link' },
+  'Speichern – auf allen Seiten': { fr: 'Enregistrer – sur toutes les pages', it: 'Salva – su tutte le pagine', en: 'Save – on every page' },
 };

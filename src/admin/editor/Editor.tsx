@@ -1657,7 +1657,9 @@ function EditorFor({ id, lang, onOpenPalette }: { id: string; lang: string | nul
                     </button>
                   </div>
                 )}
-                {(panel === 'header' || panel === 'footer') && <GlobalPanel which={panel} contrast={contrast.filter((i) => i.global === panel)} />}
+                {(panel === 'header' || panel === 'footer') && (
+                  <GlobalPanel which={panel} contrast={contrast.filter((i) => i.global === panel)} onSaved={() => void renderAll().catch(() => {})} />
+                )}
                 {panel === 'comments' && (
                   <CommentsPanel
                     entryId={id}
