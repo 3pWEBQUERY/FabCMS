@@ -2271,6 +2271,16 @@ describe('Flip-Box', () => {
   });
 });
 
+describe('Kundenstimme', () => {
+  it('keeps plain texts, whole stars from 0 to 5 and a known look', () => {
+    const [el] = sanitizeEls([{ id: 't', kind: 'testimonial', props: { quote: 'Super!\nWieder gern.', name: '<b>Anna</b>', stars: 7.6, look: 'neon', photo: 'p-1' } }]);
+    expect(el.props).toEqual({ quote: 'Super!\nWieder gern.', name: '<b>Anna</b>', role: '', photo: 'p-1', stars: 5, look: 'card' });
+    expect(sanitizeEls([{ id: 'u', kind: 'testimonial', props: { stars: -2 } }])[0].props.stars).toBe(0);
+    expect(elementsText([el])).toContain('Wieder gern.');
+    expect(elementsMedia([el])).toEqual(['p-1']);
+  });
+});
+
 describe('Überlagerung als Verlauf', () => {
   it('lays the gradient over picture and colour overlay, and hands it to a moving background', () => {
     const css = designCss(

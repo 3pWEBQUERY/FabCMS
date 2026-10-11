@@ -46,6 +46,7 @@ export const EL_KINDS = [
   'headline',
   'hotspots',
   'flipbox',
+  'testimonial',
   'accordion',
   'tabs',
   'slider',
@@ -767,6 +768,32 @@ export const EL_DEFS: Record<ElKind, ElDef> = {
       accent: true,
       level: '2',
     },
+  },
+  testimonial: {
+    kind: 'testimonial',
+    group: 'basic',
+    label: 'Kundenstimme',
+    description: 'Ein Zitat von Gästen oder Kundinnen – mit Sternen, Foto, Name und Zusatz.',
+    icon: 'quote',
+    fields: [
+      { key: 'quote', type: 'textarea', label: 'Zitat', inline: true, maxLength: 600 },
+      { key: 'name', type: 'text', label: 'Name', inline: true, maxLength: 80 },
+      { key: 'role', type: 'text', label: 'Zusatz', inline: true, placeholder: 'z. B. Stammgast seit 2019', maxLength: 80 },
+      { key: 'photo', type: 'image', label: 'Foto' },
+      { key: 'stars', type: 'number', label: 'Sterne', help: '0 zeigt keine.', min: 0, max: 5, default: 5 },
+      {
+        key: 'look',
+        type: 'select',
+        label: 'Aussehen',
+        options: [
+          { value: 'card', label: 'Karte' },
+          { value: 'plain', label: 'Schlicht' },
+          { value: 'center', label: 'Zentriert, gross' },
+        ],
+        default: 'card',
+      },
+    ],
+    defaults: { quote: 'Hier stimmt einfach alles – vom ersten Kaffee bis zum Dessert.', name: 'Vorname N.', role: '', photo: null, stars: 5, look: 'card' },
   },
   flipbox: {
     kind: 'flipbox',
@@ -1549,6 +1576,15 @@ function cleanProps(kind: ElKind, p: Record<string, unknown>): Record<string, un
         route: p.route !== false,
       };
     }
+    case 'testimonial':
+      return {
+        quote: sanitizePlain(typeof p.quote === 'string' ? p.quote : '', true).slice(0, 600),
+        name: plain(p.name, 80),
+        role: plain(p.role, 80),
+        photo: typeof p.photo === 'string' && MEDIA.test(p.photo) ? p.photo : null,
+        stars: typeof p.stars === 'number' && Number.isFinite(p.stars) ? Math.min(5, Math.max(0, Math.round(p.stars))) : 5,
+        look: one(p.look, ['card', 'plain', 'center'] as const, 'card'),
+      };
     case 'flipbox':
       return {
         image: typeof p.image === 'string' && MEDIA.test(p.image) ? p.image : null,
@@ -1833,6 +1869,7 @@ export function elementsText(els: El[]): string {
       if (el.kind === 'text' && !el.bind?.html) out.push(stripHtml(String(el.props.html ?? '')));
       if (el.kind === 'button' && !el.bind?.label) out.push(String(el.props.label ?? ''));
       if (el.kind === 'headline') out.push(headlineText(el.props));
+      if (el.kind === 'testimonial') out.push(String(el.props.quote ?? ''), String(el.props.name ?? ''));
       if (el.kind === 'flipbox') for (const k of ['title', 'text', 'backTitle', 'backText', 'label']) out.push(String(el.props[k] ?? ''));
       if (el.kind === 'hotspots')
         for (const pt of (el.props.points as { title?: string; text?: string }[] | undefined) ?? []) out.push(String(pt?.title ?? ''), String(pt?.text ?? ''));
@@ -1864,6 +1901,7 @@ export function elementsMedia(els: El[]): string[] {
     if (el.kind === 'gallery' && Array.isArray(el.props.images)) out.push(...el.props.images.filter((x): x is string => typeof x === 'string'));
     if (el.kind === 'video' && typeof el.props.poster === 'string') out.push(el.props.poster);
     if ((el.kind === 'hotspots' || el.kind === 'flipbox') && typeof el.props.image === 'string') out.push(el.props.image);
+    if (el.kind === 'testimonial' && typeof el.props.photo === 'string') out.push(el.props.photo);
     if (el.kind === 'compare') for (const k of ['before', 'after']) if (typeof el.props[k] === 'string') out.push(el.props[k] as string);
   });
   return out;

@@ -1201,6 +1201,18 @@ async function renderEl(el: El, ctx: RenderContext, rc: ElRender): Promise<Html>
       }
       return html`${raw(`<h${level} class="${cls(p.accent === false ? '' : 'hl-accent')}"`)}${attrs}>${part('before')} ${middle} ${part('after')}${raw(`</h${level}>`)}`;
     }
+    case 'testimonial': {
+      const look = ['card', 'plain', 'center'].includes(String(p.look)) ? String(p.look) : 'card';
+      const n = Math.min(5, Math.max(0, Math.round(Number(p.stars ?? 5))));
+      const photo = await ctx.media(p.photo);
+      const stars = n
+        ? html`<p class="tm-stars" role="img" aria-label="${t(ctx, '{n} von 5 Sternen', { n })}"><span aria-hidden="true">${'★'.repeat(n)}<span class="tm-off">${'★'.repeat(5 - n)}</span></span></p>`
+        : html``;
+      const who = p.name || p.role || rc.edit
+        ? html`<figcaption>${photo ? picture(photo, { className: 'tm-photo', sizes: '4rem', alt: '' }) : ''}<span>${p.name || rc.edit ? html`<strong${editField('name')}>${p.name ?? ''}</strong>` : ''}${p.role || rc.edit ? html`<span class="tm-role"${editField('role')}>${p.role ?? ''}</span>` : ''}</span></figcaption>`
+        : html``;
+      return html`<figure class="${cls(`tm-${look}`)}"${attrs}>${stars}<blockquote><p${editField('quote')}>${lines(String(p.quote ?? ''))}</p></blockquote>${who}</figure>`;
+    }
     case 'flipbox': {
       // Both sides are in the page for everyone; the turn is only the eye's. Hover, focus inside or a tap (touch) turns it.
       const m = await ctx.media(p.image);

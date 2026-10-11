@@ -1210,4 +1210,13 @@ export const editor: Record<string, { fr: string; it: string; en: string }> = {
   'Link des Knopfs': { fr: 'Lien du bouton', it: 'Link del pulsante', en: 'Button link' },
   'Drehen (seitlich)': { fr: 'Retourner (sur le côté)', it: 'Girare (di lato)', en: 'Turn (sideways)' },
   'Drehen (nach oben)': { fr: 'Retourner (vers le haut)', it: 'Girare (verso l’alto)', en: 'Turn (upwards)' },
+  'Ein Zitat von Gästen oder Kundinnen – mit Sternen, Foto, Name und Zusatz.': {
+    fr: 'Une citation de clients – avec étoiles, photo, nom et précision.',
+    it: 'Una citazione di ospiti o clienti – con stelle, foto, nome e dettaglio.',
+    en: 'A quote from guests or customers – with stars, photo, name and a note.',
+  },
+  'z. B. Stammgast seit 2019': { fr: 'p. ex. client fidèle depuis 2019', it: 'ad es. cliente abituale dal 2019', en: 'e.g. regular since 2019' },
+  '0 zeigt keine.': { fr: '0 n’en affiche aucune.', it: '0 non ne mostra.', en: '0 shows none.' },
+  Schlicht: { fr: 'Sobre', it: 'Semplice', en: 'Plain' },
+  'Zentriert, gross': { fr: 'Centré, grand', it: 'Centrato, grande', en: 'Centred, large' },
 };
